@@ -8,6 +8,8 @@ I'm not going to implement SSL, permessage deflate, extensions, etc. This projec
 
 "Web" in WebSockets is basically a prefix meaning "retarded". It would have been a lot easier if we had a standardized pure TCP socket for use in the web browser. If you are still reading this, welcome aboard!
 
+License is zlib/libpng (very permissive).
+
 ## Overview
 ```c++
 uWS::Server server(3000, ...);
