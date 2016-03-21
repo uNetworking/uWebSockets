@@ -13,7 +13,8 @@ private:
     Socket(void *p) : socket(p)
     {}
 public:
-    void send(char *data, size_t length);
+    void send(char *data, size_t length, bool binary);
+    void sendFragment(char *data, size_t length, bool binary, size_t remainingBytes);
 };
 
 class Server
@@ -24,14 +25,14 @@ private:
     static void onAcceptable(void *vp, int status, int events);
     void (*connectionCallback)(Socket);
     void (*disconnectionCallback)(Socket);
-    void (*fragmentCallback)(Socket, const char *, size_t);
+    void (*fragmentCallback)(Socket, const char *, size_t, bool, size_t);
 
 public:
     Server(int port);
     void onConnection(void (*connectionCallback)(Socket));
     void onDisconnection(void (*disconnectionCallback)(Socket));
-    void onFragment(void (*fragmentCallback)(Socket, const char *, size_t));
-    void send(void *vp, char *data, size_t length);
+    void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, bool, size_t));
+    void send(void *vp, char *data, size_t length, bool binary);
     void run();
 };
 

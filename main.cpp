@@ -14,12 +14,12 @@ int main()
         cout << "Connections: " << ++connections << endl;
     });
 
-    server.onFragment([](Socket socket, const char *fragment, size_t length) {
+    server.onFragment([](Socket socket, const char *fragment, size_t length, bool binary, size_t remainingBytes) {
 
-        cout << "Fragment, length: " << length << endl;
+        cout << "Fragment, length: " << length << ", remaining bytes: " << remainingBytes << endl;
 
         //cout << "Fragment: " << string(fragment, length) << endl;
-        socket.send((char *) fragment, length);
+        socket.send((char *) fragment, length, binary);
     });
 
     server.onDisconnection([](Socket socket) {
