@@ -23,6 +23,19 @@ struct SocketMessage {
     SocketMessage(char *message, size_t length);
 };
 
+enum SocketState : int {
+    READ_HEAD,
+    READ_HEAD_STILL,
+    READ_MESSAGE,
+    READ_MESSAGE_STILL
+};
+
+struct SocketData {
+    int state = READ_HEAD;
+    char spill[16];
+    int spillLength = 0;
+};
+
 char *base64(const unsigned char *input, int length)
 {
   BIO *bmem, *b64;
@@ -54,27 +67,6 @@ struct __attribute__((packed)) frameFormat {
     bool mask : 1;
 };
 
-// should only be called in 16-bit chunks!
-int parse_frame(unsigned char *src, unsigned char *dst, size_t *length)
-{
-    frameFormat frame = *(frameFormat *) src;
-
-    if (frame.mask) {
-        uint32_t maskBytes = *(uint32_t *) &src[2];
-
-        // overwrite 3 bytes (possible with 6 byte header)
-        int n = (frame.payloadLength >> 2) + 1;
-        src += 6;
-        while(n--) {
-            *((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
-            dst += 4;
-            src += 4;
-        }
-    }
-
-    return (*length = frame.payloadLength) + 6; // what was consumed
-}
-
 Server::Server(int port)
 {
 
@@ -98,10 +90,6 @@ void Server::run()
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
 
-unsigned char header[2] = {128 | 1};
-iovec ioVector[2] = {{header, 2}};
-msghdr kernelMessages = {nullptr, 0, ioVector, 2, nullptr, 0, 0};
-
 void Server::send(void *vp, char *data, size_t length)
 {
     // assmue we already are writable, write directly in kernel buffer
@@ -113,21 +101,6 @@ void Server::send(void *vp, char *data, size_t length)
 
         // we are writable, so keep writablee and send the rest then!
     }
-
-    // a lot slower
-    /*header[1] = length;
-    ioVector[1] = {data, length};
-    sendmsg(((uv_poll_t *) vp)->io_watcher.fd, &kernelMessages, 0);*/
-
-    /*int sent = send(p->io_watcher.fd, data, length, 0);
-    if (sent != length) {
-        cout << "Message not sent in full" << endl;
-        exit(-1);
-
-        // we are writable, so keep writablee and send the rest then!
-    }*/
-
-
 
     // if not, queue it!
 
@@ -178,36 +151,60 @@ void Server::onAcceptable(void *vp, int status, int events)
 
     uv_poll_t *clientPoll = new uv_poll_t;
     uv_poll_init(uv_default_loop(), clientPoll, clientFd);
-    clientPoll->data = new queue<SocketMessage>();
+    clientPoll->data = new SocketData;//new queue<SocketMessage>();
     uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
 }
 
 void Server::onReadable(void *vp, int status, int events)
 {
     uv_poll_t *p = (uv_poll_t *) vp;
+    SocketData *socketData = (SocketData *) p->data;
 
     unsigned char buffer[4096];
-    int length = read(p->io_watcher.fd, buffer, sizeof(buffer));
+
+    memcpy(buffer, socketData->spill, socketData->spillLength);
+    int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, sizeof(buffer) - socketData->spillLength);
 
     if (!length) {
         uv_poll_stop(p);
     }
 
     char *src = (char *) buffer;
-    while(length > 0) {
-        //cout << "Length = " << length << endl;
-        size_t len;
-        int consumed;
-        length -= consumed = parse_frame((unsigned char *) src, (unsigned char *) src, &len);
-        onFragment(p, (char *) src, len);
+    if (socketData->state == READ_HEAD) {
 
-        src += consumed;
-        //cout << "Length after = " << length << endl;
-    }
+        while(length >= sizeof(frameFormat)) {
+            // parse frame data
+            frameFormat frame = *(frameFormat *) src;
 
-    if (length < 0) {
-        cout << "Error! parsing not correct!" << endl;
-        exit(-1);
+            // is everything in the buffer already?
+            if (frame.payloadLength <= length) {
+                // we can parse the complete frame in one!
+                char *start = src;
+                if (frame.mask) {
+                    uint32_t maskBytes = *(uint32_t *) &src[2];
+
+                    // overwrite 3 bytes (possible with 6 byte header)
+                    int n = (frame.payloadLength >> 2) + 1;
+                    char *dst = src;
+                    src += 6;
+                    while(n--) {
+                        *((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
+                        dst += 4;
+                        src += 4;
+                    }
+                }
+                src = start + frame.payloadLength + 6;
+                onFragment(p, start, frame.payloadLength);
+                length -= frame.payloadLength + 6;
+            } else {
+                // not complete message
+            }
+        }
+        // copy half header to spill
+        memcpy(socketData->spill, buffer, length);
+    } else {
+        // we are not supposed to read HEAD so we are reading more data from the last message!
+
     }
 }
 
