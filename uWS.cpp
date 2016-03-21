@@ -172,6 +172,28 @@ void Server::onAcceptable(void *vp, int status, int events)
     ((Server *) p->data)->connectionCallback(clientPoll);
 }
 
+inline uint16_t swapEndian(uint16_t val)
+{
+    return (val << 8) | (val >> 8);
+}
+
+inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int payloadLength)
+{
+    uint32_t maskBytes = *(uint32_t *) &src[maskOffset];
+    char *start = src;
+
+    // overwrite 3 bytes (possible with 6 byte header)
+    int n = (payloadLength >> 2) + 1;
+    src += payloadOffset;
+    while(n--) {
+        *((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
+        dst += 4;
+        src += 4;
+    }
+
+    return start + payloadLength + payloadOffset;
+}
+
 void Server::onReadable(void *vp, int status, int events)
 {
     uv_poll_t *p = (uv_poll_t *) vp;
@@ -193,6 +215,9 @@ void Server::onReadable(void *vp, int status, int events)
             // parse frame data
             frameFormat frame = *(frameFormat *) src;
 
+            //cout << "FIN: " << frame.fin << endl;
+            //cout << "opCode: " << frame.opCode << endl;
+
             // well this is probably wrong but it works for now
             if (!frame.payloadLength) {
                 socketData->server->disconnectionCallback(p);
@@ -201,34 +226,74 @@ void Server::onReadable(void *vp, int status, int events)
                 return;
             }
 
-            // is everything in the buffer already?
-            if (frame.payloadLength <= length) {
-                // we can parse the complete frame in one!
-                char *start = src;
-                if (frame.mask) {
-                    uint32_t maskBytes = *(uint32_t *) &src[2];
+            // is this a long message?
+            if (frame.payloadLength > 125) {
 
-                    // overwrite 3 bytes (possible with 6 byte header)
-                    int n = (frame.payloadLength >> 2) + 1;
-                    char *dst = src;
-                    src += 6;
-                    while(n--) {
-                        *((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
-                        dst += 4;
-                        src += 4;
+                if (frame.payloadLength == 126) {
+                    // medium message
+
+                    uint16_t longLength = swapEndian(*(uint16_t *) &src[2]);
+
+                    // is everything in the buffer already?
+                    if (longLength <= length) {
+                        // we can parse the complete frame in one!
+                        char *start = src;
+                        unmask(src, src, 4, 8, longLength);
+                        src = start + longLength + 8;
+                        socketData->server->fragmentCallback(p, start, longLength);
+                        length -= longLength + 8;
+
+                    } else {
+                        // not complete message
+                        cout << "Long buffer is not completely in buffer!" << endl;
+                        socketData->state = READ_MESSAGE;
+
+                        char *start = src;
+                        unmask(src, src, 4, 8, length);
+                        socketData->server->fragmentCallback(p, start, length - 8);
+                        break;
                     }
+
+                } else {
+                    // long message
+
+                    cout << "plen: " << frame.payloadLength << endl;
+
+                    // the length is longest!
+                    cout << "This message is super long man" << endl;
+                    uint64_t longLength = *(uint64_t *) &src[2];
+
+                    for (int i = 0; i < 32; i++) {
+                        cout << "Length: " << *(uint64_t *) &src[i] << endl;
+                    }
+                    exit(0);
+
                 }
-                src = start + frame.payloadLength + 6;
-                socketData->server->fragmentCallback(p, start, frame.payloadLength);
-                length -= frame.payloadLength + 6;
+
+
             } else {
-                // not complete message
+                // short message
+
+                // is everything in the buffer already?
+                if (frame.payloadLength <= length) {
+                    // we can parse the complete frame in one!
+                    char *start = src;
+                    unmask(src, src, 2, 6, frame.payloadLength);
+                    src = start + frame.payloadLength + 6;
+                    socketData->server->fragmentCallback(p, start, frame.payloadLength);
+                    length -= frame.payloadLength + 6;
+                } else {
+                    // not complete message
+                }
+
             }
         }
         // copy half header to spill
-        memcpy(socketData->spill, buffer, length);
+        //memcpy(socketData->spill, buffer, length);
     } else {
         // we are not supposed to read HEAD so we are reading more data from the last message!
+
+        cout << "We should just read pure data now" << endl;
 
     }
 }
@@ -258,17 +323,36 @@ void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t))
 
 SocketMessage::SocketMessage(char *message, size_t length)
 {
-    // skip one alloc if small message!
-    if (length > sizeof(shortMessage)) {
-        this->message = new char[length + 2];
-    } else {
-        this->message = shortMessage;
-    }
+    if (length < 126) {
+        // skip one alloc if small message!
+        if (length > sizeof(shortMessage) - 2) {
+            this->message = new char[length + 2];
+        } else {
+            this->message = shortMessage;
+        }
 
-    this->length = length + 2;
-    memcpy(this->message + 2, message, length);
-    this->message[0] = 128 | 1;
-    this->message[1] = length;
+        this->length = length + 2;
+        memcpy(this->message + 2, message, length);
+        this->message[0] = 128 | 2;//1;
+        this->message[1] = length;
+    } else if (length < UINT16_MAX) {
+        // skip one alloc if small message!
+        if (length > sizeof(shortMessage) - 4) {
+            this->message = new char[length + 4];
+        } else {
+            this->message = shortMessage;
+        }
+
+        this->length = length + 4;
+        memcpy(this->message + 4, message, length);
+        this->message[0] = 128 | 2;//1;
+        this->message[1] = 126;
+        *((uint16_t *) &this->message[2]) = swapEndian(length);
+    } else {
+        // this will never happen, we only send fragments
+        cout << "Error: message too large" << endl;
+        exit(-1);
+    }
 }
 
 void uWS::Socket::send(char *data, size_t length)

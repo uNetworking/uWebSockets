@@ -15,7 +15,10 @@ int main()
     });
 
     server.onFragment([](Socket socket, const char *fragment, size_t length) {
-        cout << "Fragment: " << string(fragment, length) << endl;
+
+        cout << "Fragment, length: " << length << endl;
+
+        //cout << "Fragment: " << string(fragment, length) << endl;
         socket.send((char *) fragment, length);
     });
 
