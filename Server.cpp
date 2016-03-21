@@ -59,25 +59,20 @@ int parse_frame(unsigned char *src, unsigned char *dst, size_t *length)
 {
     frameFormat frame = *(frameFormat *) src;
 
-    *length = frame.payloadLength;
-
     if (frame.mask) {
         uint32_t maskBytes = *(uint32_t *) &src[2];
 
-        int n = frame.payloadLength >> 2;
+        // overwrite 3 bytes (possible with 6 byte header)
+        int n = (frame.payloadLength >> 2) + 1;
         src += 6;
         while(n--) {
             *((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
             dst += 4;
             src += 4;
         }
-
-        for (int i = frame.payloadLength - frame.payloadLength % 4; i < frame.payloadLength; i++) {
-            *(dst++) = (*(src++) ^ ((unsigned char *) &maskBytes)[i % 4]);
-        }
     }
 
-    return frame.payloadLength + 6; // what was consumed
+    return (*length = frame.payloadLength) + 6; // what was consumed
 }
 
 Server::Server(int port)
@@ -103,13 +98,15 @@ void Server::run()
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
 
+unsigned char header[2] = {128 | 1};
+iovec ioVector[2] = {{header, 2}};
+msghdr kernelMessages = {nullptr, 0, ioVector, 2, nullptr, 0, 0};
+
 void Server::send(void *vp, char *data, size_t length)
 {
-    uv_poll_t *p = (uv_poll_t *) vp;
-
     // assmue we already are writable, write directly in kernel buffer
     SocketMessage socketMessage(data, length);
-    int sent = ::send(p->io_watcher.fd, socketMessage.message, socketMessage.length, 0);
+    int sent = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message, socketMessage.length, 0);
     if (sent != socketMessage.length) {
         cout << "Message not sent in full" << endl;
         exit(-1);
@@ -117,12 +114,10 @@ void Server::send(void *vp, char *data, size_t length)
         // we are writable, so keep writablee and send the rest then!
     }
 
-    /*unsigned char header[2] = {128 | 1, length};
-    iovec ioVector[2] = {{header, sizeof(header)}, {data, length}};
-    msghdr kernelMessages = {};
-    kernelMessages.msg_iov = ioVector;
-    kernelMessages.msg_iovlen = 2;
-    sendmsg(p->io_watcher.fd, &kernelMessages, 0);*/
+    // a lot slower
+    /*header[1] = length;
+    ioVector[1] = {data, length};
+    sendmsg(((uv_poll_t *) vp)->io_watcher.fd, &kernelMessages, 0);*/
 
     /*int sent = send(p->io_watcher.fd, data, length, 0);
     if (sent != length) {
