@@ -1,18 +1,28 @@
 #include <iostream>
 using namespace std;
 
-#include "Server.h"
+#include "uWS.h"
+using namespace uWS;
 
-Server server(3000);
-
-void Server::onFragment(void *p, char *fragment, size_t length)
-{
-    //cout << "Fragment: " << string(fragment, length) << endl;
-    server.send(p, fragment, length);
-}
+int connections = 0;
 
 int main()
 {
+    Server server(3000);
+
+    server.onConnection([](Socket socket) {
+        cout << "Connections: " << ++connections << endl;
+    });
+
+    server.onFragment([](Socket socket, const char *fragment, size_t length) {
+        cout << "Fragment: " << string(fragment, length) << endl;
+        socket.send((char *) fragment, length);
+    });
+
+    server.onDisconnection([](Socket socket) {
+        cout << "Connections: " << --connections << endl;
+    });
+
     server.run();
     return 0;
 }

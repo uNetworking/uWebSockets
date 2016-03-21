@@ -1,4 +1,5 @@
-#include "Server.h"
+#include "uWS.h"
+using namespace uWS;
 
 #include <iostream>
 #include <queue>
@@ -34,6 +35,7 @@ struct SocketData {
     int state = READ_HEAD;
     char spill[16];
     int spillLength = 0;
+    Server *server;
 };
 
 char *base64(const unsigned char *input, int length)
@@ -72,6 +74,16 @@ Server::Server(int port)
 
 }
 
+void Server::onConnection(void (*connectionCallback)(Socket))
+{
+    this->connectionCallback = connectionCallback;
+}
+
+void Server::onDisconnection(void (*disconnectionCallback)(Socket))
+{
+    this->disconnectionCallback = disconnectionCallback;
+}
+
 void Server::run()
 {
     int listenFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -86,6 +98,7 @@ void Server::run()
     uv_poll_t listenPoll;
     uv_poll_init(uv_default_loop(), &listenPoll, listenFd);
     uv_poll_start(&listenPoll, UV_READABLE, (uv_poll_cb) onAcceptable);
+    listenPoll.data = this;
 
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
@@ -151,8 +164,12 @@ void Server::onAcceptable(void *vp, int status, int events)
 
     uv_poll_t *clientPoll = new uv_poll_t;
     uv_poll_init(uv_default_loop(), clientPoll, clientFd);
-    clientPoll->data = new SocketData;//new queue<SocketMessage>();
+    SocketData *socketData = new SocketData;
+    socketData->server = (Server *) p->data;
+    clientPoll->data = socketData;
     uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
+
+    ((Server *) p->data)->connectionCallback(clientPoll);
 }
 
 void Server::onReadable(void *vp, int status, int events)
@@ -176,6 +193,14 @@ void Server::onReadable(void *vp, int status, int events)
             // parse frame data
             frameFormat frame = *(frameFormat *) src;
 
+            // well this is probably wrong but it works for now
+            if (!frame.payloadLength) {
+                socketData->server->disconnectionCallback(p);
+                shutdown(p->io_watcher.fd, SHUT_RDWR);
+                uv_poll_stop(p);
+                return;
+            }
+
             // is everything in the buffer already?
             if (frame.payloadLength <= length) {
                 // we can parse the complete frame in one!
@@ -194,7 +219,7 @@ void Server::onReadable(void *vp, int status, int events)
                     }
                 }
                 src = start + frame.payloadLength + 6;
-                onFragment(p, start, frame.payloadLength);
+                socketData->server->fragmentCallback(p, start, frame.payloadLength);
                 length -= frame.payloadLength + 6;
             } else {
                 // not complete message
@@ -226,6 +251,11 @@ void Server::onWritable(void *vp, int status, int events)
     uv_poll_start(p, UV_READABLE, (uv_poll_cb) onReadable);
 }
 
+void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t))
+{
+    this->fragmentCallback = fragmentCallback;
+}
+
 SocketMessage::SocketMessage(char *message, size_t length)
 {
     // skip one alloc if small message!
@@ -239,4 +269,11 @@ SocketMessage::SocketMessage(char *message, size_t length)
     memcpy(this->message + 2, message, length);
     this->message[0] = 128 | 1;
     this->message[1] = length;
+}
+
+void uWS::Socket::send(char *data, size_t length)
+{
+    uv_poll_t *p = (uv_poll_t *) socket;
+    SocketData *socketData = (SocketData *) p->data;
+    socketData->server->send(socket, data, length);
 }

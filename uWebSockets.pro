@@ -4,9 +4,9 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += main.cpp \
-    Server.cpp
+    uWS.cpp
 
 LIBS += -lssl -lcrypto -luv
 
 HEADERS += \
-    Server.h
+    uWS.h
