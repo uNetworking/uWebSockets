@@ -7,3 +7,25 @@ I'm not going to implement SSL, permessage deflate, extensions, etc. This projec
 * If you want SSL, encrypt your messages.
 
 "Web" in WebSockets is basically a prefix meaning "retarded". It would have been a lot easier if we had a standardized pure TCP socket for use in the web browser. If you are still reading this, welcome aboard!
+
+## Overview
+```c++
+uWS::Server server(3000, ...);
+
+server.onConnection([](uWS::Socket socket) {
+
+});
+
+server.onFragment([](uWS::Socket socket, const char *fragment, size_t length, size_t remainingBytes) {
+
+});
+
+server.onDisconnection([](uWS::Socket socket) {
+
+});
+```
+
+## Dependencies
+* Unix (Linux, OS X)
+* libuv
+* OpenSSL
