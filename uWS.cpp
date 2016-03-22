@@ -90,10 +90,12 @@ struct __attribute__((packed)) frameFormat {
     bool mask : 1;
 };
 
+#include <malloc.h>
+
 Server::Server(int port)
 {
     // we need 4 bytes (or 3 at least) outside for unmasking
-    receiveBuffer = new char[BUFFER_SIZE + 4];
+    receiveBuffer = (char *) memalign(32, BUFFER_SIZE + 4);//new uint32_t[BUFFER_SIZE / 4 + 1];
 }
 
 Server::~Server()
@@ -130,36 +132,48 @@ void Server::run()
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
 
-// this is the actual Unix send
+// this function is basically a mess right now
 void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
 {
     uv_poll_t *p = (uv_poll_t *) vp;
     SocketData *socketData = (SocketData *) p->data;
 
-    // assmue we already are writable, write directly in kernel buffer
-    /*SocketMessage socketMessage(data, length, binary, flags);
-    int sent = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message, socketMessage.length, 0);
-    if (sent != socketMessage.length) {
-        cout << "Message not sent in full" << endl;
-        exit(-1);
-
-        // we are writable, so keep writablee and send the rest then!
-    }*/
-
-    // if not, queue it!
-
     // This is just how we build the message
     SocketMessage socketMessage(data, length, binary, flags);
 
-    // Copy the messag and queue it
-    Message message;
-    message.length = socketMessage.length;
-    message.memoryBlock = message.data = new char [message.length];
-    memcpy(message.data, socketMessage.message, socketMessage.length);
-    socketData->messageQueue.push(message);
+    // assmue we already are writable, write directly in kernel buffer
+    int sent = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message, socketMessage.length, 0);
+    if (sent != socketMessage.length) {
 
-    if (socketData->messageQueue.size() == 1) {
-        uv_poll_start(p, UV_WRITABLE, (uv_poll_cb) onWritable);
+        cout << "Message did not fit into buffer" << endl;
+
+        // did the buffer not fit at all?
+        if (sent == -1 && (errno & (EAGAIN | EWOULDBLOCK))) {
+
+        }
+
+        // just turn an error into zero bytes written
+        sent = max(0, sent);
+
+        // Copy the remainding part of the message and queue it
+        Message message;
+        message.length = socketMessage.length - sent;
+        if (socketMessage.length > 1024) { // we already did copy the message to a buffer
+            message.memoryBlock = socketMessage.message;
+        } else {
+            message.memoryBlock = new char [message.length];
+            memcpy(message.memoryBlock, socketMessage.message + sent, message.length);
+        }
+        message.data = message.memoryBlock + sent;
+
+        socketData->messageQueue.push(message);
+        if (socketData->messageQueue.size() == 1) {
+            uv_poll_start(p, UV_WRITABLE, (uv_poll_cb) onWritable);
+        }
+    } else {
+        if (socketMessage.length > 1024) {
+            delete [] socketMessage.message;
+        }
     }
 }
 
@@ -223,13 +237,21 @@ inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int
     uint32_t maskBytes = *(uint32_t *) &src[maskOffset];
     char *start = src;
 
+    char *mask = (char *) &maskBytes;//src[maskOffset]; // use this instead for now
+
     // overwrite 3 bytes (possible with 6 byte header)
     int n = (payloadLength >> 2) + 1;
     src += payloadOffset;
     while(n--) {
-        *((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
-        dst += 4;
-        src += 4;
+        //*((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
+        //dst += 4;
+        //src += 4;
+
+        *(dst++) = *(src++) ^ mask[0];
+        *(dst++) = *(src++) ^ mask[1];
+        *(dst++) = *(src++) ^ mask[2];
+        *(dst++) = *(src++) ^ mask[3];
+
     }
 
     return start + payloadLength + payloadOffset;
@@ -248,7 +270,7 @@ void rotate_mask(int offset, uint32_t *mask)
 }
 
 // 75% of all CPU time when sending large amounts of data
-void unmask_inplace(uint32_t *data, size_t length, uint32_t mask)
+void unmask_inplace(uint32_t *__restrict data, size_t length, uint32_t mask)
 {
     while(length--) {
         *(data++) ^= mask;
