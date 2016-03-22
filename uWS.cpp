@@ -9,6 +9,7 @@ using namespace std;
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
+#include <endian.h>
 
 #include <openssl/sha.h>
 #include <openssl/bio.h>
@@ -217,13 +218,6 @@ void Server::onAcceptable(void *vp, int status, int events)
     ((Server *) p->data)->connectionCallback(clientPoll);
 }
 
-inline uint16_t swapEndian(uint16_t val)
-{
-    return (val << 8) | (val >> 8);
-}
-
-#include <endian.h>
-
 inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int payloadLength)
 {
     uint32_t maskBytes = *(uint32_t *) &src[maskOffset];
@@ -303,8 +297,7 @@ void Server::onReadable(void *vp, int status, int events)
                 if (frame.payloadLength == 126) {
                     // medium message
 
-                    // be16toh
-                    uint16_t longLength = swapEndian(*(uint16_t *) &src[2]);
+                    uint16_t longLength = be16toh(*(uint16_t *) &src[2]);
 
                     // is everything in the buffer already?
                     if (longLength <= length) {
@@ -335,7 +328,6 @@ void Server::onReadable(void *vp, int status, int events)
 
                     // we know for a fact that the buffer cannot possibly hold everything!
                     uint64_t longLength = be64toh(*(uint64_t *) &src[2]);
-                    cout << "Length: " << longLength << endl;
 
                     // not complete message
                     socketData->state = READ_MESSAGE;
@@ -478,9 +470,18 @@ SocketMessage::SocketMessage(char *message, size_t length, bool binary, int flag
         this->length = length + 4;
         memcpy(this->message + 4, message, length);
         this->message[1] = 126;
-        *((uint16_t *) &this->message[2]) = swapEndian(length);
+        *((uint16_t *) &this->message[2]) = htobe16(length);
     } else {
-        // unsupported length!
+        if (length > sizeof(shortMessage) - 10) {
+            this->message = new char[length + 10];
+        } else {
+            this->message = shortMessage;
+        }
+
+        this->length = length + 10;
+        memcpy(this->message + 10, message, length);
+        this->message[1] = 127;
+        *((uint64_t *) &this->message[2]) = htobe64(length);
     }
 
     this->message[0] = (flags & SND_NO_FIN ? 0 : 128);

@@ -31,7 +31,7 @@ private:
     void (*connectionCallback)(Socket);
     void (*disconnectionCallback)(Socket);
     void (*fragmentCallback)(Socket, const char *, size_t, bool, size_t);
-    static const int BUFFER_SIZE = 1024 * 16;
+    static const int BUFFER_SIZE = 1024 * 32;
     char *receiveBuffer;
 
 public:
