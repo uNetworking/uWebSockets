@@ -29,5 +29,6 @@ int main()
     });
 
     server.run();
+    cout << "Fell though!" << endl;
     return 0;
 }

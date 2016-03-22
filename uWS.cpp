@@ -100,7 +100,7 @@ Server::Server(int port)
 
 Server::~Server()
 {
-    delete [] receiveBuffer;
+    free(receiveBuffer);
 }
 
 void Server::onConnection(void (*connectionCallback)(Socket))
@@ -144,12 +144,20 @@ void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
     // assmue we already are writable, write directly in kernel buffer
     int sent = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message, socketMessage.length, 0);
     if (sent != socketMessage.length) {
-
-        cout << "Message did not fit into buffer" << endl;
-
         // did the buffer not fit at all?
         if (sent == -1 && (errno & (EAGAIN | EWOULDBLOCK))) {
+            // in this case we should not close the socket
+            // just queue up the message
+        } else {
+            // close the socket
+            if (socketMessage.length > 1024) {
+                delete [] socketMessage.message;
+            }
 
+            close(p->io_watcher.fd);
+            uv_poll_stop(p);
+            disconnectionCallback(vp);
+            return;
         }
 
         // just turn an error into zero bytes written
@@ -168,7 +176,9 @@ void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
 
         socketData->messageQueue.push(message);
         if (socketData->messageQueue.size() == 1) {
-            uv_poll_start(p, UV_WRITABLE, (uv_poll_cb) onWritable);
+
+            // this should not remove the readable!
+            uv_poll_start(p, UV_WRITABLE | UV_READABLE, (uv_poll_cb) onWritable);
         }
     } else {
         if (socketMessage.length > 1024) {
@@ -215,7 +225,9 @@ void Server::onAcceptable(void *vp, int status, int events)
                              "Sec-WebSocket-Accept: XXXXXXXXXXXXXXXXXXXXXXXXXXXX\r\n"
                              "\r\n";
 
-    memcpy(upgradeResponse + 97, base64(shaDigest, SHA_DIGEST_LENGTH), 28);
+    char *b64;
+    memcpy(upgradeResponse + 97, b64 = base64(shaDigest, SHA_DIGEST_LENGTH), 28);
+    free(b64);
 
     int bytesWritten = ::send(clientFd, upgradeResponse, sizeof(upgradeResponse) - 1, 0);
     if (bytesWritten != sizeof(upgradeResponse) - 1) {
@@ -230,6 +242,10 @@ void Server::onAcceptable(void *vp, int status, int events)
     uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
 
     ((Server *) p->data)->connectionCallback(clientPoll);
+
+    // make the listener stop, so the uv loop will properly shut down
+    // on disconnections
+    uv_poll_stop(p); // testing only
 }
 
 inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int payloadLength)
@@ -287,6 +303,9 @@ void Server::onReadable(void *vp, int status, int events)
         socketData->server->disconnectionCallback(p);
         shutdown(p->io_watcher.fd, SHUT_RDWR);
         uv_poll_stop(p);
+        delete p;
+        cout << "Error in onRead" << endl;
+        return;
     }
 
     char *buffer = socketData->server->receiveBuffer;
@@ -301,7 +320,9 @@ void Server::onReadable(void *vp, int status, int events)
     int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, BUFFER_SIZE - socketData->spillLength));
 
     if (!length) {
-        //uv_poll_stop(p);
+        socketData->server->disconnectionCallback(p);
+        uv_poll_stop(p);
+        delete p;
         return;
     }
 
@@ -319,6 +340,7 @@ void Server::onReadable(void *vp, int status, int events)
                 socketData->server->disconnectionCallback(p);
                 shutdown(p->io_watcher.fd, SHUT_RDWR);
                 uv_poll_stop(p);
+                delete p;
                 return;
             }
 
@@ -473,6 +495,7 @@ void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, b
     this->fragmentCallback = fragmentCallback;
 }
 
+// this function is very slow, does copies all the time. 27% CPU time for large sends (we can get large sends since we have large fragments)
 SocketMessage::SocketMessage(char *message, size_t length, bool binary, int flags)
 {
     if (length < 126) {
@@ -497,6 +520,8 @@ SocketMessage::SocketMessage(char *message, size_t length, bool binary, int flag
         this->message[1] = 126;
         *((uint16_t *) &this->message[2]) = htobe16(length);
     } else {
+        // this is a long message, use sendmsg instead of copying the data in this case!
+
         if (length > sizeof(shortMessage) - 10) {
             this->message = new char[length + 10];
         } else {

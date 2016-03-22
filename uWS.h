@@ -15,11 +15,13 @@ private:
 public:
 
     // this should be made more capable, with char flags!
-    void send(char *data, size_t length, bool binary);
+    void send(char *data, size_t length, bool binary); // optimized for small messages
 
     // this function is just a helper,
     // not very good because you need to know the full length up front!
-    void sendFragment(char *data, size_t length, bool binary, size_t remainingBytes);
+
+    // actually, this function can be optimized a lot for sending large fixed size messages
+    void sendFragment(char *data, size_t length, bool binary, size_t remainingBytes); // optimized for large fixed sized messages (sendmsg instead of copying)
 };
 
 class Server
