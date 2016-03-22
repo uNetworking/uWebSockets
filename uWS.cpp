@@ -247,6 +247,15 @@ void rotate_mask(int offset, uint32_t *mask)
     byteMask[(3 + offset) % 4] = originalMaskBytes[3];
 }
 
+// 75% of all CPU time when sending large amounts of data
+void unmask_inplace(uint32_t *data, size_t length, uint32_t mask)
+{
+    while(length--) {
+        *(data++) ^= mask;
+    }
+}
+
+// 0.17% CPU time
 void Server::onReadable(void *vp, int status, int events)
 {
     uv_poll_t *p = (uv_poll_t *) vp;
@@ -393,13 +402,7 @@ void Server::onReadable(void *vp, int status, int events)
             if (length % 4)
                 n++;
 
-            char *dst = (char *) buffer;
-            while(n--) {
-                *((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
-                dst += 4;
-                src += 4;
-            }
-
+            unmask_inplace((uint32_t *) buffer, n, maskBytes);
             socketData->remainingBytes -= length;
             socketData->server->fragmentCallback(p, (const char *) buffer, length, socketData->opCode == 2, socketData->remainingBytes);
 
