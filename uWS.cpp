@@ -210,6 +210,18 @@ inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int
     return start + payloadLength + payloadOffset;
 }
 
+void rotate_mask(int offset, uint32_t *mask)
+{
+    uint32_t originalMask = *mask;
+    char *originalMaskBytes = (char *) &originalMask;
+
+    char *byteMask = (char *) mask;
+    byteMask[(0 + offset) % 4] = originalMaskBytes[0];
+    byteMask[(1 + offset) % 4] = originalMaskBytes[1];
+    byteMask[(2 + offset) % 4] = originalMaskBytes[2];
+    byteMask[(3 + offset) % 4] = originalMaskBytes[3];
+}
+
 void Server::onReadable(void *vp, int status, int events)
 {
     uv_poll_t *p = (uv_poll_t *) vp;
@@ -282,23 +294,20 @@ void Server::onReadable(void *vp, int status, int events)
                     uint64_t longLength = be64toh(*(uint64_t *) &src[2]);
                     cout << "Length: " << longLength << endl;
 
-
                     // not complete message
                     socketData->state = READ_MESSAGE;
                     socketData->remainingBytes = longLength - length + 14;
 
-
-                    // todo: rotate!
                     socketData->mask = *(uint32_t *) &src[10];
+
+
+                    //rotate_mask((length - 14) % 4, &socketData->mask); // wrong way!
+                    rotate_mask(4 - (length - 14) % 4, &socketData->mask); // probably correct way!
 
                     char *start = src;
                     unmask(src, src, 10, 14, length);
                     socketData->server->fragmentCallback(p, start, length - 14, frame.opCode == 2, socketData->remainingBytes);
                     break;
-
-
-
-                    //exit(0);
                 }
 
 
@@ -339,13 +348,16 @@ void Server::onReadable(void *vp, int status, int events)
         } else {
             // the complete buffer is all data
 
-            // we know the buffer is divisable by 4 and can safely vectorize unmasking
-
             // needs to be rotated!
             uint32_t maskBytes = socketData->mask;
 
-            // unmask_32bit_length
+            // unmask_32bit_length (we could actually get less!)
             int n = length >> 2;
+
+            // in case of read non 4-byte
+            if (length % 4)
+                n++;
+
             char *dst = (char *) buffer;
             while(n--) {
                 *((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
@@ -356,9 +368,17 @@ void Server::onReadable(void *vp, int status, int events)
             socketData->remainingBytes -= length;
             socketData->server->fragmentCallback(p, (const char *) buffer, length, socketData->opCode == 2, socketData->remainingBytes);
 
+
             // if we perfectly read the last of the message, change state!
             if (!socketData->remainingBytes) {
                 socketData->state = READ_HEAD;
+            } else {
+                // this seems to be the right way to rotate
+                if (length % 4) {
+                    cout << "We need to rotate the mask!" << endl;
+                    rotate_mask(4 - (length % 4), &socketData->mask);
+                    //exit(0);
+                }
             }
         }
     }
