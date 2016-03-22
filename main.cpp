@@ -13,6 +13,7 @@ int main()
     Server server(3000);
 
     server.onConnection([](Socket socket) {
+        cout << "Connection" << endl;
         cout << "Connections: " << ++connections << endl;
     });
 
@@ -21,13 +22,11 @@ int main()
         //cout << "Fragment: " << string(fragment, length) << endl;
         //socket.send((char *) fragment, length, binary);
 
-        // limit sending (we do not properly wait for UV_WRITABLE yet)
-        usleep(1);
-
         socket.sendFragment((char *) fragment, length, binary, remainingBytes);
     });
 
     server.onDisconnection([](Socket socket) {
+        cout << "Disconnection" << endl;
         cout << "Connections: " << --connections << endl;
     });
 

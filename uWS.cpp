@@ -39,6 +39,12 @@ enum SocketSendState : int {
     FRAGMENT_MID
 };
 
+struct Message {
+    char *data;
+    size_t length;
+    char *memoryBlock;
+};
+
 struct SocketData {
     int state = READ_HEAD;
     int sendState = FRAGMENT_START;
@@ -49,6 +55,7 @@ struct SocketData {
     char spill[16];
     int spillLength = 0;
     Server *server;
+    queue<Message> messageQueue;
 };
 
 char *base64(const unsigned char *input, int length)
@@ -119,23 +126,34 @@ void Server::run()
 // this is the actual Unix send
 void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
 {
+    uv_poll_t *p = (uv_poll_t *) vp;
+    SocketData *socketData = (SocketData *) p->data;
+
     // assmue we already are writable, write directly in kernel buffer
-    SocketMessage socketMessage(data, length, binary, flags);
+    /*SocketMessage socketMessage(data, length, binary, flags);
     int sent = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message, socketMessage.length, 0);
     if (sent != socketMessage.length) {
         cout << "Message not sent in full" << endl;
         exit(-1);
 
         // we are writable, so keep writablee and send the rest then!
-    }
+    }*/
 
     // if not, queue it!
 
-    /*queue<SocketMessage> *messageQueue = (queue<SocketMessage> *) p->data;
-    messageQueue->push(SocketMessage(data, length));
-    if (messageQueue->size() == 1) {
-        uv_poll_start(p, UV_WRITABLE, onWritable);
-    }*/
+    // This is just how we build the message
+    SocketMessage socketMessage(data, length, binary, flags);
+
+    // Copy the messag and queue it
+    Message message;
+    message.length = socketMessage.length;
+    message.memoryBlock = message.data = new char [message.length];
+    memcpy(message.data, socketMessage.message, socketMessage.length);
+    socketData->messageQueue.push(message);
+
+    if (socketData->messageQueue.size() == 1) {
+        uv_poll_start(p, UV_WRITABLE, (uv_poll_cb) onWritable);
+    }
 }
 
 void Server::onAcceptable(void *vp, int status, int events)
@@ -226,6 +244,12 @@ void Server::onReadable(void *vp, int status, int events)
 {
     uv_poll_t *p = (uv_poll_t *) vp;
     SocketData *socketData = (SocketData *) p->data;
+
+    if (status < 0) {
+        socketData->server->disconnectionCallback(p);
+        shutdown(p->io_watcher.fd, SHUT_RDWR);
+        uv_poll_stop(p);
+    }
 
     // divisible by 4!
     unsigned char buffer[4096];
@@ -391,18 +415,24 @@ void Server::onReadable(void *vp, int status, int events)
 void Server::onWritable(void *vp, int status, int events)
 {
     uv_poll_t *p = (uv_poll_t *) vp;
-    queue<SocketMessage> *messageQueue = (queue<SocketMessage> *) p->data;
+    SocketData *socketData = (SocketData *) p->data;
 
-    while(!messageQueue->empty()) {
-        SocketMessage socketMessage = messageQueue->front();
-        int sent = ::send(p->io_watcher.fd, socketMessage.message, socketMessage.length, 0);
-        if (sent != socketMessage.length) {
+    while(!socketData->messageQueue.empty()) {
+        Message message = socketData->messageQueue.front();
+        int sent = ::send(p->io_watcher.fd, message.data, message.length, 0);
+        if (sent != message.length) {
+            // we need to update the data pointer but not remove the message from the queue
+            message.data += sent;
             cout << "Message not sent in full" << endl;
-            exit(-1);
+            return; // we cant just break because we do still want writable events
+        } else {
+            // here we can also remove the message by deleting memoryBlock
+            delete [] message.memoryBlock;
+            socketData->messageQueue.pop();
         }
-        messageQueue->pop();
     }
 
+    // this is basically about removing the UV_WRITABLE from our interests
     uv_poll_start(p, UV_READABLE, (uv_poll_cb) onReadable);
 }
 
