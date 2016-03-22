@@ -270,9 +270,9 @@ void rotate_mask(int offset, uint32_t *mask)
 }
 
 // 75% of all CPU time when sending large amounts of data
-void unmask_inplace(uint32_t *__restrict data, size_t length, uint32_t mask)
+void unmask_inplace(uint32_t *data, uint32_t *stop, uint32_t mask)
 {
-    while(length--) {
+    while(data < stop) {
         *(data++) ^= mask;
     }
 }
@@ -424,7 +424,7 @@ void Server::onReadable(void *vp, int status, int events)
             if (length % 4)
                 n++;
 
-            unmask_inplace((uint32_t *) buffer, n, maskBytes);
+            unmask_inplace((uint32_t *) buffer, ((uint32_t *) buffer) + n, maskBytes);
             socketData->remainingBytes -= length;
             socketData->server->fragmentCallback(p, (const char *) buffer, length, socketData->opCode == 2, socketData->remainingBytes);
 
