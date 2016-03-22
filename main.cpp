@@ -19,7 +19,9 @@ int main()
         cout << "Fragment, length: " << length << ", remaining bytes: " << remainingBytes << endl;
 
         //cout << "Fragment: " << string(fragment, length) << endl;
-        socket.send((char *) fragment, length, binary);
+        //socket.send((char *) fragment, length, binary);
+
+        socket.sendFragment((char *) fragment, length, binary, remainingBytes);
     });
 
     server.onDisconnection([](Socket socket) {

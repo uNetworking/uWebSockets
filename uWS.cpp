@@ -31,8 +31,17 @@ enum SocketState : int {
     READ_MESSAGE_STILL
 };
 
+enum SocketSendState : int {
+    FRAGMENT_START,
+    FRAGMENT_MID
+};
+
 struct SocketData {
     int state = READ_HEAD;
+    int sendState = FRAGMENT_START;
+    int fin;
+    uint32_t mask;
+    int opCode;
     int remainingBytes = 0;
     char spill[16];
     int spillLength = 0;
@@ -200,6 +209,7 @@ void Server::onReadable(void *vp, int status, int events)
     uv_poll_t *p = (uv_poll_t *) vp;
     SocketData *socketData = (SocketData *) p->data;
 
+    // divisible by 4!
     unsigned char buffer[4096];
 
     memcpy(buffer, socketData->spill, socketData->spillLength);
@@ -215,9 +225,8 @@ void Server::onReadable(void *vp, int status, int events)
         while(length >= sizeof(frameFormat)) {
             // parse frame data
             frameFormat frame = *(frameFormat *) src;
-
-            //cout << "FIN: " << frame.fin << endl;
-            //cout << "opCode: " << frame.opCode << endl;
+            socketData->fin = frame.fin;
+            socketData->opCode = frame.opCode;
 
             // well this is probably wrong but it works for now
             if (!frame.payloadLength) {
@@ -248,6 +257,10 @@ void Server::onReadable(void *vp, int status, int events)
                         // not complete message
                         socketData->state = READ_MESSAGE;
                         socketData->remainingBytes = longLength - length + 8;
+
+
+                        // todo: rotate!
+                        socketData->mask = *(uint32_t *) &src[4];
 
                         char *start = src;
                         unmask(src, src, 4, 8, length);
@@ -299,24 +312,30 @@ void Server::onReadable(void *vp, int status, int events)
             // not going to happen anytime soon!
             cout << "Unhandeled path!" << endl;
             exit(0);
+
+            // in this case we cannot overwrite anything?
+            // we have a new frame directly after so we cannot overwrite it
+
+
         } else {
             // the complete buffer is all data
 
-            // we need to know the mask here!
+            // we know the buffer is divisable by 4 and can safely vectorize unmasking
 
-            /*
-            char *start = src;
-            unmask(src, src, 2, 6, frame.payloadLength);
-            src = start + frame.payloadLength + 6;
-            socketData->server->fragmentCallback(p, start, frame.payloadLength, 0);
-            length -= frame.payloadLength + 6;*/
+            // needs to be rotated!
+            uint32_t maskBytes = socketData->mask;
 
+            // unmask_32bit_length
+            int n = length >> 2;
+            char *dst = (char *) buffer;
+            while(n--) {
+                *((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
+                dst += 4;
+                src += 4;
+            }
 
-            // todo: unmask it also!
-
-            // fix: store if it was binary or not
             socketData->remainingBytes -= length;
-            socketData->server->fragmentCallback(p, (const char *) buffer, length, true, socketData->remainingBytes);
+            socketData->server->fragmentCallback(p, (const char *) buffer, length, socketData->opCode == 2, socketData->remainingBytes);
         }
     }
 }
@@ -378,7 +397,7 @@ SocketMessage::SocketMessage(char *message, size_t length, bool binary)
     }
 }
 
-void uWS::Socket::send(char *data, size_t length, bool binary)
+void Socket::send(char *data, size_t length, bool binary)
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     SocketData *socketData = (SocketData *) p->data;
@@ -387,25 +406,25 @@ void uWS::Socket::send(char *data, size_t length, bool binary)
 
 void Socket::sendFragment(char *data, size_t length, bool binary, size_t remainingBytes)
 {
-    /*int flags = 0;
+    int flags = 0;
 
-    SocketExtension *ext = (SocketExtension *) clws::lws_wsi_user(wsi);
+    SocketData *socketData = (SocketData *) ((uv_poll_t *) socket)->data;
     if (remainingBytes) {
-        if (ext->state == FRAGMENT_START) {
-            flags |= clws::LWS_WRITE_NO_FIN;
-            flags |= binary ? clws::LWS_WRITE_BINARY : clws::LWS_WRITE_TEXT;
-            ext->state = FRAGMENT_MID;
+        if (socketData->sendState == FRAGMENT_START) {
+            cout << "Sending initial fragment" << endl;
+            //flags |= clws::LWS_WRITE_NO_FIN;
+            socketData->sendState = FRAGMENT_MID;
         } else {
-            flags |= clws::LWS_WRITE_CONTINUATION | clws::LWS_WRITE_NO_FIN;
+            cout << "Sending mid fragment" << endl;
+            //flags |= clws::LWS_WRITE_CONTINUATION | clws::LWS_WRITE_NO_FIN;
         }
-    } else if (ext->state == FRAGMENT_MID) {
-        flags |= clws::LWS_WRITE_CONTINUATION;
-        ext->state = FRAGMENT_START;
-    } else {
-        flags |= binary ? clws::LWS_WRITE_BINARY : clws::LWS_WRITE_TEXT;
+    } else if (socketData->sendState == FRAGMENT_MID) {
+        cout << "Sending last fragment" << endl;
+        //flags |= clws::LWS_WRITE_CONTINUATION;
+        socketData->sendState = FRAGMENT_START;
     }
 
-    char *paddedBuffer = new char[LWS_SEND_BUFFER_PRE_PADDING + length + LWS_SEND_BUFFER_POST_PADDING];
+    /*char *paddedBuffer = new char[LWS_SEND_BUFFER_PRE_PADDING + length + LWS_SEND_BUFFER_POST_PADDING];
     memcpy(paddedBuffer + LWS_SEND_BUFFER_PRE_PADDING, data, length);
     send(paddedBuffer, length, flags, nullptr);*/
 }
