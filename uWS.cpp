@@ -191,6 +191,8 @@ inline uint16_t swapEndian(uint16_t val)
     return (val << 8) | (val >> 8);
 }
 
+#include <endian.h>
+
 inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int payloadLength)
 {
     uint32_t maskBytes = *(uint32_t *) &src[maskOffset];
@@ -246,6 +248,7 @@ void Server::onReadable(void *vp, int status, int events)
                 if (frame.payloadLength == 126) {
                     // medium message
 
+                    // be16toh
                     uint16_t longLength = swapEndian(*(uint16_t *) &src[2]);
 
                     // is everything in the buffer already?
@@ -276,20 +279,26 @@ void Server::onReadable(void *vp, int status, int events)
                     // long message
 
                     // we know for a fact that the buffer cannot possibly hold everything!
+                    uint64_t longLength = be64toh(*(uint64_t *) &src[2]);
+                    cout << "Length: " << longLength << endl;
+
+
+                    // not complete message
+                    socketData->state = READ_MESSAGE;
+                    socketData->remainingBytes = longLength - length + 14;
+
+
+                    // todo: rotate!
+                    socketData->mask = *(uint32_t *) &src[10];
+
+                    char *start = src;
+                    unmask(src, src, 10, 14, length);
+                    socketData->server->fragmentCallback(p, start, length - 14, frame.opCode == 2, socketData->remainingBytes);
+                    break;
 
 
 
-                    cout << "plen: " << frame.payloadLength << endl;
-
-                    // the length is longest!
-                    cout << "This message is super long man" << endl;
-                    uint64_t longLength = *(uint64_t *) &src[2];
-
-                    for (int i = 0; i < 32; i++) {
-                        cout << "Length: " << *(uint64_t *) &src[i] << endl;
-                    }
-                    exit(0);
-
+                    //exit(0);
                 }
 
 
