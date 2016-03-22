@@ -230,11 +230,15 @@ void Server::onReadable(void *vp, int status, int events)
     // divisible by 4!
     unsigned char buffer[4096];
 
+    // read random length to trigger eventual parser bugs
+    size_t maxRead = rand() % 4096;
+
     memcpy(buffer, socketData->spill, socketData->spillLength);
-    int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, sizeof(buffer) - socketData->spillLength);
+    int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, sizeof(buffer) - socketData->spillLength));
 
     if (!length) {
-        uv_poll_stop(p);
+        //uv_poll_stop(p);
+        return;
     }
 
     char *src = (char *) buffer;
@@ -375,7 +379,7 @@ void Server::onReadable(void *vp, int status, int events)
             } else {
                 // this seems to be the right way to rotate
                 if (length % 4) {
-                    cout << "We need to rotate the mask!" << endl;
+                    //cout << "We need to rotate the mask!" << endl;
                     rotate_mask(4 - (length % 4), &socketData->mask);
                     //exit(0);
                 }

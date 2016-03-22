@@ -22,7 +22,7 @@ int main()
         //socket.send((char *) fragment, length, binary);
 
         // limit sending (we do not properly wait for UV_WRITABLE yet)
-        //usleep(1);
+        usleep(1);
 
         socket.sendFragment((char *) fragment, length, binary, remainingBytes);
     });
