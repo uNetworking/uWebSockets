@@ -32,7 +32,7 @@ public:
     void onConnection(void (*connectionCallback)(Socket));
     void onDisconnection(void (*disconnectionCallback)(Socket));
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, bool, size_t));
-    void send(void *vp, char *data, size_t length, bool binary);
+    void send(void *vp, char *data, size_t length, bool binary, int flags);
     void run();
 };
 

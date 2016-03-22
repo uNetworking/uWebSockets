@@ -21,7 +21,12 @@ struct SocketMessage {
     char shortMessage[1024]; // 125?
     char *message;
     size_t length;
-    SocketMessage(char *message, size_t length, bool binary);
+    SocketMessage(char *message, size_t length, bool binary, int flags);
+};
+
+enum SendFlags {
+    SND_CONTINUATION = 1,
+    SND_NO_FIN = 2
 };
 
 enum SocketState : int {
@@ -113,10 +118,11 @@ void Server::run()
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
 
-void Server::send(void *vp, char *data, size_t length, bool binary)
+// this is the actual Unix send
+void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
 {
     // assmue we already are writable, write directly in kernel buffer
-    SocketMessage socketMessage(data, length, binary);
+    SocketMessage socketMessage(data, length, binary, flags);
     int sent = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message, socketMessage.length, 0);
     if (sent != socketMessage.length) {
         cout << "Message not sent in full" << endl;
@@ -363,10 +369,9 @@ void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, b
     this->fragmentCallback = fragmentCallback;
 }
 
-SocketMessage::SocketMessage(char *message, size_t length, bool binary)
+SocketMessage::SocketMessage(char *message, size_t length, bool binary, int flags)
 {
     if (length < 126) {
-        // skip one alloc if small message!
         if (length > sizeof(shortMessage) - 2) {
             this->message = new char[length + 2];
         } else {
@@ -375,10 +380,8 @@ SocketMessage::SocketMessage(char *message, size_t length, bool binary)
 
         this->length = length + 2;
         memcpy(this->message + 2, message, length);
-        this->message[0] = 128 | (binary ? 2 : 1);
         this->message[1] = length;
     } else if (length < UINT16_MAX) {
-        // skip one alloc if small message!
         if (length > sizeof(shortMessage) - 4) {
             this->message = new char[length + 4];
         } else {
@@ -387,23 +390,30 @@ SocketMessage::SocketMessage(char *message, size_t length, bool binary)
 
         this->length = length + 4;
         memcpy(this->message + 4, message, length);
-        this->message[0] = 128 | (binary ? 2 : 1);
         this->message[1] = 126;
         *((uint16_t *) &this->message[2]) = swapEndian(length);
     } else {
-        // this will never happen, we only send fragments
-        cout << "Error: message too large" << endl;
-        exit(-1);
+        // unsupported length!
+    }
+
+    this->message[0] = (flags & SND_NO_FIN ? 0 : 128);
+    if (!(flags & SND_CONTINUATION)) {
+        this->message[0] |= (binary ? 2 : 1);
     }
 }
 
+// binary or not is really not that useful, we should accept a char
+// with any valid combination of opCode / fin
+// char flags
 void Socket::send(char *data, size_t length, bool binary)
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     SocketData *socketData = (SocketData *) p->data;
-    socketData->server->send(socket, data, length, binary);
+    socketData->server->send(socket, data, length, binary, 0);
 }
 
+// this function is not really that great, you need to know the length
+// you should be able to stream with no knowledge of the length!
 void Socket::sendFragment(char *data, size_t length, bool binary, size_t remainingBytes)
 {
     int flags = 0;
@@ -411,20 +421,15 @@ void Socket::sendFragment(char *data, size_t length, bool binary, size_t remaini
     SocketData *socketData = (SocketData *) ((uv_poll_t *) socket)->data;
     if (remainingBytes) {
         if (socketData->sendState == FRAGMENT_START) {
-            cout << "Sending initial fragment" << endl;
-            //flags |= clws::LWS_WRITE_NO_FIN;
+            flags |= SND_NO_FIN;
             socketData->sendState = FRAGMENT_MID;
         } else {
-            cout << "Sending mid fragment" << endl;
-            //flags |= clws::LWS_WRITE_CONTINUATION | clws::LWS_WRITE_NO_FIN;
+            flags |= SND_CONTINUATION | SND_NO_FIN;
         }
     } else if (socketData->sendState == FRAGMENT_MID) {
-        cout << "Sending last fragment" << endl;
-        //flags |= clws::LWS_WRITE_CONTINUATION;
+        flags |= SND_CONTINUATION;
         socketData->sendState = FRAGMENT_START;
     }
 
-    /*char *paddedBuffer = new char[LWS_SEND_BUFFER_PRE_PADDING + length + LWS_SEND_BUFFER_POST_PADDING];
-    memcpy(paddedBuffer + LWS_SEND_BUFFER_PRE_PADDING, data, length);
-    send(paddedBuffer, length, flags, nullptr);*/
+    socketData->server->send(socket, data, length, binary, flags);
 }
