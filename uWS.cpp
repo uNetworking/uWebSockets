@@ -91,7 +91,13 @@ struct __attribute__((packed)) frameFormat {
 
 Server::Server(int port)
 {
+    // we need 4 bytes (or 3 at least) outside for unmasking
+    receiveBuffer = new char[BUFFER_SIZE + 4];
+}
 
+Server::~Server()
+{
+    delete [] receiveBuffer;
 }
 
 void Server::onConnection(void (*connectionCallback)(Socket))
@@ -167,6 +173,13 @@ void Server::onAcceptable(void *vp, int status, int events)
 
     socklen_t listenAddrLength = sizeof(sockaddr_in);
     int clientFd = accept(p->io_watcher.fd, (sockaddr *) &listenAddr, &listenAddrLength);
+
+    // if we need to know the socket buffer size?
+    socklen_t rcvbuf;
+    socklen_t len = sizeof(rcvbuf);
+    getsockopt(clientFd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, &len);
+    //cout << "Receive buffer size = " << rcvbuf << endl;
+
 
     // read HTTP upgrade
     unsigned char buffer[4096];
@@ -251,14 +264,16 @@ void Server::onReadable(void *vp, int status, int events)
         uv_poll_stop(p);
     }
 
-    // divisible by 4!
-    unsigned char buffer[4096];
+    char *buffer = socketData->server->receiveBuffer;
 
     // read random length to trigger eventual parser bugs
-    size_t maxRead = rand() % 4096;
+    int maxRead = rand() % BUFFER_SIZE;
+
+    // when not testing
+    maxRead = BUFFER_SIZE;
 
     memcpy(buffer, socketData->spill, socketData->spillLength);
-    int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, sizeof(buffer) - socketData->spillLength));
+    int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, BUFFER_SIZE - socketData->spillLength));
 
     if (!length) {
         //uv_poll_stop(p);
@@ -333,7 +348,7 @@ void Server::onReadable(void *vp, int status, int events)
                     rotate_mask(4 - (length - 14) % 4, &socketData->mask); // probably correct way!
 
                     char *start = src;
-                    unmask(src, src, 10, 14, length);
+                    unmask(src, src, 10, 14, length); // invalid read of size 4, we are probably reading too far
                     socketData->server->fragmentCallback(p, start, length - 14, frame.opCode == 2, socketData->remainingBytes);
                     break;
                 }

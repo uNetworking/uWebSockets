@@ -6,8 +6,6 @@ using namespace uWS;
 
 int connections = 0;
 
-#include <unistd.h>
-
 int main()
 {
     Server server(3000);
