@@ -31,9 +31,7 @@ enum SendFlags {
 
 enum SocketState : int {
     READ_HEAD,
-    READ_HEAD_STILL,
-    READ_MESSAGE,
-    READ_MESSAGE_STILL
+    READ_MESSAGE
 };
 
 enum SocketSendState : int {
@@ -55,32 +53,32 @@ struct SocketData {
 
 char *base64(const unsigned char *input, int length)
 {
-  BIO *bmem, *b64;
-  BUF_MEM *bptr;
+    BIO *bmem, *b64;
+    BUF_MEM *bptr;
 
-  b64 = BIO_new(BIO_f_base64());
-  bmem = BIO_new(BIO_s_mem());
-  b64 = BIO_push(b64, bmem);
-  BIO_write(b64, input, length);
-  BIO_flush(b64);
-  BIO_get_mem_ptr(b64, &bptr);
+    b64 = BIO_new(BIO_f_base64());
+    bmem = BIO_new(BIO_s_mem());
+    b64 = BIO_push(b64, bmem);
+    BIO_write(b64, input, length);
+    BIO_flush(b64);
+    BIO_get_mem_ptr(b64, &bptr);
 
-  char *buff = (char *)malloc(bptr->length);
-  memcpy(buff, bptr->data, bptr->length-1);
-  buff[bptr->length-1] = 0;
+    char *buff = (char *) malloc(bptr->length);
+    memcpy(buff, bptr->data, bptr->length - 1);
+    buff[bptr->length - 1] = 0;
 
-  BIO_free_all(b64);
+    BIO_free_all(b64);
 
-  return buff;
+    return buff;
 }
 
 struct __attribute__((packed)) frameFormat {
-    unsigned int opCode : 4; // correct
+    unsigned int opCode : 4;
     bool rsv3 : 1;
     bool rsv2 : 1;
     bool rsv1 : 1;
-    bool fin : 1; // correct
-    unsigned int payloadLength : 7; // correct
+    bool fin : 1;
+    unsigned int payloadLength : 7;
     bool mask : 1;
 };
 
@@ -277,6 +275,10 @@ void Server::onReadable(void *vp, int status, int events)
                 } else {
                     // long message
 
+                    // we know for a fact that the buffer cannot possibly hold everything!
+
+
+
                     cout << "plen: " << frame.payloadLength << endl;
 
                     // the length is longest!
@@ -315,9 +317,11 @@ void Server::onReadable(void *vp, int status, int events)
 
         // we actually read the message and have other messages to read!
         if (socketData->remainingBytes < length) {
-            // not going to happen anytime soon!
+
             cout << "Unhandeled path!" << endl;
             exit(0);
+
+            // we have a new message following the end of our current one
 
             // in this case we cannot overwrite anything?
             // we have a new frame directly after so we cannot overwrite it
@@ -342,6 +346,11 @@ void Server::onReadable(void *vp, int status, int events)
 
             socketData->remainingBytes -= length;
             socketData->server->fragmentCallback(p, (const char *) buffer, length, socketData->opCode == 2, socketData->remainingBytes);
+
+            // if we perfectly read the last of the message, change state!
+            if (!socketData->remainingBytes) {
+                socketData->state = READ_HEAD;
+            }
         }
     }
 }

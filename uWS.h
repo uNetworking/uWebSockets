@@ -13,7 +13,12 @@ private:
     Socket(void *p) : socket(p)
     {}
 public:
+
+    // this should be made more capable, with char flags!
     void send(char *data, size_t length, bool binary);
+
+    // this function is just a helper,
+    // not very good because you need to know the full length up front!
     void sendFragment(char *data, size_t length, bool binary, size_t remainingBytes);
 };
 
