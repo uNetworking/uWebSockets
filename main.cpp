@@ -11,7 +11,6 @@ int main()
     Server server(3000);
 
     server.onConnection([](Socket socket) {
-        cout << "Connection" << endl;
         cout << "Connections: " << ++connections << endl;
     });
 
@@ -24,7 +23,6 @@ int main()
     });
 
     server.onDisconnection([](Socket socket) {
-        cout << "Disconnection" << endl;
         cout << "Connections: " << --connections << endl;
     });
 

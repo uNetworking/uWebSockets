@@ -94,13 +94,17 @@ struct __attribute__((packed)) frameFormat {
 
 Server::Server(int port)
 {
+    // we need 24 bytes over to not read invalidly outside
+
     // we need 4 bytes (or 3 at least) outside for unmasking
-    receiveBuffer = (char *) memalign(32, BUFFER_SIZE + 4);//new uint32_t[BUFFER_SIZE / 4 + 1];
+    receiveBuffer = (char *) memalign(32, BUFFER_SIZE + 24);
+    //receiveBuffer = (char *) new uint32_t[BUFFER_SIZE / 4 + 6];
 }
 
 Server::~Server()
 {
     free(receiveBuffer);
+    //delete [] receiveBuffer;
 }
 
 void Server::onConnection(void (*connectionCallback)(Socket))
@@ -130,6 +134,11 @@ void Server::run()
     listenPoll.data = this;
 
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+
+    /*uv_close((uv_handle_t *) &listenPoll);
+    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+    uv_loop_close(uv_default_loop());
+    uv_loop_destroy(uv_default_loop());*/
 }
 
 // this function is basically a mess right now
@@ -142,21 +151,19 @@ void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
     SocketMessage socketMessage(data, length, binary, flags);
 
     // assmue we already are writable, write directly in kernel buffer
-    int sent = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message, socketMessage.length, 0);
+    int sent = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message, socketMessage.length, MSG_NOSIGNAL);
     if (sent != socketMessage.length) {
         // did the buffer not fit at all?
         if (sent == -1 && (errno & (EAGAIN | EWOULDBLOCK))) {
             // in this case we should not close the socket
             // just queue up the message
-        } else {
+        } else if (sent == -1) {
             // close the socket
             if (socketMessage.length > 1024) {
                 delete [] socketMessage.message;
             }
 
-            close(p->io_watcher.fd);
-            uv_poll_stop(p);
-            disconnectionCallback(vp);
+            disconnect(vp);
             return;
         }
 
@@ -177,8 +184,8 @@ void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
         socketData->messageQueue.push(message);
         if (socketData->messageQueue.size() == 1) {
 
-            // this should not remove the readable!
-            uv_poll_start(p, UV_WRITABLE | UV_READABLE, (uv_poll_cb) onWritable);
+            // we need two polls: one writable and one readable
+            uv_poll_start(p, UV_WRITABLE, (uv_poll_cb) onWritable);
         }
     } else {
         if (socketMessage.length > 1024) {
@@ -229,7 +236,7 @@ void Server::onAcceptable(void *vp, int status, int events)
     memcpy(upgradeResponse + 97, b64 = base64(shaDigest, SHA_DIGEST_LENGTH), 28);
     free(b64);
 
-    int bytesWritten = ::send(clientFd, upgradeResponse, sizeof(upgradeResponse) - 1, 0);
+    int bytesWritten = ::send(clientFd, upgradeResponse, sizeof(upgradeResponse) - 1, MSG_NOSIGNAL);
     if (bytesWritten != sizeof(upgradeResponse) - 1) {
         cout << "Error sending upgrade!" << endl;
     }
@@ -245,7 +252,20 @@ void Server::onAcceptable(void *vp, int status, int events)
 
     // make the listener stop, so the uv loop will properly shut down
     // on disconnections
-    uv_poll_stop(p); // testing only
+    //uv_poll_stop(p); // testing only
+}
+
+void Server::disconnect(void *vp)
+{
+    uv_poll_t *p = (uv_poll_t *) vp;
+    disconnectionCallback(vp);
+    int fd = p->io_watcher.fd;
+    uv_poll_stop(p);
+    delete (SocketData *) p->data;
+    uv_close((uv_handle_t *) p, [](uv_handle_t *h) {
+        delete h;
+    });
+    close(fd);
 }
 
 inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int payloadLength)
@@ -300,11 +320,9 @@ void Server::onReadable(void *vp, int status, int events)
     SocketData *socketData = (SocketData *) p->data;
 
     if (status < 0) {
-        socketData->server->disconnectionCallback(p);
-        shutdown(p->io_watcher.fd, SHUT_RDWR);
-        uv_poll_stop(p);
-        delete p;
-        cout << "Error in onRead" << endl;
+        cout << "Closing socket from read error" << endl;
+        fflush(stdout);
+        socketData->server->disconnect(vp);
         return;
     }
 
@@ -320,9 +338,9 @@ void Server::onReadable(void *vp, int status, int events)
     int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, BUFFER_SIZE - socketData->spillLength));
 
     if (!length) {
-        socketData->server->disconnectionCallback(p);
-        uv_poll_stop(p);
-        delete p;
+        cout << "Closing socket from read zero" << endl;
+        fflush(stdout);
+        socketData->server->disconnect(vp);
         return;
     }
 
@@ -335,12 +353,7 @@ void Server::onReadable(void *vp, int status, int events)
             socketData->fin = frame.fin;
             socketData->opCode = frame.opCode;
 
-            // well this is probably wrong but it works for now
             if (!frame.payloadLength) {
-                socketData->server->disconnectionCallback(p);
-                shutdown(p->io_watcher.fd, SHUT_RDWR);
-                uv_poll_stop(p);
-                delete p;
                 return;
             }
 
@@ -471,13 +484,38 @@ void Server::onWritable(void *vp, int status, int events)
     uv_poll_t *p = (uv_poll_t *) vp;
     SocketData *socketData = (SocketData *) p->data;
 
+    if (status < 0) {
+        cout << "Closing socket from write error" << endl;
+        fflush(stdout);
+        socketData->server->disconnect(vp);
+        return;
+    }
+
     while(!socketData->messageQueue.empty()) {
         Message message = socketData->messageQueue.front();
-        int sent = ::send(p->io_watcher.fd, message.data, message.length, 0);
+        int sent = ::send(p->io_watcher.fd, message.data, message.length, MSG_NOSIGNAL);
         if (sent != message.length) {
+
+            if (sent == -1) { //ECONNRESET everything not wouldblock should close
+
+
+                cout << "Closing socket from error in sending onWritable" << endl;
+                socketData->server->disconnect(vp);
+                return;
+
+
+                if (status < 0) {
+                    cout << "Error in onWritable" << endl;
+                }
+
+                cout << "onWritable errno: " << errno << endl;
+                return;
+            }
+
             // we need to update the data pointer but not remove the message from the queue
             message.data += sent;
-            cout << "Message not sent in full" << endl;
+            cout << "Sent: " << sent << " of " << message.length << endl;
+            //cout << "Message not sent in full" << endl;
             return; // we cant just break because we do still want writable events
         } else {
             // here we can also remove the message by deleting memoryBlock
