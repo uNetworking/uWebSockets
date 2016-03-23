@@ -163,7 +163,7 @@ void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
                 delete [] socketMessage.message;
             }
 
-            disconnect(vp);
+            // we cannot close from here, only in onReadable, onWritable
             return;
         }
 
@@ -320,7 +320,7 @@ void Server::onReadable(void *vp, int status, int events)
     SocketData *socketData = (SocketData *) p->data;
 
     if (status < 0) {
-        cout << "Closing socket from read error" << endl;
+        //cout << "Closing socket from read error" << endl;
         fflush(stdout);
         socketData->server->disconnect(vp);
         return;
@@ -338,7 +338,7 @@ void Server::onReadable(void *vp, int status, int events)
     int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, BUFFER_SIZE - socketData->spillLength));
 
     if (!length) {
-        cout << "Closing socket from read zero" << endl;
+        //cout << "Closing socket from read zero" << endl;
         fflush(stdout);
         socketData->server->disconnect(vp);
         return;
@@ -485,7 +485,7 @@ void Server::onWritable(void *vp, int status, int events)
     SocketData *socketData = (SocketData *) p->data;
 
     if (status < 0) {
-        cout << "Closing socket from write error" << endl;
+        //cout << "Closing socket from write error" << endl;
         fflush(stdout);
         socketData->server->disconnect(vp);
         return;
@@ -499,7 +499,7 @@ void Server::onWritable(void *vp, int status, int events)
             if (sent == -1) { //ECONNRESET everything not wouldblock should close
 
 
-                cout << "Closing socket from error in sending onWritable" << endl;
+                //cout << "Closing socket from error in sending onWritable" << endl;
                 socketData->server->disconnect(vp);
                 return;
 
