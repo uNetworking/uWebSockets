@@ -35,7 +35,10 @@ private:
     void (*fragmentCallback)(Socket, const char *, size_t, bool, size_t);
     static const int BUFFER_SIZE = 1024 * 300;
     char *receiveBuffer;
+
+    // socket management
     void disconnect(void *vp);
+    void upgrade(int fd, const char *secKey);
 
 public:
     Server(int port);

@@ -206,12 +206,8 @@ void Server::onAcceptable(void *vp, int status, int events)
     socklen_t listenAddrLength = sizeof(sockaddr_in);
     int clientFd = accept(p->io_watcher.fd, (sockaddr *) &listenAddr, &listenAddrLength);
 
-    // if we need to know the socket buffer size?
-    socklen_t rcvbuf;
-    socklen_t len = sizeof(rcvbuf);
-    getsockopt(clientFd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, &len);
-    //cout << "Receive buffer size = " << rcvbuf << endl;
 
+    // todo: non-blocking read of HTTP header, and a real parser
 
     // read HTTP upgrade
     unsigned char buffer[4096];
@@ -222,37 +218,7 @@ void Server::onAcceptable(void *vp, int status, int events)
     string secKey = upgrade.substr(upgrade.find("Sec-WebSocket-Key: ", 0) + 19, 24);
     string secVersion = upgrade.substr(upgrade.find("Sec-WebSocket-Version: ", 0) + 23, 2);
 
-    unsigned char shaInput[] = "XXXXXXXXXXXXXXXXXXXXXXXX258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-    memcpy(shaInput, secKey.c_str(), 24);
-    unsigned char shaDigest[SHA_DIGEST_LENGTH];
-    SHA1(shaInput, sizeof(shaInput) - 1, shaDigest);
-    char upgradeResponse[] = "HTTP/1.1 101 Switching Protocols\r\n"
-                             "Upgrade: websocket\r\n"
-                             "Connection: Upgrade\r\n"
-                             "Sec-WebSocket-Accept: XXXXXXXXXXXXXXXXXXXXXXXXXXXX\r\n"
-                             "\r\n";
-
-    char *b64;
-    memcpy(upgradeResponse + 97, b64 = base64(shaDigest, SHA_DIGEST_LENGTH), 28);
-    free(b64);
-
-    int bytesWritten = ::send(clientFd, upgradeResponse, sizeof(upgradeResponse) - 1, MSG_NOSIGNAL);
-    if (bytesWritten != sizeof(upgradeResponse) - 1) {
-        cout << "Error sending upgrade!" << endl;
-    }
-
-    uv_poll_t *clientPoll = new uv_poll_t;
-    uv_poll_init(uv_default_loop(), clientPoll, clientFd);
-    SocketData *socketData = new SocketData;
-    socketData->server = (Server *) p->data;
-    clientPoll->data = socketData;
-    uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
-
-    ((Server *) p->data)->connectionCallback(clientPoll);
-
-    // make the listener stop, so the uv loop will properly shut down
-    // on disconnections
-    //uv_poll_stop(p); // testing only
+    ((Server *) p->data)->upgrade(clientFd, secKey.c_str());
 }
 
 void Server::disconnect(void *vp)
@@ -266,6 +232,38 @@ void Server::disconnect(void *vp)
         delete h;
     });
     close(fd);
+}
+
+void Server::upgrade(int fd, const char *secKey)
+{
+    unsigned char shaInput[] = "XXXXXXXXXXXXXXXXXXXXXXXX258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    memcpy(shaInput, secKey, 24);
+    unsigned char shaDigest[SHA_DIGEST_LENGTH];
+    SHA1(shaInput, sizeof(shaInput) - 1, shaDigest);
+    char upgradeResponse[] = "HTTP/1.1 101 Switching Protocols\r\n"
+                             "Upgrade: websocket\r\n"
+                             "Connection: Upgrade\r\n"
+                             "Sec-WebSocket-Accept: XXXXXXXXXXXXXXXXXXXXXXXXXXXX\r\n"
+                             "\r\n";
+
+    char *b64;
+    memcpy(upgradeResponse + 97, b64 = base64(shaDigest, SHA_DIGEST_LENGTH), 28);
+    free(b64);
+
+    // todo: non-blocking send
+    int bytesWritten = ::send(fd, upgradeResponse, sizeof(upgradeResponse) - 1, MSG_NOSIGNAL);
+    if (bytesWritten != sizeof(upgradeResponse) - 1) {
+        cout << "Error sending upgrade!" << endl;
+    }
+
+    uv_poll_t *clientPoll = new uv_poll_t;
+    uv_poll_init(uv_default_loop(), clientPoll, fd);
+    SocketData *socketData = new SocketData;
+    socketData->server = this;
+    clientPoll->data = socketData;
+    uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
+
+    connectionCallback(clientPoll);
 }
 
 inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int payloadLength)
@@ -352,6 +350,13 @@ void Server::onReadable(void *vp, int status, int events)
             frameFormat frame = *(frameFormat *) src;
             socketData->fin = frame.fin;
             socketData->opCode = frame.opCode;
+
+            // close frame
+            if (frame.opCode == 8) {
+                cout << "We got a close frame" << endl;
+                //send()
+                return;
+            }
 
             if (!frame.payloadLength) {
                 return;
