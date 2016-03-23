@@ -44,6 +44,50 @@ struct Message {
     char *data;
     size_t length;
     char *memoryBlock;
+    Message *nextMessage = nullptr;
+};
+
+struct Queue {
+    Message *head = nullptr, *tail = nullptr;
+    void pop()
+    {
+        Message *nextMessage;
+        if ((nextMessage = head->nextMessage)) {
+            delete head;
+            head = nextMessage;
+        } else {
+            delete head;
+            head = tail = nullptr;
+        }
+    }
+
+    // compatibility
+    int size() {
+        if (tail == head) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    bool empty() {
+        return head == nullptr;
+    }
+
+    Message *front()
+    {
+        return head;
+    }
+
+    void push(Message *message)
+    {
+        if (tail) {
+            tail->nextMessage = message;
+        } else {
+            head = message;
+            tail = message;
+        }
+    }
 };
 
 struct SocketData {
@@ -56,7 +100,8 @@ struct SocketData {
     char spill[16];
     int spillLength = 0;
     Server *server;
-    queue<Message> messageQueue;
+
+    Queue messageQueue;
 };
 
 char *base64(const unsigned char *input, int length)
@@ -171,15 +216,15 @@ void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
         sent = max(0, sent);
 
         // Copy the remainding part of the message and queue it
-        Message message;
-        message.length = socketMessage.length - sent;
+        Message *message = new Message;
+        message->length = socketMessage.length - sent;
         if (socketMessage.length > 1024) { // we already did copy the message to a buffer
-            message.memoryBlock = socketMessage.message;
+            message->memoryBlock = socketMessage.message;
         } else {
-            message.memoryBlock = new char [message.length];
-            memcpy(message.memoryBlock, socketMessage.message + sent, message.length);
+            message->memoryBlock = new char [message->length];
+            memcpy(message->memoryBlock, socketMessage.message + sent, message->length);
         }
-        message.data = message.memoryBlock + sent;
+        message->data = message->memoryBlock + sent;
 
         socketData->messageQueue.push(message);
         if (socketData->messageQueue.size() == 1) {
@@ -497,9 +542,9 @@ void Server::onWritable(void *vp, int status, int events)
     }
 
     while(!socketData->messageQueue.empty()) {
-        Message message = socketData->messageQueue.front();
-        int sent = ::send(p->io_watcher.fd, message.data, message.length, MSG_NOSIGNAL);
-        if (sent != message.length) {
+        Message *message = socketData->messageQueue.front();
+        int sent = ::send(p->io_watcher.fd, message->data, message->length, MSG_NOSIGNAL);
+        if (sent != message->length) {
 
             if (sent == -1) { //ECONNRESET everything not wouldblock should close
 
@@ -518,13 +563,13 @@ void Server::onWritable(void *vp, int status, int events)
             }
 
             // we need to update the data pointer but not remove the message from the queue
-            message.data += sent;
-            cout << "Sent: " << sent << " of " << message.length << endl;
+            message->data += sent;
+            cout << "Sent: " << sent << " of " << message->length << endl;
             //cout << "Message not sent in full" << endl;
             return; // we cant just break because we do still want writable events
         } else {
             // here we can also remove the message by deleting memoryBlock
-            delete [] message.memoryBlock;
+            delete [] message->memoryBlock;
             socketData->messageQueue.pop();
         }
     }
