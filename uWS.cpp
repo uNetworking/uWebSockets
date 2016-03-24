@@ -173,6 +173,8 @@ void Server::run()
     bind(listenFd, (sockaddr *) &listenAddr, sizeof(listenAddr));
     listen(listenFd, 10);
 
+    //SSL_CTX *SSL_CTX_new(const SSL_METHOD *method);
+
     uv_poll_t listenPoll;
     uv_poll_init(uv_default_loop(), &listenPoll, listenFd);
     uv_poll_start(&listenPoll, UV_READABLE, (uv_poll_cb) onAcceptable);
@@ -251,6 +253,8 @@ void Server::onAcceptable(void *vp, int status, int events)
     socklen_t listenAddrLength = sizeof(sockaddr_in);
     int clientFd = accept(p->io_watcher.fd, (sockaddr *) &listenAddr, &listenAddrLength);
 
+    //SSL *SSL_new(SSL_CTX *ctx);
+    //int SSL_set_fd(SSL *ssl, int fd);
 
     // todo: non-blocking read of HTTP header, and a real parser
 
@@ -379,6 +383,8 @@ void Server::onReadable(void *vp, int status, int events)
 
     memcpy(buffer, socketData->spill, socketData->spillLength);
     int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, BUFFER_SIZE - socketData->spillLength));
+
+    //int SSL_read(SSL *ssl, void *buf, int num);
 
     if (!length) {
         //cout << "Closing socket from read zero" << endl;
@@ -540,6 +546,8 @@ void Server::onWritable(void *vp, int status, int events)
         socketData->server->disconnect(vp);
         return;
     }
+
+    //int SSL_write(SSL *ssl, const void *buf, int num);
 
     while(!socketData->messageQueue.empty()) {
         Message *message = socketData->messageQueue.front();
