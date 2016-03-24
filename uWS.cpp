@@ -390,9 +390,11 @@ void Server::onReadable(void *vp, int status, int events)
         return;
     }
 
+    char *src = (char *) buffer;
+    parseNext:
+
     cout << "Length: " << length << endl;
 
-    char *src = (char *) buffer;
     if (socketData->state == READ_HEAD) {
 
         while(length >= sizeof(frameFormat)) {
@@ -472,6 +474,8 @@ void Server::onReadable(void *vp, int status, int events)
                         break;
                     }
 
+                    cout << "This is a short message incompleted" << endl;
+
                     socketData->spillLength = 0;
                     socketData->state = READ_MESSAGE;
                     socketData->remainingBytes = frame.payloadLength - length + SHORT_MESSAGE_HEADER;
@@ -491,38 +495,37 @@ void Server::onReadable(void *vp, int status, int events)
             socketData->spillLength = length;
         }
     } else {
-        // we are not supposed to read HEAD so we are reading more data from the last message!
-
-        // we actually read the message and have other messages to read!
         if (socketData->remainingBytes < length) {
+            // this path needs fixing!
+            int n = length >> 2;
+            uint32_t maskBytes = socketData->mask;
+            unmask_inplace((uint32_t *) buffer, ((uint32_t *) buffer) + n, maskBytes);
 
-            cout << "Unhandeled path!" << endl;
-            exit(0);
-
-            // we have a new message following the end of our current one
-
-            // in this case we cannot overwrite anything?
-            // we have a new frame directly after so we cannot overwrite it
+            //todo: unmask the last bytes without overwriting
 
 
+            socketData->server->fragmentCallback(p, (const char *) buffer, socketData->remainingBytes,
+                                                 socketData->opCode == 2, 0);
+
+
+            // update the src ptr
+            // update the length
+            src += socketData->remainingBytes;
+            length -= socketData->remainingBytes;
+
+            //socketData->remainingBytes = 0; // this shouldn't be needed at all!
+
+            socketData->state = READ_HEAD;
+            cout << "Goto" << endl;
+            goto parseNext;
         } else {
             // the complete buffer is all data
-
-            // needs to be rotated!
+            int n = length >> 2 + bool(length % 4);
             uint32_t maskBytes = socketData->mask;
-
-            // unmask_32bit_length (we could actually get less!)
-            int n = length >> 2;
-
-            // in case of read non 4-byte
-            if (length % 4)
-                n++;
-
             unmask_inplace((uint32_t *) buffer, ((uint32_t *) buffer) + n, maskBytes);
             socketData->remainingBytes -= length;
             socketData->server->fragmentCallback(p, (const char *) buffer, length,
                                                  socketData->opCode == 2, socketData->remainingBytes);
-
 
             // if we perfectly read the last of the message, change state!
             if (!socketData->remainingBytes) {
