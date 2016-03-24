@@ -375,11 +375,11 @@ void Server::onReadable(void *vp, int status, int events)
 
     char *buffer = socketData->server->receiveBuffer;
 
-    // read random length to trigger eventual parser bugs
-    int maxRead = rand() % BUFFER_SIZE;
+    // read 1 byte to trigger all parser issues left
+    int maxRead = 1;
 
     // when not testing
-    maxRead = BUFFER_SIZE;
+    //maxRead = BUFFER_SIZE;
 
     memcpy(buffer, socketData->spill, socketData->spillLength);
     int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, BUFFER_SIZE - socketData->spillLength));
@@ -393,19 +393,18 @@ void Server::onReadable(void *vp, int status, int events)
         return;
     }
 
+    cout << "Length: " << length << endl;
+
     char *src = (char *) buffer;
     if (socketData->state == READ_HEAD) {
 
         while(length >= sizeof(frameFormat)) {
-            // parse frame data
             frameFormat frame = *(frameFormat *) src;
             socketData->fin = frame.fin;
             socketData->opCode = frame.opCode;
 
             // close frame
             if (frame.opCode == 8) {
-                cout << "We got a close frame" << endl;
-                //send()
                 return;
             }
 
@@ -415,7 +414,6 @@ void Server::onReadable(void *vp, int status, int events)
 
             // is this a long message?
             if (frame.payloadLength > 125) {
-
                 if (frame.payloadLength == 126) {
                     // medium message
 
@@ -444,30 +442,27 @@ void Server::onReadable(void *vp, int status, int events)
                         socketData->server->fragmentCallback(p, start, length - 8, frame.opCode == 2, socketData->remainingBytes);
                         break;
                     }
-
                 } else {
-                    // long message
+                    // long messages are always incomplete
+                    const int LONG_MESSAGE_FRAGMENT = 15, LONG_MESSAGE_HEADER = 14, LONG_MESSAGE_MASK_OFFSET = 10;
+                    if (length < LONG_MESSAGE_FRAGMENT) {
+                        break;
+                    }
 
-                    // we know for a fact that the buffer cannot possibly hold everything!
+                    socketData->spillLength = 0;
                     uint64_t longLength = be64toh(*(uint64_t *) &src[2]);
 
-                    // not complete message
                     socketData->state = READ_MESSAGE;
-                    socketData->remainingBytes = longLength - length + 14;
+                    socketData->remainingBytes = longLength - length + LONG_MESSAGE_HEADER;
 
-                    socketData->mask = *(uint32_t *) &src[10];
+                    socketData->mask = *(uint32_t *) &src[LONG_MESSAGE_MASK_OFFSET];
+                    rotate_mask(4 - (length - LONG_MESSAGE_HEADER) % 4, &socketData->mask);
 
-
-                    //rotate_mask((length - 14) % 4, &socketData->mask); // wrong way!
-                    rotate_mask(4 - (length - 14) % 4, &socketData->mask); // probably correct way!
-
-                    char *start = src;
-                    unmask(src, src, 10, 14, length); // invalid read of size 4, we are probably reading too far
-                    socketData->server->fragmentCallback(p, start, length - 14, frame.opCode == 2, socketData->remainingBytes);
-                    break;
+                    unmask(src, src, LONG_MESSAGE_MASK_OFFSET, LONG_MESSAGE_HEADER, length);
+                    socketData->server->fragmentCallback(p, src, length - LONG_MESSAGE_HEADER,
+                                                         frame.opCode == 2, socketData->remainingBytes);
+                    return;
                 }
-
-
             } else {
                 // short message
 
@@ -485,8 +480,12 @@ void Server::onReadable(void *vp, int status, int events)
 
             }
         }
-        // copy half header to spill
-        //memcpy(socketData->spill, buffer, length);
+
+        // copy unconsumed data to our spill buffer
+        if (length) {
+            memcpy(socketData->spill, buffer, length);
+            socketData->spillLength = length;
+        }
     } else {
         // we are not supposed to read HEAD so we are reading more data from the last message!
 
@@ -517,18 +516,16 @@ void Server::onReadable(void *vp, int status, int events)
 
             unmask_inplace((uint32_t *) buffer, ((uint32_t *) buffer) + n, maskBytes);
             socketData->remainingBytes -= length;
-            socketData->server->fragmentCallback(p, (const char *) buffer, length, socketData->opCode == 2, socketData->remainingBytes);
+            socketData->server->fragmentCallback(p, (const char *) buffer, length,
+                                                 socketData->opCode == 2, socketData->remainingBytes);
 
 
             // if we perfectly read the last of the message, change state!
             if (!socketData->remainingBytes) {
                 socketData->state = READ_HEAD;
             } else {
-                // this seems to be the right way to rotate
                 if (length % 4) {
-                    //cout << "We need to rotate the mask!" << endl;
                     rotate_mask(4 - (length % 4), &socketData->mask);
-                    //exit(0);
                 }
             }
         }

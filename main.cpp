@@ -15,11 +15,11 @@ int main()
     });
 
     server.onFragment([](Socket socket, const char *fragment, size_t length, bool binary, size_t remainingBytes) {
-        //cout << "Fragment, length: " << length << ", remaining bytes: " << remainingBytes << endl;
+        cout << "Fragment, length: " << length << ", remaining bytes: " << remainingBytes << endl;
         //cout << "Fragment: " << string(fragment, length) << endl;
         //socket.send((char *) fragment, length, binary);
 
-        socket.sendFragment((char *) fragment, length, binary, remainingBytes);
+        //socket.sendFragment((char *) fragment, length, binary, remainingBytes);
     });
 
     server.onDisconnection([](Socket socket) {
