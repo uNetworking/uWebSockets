@@ -520,7 +520,7 @@ void Server::onReadable(void *vp, int status, int events)
             goto parseNext;
         } else {
             // the complete buffer is all data
-            int n = length >> 2 + bool(length % 4);
+            int n = (length >> 2) + bool(length % 4);
             uint32_t maskBytes = socketData->mask;
             unmask_inplace((uint32_t *) buffer, ((uint32_t *) buffer) + n, maskBytes);
             socketData->remainingBytes -= length;
