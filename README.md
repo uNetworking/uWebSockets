@@ -1,5 +1,11 @@
 # µWebSockets
-`µWS` is a minimal WebSocket server library with focus on memory usage and performance. Reaching one million connections using only 250 mb of memory, while still being very competitive (read: among the best) in echo performance.
+`µWS` is a minimal WebSocket server library with focus on memory usage and performance. Reaching one million connections using only 250 mb of memory, while still being very competitive (read: among the best) in echo performance and data throughput.
+
+Implementation | Memory scaling | Short message throughput | Huge message throughput
+--- | --- | --- | ---
+libwebsockets | µWS is **10x** better | µWS is **2x** better | µWS is equal or slightly better
+ws | µWS is **70x** better | µWS is **10x** better | µWS is **3x** better
+WebSocket++ | µWS is **70x** better | µWS is equal or slightly better | µWS is **3x** better
 
 I do plan to support WSS (SSL/TLS) via OpenSSL
 
