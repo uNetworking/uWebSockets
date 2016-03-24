@@ -375,11 +375,8 @@ void Server::onReadable(void *vp, int status, int events)
 
     char *buffer = socketData->server->receiveBuffer;
 
-    // read 1 byte to trigger all parser issues left
-    int maxRead = 1;
-
-    // when not testing
-    //maxRead = BUFFER_SIZE;
+    // for testing
+    int maxRead = 32;
 
     memcpy(buffer, socketData->spill, socketData->spillLength);
     int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, BUFFER_SIZE - socketData->spillLength));
@@ -449,12 +446,10 @@ void Server::onReadable(void *vp, int status, int events)
                         break;
                     }
 
-                    socketData->spillLength = 0;
                     uint64_t longLength = be64toh(*(uint64_t *) &src[2]);
-
+                    socketData->spillLength = 0;
                     socketData->state = READ_MESSAGE;
                     socketData->remainingBytes = longLength - length + LONG_MESSAGE_HEADER;
-
                     socketData->mask = *(uint32_t *) &src[LONG_MESSAGE_MASK_OFFSET];
                     rotate_mask(4 - (length - LONG_MESSAGE_HEADER) % 4, &socketData->mask);
 
@@ -464,24 +459,33 @@ void Server::onReadable(void *vp, int status, int events)
                     return;
                 }
             } else {
-                // short message
-
-                // is everything in the buffer already?
+                const int SHORT_MESSAGE_FRAGMENT = 7, SHORT_MESSAGE_HEADER = 6, SHORT_MESSAGE_MASK_OFFSET = 2;
+                // short messages can be complete
                 if (frame.payloadLength <= length) {
-                    // we can parse the complete frame in one!
                     char *start = src;
-                    unmask(src, src, 2, 6, frame.payloadLength);
-                    src = start + frame.payloadLength + 6;
+                    unmask(src, src, SHORT_MESSAGE_MASK_OFFSET, SHORT_MESSAGE_HEADER, frame.payloadLength);
+                    src = start + frame.payloadLength + SHORT_MESSAGE_HEADER;
                     socketData->server->fragmentCallback(p, start, frame.payloadLength, frame.opCode == 2, 0);
-                    length -= frame.payloadLength + 6;
+                    length -= frame.payloadLength + SHORT_MESSAGE_HEADER;
                 } else {
-                    // not complete message
-                }
+                    if (length < SHORT_MESSAGE_FRAGMENT) {
+                        break;
+                    }
 
+                    socketData->spillLength = 0;
+                    socketData->state = READ_MESSAGE;
+                    socketData->remainingBytes = frame.payloadLength - length + SHORT_MESSAGE_HEADER;
+                    socketData->mask = *(uint32_t *) &src[SHORT_MESSAGE_MASK_OFFSET];
+                    rotate_mask(4 - (length - SHORT_MESSAGE_HEADER) % 4, &socketData->mask);
+
+                    unmask(src, src, SHORT_MESSAGE_MASK_OFFSET, SHORT_MESSAGE_HEADER, length);
+                    socketData->server->fragmentCallback(p, src, length - SHORT_MESSAGE_HEADER,
+                                                         frame.opCode == 2, socketData->remainingBytes);
+                    return;
+                }
             }
         }
 
-        // copy unconsumed data to our spill buffer
         if (length) {
             memcpy(socketData->spill, buffer, length);
             socketData->spillLength = length;
