@@ -390,10 +390,22 @@ void Server::onReadable(void *vp, int status, int events)
         return;
     }
 
+    int gotoNr = 0;
+
+    cout << "[Read event]" << endl;
+
     char *src = (char *) buffer;
     parseNext:
 
     cout << "Length: " << length << endl;
+
+    if (length == 35) {
+        cout << "State is now READ_HEAD: " << (socketData->state == READ_HEAD) << endl;
+
+        frameFormat frame = *(frameFormat *) src;
+        cout << "Payload: " << frame.payloadLength << endl;
+
+    }
 
     if (socketData->state == READ_HEAD) {
 
@@ -419,6 +431,8 @@ void Server::onReadable(void *vp, int status, int events)
                     uint16_t longLength = be16toh(*(uint16_t *) &src[2]);
 
                     // is everything in the buffer already?
+
+                    // todo: compare against length - SHORT_LONG_MESSAGE_HEADER!
                     if (longLength <= length) {
                         // we can parse the complete frame in one!
                         char *start = src;
@@ -463,18 +477,27 @@ void Server::onReadable(void *vp, int status, int events)
             } else {
                 const int SHORT_MESSAGE_FRAGMENT = 7, SHORT_MESSAGE_HEADER = 6, SHORT_MESSAGE_MASK_OFFSET = 2;
                 // short messages can be complete
-                if (frame.payloadLength <= length) {
+                if (frame.payloadLength <= length - SHORT_MESSAGE_HEADER) {
                     char *start = src;
                     unmask(src, src, SHORT_MESSAGE_MASK_OFFSET, SHORT_MESSAGE_HEADER, frame.payloadLength);
                     src = start + frame.payloadLength + SHORT_MESSAGE_HEADER;
                     socketData->server->fragmentCallback(p, start, frame.payloadLength, frame.opCode == 2, 0);
                     length -= frame.payloadLength + SHORT_MESSAGE_HEADER;
+
+
+                    // we should probably reset- the spill (we obviously consumed it)
+                    socketData->spillLength = 0;
+
+
+                    frameFormat frame = *(frameFormat *) src;
+                    cout << "next Payload: " << frame.payloadLength << endl;
+
                 } else {
                     if (length < SHORT_MESSAGE_FRAGMENT) {
                         break;
                     }
 
-                    cout << "This is a short message incompleted" << endl;
+                    cout << "This is a short message incompleted, full length: " << frame.payloadLength << endl;
 
                     socketData->spillLength = 0;
                     socketData->state = READ_MESSAGE;
@@ -491,17 +514,32 @@ void Server::onReadable(void *vp, int status, int events)
         }
 
         if (length) {
-            memcpy(socketData->spill, buffer, length);
+            cout << "Adding " << length << " bytes to spill" << endl;
+            memcpy(socketData->spill, /*buffer*/ src, length);
             socketData->spillLength = length;
         }
     } else {
         if (socketData->remainingBytes < length) {
             // this path needs fixing!
-            int n = length >> 2;
+            int n = socketData->remainingBytes >> 2;
             uint32_t maskBytes = socketData->mask;
-            unmask_inplace((uint32_t *) buffer, ((uint32_t *) buffer) + n, maskBytes);
+
+
+
+            // should these offset from src? instead of buffer?
+            //unmask_inplace((uint32_t *) buffer, ((uint32_t *) buffer) + n, maskBytes);
 
             //todo: unmask the last bytes without overwriting
+
+            // unoptimized!
+            char *mask = (char *) &maskBytes;
+            for (int i = 0; i < socketData->remainingBytes; i++) {
+                src[i] ^= mask[i % 4];
+            }
+
+
+
+
 
 
             socketData->server->fragmentCallback(p, (const char *) buffer, socketData->remainingBytes,
@@ -516,7 +554,14 @@ void Server::onReadable(void *vp, int status, int events)
             //socketData->remainingBytes = 0; // this shouldn't be needed at all!
 
             socketData->state = READ_HEAD;
-            cout << "Goto" << endl;
+            cout << "Goto nr: " << gotoNr++ << endl;
+            frameFormat nextFrame = *(frameFormat *) src;
+            cout << "Next frame should be length: " << nextFrame.payloadLength << endl;
+
+
+
+            //exit(0);
+
             goto parseNext;
         } else {
             // the complete buffer is all data
