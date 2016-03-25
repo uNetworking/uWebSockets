@@ -230,8 +230,6 @@ void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
 
         socketData->messageQueue.push(message);
         if (socketData->messageQueue.size() == 1) {
-
-            // we need two polls: one writable and one readable
             uv_poll_start(p, UV_WRITABLE, (uv_poll_cb) onWritable);
         }
     } else {
@@ -360,6 +358,34 @@ void unmask_inplace(uint32_t *data, uint32_t *stop, uint32_t mask)
     }
 }
 
+class Parser {
+public:
+    template <typename T>
+    static inline void consumeIncompleteMessage(int length, const int headerLength, T fullPayloadLength, SocketData *socketData, char *src, frameFormat &frame, void *socket)
+    {
+        socketData->spillLength = 0;
+        socketData->state = READ_MESSAGE;
+        socketData->remainingBytes = fullPayloadLength - length + headerLength;
+        socketData->mask = *(uint32_t *) &src[headerLength - 4];
+        rotate_mask(4 - (length - headerLength) % 4, &socketData->mask);
+
+        unmask(src, src, headerLength - 4, headerLength, length);
+        socketData->server->fragmentCallback(socket, src, length - headerLength,
+                                             frame.opCode == 2, socketData->remainingBytes);
+    }
+
+    template <typename T>
+    static inline void consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, void *socket)
+    {
+        unmask(*src, *src, headerLength - 4, headerLength, fullPayloadLength);
+        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, frame.opCode == 2, 0);
+
+        *src += fullPayloadLength + headerLength;
+        length -= fullPayloadLength + headerLength;
+        socketData->spillLength = 0;
+    }
+};
+
 // 0.17% CPU time
 void Server::onReadable(void *vp, int status, int events)
 {
@@ -376,7 +402,7 @@ void Server::onReadable(void *vp, int status, int events)
     char *buffer = socketData->server->receiveBuffer;
 
     // for testing
-    int maxRead = 32;//BUFFER_SIZE;
+    int maxRead = BUFFER_SIZE;//32;//BUFFER_SIZE;
 
     memcpy(buffer, socketData->spill, socketData->spillLength);
     int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, BUFFER_SIZE - socketData->spillLength));
@@ -411,84 +437,40 @@ void Server::onReadable(void *vp, int status, int events)
                 return;
             }
 
-            // is this a long message?
             if (frame.payloadLength > 125) {
                 if (frame.payloadLength == 126) {
-                    // medium message
-
-                    uint16_t longLength = be16toh(*(uint16_t *) &src[2]);
-
-                    // is everything in the buffer already?
-
-                    // todo: compare against length - SHORT_LONG_MESSAGE_HEADER!
-                    if (longLength <= length) {
-                        // we can parse the complete frame in one!
-                        char *start = src;
-                        unmask(src, src, 4, 8, longLength);
-                        src = start + longLength + 8;
-                        socketData->server->fragmentCallback(p, start, longLength, frame.opCode == 2, 0);
-                        length -= longLength + 8;
-
-                    } else {
-                        // not complete message
-                        socketData->state = READ_MESSAGE;
-                        socketData->remainingBytes = longLength - length + 8;
-
-
-                        // todo: rotate!
-                        socketData->mask = *(uint32_t *) &src[4];
-
-                        char *start = src;
-                        unmask(src, src, 4, 8, length);
-                        socketData->server->fragmentCallback(p, start, length - 8, frame.opCode == 2, socketData->remainingBytes);
+                    const int MEDIUM_MESSAGE_HEADER = 8;
+                    // we need to have enough length to read the long length
+                    if (length < 2 + sizeof(uint16_t)) {
                         break;
+                    }
+                    if (be16toh(*(uint16_t *) &src[2]) <= length - MEDIUM_MESSAGE_HEADER) {
+                        Parser::consumeCompleteMessage(length, MEDIUM_MESSAGE_HEADER, be16toh(*(uint16_t *) &src[2]), socketData, &src, frame, p);
+                    } else {
+                        if (length < MEDIUM_MESSAGE_HEADER + 1) {
+                            break;
+                        }
+                        Parser::consumeIncompleteMessage(length, MEDIUM_MESSAGE_HEADER, be16toh(*(uint16_t *) &src[2]), socketData, src, frame, p);
+                        return;
                     }
                 } else {
-                    // long messages are always incomplete
-                    const int LONG_MESSAGE_FRAGMENT = 15, LONG_MESSAGE_HEADER = 14, LONG_MESSAGE_MASK_OFFSET = 10;
-                    if (length < LONG_MESSAGE_FRAGMENT) {
+                    const int LONG_MESSAGE_HEADER = 14;
+                    if (length < LONG_MESSAGE_HEADER + 1) {
                         break;
                     }
-
-                    uint64_t longLength = be64toh(*(uint64_t *) &src[2]);
-                    socketData->spillLength = 0;
-                    socketData->state = READ_MESSAGE;
-                    socketData->remainingBytes = longLength - length + LONG_MESSAGE_HEADER;
-                    socketData->mask = *(uint32_t *) &src[LONG_MESSAGE_MASK_OFFSET];
-                    rotate_mask(4 - (length - LONG_MESSAGE_HEADER) % 4, &socketData->mask);
-
-                    unmask(src, src, LONG_MESSAGE_MASK_OFFSET, LONG_MESSAGE_HEADER, length);
-                    socketData->server->fragmentCallback(p, src, length - LONG_MESSAGE_HEADER,
-                                                         frame.opCode == 2, socketData->remainingBytes);
+                    // long messages are always incomplete
+                    Parser::consumeIncompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, src, frame, p);
                     return;
                 }
             } else {
-
-                // short messages should be pretty much stable now
-
-                const int SHORT_MESSAGE_FRAGMENT = 7, SHORT_MESSAGE_HEADER = 6, SHORT_MESSAGE_MASK_OFFSET = 2;
-                // short messages can be complete
+                const int SHORT_MESSAGE_HEADER = 6;
                 if (frame.payloadLength <= length - SHORT_MESSAGE_HEADER) {
-                    char *start = src;
-                    unmask(src, src, SHORT_MESSAGE_MASK_OFFSET, SHORT_MESSAGE_HEADER, frame.payloadLength);
-                    src = start + frame.payloadLength + SHORT_MESSAGE_HEADER;
-                    socketData->server->fragmentCallback(p, start, frame.payloadLength, frame.opCode == 2, 0);
-                    length -= frame.payloadLength + SHORT_MESSAGE_HEADER;
-                    socketData->spillLength = 0;
+                    Parser::consumeCompleteMessage(length, SHORT_MESSAGE_HEADER, frame.payloadLength, socketData, &src, frame, p);
                 } else {
-                    if (length < SHORT_MESSAGE_FRAGMENT) {
+                    if (length < SHORT_MESSAGE_HEADER + 1) {
                         break;
                     }
-
-                    socketData->spillLength = 0;
-                    socketData->state = READ_MESSAGE;
-                    socketData->remainingBytes = frame.payloadLength - length + SHORT_MESSAGE_HEADER;
-                    socketData->mask = *(uint32_t *) &src[SHORT_MESSAGE_MASK_OFFSET];
-                    rotate_mask(4 - (length - SHORT_MESSAGE_HEADER) % 4, &socketData->mask);
-
-                    unmask(src, src, SHORT_MESSAGE_MASK_OFFSET, SHORT_MESSAGE_HEADER, length);
-                    socketData->server->fragmentCallback(p, src, length - SHORT_MESSAGE_HEADER,
-                                                         frame.opCode == 2, socketData->remainingBytes);
+                    Parser::consumeIncompleteMessage(length, SHORT_MESSAGE_HEADER, frame.payloadLength, socketData, src, frame, p);
                     return;
                 }
             }

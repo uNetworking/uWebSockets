@@ -4,10 +4,13 @@
 #include <cstddef>
 #include <functional>
 
+class Parser;
+
 namespace uWS {
 
 class Socket {
     friend class Server;
+    friend class ::Parser;
 private:
     void *socket;
     Socket(void *p) : socket(p)
@@ -26,6 +29,7 @@ public:
 
 class Server
 {
+    friend class ::Parser;
 private:
     static void onReadable(void *vp, int status, int events);
     static void onWritable(void *vp, int status, int events);
