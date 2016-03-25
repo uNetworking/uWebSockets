@@ -22,15 +22,18 @@ int main()
         //socket.send((char *) fragment, length, binary);
 
 
-        // the bug is not a parser one, but a send one!
-        /*if (remainingBytes) {
-            buffer.append(fragment, length);
-        } else {
+        buffer.append(fragment, length);
+        if (!remainingBytes) {
+            unsigned long checksum = 0;
+            for (unsigned char c : buffer) {
+                checksum += c;
+            }
+            cout << "Received buffer with checksum: " << checksum << endl;
             socket.send((char *) buffer.c_str(), buffer.length(), binary);
             buffer.clear();
-        }*/
+        }
 
-        socket.sendFragment((char *) fragment, length, binary, remainingBytes);
+        //socket.sendFragment((char *) fragment, length, binary, remainingBytes);
     });
 
     server.onDisconnection([](Socket socket) {

@@ -171,7 +171,10 @@ void Server::run()
     listenAddr.sin_addr.s_addr = INADDR_ANY;
     listenAddr.sin_port = htons(3000);
     bind(listenFd, (sockaddr *) &listenAddr, sizeof(listenAddr));
-    listen(listenFd, 10);
+
+    if (listen(listenFd, 10) == -1) {
+        throw 0; //ERR_LISTEN
+    }
 
     //SSL_CTX *SSL_CTX_new(const SSL_METHOD *method);
 
@@ -181,11 +184,6 @@ void Server::run()
     listenPoll.data = this;
 
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
-
-    /*uv_close((uv_handle_t *) &listenPoll);
-    uv_run(uv_default_loop(), UV_RUN_DEFAULT);
-    uv_loop_close(uv_default_loop());
-    uv_loop_destroy(uv_default_loop());*/
 }
 
 // this function is basically a mess right now
@@ -402,7 +400,7 @@ void Server::onReadable(void *vp, int status, int events)
     char *buffer = socketData->server->receiveBuffer;
 
     // for testing
-    int maxRead = BUFFER_SIZE;//32;//BUFFER_SIZE;
+    int maxRead = BUFFER_SIZE;//rand() % 1024 + 1;//BUFFER_SIZE;
 
     memcpy(buffer, socketData->spill, socketData->spillLength);
     int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, BUFFER_SIZE - socketData->spillLength));
