@@ -258,12 +258,11 @@ void Server::send(void *vp, char *data, size_t length, OpCode opCode, int flags)
     SocketMessage socketMessage(data, length, opCode, flags);
 
 
-
     // send blockingly for testing purposes
     int sent = 0;
     while(sent < socketMessage.length) {
         ssize_t err;
-        sent -= max((ssize_t) 0, err = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message + sent, socketMessage.length - sent, MSG_NOSIGNAL));
+        sent += max((ssize_t) 0, err = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message + sent, socketMessage.length - sent, MSG_NOSIGNAL));
         if (err == -1) {
             if (errno == ECONNRESET) {
                 // this should never happen!
@@ -463,7 +462,7 @@ public:
     static inline void consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, void *socket)
     {
         unmask(*src, *src, headerLength - 4, headerLength, fullPayloadLength);
-        cout << "Calling callback with opCode: " << socketData->opCode[socketData->opStack] << ", opStack: " << socketData->opStack << endl;
+        //cout << "Calling callback with opCode: " << socketData->opCode[socketData->opStack] << ", opStack: " << socketData->opStack << endl;
         socketData->server->fragmentCallback(socket, *src, fullPayloadLength, /*(OpCode) frame.opCode*/ socketData->opCode[socketData->opStack], socketData->fin, 0);
 
         if (frame.fin) {
@@ -546,7 +545,7 @@ void Server::onReadable(void *vp, int status, int events)
                 // if empty stack or a new op-code, push on stack!
                 if (socketData->opStack == -1 || socketData->opCode[socketData->opStack] != (OpCode) frame.opCode) {
                     socketData->opCode[++socketData->opStack] = (OpCode) frame.opCode;
-                    cout << "Setting opCode[" << socketData->opStack << "] = " << socketData->opCode[socketData->opStack] << endl;
+                    //cout << "Setting opCode[" << socketData->opStack << "] = " << socketData->opCode[socketData->opStack] << endl;
 
                     if (socketData->opStack < 0) {
                         cout << "Wow! Something is messed up now!" << endl;

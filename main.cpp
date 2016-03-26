@@ -16,18 +16,19 @@ int main()
     server.onConnection([](Socket socket) {
         //cout << "Connections: " << ++connections << endl;
         buffer.clear();
+        controlBuffer.clear();
     });
 
     server.onFragment([](Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes) {
         //cout << "Fragment, length: " << length << ", remaining bytes: " << remainingBytes << endl;
-        cout << "Fragment: " << string(fragment, length) << ", opCode: " << opCode << ", fin: " << fin << ", remainingBytes: " << remainingBytes << endl;
+        //cout << "Fragment: " << string(fragment, length) << ", opCode: " << opCode << ", fin: " << fin << ", remainingBytes: " << remainingBytes << endl;
         //socket.send((char *) fragment, length, binary);
 
         // Text or binary
         if (opCode < 3) {
             buffer.append(fragment, length);
             if (!remainingBytes && fin) {
-                cout << "Sending: " << buffer << endl;
+                //cout << "Sending: " << buffer << endl;
                 socket.send((char *) buffer.c_str(), buffer.length(), opCode);
                 buffer.clear();
             }
