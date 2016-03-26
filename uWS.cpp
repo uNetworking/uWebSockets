@@ -22,7 +22,7 @@ struct SocketMessage {
     char shortMessage[1024]; // 125?
     char *message;
     size_t length;
-    SocketMessage(char *message, size_t length, bool binary, int flags);
+    SocketMessage(char *message, size_t length, OpCode opCode, int flags);
 };
 
 enum SendFlags {
@@ -95,7 +95,7 @@ struct SocketData {
     int sendState = FRAGMENT_START;
     int fin;
     uint32_t mask;
-    int opCode;
+    OpCode opCode;
     int remainingBytes = 0;
     char spill[16];
     int spillLength = 0;
@@ -187,54 +187,125 @@ void Server::run()
 }
 
 // this function is basically a mess right now
-void Server::send(void *vp, char *data, size_t length, bool binary, int flags)
+void Server::send(void *vp, char *data, size_t length, OpCode opCode, int flags)
 {
     uv_poll_t *p = (uv_poll_t *) vp;
     SocketData *socketData = (SocketData *) p->data;
 
+
+
+
+//    if (length < 126) {
+//        /*if (length > sizeof(shortMessage) - 2) {
+//            this->message = new char[length + 2];
+//        } else {
+//            this->message = shortMessage;
+//        }
+
+//        this->length = length + 2;
+//        memcpy(this->message + 2, message, length);
+//        this->message[1] = length;*/
+//    } else if (length < UINT16_MAX) {
+//        /*if (length > sizeof(shortMessage) - 4) {
+//            this->message = new char[length + 4];
+//        } else {
+//            this->message = shortMessage;
+//        }
+
+//        this->length = length + 4;
+//        memcpy(this->message + 4, message, length);
+//        this->message[1] = 126;
+//        *((uint16_t *) &this->message[2]) = htobe16(length);*/
+//    } else {
+//        // this is a long message, use sendmsg instead of copying the data in this case!
+
+//        if (length > sizeof(shortMessage) - 10) {
+//            this->message = new char[length + 10];
+//        } else {
+//            this->message = shortMessage;
+//        }
+
+//        this->length = length + 10;
+//        memcpy(this->message + 10, message, length);
+//        this->message[1] = 127;
+//        *((uint64_t *) &this->message[2]) = htobe64(length);
+//    }
+
+//    this->message[0] = (flags & SND_NO_FIN ? 0 : 128);
+//    if (!(flags & SND_CONTINUATION)) {
+//        this->message[0] |= (binary ? 2 : 1);
+//    }
+
+
+
+
+
+    // step 1: allocate a buffer
+    /*char stackBuffer[1024];
+    char *message = stackBuffer;
+    if (length + 10 > 1024) {
+        message = new char[length + 10];
+    }*/
+
+
+
+
+
+
     // This is just how we build the message
-    SocketMessage socketMessage(data, length, binary, flags);
+    SocketMessage socketMessage(data, length, opCode, flags);
 
-    // assmue we already are writable, write directly in kernel buffer
-    int sent = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message, socketMessage.length, MSG_NOSIGNAL);
-    if (sent != socketMessage.length) {
-        // did the buffer not fit at all?
-        if (sent == -1 && (errno & (EAGAIN | EWOULDBLOCK))) {
-            // in this case we should not close the socket
-            // just queue up the message
-        } else if (sent == -1) {
-            // close the socket
-            if (socketMessage.length > 1024) {
-                delete [] socketMessage.message;
-            }
 
-            // we cannot close from here, only in onReadable, onWritable
-            return;
-        }
 
-        // just turn an error into zero bytes written
-        sent = max(0, sent);
-
-        // Copy the remainding part of the message and queue it
-        Message *message = new Message;
-        message->length = socketMessage.length - sent;
-        if (socketMessage.length > 1024) { // we already did copy the message to a buffer
-            message->memoryBlock = socketMessage.message;
-        } else {
-            message->memoryBlock = new char [message->length];
-            memcpy(message->memoryBlock, socketMessage.message + sent, message->length);
-        }
-        message->data = message->memoryBlock + sent;
-
-        socketData->messageQueue.push(message);
-        if (socketData->messageQueue.size() == 1) {
-            uv_poll_start(p, UV_WRITABLE, (uv_poll_cb) onWritable);
-        }
-    } else {
-        if (socketMessage.length > 1024) {
-            delete [] socketMessage.message;
-        }
+    // send blockingly for testing purposes
+    int sent = 0;
+    while(sent < socketMessage.length) {
+        sent -= max((ssize_t) 0, ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message + sent, socketMessage.length - sent, MSG_NOSIGNAL));
     }
+    return;
+
+
+
+//    // assmue we already are writable, write directly in kernel buffer
+//    int sent = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message, socketMessage.length, MSG_NOSIGNAL);
+//    if (sent != socketMessage.length) {
+//        // did the buffer not fit at all?
+//        if (sent == -1 && (errno & (EAGAIN | EWOULDBLOCK))) {
+//            // in this case we should not close the socket
+//            // just queue up the message
+//        } else if (sent == -1) {
+//            // close the socket
+//            if (socketMessage.length > 1024) {
+//                delete [] socketMessage.message;
+//            }
+
+//            // we cannot close from here, only in onReadable, onWritable
+//            return;
+//        }
+
+//        // just turn an error into zero bytes written
+//        sent = max(0, sent);
+
+//        // Copy the remainding part of the message and queue it
+//        Message *message = new Message;
+//        message->length = socketMessage.length - sent;
+//        if (socketMessage.length > 1024) { // we already did copy the message to a buffer
+//            message->memoryBlock = socketMessage.message;
+//        } else {
+//            message->memoryBlock = new char [message->length];
+//            memcpy(message->memoryBlock, socketMessage.message + sent, message->length);
+//        }
+//        message->data = message->memoryBlock + sent;
+
+//        socketData->messageQueue.push(message);
+//        if (socketData->messageQueue.size() == 1) {
+//            uv_poll_start(p, UV_WRITABLE, (uv_poll_cb) onWritable);
+//        }
+//    } else {
+//        if (socketMessage.length > 1024) {
+//            delete [] socketMessage.message;
+//        }
+//    }
 }
 
 void Server::onAcceptable(void *vp, int status, int events)
@@ -369,14 +440,14 @@ public:
 
         unmask(src, src, headerLength - 4, headerLength, length);
         socketData->server->fragmentCallback(socket, src, length - headerLength,
-                                             frame.opCode == 2, socketData->remainingBytes);
+                                             (OpCode) frame.opCode/* == 2*/, socketData->remainingBytes);
     }
 
     template <typename T>
     static inline void consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, void *socket)
     {
         unmask(*src, *src, headerLength - 4, headerLength, fullPayloadLength);
-        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, frame.opCode == 2, 0);
+        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, (OpCode) frame.opCode/* == 2*/, 0);
 
         *src += fullPayloadLength + headerLength;
         length -= fullPayloadLength + headerLength;
@@ -416,22 +487,34 @@ void Server::onReadable(void *vp, int status, int events)
 
     char *src = (char *) buffer;
     parseNext:
-
-    //cout << "Length: " << length << endl;
-
     if (socketData->state == READ_HEAD) {
 
         while(length >= sizeof(frameFormat)) {
             frameFormat frame = *(frameFormat *) src;
             socketData->fin = frame.fin;
-            socketData->opCode = frame.opCode;
+            socketData->opCode = (OpCode) frame.opCode;
 
             // close frame
             if (frame.opCode == 8) {
                 // we need to handle this non-blockingly
+                //cout << "Closing frame" << endl;
                 unsigned char closeFrame[2] = {128 | 8, 0};
                 ::send(p->io_watcher.fd, closeFrame, 2, MSG_NOSIGNAL);
                 shutdown(p->io_watcher.fd, SHUT_WR);
+                return;
+            }
+
+            // invalid reserved bits
+            if (frame.rsv1 || frame.rsv2 || frame.rsv3) {
+                uv_poll_stop(p);
+                close(p->io_watcher.fd);
+                return;
+            }
+
+            // invalid opcodes
+            if ((frame.opCode > 2 && frame.opCode < 8) || frame.opCode > 10) {
+                uv_poll_stop(p);
+                close(p->io_watcher.fd);
                 return;
             }
 
@@ -482,14 +565,13 @@ void Server::onReadable(void *vp, int status, int events)
         }
 
         if (length) {
-            cout << "Adding " << length << " bytes to spill" << endl;
+            //cout << "Adding " << length << " bytes to spill" << endl;
             memcpy(socketData->spill, src, length);
             socketData->spillLength = length;
         }
     } else {
         if (socketData->remainingBytes < length) {
-            // this path needs fixing!
-            int n = socketData->remainingBytes >> 2;
+            //int n = socketData->remainingBytes >> 2;
             uint32_t maskBytes = socketData->mask;
 
             // should these offset from src? instead of buffer?
@@ -504,7 +586,7 @@ void Server::onReadable(void *vp, int status, int events)
             }
 
             socketData->server->fragmentCallback(p, (const char *) buffer, socketData->remainingBytes,
-                                                 socketData->opCode == 2, 0);
+                                                 socketData->opCode/* == 2*/, 0);
 
             // update the src ptr
             // update the length
@@ -518,8 +600,9 @@ void Server::onReadable(void *vp, int status, int events)
             uint32_t maskBytes = socketData->mask;
             unmask_inplace((uint32_t *) buffer, ((uint32_t *) buffer) + n, maskBytes);
             socketData->remainingBytes -= length;
+
             socketData->server->fragmentCallback(p, (const char *) buffer, length,
-                                                 socketData->opCode == 2, socketData->remainingBytes);
+                                                 socketData->opCode/* == 2*/, socketData->remainingBytes);
 
             // if we perfectly read the last of the message, change state!
             if (!socketData->remainingBytes) {
@@ -584,13 +667,13 @@ void Server::onWritable(void *vp, int status, int events)
     uv_poll_start(p, UV_READABLE, (uv_poll_cb) onReadable);
 }
 
-void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, bool, size_t))
+void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, size_t))
 {
     this->fragmentCallback = fragmentCallback;
 }
 
 // this function is very slow, does copies all the time. 27% CPU time for large sends (we can get large sends since we have large fragments)
-SocketMessage::SocketMessage(char *message, size_t length, bool binary, int flags)
+SocketMessage::SocketMessage(char *message, size_t length, OpCode opCode, int flags)
 {
     if (length < 126) {
         if (length > sizeof(shortMessage) - 2) {
@@ -630,18 +713,27 @@ SocketMessage::SocketMessage(char *message, size_t length, bool binary, int flag
 
     this->message[0] = (flags & SND_NO_FIN ? 0 : 128);
     if (!(flags & SND_CONTINUATION)) {
-        this->message[0] |= (binary ? 2 : 1);
+        this->message[0] |= opCode;//(opCode ? 2 : 1);
     }
+}
+
+void Socket::fail()
+{
+    // force close the connection, used in cases of invalid input
+    uv_poll_t *p = (uv_poll_t *) socket;
+    uv_poll_stop(p);
+    //uv_close((uv_handle_t *) p, );
+    close(p->io_watcher.fd);
 }
 
 // binary or not is really not that useful, we should accept a char
 // with any valid combination of opCode / fin
 // char flags
-void Socket::send(char *data, size_t length, bool binary)
+void Socket::send(char *data, size_t length, OpCode opCode)
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     SocketData *socketData = (SocketData *) p->data;
-    socketData->server->send(socket, data, length, binary, 0);
+    socketData->server->send(socket, data, length, opCode, 0);
 }
 
 // this function is not really that great, you need to know the length
@@ -663,5 +755,5 @@ void Socket::sendFragment(char *data, size_t length, bool binary, size_t remaini
         socketData->sendState = FRAGMENT_START;
     }
 
-    socketData->server->send(socket, data, length, binary, flags);
+    //socketData->server->send(socket, data, length, binary, flags);
 }

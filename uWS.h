@@ -8,6 +8,13 @@ class Parser;
 
 namespace uWS {
 
+enum OpCode : unsigned char {
+    TEXT = 1,
+    BINARY = 2,
+    PING = 9,
+    PONG = 10
+};
+
 class Socket {
     friend class Server;
     friend class ::Parser;
@@ -17,8 +24,10 @@ private:
     {}
 public:
 
+    void fail();
+
     // this should be made more capable, with char flags!
-    void send(char *data, size_t length, bool binary); // optimized for small messages
+    void send(char *data, size_t length, OpCode opCode); // optimized for small messages
 
     // this function is just a helper,
     // not very good because you need to know the full length up front!
@@ -36,7 +45,7 @@ private:
     static void onAcceptable(void *vp, int status, int events);
     void (*connectionCallback)(Socket);
     void (*disconnectionCallback)(Socket);
-    void (*fragmentCallback)(Socket, const char *, size_t, bool, size_t);
+    void (*fragmentCallback)(Socket, const char *, size_t, OpCode, size_t);
     static const int BUFFER_SIZE = 1024 * 300;
     char *receiveBuffer;
 
@@ -49,8 +58,8 @@ public:
     ~Server();
     void onConnection(void (*connectionCallback)(Socket));
     void onDisconnection(void (*disconnectionCallback)(Socket));
-    void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, bool, size_t));
-    void send(void *vp, char *data, size_t length, bool binary, int flags);
+    void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, size_t));
+    void send(void *vp, char *data, size_t length, OpCode opCode, int flags);
     void run();
 };
 
