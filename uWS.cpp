@@ -595,7 +595,7 @@ SocketMessage::SocketMessage(char *message, size_t length, bool binary, int flag
         this->length = length + 2;
         memcpy(this->message + 2, message, length);
         this->message[1] = length;
-    } else if (length < UINT16_MAX) {
+    } else if (length <= UINT16_MAX) {
         if (length > sizeof(shortMessage) - 4) {
             this->message = new char[length + 4];
         } else {
