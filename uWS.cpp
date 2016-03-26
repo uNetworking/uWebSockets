@@ -95,7 +95,9 @@ struct SocketData {
     int sendState = FRAGMENT_START;
     int fin;
     uint32_t mask;
-    OpCode opCode;
+    OpCode opCode[2];
+    int opStack = -1;
+    bool continuation = false;
     int remainingBytes = 0;
     char spill[16];
     int spillLength = 0;
@@ -260,7 +262,21 @@ void Server::send(void *vp, char *data, size_t length, OpCode opCode, int flags)
     // send blockingly for testing purposes
     int sent = 0;
     while(sent < socketMessage.length) {
-        sent -= max((ssize_t) 0, ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message + sent, socketMessage.length - sent, MSG_NOSIGNAL));
+        ssize_t err;
+        sent -= max((ssize_t) 0, err = ::send(((uv_poll_t *) vp)->io_watcher.fd, socketMessage.message + sent, socketMessage.length - sent, MSG_NOSIGNAL));
+        if (err == -1) {
+            if (errno == ECONNRESET) {
+                // this should never happen!
+                cout << "Connection reset!" << endl;
+                break;
+            } else if(errno == EAGAIN || errno == EWOULDBLOCK) {
+
+            } else {
+                // this should never happen!
+                cout << "Unknown send error!" << endl;
+                break;
+            }
+        }
     }
     return;
 
@@ -440,14 +456,19 @@ public:
 
         unmask(src, src, headerLength - 4, headerLength, length);
         socketData->server->fragmentCallback(socket, src, length - headerLength,
-                                             (OpCode) frame.opCode/* == 2*/, socketData->remainingBytes);
+                                             /*(OpCode) frame.opCode*/ socketData->opCode[socketData->opStack], socketData->fin, socketData->remainingBytes);
     }
 
     template <typename T>
     static inline void consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, void *socket)
     {
         unmask(*src, *src, headerLength - 4, headerLength, fullPayloadLength);
-        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, (OpCode) frame.opCode/* == 2*/, 0);
+        cout << "Calling callback with opCode: " << socketData->opCode[socketData->opStack] << ", opStack: " << socketData->opStack << endl;
+        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, /*(OpCode) frame.opCode*/ socketData->opCode[socketData->opStack], socketData->fin, 0);
+
+        if (frame.fin) {
+            socketData->opStack--;
+        }
 
         *src += fullPayloadLength + headerLength;
         length -= fullPayloadLength + headerLength;
@@ -491,8 +512,15 @@ void Server::onReadable(void *vp, int status, int events)
 
         while(length >= sizeof(frameFormat)) {
             frameFormat frame = *(frameFormat *) src;
+
+            // Case 5.18
+            /*if (socketData->fin == frame.fin && frame.fin == 0 && frame.opCode) {
+                uv_poll_stop(p);
+                close(p->io_watcher.fd);
+                return;
+            }*/
+
             socketData->fin = frame.fin;
-            socketData->opCode = (OpCode) frame.opCode;
 
             // close frame
             if (frame.opCode == 8) {
@@ -512,10 +540,33 @@ void Server::onReadable(void *vp, int status, int events)
             }
 
             // invalid opcodes
-            if ((frame.opCode > 2 && frame.opCode < 8) || frame.opCode > 10) {
+            if ((frame.opCode > 2 && frame.opCode < 8) || frame.opCode > 10 /*|| (!frame.fin && frame.opCode && socketData->opStack != -1)*/) {
                 uv_poll_stop(p);
                 close(p->io_watcher.fd);
                 return;
+            }
+
+            // do not store opCode continuation!
+            if (frame.opCode) {
+
+                // if empty stack or a new op-code, push on stack!
+                if (socketData->opStack == -1 || socketData->opCode[socketData->opStack] != (OpCode) frame.opCode) {
+                    socketData->opCode[++socketData->opStack] = (OpCode) frame.opCode;
+                    cout << "Setting opCode[" << socketData->opStack << "] = " << socketData->opCode[socketData->opStack] << endl;
+
+                    if (socketData->opStack < 0) {
+                        cout << "Wow! Something is messed up now!" << endl;
+                        exit(0);
+                    }
+                }
+            } else {
+                // continuation frame must have a opcode prior!
+                if (socketData->opStack == -1) {
+                    cout << "Caught invalid continuation!" << endl;
+                    uv_poll_stop(p);
+                    close(p->io_watcher.fd);
+                    return;
+                }
             }
 
             if (frame.payloadLength > 125) {
@@ -586,7 +637,11 @@ void Server::onReadable(void *vp, int status, int events)
             }
 
             socketData->server->fragmentCallback(p, (const char *) buffer, socketData->remainingBytes,
-                                                 socketData->opCode/* == 2*/, 0);
+                                                 socketData->opCode[socketData->opStack], socketData->fin, 0);
+            //socketData->opStack = -1;
+            if (socketData->fin) {
+                socketData->opStack--;
+            }
 
             // update the src ptr
             // update the length
@@ -602,11 +657,15 @@ void Server::onReadable(void *vp, int status, int events)
             socketData->remainingBytes -= length;
 
             socketData->server->fragmentCallback(p, (const char *) buffer, length,
-                                                 socketData->opCode/* == 2*/, socketData->remainingBytes);
+                                                 socketData->opCode[socketData->opStack], socketData->fin, socketData->remainingBytes);
 
             // if we perfectly read the last of the message, change state!
             if (!socketData->remainingBytes) {
                 socketData->state = READ_HEAD;
+
+                if (socketData->fin) {
+                    socketData->opStack--;
+                }
             } else {
                 if (length % 4) {
                     rotate_mask(4 - (length % 4), &socketData->mask);
@@ -667,7 +726,7 @@ void Server::onWritable(void *vp, int status, int events)
     uv_poll_start(p, UV_READABLE, (uv_poll_cb) onReadable);
 }
 
-void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, size_t))
+void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t))
 {
     this->fragmentCallback = fragmentCallback;
 }

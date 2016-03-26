@@ -45,7 +45,7 @@ private:
     static void onAcceptable(void *vp, int status, int events);
     void (*connectionCallback)(Socket);
     void (*disconnectionCallback)(Socket);
-    void (*fragmentCallback)(Socket, const char *, size_t, OpCode, size_t);
+    void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t);
     static const int BUFFER_SIZE = 1024 * 300;
     char *receiveBuffer;
 
@@ -58,7 +58,7 @@ public:
     ~Server();
     void onConnection(void (*connectionCallback)(Socket));
     void onDisconnection(void (*disconnectionCallback)(Socket));
-    void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, size_t));
+    void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
     void send(void *vp, char *data, size_t length, OpCode opCode, int flags);
     void run();
 };

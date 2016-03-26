@@ -7,6 +7,7 @@ using namespace uWS;
 
 int connections = 0;
 string buffer;
+string controlBuffer;
 
 int main()
 {
@@ -16,15 +17,26 @@ int main()
         //cout << "Connections: " << ++connections << endl;
     });
 
-    server.onFragment([](Socket socket, const char *fragment, size_t length, OpCode opCode, size_t remainingBytes) {
+    server.onFragment([](Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes) {
         //cout << "Fragment, length: " << length << ", remaining bytes: " << remainingBytes << endl;
-        //cout << "Fragment: " << string(fragment, length) << endl;
+        cout << "Fragment: " << string(fragment, length) << ", opCode: " << opCode << ", fin: " << fin << ", remainingBytes: " << remainingBytes << endl;
         //socket.send((char *) fragment, length, binary);
 
-        if (opCode == PONG) {
-            //cout << "Got a pong!" << endl;
-            opCode = PING;
-        } else if (opCode == PING) {
+        // Text or binary
+        if (opCode < 3) {
+            buffer.append(fragment, length);
+            if (!remainingBytes && fin) {
+                cout << "Sending: " << buffer << endl;
+                socket.send((char *) buffer.c_str(), buffer.length(), opCode);
+                buffer.clear();
+            }
+        } else {
+            // if fragmented, terminate
+            if (!fin) {
+                socket.fail();
+                return;
+            }
+
             if (length + remainingBytes > 125) {
                 cout << "Error: got too long control frame!" << endl;
                 // in this case we should close the connection!
@@ -32,23 +44,23 @@ int main()
                 socket.fail();
                 return;
             }
-            opCode = PONG;
-        }
 
-        buffer.append(fragment, length);
-        if (!remainingBytes) {
-            unsigned long checksum = 0;
-            for (unsigned char c : buffer) {
-                checksum += c;
+            // swap PING/PONG
+            if (opCode == PING) {
+                opCode = PONG;
+            } else if (opCode == PONG) {
+                opCode = PING;
             }
-            //cout << "Received buffer with checksum: " << checksum << endl;
-            //cout << "Buffer length: " << buffer.length() << endl;
 
-            socket.send((char *) buffer.c_str(), buffer.length(), opCode);
-            buffer.clear();
+            // append to a separate buffer for control messages
+            controlBuffer.append(fragment, length);
+            if (!remainingBytes && fin) {
+                socket.send((char *) controlBuffer.c_str(), controlBuffer.length(), opCode);
+                controlBuffer.clear();
+            }
         }
 
-        //socket.sendFragment((char *) fragment, length, binary, remainingBytes);
+//        //socket.sendFragment((char *) fragment, length, binary, remainingBytes);
     });
 
     server.onDisconnection([](Socket socket) {
