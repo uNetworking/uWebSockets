@@ -1,7 +1,7 @@
 # µWebSockets
 `µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. License is zlib/libpng (very permissive & suites commercial applications).
 
-* Passes Autobahn chapters 1 - 4 (work in progress)
+* Passes relevant Autobahn tests. [Watch report](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/Autobahn/index.html).
 * Planned SSL/TLS support (work in progress)
 * Node.js bindings are planned and will target the `ws` interface.
 
