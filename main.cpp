@@ -15,6 +15,7 @@ int main()
 
     server.onConnection([](Socket socket) {
         //cout << "Connections: " << ++connections << endl;
+        buffer.clear();
     });
 
     server.onFragment([](Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes) {

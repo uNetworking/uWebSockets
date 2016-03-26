@@ -93,7 +93,7 @@ struct Queue {
 struct SocketData {
     int state = READ_HEAD;
     int sendState = FRAGMENT_START;
-    int fin;
+    int fin = true; //test: fin might need to be true
     uint32_t mask;
     OpCode opCode[2];
     int opStack = -1;
@@ -513,13 +513,7 @@ void Server::onReadable(void *vp, int status, int events)
         while(length >= sizeof(frameFormat)) {
             frameFormat frame = *(frameFormat *) src;
 
-            // Case 5.18
-            /*if (socketData->fin == frame.fin && frame.fin == 0 && frame.opCode) {
-                uv_poll_stop(p);
-                close(p->io_watcher.fd);
-                return;
-            }*/
-
+            int lastFin = socketData->fin;
             socketData->fin = frame.fin;
 
             // close frame
@@ -559,6 +553,17 @@ void Server::onReadable(void *vp, int status, int events)
                         exit(0);
                     }
                 }
+
+
+
+                // Case 5.18 - breaks everything else!
+                if (socketData->opStack == 0 && !lastFin && frame.fin/* && frame.opCode*/) {
+                    uv_poll_stop(p);
+                    close(p->io_watcher.fd);
+                    return;
+                }
+
+
             } else {
                 // continuation frame must have a opcode prior!
                 if (socketData->opStack == -1) {
