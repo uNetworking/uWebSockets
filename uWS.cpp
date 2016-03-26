@@ -453,12 +453,19 @@ void Server::onReadable(void *vp, int status, int events)
                     }
                 } else {
                     const int LONG_MESSAGE_HEADER = 14;
-                    if (length < LONG_MESSAGE_HEADER + 1) {
+                    // we need to have enough length to read the long length
+                    if (length < 2 + sizeof(uint64_t)) {
                         break;
                     }
-                    // long messages are always incomplete
-                    Parser::consumeIncompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, src, frame, p);
-                    return;
+                    if (be64toh(*(uint64_t *) &src[2]) <= length - LONG_MESSAGE_HEADER) {
+                        Parser::consumeCompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, &src, frame, p);
+                    } else {
+                        if (length < LONG_MESSAGE_HEADER + 1) {
+                            break;
+                        }
+                        Parser::consumeIncompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, src, frame, p);
+                        return;
+                    }
                 }
             } else {
                 const int SHORT_MESSAGE_HEADER = 6;
