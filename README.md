@@ -3,6 +3,7 @@
 
 * Passes Autobahn chapters 1 - 4 (work in progress)
 * Planned SSL/TLS support (work in progress)
+* Node.js bindings are planned and will target the `ws` interface.
 
 Project is a work in progress, initial commit was **21 March, 2016**. I'm planning to release something in a month or less.
 
@@ -21,7 +22,7 @@ server.onConnection([](uWS::Socket socket) {
 
 });
 
-server.onFragment([](uWS::Socket socket, const char *fragment, size_t length, uWS::OpCode opCode, , size_t remainingBytes) {
+server.onFragment([](uWS::Socket socket, const char *fragment, size_t length, uWS::OpCode opCode, size_t remainingBytes) {
 
 });
 
