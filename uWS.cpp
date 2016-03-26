@@ -428,10 +428,10 @@ void Server::onReadable(void *vp, int status, int events)
 
             // close frame
             if (frame.opCode == 8) {
-                return;
-            }
-
-            if (!frame.payloadLength) {
+                // we need to handle this non-blockingly
+                unsigned char closeFrame[2] = {128 | 8, 0};
+                ::send(p->io_watcher.fd, closeFrame, 2, MSG_NOSIGNAL);
+                shutdown(p->io_watcher.fd, SHUT_WR);
                 return;
             }
 
