@@ -45,10 +45,10 @@ struct Queue {
     {
         Message *nextMessage;
         if ((nextMessage = head->nextMessage)) {
-            delete head;
+            delete [] (char *) head;
             head = nextMessage;
         } else {
-            delete head;
+            delete [] (char *) head;
             head = tail = nullptr;
         }
     }
