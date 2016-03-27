@@ -26,6 +26,9 @@ int main()
         //cout << "Fragment: " << string(fragment, length) << ", opCode: " << opCode << ", fin: " << fin << ", remainingBytes: " << remainingBytes << endl;
         //socket.send((char *) fragment, length, binary);
 
+        socket.sendFragment((char *) fragment, length, opCode, remainingBytes);
+        return;
+
         // Text or binary
         if (opCode < 3) {
             buffer.append(fragment, length);

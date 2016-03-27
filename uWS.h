@@ -28,8 +28,8 @@ private:
     static char *sendBuffer;
 public:
     void fail();
-    void send(char *data, size_t length, OpCode opCode);
-    void sendFragment(char *data, size_t length, bool binary, size_t remainingBytes);
+    void send(char *data, size_t length, OpCode opCode, size_t fakedLength = 0);
+    void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
 };
 
 class Server

@@ -593,6 +593,8 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
 {
     uv_poll_t *p = (uv_poll_t *) socket;
 
+    // todo: directly queue if we have messages in the queue already!
+
     // async send
     ssize_t sent = ::send(p->io_watcher.fd, data, length, MSG_NOSIGNAL);
     if (sent == length) {
@@ -682,23 +684,23 @@ void Socket::fail()
     delete socketData;
 }
 
-inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode)
+inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength)
 {
     size_t messageLength;
-    if (length < 126) {
+    if (reportedLength < 126) {
         messageLength = length + 2;
         memcpy(dst + 2, src, length);
-        dst[1] = length;
-    } else if (length <= UINT16_MAX) {
+        dst[1] = reportedLength;
+    } else if (reportedLength <= UINT16_MAX) {
         messageLength = length + 4;
         memcpy(dst + 4, src, length);
         dst[1] = 126;
-        *((uint16_t *) &dst[2]) = htobe16(length);
+        *((uint16_t *) &dst[2]) = htobe16(reportedLength);
     } else {
         messageLength = length + 10;
         memcpy(dst + 10, src, length);
         dst[1] = 127;
-        *((uint64_t *) &dst[2]) = htobe64(length);
+        *((uint64_t *) &dst[2]) = htobe64(reportedLength);
     }
 
     int flags = 0;
@@ -709,35 +711,39 @@ inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode)
     return messageLength;
 }
 
-void Socket::send(char *data, size_t length, OpCode opCode)
+void Socket::send(char *data, size_t length, OpCode opCode, size_t fakedLength)
 {
+    size_t reportedLength = length;
+    if (fakedLength) {
+        reportedLength = fakedLength;
+    }
+
     if (length <= SHORT_SEND - 10) {
-        write(sendBuffer, formatMessage(sendBuffer, data, length, opCode), false);
+        write(sendBuffer, formatMessage(sendBuffer, data, length, opCode, reportedLength), false);
     } else {
         char *buffer = new char[sizeof(Message) + length + 10] + sizeof(Message);
-        write(buffer, formatMessage(buffer, data, length, opCode), true);
+        write(buffer, formatMessage(buffer, data, length, opCode, reportedLength), true);
     }
 }
 
-// optimize for size!
-void Socket::sendFragment(char *data, size_t length, bool binary, size_t remainingBytes)
+void Socket::sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes)
 {
-    int flags = 0;
-
     SocketData *socketData = (SocketData *) ((uv_poll_t *) socket)->data;
     if (remainingBytes) {
         if (socketData->sendState == FRAGMENT_START) {
-            flags |= SND_NO_FIN;
+            send(data, length, opCode, length + remainingBytes);
             socketData->sendState = FRAGMENT_MID;
         } else {
-            flags |= SND_CONTINUATION | SND_NO_FIN;
+            write(data, length, false);
         }
-    } else if (socketData->sendState == FRAGMENT_MID) {
-        flags |= SND_CONTINUATION;
-        socketData->sendState = FRAGMENT_START;
+    } else {
+        if (socketData->sendState == FRAGMENT_START) {
+            send(data, length, opCode);
+        } else {
+            write(data, length, false);
+            socketData->sendState = FRAGMENT_START;
+        }
     }
-
-    //socketData->server->send(socket, data, length, binary, flags);
 }
 
 bool Server::isValidUtf8(string &str)
