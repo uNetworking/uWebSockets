@@ -55,6 +55,9 @@ private:
     void disconnect(void *vp);
     void upgrade(int fd, const char *secKey);
 
+    // accept poll
+    void *server;
+
 public:
     Server(int port);
     ~Server();
@@ -62,6 +65,7 @@ public:
     void onDisconnection(void (*disconnectionCallback)(Socket));
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
     void run();
+    void close();
     static bool isValidUtf8(std::string &str);
 };
 

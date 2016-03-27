@@ -182,12 +182,23 @@ void Server::run()
 
     //SSL_CTX *SSL_CTX_new(const SSL_METHOD *method);
 
-    uv_poll_t listenPoll;
-    uv_poll_init(uv_default_loop(), &listenPoll, listenFd);
-    uv_poll_start(&listenPoll, UV_READABLE, (uv_poll_cb) onAcceptable);
-    listenPoll.data = this;
+    this->server = new uv_poll_t;
+    uv_poll_init(uv_default_loop(), (uv_poll_t *) this->server, listenFd);
+    uv_poll_start((uv_poll_t *) this->server, UV_READABLE, (uv_poll_cb) onAcceptable);
+    ((uv_poll_t *) this->server)->data = this;
 
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+}
+
+void Server::close()
+{
+    uv_poll_stop((uv_poll_t *) this->server);
+    uv_close((uv_handle_t *) this->server, [](uv_handle_t *handle) {
+        delete (uv_poll_t *) handle;
+    });
+
+    // todo: loop over all connected sockets and close them
+    // use the same looper as when looping for broadcast
 }
 
 void Server::onAcceptable(void *vp, int status, int events)
@@ -227,9 +238,9 @@ void Server::disconnect(void *vp)
     uv_poll_stop(p);
     delete (SocketData *) p->data;
     uv_close((uv_handle_t *) p, [](uv_handle_t *h) {
-        delete h;
+        delete (uv_poll_t *) h;
     });
-    close(fd);
+    ::close(fd);
 }
 
 void Server::upgrade(int fd, const char *secKey)
@@ -323,15 +334,19 @@ public:
 
         unmask(src, src, headerLength - 4, headerLength, length);
         socketData->server->fragmentCallback(socket, src, length - headerLength,
-                                             /*(OpCode) frame.opCode*/ socketData->opCode[socketData->opStack], socketData->fin, socketData->remainingBytes);
+                                             socketData->opCode[socketData->opStack], socketData->fin, socketData->remainingBytes);
     }
 
     template <typename T>
-    static inline void consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, void *socket)
+    static inline int consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, void *socket)
     {
         unmask(*src, *src, headerLength - 4, headerLength, fullPayloadLength);
-        //cout << "Calling callback with opCode: " << socketData->opCode[socketData->opStack] << ", opStack: " << socketData->opStack << endl;
-        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, /*(OpCode) frame.opCode*/ socketData->opCode[socketData->opStack], socketData->fin, 0);
+        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, socketData->opCode[socketData->opStack], socketData->fin, 0);
+
+        // did we close the socket using Socket.fail()?
+        if (uv_is_closing((uv_handle_t *) socket)) {
+            return 1;
+        }
 
         if (frame.fin) {
             socketData->opStack--;
@@ -340,6 +355,7 @@ public:
         *src += fullPayloadLength + headerLength;
         length -= fullPayloadLength + headerLength;
         socketData->spillLength = 0;
+        return 0;
     }
 };
 }
@@ -350,10 +366,14 @@ void Server::onReadable(void *vp, int status, int events)
     uv_poll_t *p = (uv_poll_t *) vp;
     SocketData *socketData = (SocketData *) p->data;
 
+    // this one is not needed, read will do this!
     if (status < 0) {
         //cout << "Closing socket from read error" << endl;
-        fflush(stdout);
-        socketData->server->disconnect(vp);
+        //fflush(stdout);
+        //socketData->server->disconnect(vp);
+
+        socketData->server->disconnectionCallback(vp);
+        Socket(p).fail();
         return;
     }
 
@@ -369,8 +389,10 @@ void Server::onReadable(void *vp, int status, int events)
 
     if (!(length - socketData->spillLength)) {
         //cout << "Closing socket from read zero" << endl;
-        fflush(stdout);
-        socketData->server->disconnect(vp);
+        //fflush(stdout);
+        //socketData->server->disconnect(vp);
+        socketData->server->disconnectionCallback(vp);
+        Socket(p).fail();
         return;
     }
 
@@ -396,17 +418,19 @@ void Server::onReadable(void *vp, int status, int events)
 
             // invalid reserved bits
             if (frame.rsv1 || frame.rsv2 || frame.rsv3) {
-                uv_poll_stop(p);
-                close(p->io_watcher.fd);
+                //uv_poll_stop(p);
+                //::close(p->io_watcher.fd);
                 socketData->server->disconnectionCallback(p);
+                Socket(p).fail();
                 return;
             }
 
             // invalid opcodes
             if ((frame.opCode > 2 && frame.opCode < 8) || frame.opCode > 10 /*|| (!frame.fin && frame.opCode && socketData->opStack != -1)*/) {
-                uv_poll_stop(p);
-                close(p->io_watcher.fd);
+                //uv_poll_stop(p);
+                //::close(p->io_watcher.fd);
                 socketData->server->disconnectionCallback(p);
+                Socket(p).fail();
                 return;
             }
 
@@ -426,18 +450,20 @@ void Server::onReadable(void *vp, int status, int events)
 
                 // Case 5.18
                 if (socketData->opStack == 0 && !lastFin && frame.fin) {
-                    uv_poll_stop(p);
-                    close(p->io_watcher.fd);
+                    //uv_poll_stop(p);
+                    //::close(p->io_watcher.fd);
                     socketData->server->disconnectionCallback(p);
+                    Socket(p).fail();
                     return;
                 }
 
             } else {
                 // continuation frame must have a opcode prior!
                 if (socketData->opStack == -1) {
-                    uv_poll_stop(p);
-                    close(p->io_watcher.fd);
+                    //uv_poll_stop(p);
+                    //::close(p->io_watcher.fd);
                     socketData->server->disconnectionCallback(p);
+                    Socket(p).fail();
                     return;
                 }
             }
@@ -450,7 +476,10 @@ void Server::onReadable(void *vp, int status, int events)
                         break;
                     }
                     if (be16toh(*(uint16_t *) &src[2]) <= length - MEDIUM_MESSAGE_HEADER) {
-                        Parser::consumeCompleteMessage(length, MEDIUM_MESSAGE_HEADER, be16toh(*(uint16_t *) &src[2]), socketData, &src, frame, p);
+                        int err = Parser::consumeCompleteMessage(length, MEDIUM_MESSAGE_HEADER, be16toh(*(uint16_t *) &src[2]), socketData, &src, frame, p);
+                        if (err) {
+                            return;
+                        }
                     } else {
                         if (length < MEDIUM_MESSAGE_HEADER + 1) {
                             break;
@@ -465,7 +494,10 @@ void Server::onReadable(void *vp, int status, int events)
                         break;
                     }
                     if (be64toh(*(uint64_t *) &src[2]) <= length - LONG_MESSAGE_HEADER) {
-                        Parser::consumeCompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, &src, frame, p);
+                        int err = Parser::consumeCompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, &src, frame, p);
+                        if (err) {
+                            return;
+                        }
                     } else {
                         if (length < LONG_MESSAGE_HEADER + 1) {
                             break;
@@ -477,7 +509,10 @@ void Server::onReadable(void *vp, int status, int events)
             } else {
                 const int SHORT_MESSAGE_HEADER = 6;
                 if (frame.payloadLength <= length - SHORT_MESSAGE_HEADER) {
-                    Parser::consumeCompleteMessage(length, SHORT_MESSAGE_HEADER, frame.payloadLength, socketData, &src, frame, p);
+                    int err = Parser::consumeCompleteMessage(length, SHORT_MESSAGE_HEADER, frame.payloadLength, socketData, &src, frame, p);
+                    if (err) {
+                        return;
+                    }
                 } else {
                     if (length < SHORT_MESSAGE_HEADER + 1) {
                         break;
@@ -629,13 +664,22 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
     }
 }
 
+// this one can be called inside the parser!
+// if we close a socket we need to inform the parser!
 void Socket::fail()
 {
     // force close the connection, used in cases of invalid input
     uv_poll_t *p = (uv_poll_t *) socket;
+    int fd = p->io_watcher.fd;
     uv_poll_stop(p);
-    //uv_close((uv_handle_t *) p, );
-    close(p->io_watcher.fd);
+    uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
+        //cout << "Close callback, handle: " << handle << endl;
+        delete (uv_poll_t *) handle;
+    });
+    close(fd);
+
+    SocketData *socketData = (SocketData *) p->data;
+    delete socketData;
 }
 
 inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode)

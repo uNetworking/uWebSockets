@@ -9,6 +9,8 @@ int connections = 0;
 string buffer;
 string controlBuffer;
 
+Server *server;
+
 int main()
 {
     Server server(3000);
@@ -68,8 +70,19 @@ int main()
     });
 
     // Socket.fail does not call this one!
+    ::server = &server;
     server.onDisconnection([](Socket socket) {
         cout << "Connections: " << --connections << endl;
+
+        buffer.clear();
+        controlBuffer.clear();
+
+        static int numDisconnections = 0;
+        numDisconnections++;
+        if (numDisconnections == 224) {
+            cout << "Closing after Autobahn test" << endl;
+            ::server->close();
+        }
     });
 
     server.run();
