@@ -14,7 +14,7 @@ int main()
     Server server(3000);
 
     server.onConnection([](Socket socket) {
-        //cout << "Connections: " << ++connections << endl;
+        cout << "Connections: " << ++connections << endl;
         buffer.clear();
         controlBuffer.clear();
     });
@@ -35,6 +35,7 @@ int main()
         } else {
             // if fragmented, terminate
             if (!fin) {
+                cout << "Connections: " << --connections << endl;
                 socket.fail();
                 return;
             }
@@ -43,6 +44,7 @@ int main()
                 cout << "Error: got too long control frame!" << endl;
                 // in this case we should close the connection!
                 // Case 2.5
+                cout << "Connections: " << --connections << endl;
                 socket.fail();
                 return;
             }
@@ -65,8 +67,9 @@ int main()
 //        //socket.sendFragment((char *) fragment, length, binary, remainingBytes);
     });
 
+    // Socket.fail does not call this one!
     server.onDisconnection([](Socket socket) {
-        //cout << "Connections: " << --connections << endl;
+        cout << "Connections: " << --connections << endl;
     });
 
     server.run();

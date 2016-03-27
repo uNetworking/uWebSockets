@@ -4,8 +4,6 @@
 #include <cstddef>
 #include <functional>
 
-class Parser;
-
 namespace uWS {
 
 enum OpCode : unsigned char {
@@ -15,37 +13,40 @@ enum OpCode : unsigned char {
     PONG = 10
 };
 
+class Parser;
+
 class Socket {
     friend class Server;
-    friend class ::Parser;
+    friend class Parser;
 private:
     void *socket;
-    Socket(void *p) : socket(p)
-    {}
+    Socket(void *p) : socket(p) {}
+    void write(char *data, size_t length, bool transferOwnership);
+
+    static const int SHORT_SEND = 4096;
+    static char *sendBuffer;
 public:
-
     void fail();
-
-    // this should be made more capable, with char flags!
-    void send(char *data, size_t length, OpCode opCode); // optimized for small messages
-
-    // this function is just a helper,
-    // not very good because you need to know the full length up front!
-
-    // actually, this function can be optimized a lot for sending large fixed size messages
-    void sendFragment(char *data, size_t length, bool binary, size_t remainingBytes); // optimized for large fixed sized messages (sendmsg instead of copying)
+    void send(char *data, size_t length, OpCode opCode);
+    void sendFragment(char *data, size_t length, bool binary, size_t remainingBytes);
 };
 
 class Server
 {
-    friend class ::Parser;
+    friend class Parser;
+    friend class Socket;
 private:
+    // internal callbacks
     static void onReadable(void *vp, int status, int events);
     static void onWritable(void *vp, int status, int events);
     static void onAcceptable(void *vp, int status, int events);
+
+    // external callbacks
     void (*connectionCallback)(Socket);
     void (*disconnectionCallback)(Socket);
     void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t);
+
+    // buffers
     static const int BUFFER_SIZE = 1024 * 300;
     char *receiveBuffer;
 
@@ -59,7 +60,6 @@ public:
     void onConnection(void (*connectionCallback)(Socket));
     void onDisconnection(void (*disconnectionCallback)(Socket));
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
-    void send(void *vp, char *data, size_t length, OpCode opCode, int flags);
     void run();
 };
 
