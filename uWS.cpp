@@ -695,3 +695,9 @@ void Socket::sendFragment(char *data, size_t length, bool binary, size_t remaini
 
     //socketData->server->send(socket, data, length, binary, flags);
 }
+
+bool Server::isValidUtf8(string &str)
+{
+    extern unsigned char *utf8_check(unsigned char *s);
+    return (!utf8_check((unsigned char *) str.c_str()));
+}

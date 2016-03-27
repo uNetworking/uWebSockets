@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <string>
 
 namespace uWS {
 
@@ -61,6 +62,7 @@ public:
     void onDisconnection(void (*disconnectionCallback)(Socket));
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
     void run();
+    static bool isValidUtf8(std::string &str);
 };
 
 }

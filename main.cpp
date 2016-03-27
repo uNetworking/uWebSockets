@@ -28,6 +28,14 @@ int main()
         if (opCode < 3) {
             buffer.append(fragment, length);
             if (!remainingBytes && fin) {
+
+                // Chapter 6
+                if (opCode == 1 && !Server::isValidUtf8(buffer)) {
+                    cout << "Connections: " << --connections << endl;
+                    socket.fail();
+                    return;
+                }
+
                 socket.send((char *) buffer.c_str(), buffer.length(), opCode);
                 buffer.clear();
             }
