@@ -623,6 +623,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
                 messagePtr = (Message *) new char[sizeof(Message) + length - sent];
                 messagePtr->length = length - sent;
                 messagePtr->data = ((char *) messagePtr) + sizeof(Message);
+                messagePtr->nextMessage = nullptr;
                 memcpy(messagePtr->data, data + sent, messagePtr->length);
             }
 
