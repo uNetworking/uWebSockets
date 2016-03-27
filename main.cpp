@@ -28,22 +28,14 @@ int main()
         if (opCode < 3) {
             buffer.append(fragment, length);
             if (!remainingBytes && fin) {
-                //cout << "Sending: " << buffer << endl;
                 socket.send((char *) buffer.c_str(), buffer.length(), opCode);
                 buffer.clear();
             }
         } else {
-            // if fragmented, terminate
-            if (!fin) {
-                cout << "Connections: " << --connections << endl;
-                socket.fail();
-                return;
-            }
 
-            if (length + remainingBytes > 125) {
-                cout << "Error: got too long control frame!" << endl;
-                // in this case we should close the connection!
-                // Case 2.5
+            // this part is control frame, should be handeled in the lib?
+
+            if (!fin || (length + remainingBytes > 125)) {
                 cout << "Connections: " << --connections << endl;
                 socket.fail();
                 return;
@@ -73,6 +65,6 @@ int main()
     });
 
     server.run();
-    cout << "Fell though!" << endl;
+    cout << "Fell through!" << endl;
     return 0;
 }

@@ -367,7 +367,7 @@ void Server::onReadable(void *vp, int status, int events)
 
     //int SSL_read(SSL *ssl, void *buf, int num);
 
-    if (!length) {
+    if (!(length - socketData->spillLength)) {
         //cout << "Closing socket from read zero" << endl;
         fflush(stdout);
         socketData->server->disconnect(vp);
@@ -398,6 +398,7 @@ void Server::onReadable(void *vp, int status, int events)
             if (frame.rsv1 || frame.rsv2 || frame.rsv3) {
                 uv_poll_stop(p);
                 close(p->io_watcher.fd);
+                socketData->server->disconnectionCallback(p);
                 return;
             }
 
@@ -405,6 +406,7 @@ void Server::onReadable(void *vp, int status, int events)
             if ((frame.opCode > 2 && frame.opCode < 8) || frame.opCode > 10 /*|| (!frame.fin && frame.opCode && socketData->opStack != -1)*/) {
                 uv_poll_stop(p);
                 close(p->io_watcher.fd);
+                socketData->server->disconnectionCallback(p);
                 return;
             }
 
@@ -426,15 +428,16 @@ void Server::onReadable(void *vp, int status, int events)
                 if (socketData->opStack == 0 && !lastFin && frame.fin) {
                     uv_poll_stop(p);
                     close(p->io_watcher.fd);
+                    socketData->server->disconnectionCallback(p);
                     return;
                 }
 
             } else {
                 // continuation frame must have a opcode prior!
                 if (socketData->opStack == -1) {
-                    cout << "Caught invalid continuation!" << endl;
                     uv_poll_stop(p);
                     close(p->io_watcher.fd);
+                    socketData->server->disconnectionCallback(p);
                     return;
                 }
             }
@@ -602,6 +605,10 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
                         socketData->messageQueue.pop();
                     } else {
                         if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+
+                            // will this trigger a read with 0 length?
+                            cout << "Send error in async write" << endl;
+
                             // error sending!
                             // when closing a socket, we need to empty the message queue!
                             uv_poll_start(handle, UV_READABLE, (uv_poll_cb) Server::onReadable);
