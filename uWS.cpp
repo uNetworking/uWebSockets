@@ -230,6 +230,8 @@ void Server::onAcceptable(void *vp, int status, int events)
     int length = read(clientFd, buffer, sizeof(buffer));
     string upgrade((const char *) buffer, length);
 
+    cout << upgrade << endl;
+
     // parse headers
     string secKey = upgrade.substr(upgrade.find("Sec-WebSocket-Key: ", 0) + 19, 24);
     string secVersion = upgrade.substr(upgrade.find("Sec-WebSocket-Version: ", 0) + 23, 2);

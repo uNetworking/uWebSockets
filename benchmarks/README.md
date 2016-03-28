@@ -6,4 +6,4 @@ These are the benchmarks used in testing the different WebSocket server implemen
 
 Echo servers used in testing are presented in this folder as: uWS.cpp, wsPP.cpp, ws.js and lws.cpp.
 
-If you have 4 cores, it is recommended to run the bench3 as 3 client instances, while having the server on the last core to fully stress it. It might also be a good idea to run the bench2 as 2 client instances, to really stress the server. Bench1 is enough to stress the server fully, even as a single instance.
+Make sure to stress the server fully. This means you need to split the work up into multiple client instances if the server is not at 100% CPU. As an example, I run the bench3 split over 3 client instances. I also run bench2 split over 1-4 instances with split load. Bench1 can be run as one instance as that benchmark is enough to stress any server.
