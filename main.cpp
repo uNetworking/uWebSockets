@@ -28,8 +28,8 @@ int main()
 
         static int numDisconnections = 0;
         numDisconnections++;
-        //cout << numDisconnections << endl;
-        if (numDisconnections == 227) {
+        cout << numDisconnections << endl;
+        if (numDisconnections == 302) {
             cout << "Closing after Autobahn test" << endl;
             ::server->close();
         }
