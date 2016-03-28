@@ -7,11 +7,11 @@
 Project is a work in progress, initial commit was **21 March, 2016**. I'm planning to release something in a month or less.
 
 ## Benchmarks table
-Implementation | Memory scaling | Short message throughput | Huge message throughput
---- | --- | --- | ---
-libwebsockets | µWS is **10x** better | µWS is **2x** better | µWS is equal or slightly better
-ws | µWS is **70x** better | µWS is **10x** better | µWS is **3x** better
-WebSocket++ | µWS is **70x** better | µWS is equal or slightly better | µWS is **3x** better
+Implementation | Memory scaling | Connection performance | Short message throughput | Huge message throughput
+--- | --- | --- | --- | ---
+libwebsockets master(1.7-1.8) | µWS is **15x** better | µWS is **3% worse** | µWS is **25%** better | µWS is equal or slightly better
+ws v1.0.1 | µWS is **55x** better | µWS is **16x** better | µWS is **8x** better | µWS is **2x** better
+WebSocket++ v0.7.0 | µWS is **65x** better | µWS is **4x** better | µWS is **7%** better | µWS is **3x** better
 
 ## Quality control
 * Valgrind clean
