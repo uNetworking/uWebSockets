@@ -83,19 +83,23 @@ struct Queue {
 };
 
 struct SocketData {
-    int state = READ_HEAD;
-    int sendState = FRAGMENT_START;
-    int fin = true; //test: fin might need to be true
-    uint32_t mask;
-    OpCode opCode[2];
-    int opStack = -1;
-    bool continuation = false;
-    int remainingBytes = 0;
+    char state = READ_HEAD;
+    char sendState = FRAGMENT_START;
+    char fin = true;
+    char opStack = -1;
     char spill[16];
-    int spillLength = 0;
+    char spillLength = 0;
+    unsigned int remainingBytes = 0;
+    uint32_t mask;
+    //char *controlBuffer = nullptr;
+    OpCode opCode[2];
     Server *server;
-
     Queue messageQueue;
+
+    // these needs to be pointers and allocate in worst case!
+    unsigned int bufferLength = 0;
+    string buffer;
+    string controlBuffer;
 };
 
 char *base64(const unsigned char *input, int length)
@@ -146,6 +150,9 @@ Server::Server(int port)
     if (!Socket::sendBuffer) {
         Socket::sendBuffer = new char[Socket::SHORT_SEND];
     }
+
+    // set default fragment handler
+    fragmentCallback = internalFragment;
 }
 
 Server::~Server()
@@ -228,6 +235,62 @@ void Server::onAcceptable(void *vp, int status, int events)
     string secVersion = upgrade.substr(upgrade.find("Sec-WebSocket-Version: ", 0) + 23, 2);
 
     ((Server *) p->data)->upgrade(clientFd, secKey.c_str());
+}
+
+// default fragment handler
+void Server::internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes)
+{
+    socket.send((char *) fragment, length, opCode);
+    return;
+
+    uv_poll_t *p = (uv_poll_t *) socket.socket;
+    SocketData *socketData = (SocketData *) p->data;
+
+    // Text or binary
+    if (opCode < 3) {
+
+        if (!remainingBytes && fin && !socketData->bufferLength/*&& !socketData->buffer.length()*/) {
+            socketData->server->messageCallback(socket, (char *) fragment, length, opCode);
+        } else {
+
+            /*socketData->buffer.append(fragment, length);
+            if (!remainingBytes && fin) {
+
+                // Chapter 6 (kommer ske i onMessage buffring
+                if (opCode == 1 && !Server::isValidUtf8(socketData->buffer)) {
+                    //cout << "Connections: " << --connections << endl;
+                    socket.fail();
+                    return;
+                }
+
+                socketData->server->messageCallback(socket, (char *) socketData->buffer.c_str(), socketData->buffer.length(), opCode);
+                //socket.send((char *) buffer.c_str(), buffer.length(), opCode);
+                socketData->buffer.clear();
+            }*/
+
+        }
+
+    } else {
+
+        // swap PING/PONG
+        if (opCode == PING) {
+            opCode = PONG;
+        } else if (opCode == PONG) {
+            opCode = PING;
+        }
+
+        /*if (remainingBytes) {
+            if ()
+        } else {
+        socket.send((char *) fragment, length, opCode);*/
+
+        // append to a separate buffer for control messages
+        socketData->controlBuffer.append(fragment, length);
+        if (!remainingBytes && fin) {
+            socket.send((char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length(), opCode);
+            socketData->controlBuffer.clear();
+        }
+    }
 }
 
 void Server::disconnect(void *vp)
@@ -367,36 +430,29 @@ void Server::onReadable(void *vp, int status, int events)
     SocketData *socketData = (SocketData *) p->data;
 
     // this one is not needed, read will do this!
-    if (status < 0) {
-        //cout << "Closing socket from read error" << endl;
-        //fflush(stdout);
-        //socketData->server->disconnect(vp);
-
+    /*if (status < 0) {
         socketData->server->disconnectionCallback(vp);
         Socket(p).fail();
         return;
-    }
+    }*/
 
-    char *buffer = socketData->server->receiveBuffer;
+    char *src/*buffer*/ = socketData->server->receiveBuffer;
 
     // for testing
-    int maxRead = BUFFER_SIZE;//rand() % 1024 + 1;//BUFFER_SIZE;
+    //int maxRead = BUFFER_SIZE;//rand() % 1024 + 1;//BUFFER_SIZE;
 
-    memcpy(buffer, socketData->spill, socketData->spillLength);
-    int length = socketData->spillLength + read(p->io_watcher.fd, buffer + socketData->spillLength, min(maxRead, BUFFER_SIZE - socketData->spillLength));
+    memcpy(/*buffer*/ src, socketData->spill, socketData->spillLength);
+    int length = socketData->spillLength + read(p->io_watcher.fd, src/*buffer*/ + socketData->spillLength, /*min(maxRead, */BUFFER_SIZE - socketData->spillLength/*)*/);
 
     //int SSL_read(SSL *ssl, void *buf, int num);
 
     if (!(length - socketData->spillLength)) {
-        //cout << "Closing socket from read zero" << endl;
-        //fflush(stdout);
-        //socketData->server->disconnect(vp);
         socketData->server->disconnectionCallback(vp);
         Socket(p).fail();
         return;
     }
 
-    char *src = (char *) buffer;
+    //char *src = (char *) buffer;
     parseNext:
     if (socketData->state == READ_HEAD) {
 
@@ -409,7 +465,6 @@ void Server::onReadable(void *vp, int status, int events)
             // close frame
             if (frame.opCode == 8) {
                 // we need to handle this non-blockingly
-                //cout << "Closing frame" << endl;
                 unsigned char closeFrame[2] = {128 | 8, 0};
                 ::send(p->io_watcher.fd, closeFrame, 2, MSG_NOSIGNAL);
                 shutdown(p->io_watcher.fd, SHUT_WR);
@@ -418,8 +473,6 @@ void Server::onReadable(void *vp, int status, int events)
 
             // invalid reserved bits
             if (frame.rsv1 || frame.rsv2 || frame.rsv3) {
-                //uv_poll_stop(p);
-                //::close(p->io_watcher.fd);
                 socketData->server->disconnectionCallback(p);
                 Socket(p).fail();
                 return;
@@ -440,18 +493,17 @@ void Server::onReadable(void *vp, int status, int events)
                 // if empty stack or a new op-code, push on stack!
                 if (socketData->opStack == -1 || socketData->opCode[socketData->opStack] != (OpCode) frame.opCode) {
                     socketData->opCode[++socketData->opStack] = (OpCode) frame.opCode;
-                    //cout << "Setting opCode[" << socketData->opStack << "] = " << socketData->opCode[socketData->opStack] << endl;
-
-                    if (socketData->opStack < 0) {
-                        cout << "Wow! Something is messed up now!" << endl;
-                        exit(0);
-                    }
                 }
 
                 // Case 5.18
                 if (socketData->opStack == 0 && !lastFin && frame.fin) {
-                    //uv_poll_stop(p);
-                    //::close(p->io_watcher.fd);
+                    socketData->server->disconnectionCallback(p);
+                    Socket(p).fail();
+                    return;
+                }
+
+                // control frames cannot be fragmented or long
+                if (frame.opCode > 2 && (!frame.fin || frame.payloadLength > 125)) {
                     socketData->server->disconnectionCallback(p);
                     Socket(p).fail();
                     return;
@@ -538,14 +590,22 @@ void Server::onReadable(void *vp, int status, int events)
 
             //todo: unmask the last bytes without overwriting
 
+            cout << "slow path!" << endl;
+
             // unoptimized!
             char *mask = (char *) &maskBytes;
             for (int i = 0; i < socketData->remainingBytes; i++) {
                 src[i] ^= mask[i % 4];
             }
 
-            socketData->server->fragmentCallback(p, (const char *) buffer, socketData->remainingBytes,
+            socketData->server->fragmentCallback(p, (const char *) /*buffer*/ src, socketData->remainingBytes,
                                                  socketData->opCode[socketData->opStack], socketData->fin, 0);
+
+            // did we close the socket using Socket.fail()?
+            if (uv_is_closing((uv_handle_t *) socket)) {
+                return;
+            }
+
             //socketData->opStack = -1;
             if (socketData->fin) {
                 socketData->opStack--;
@@ -561,11 +621,16 @@ void Server::onReadable(void *vp, int status, int events)
             // the complete buffer is all data
             int n = (length >> 2) + bool(length % 4);
             uint32_t maskBytes = socketData->mask;
-            unmask_inplace((uint32_t *) buffer, ((uint32_t *) buffer) + n, maskBytes);
+            unmask_inplace((uint32_t *) /*buffer*/ src, ((uint32_t *) /*buffer*/ src) + n, maskBytes);
             socketData->remainingBytes -= length;
 
-            socketData->server->fragmentCallback(p, (const char *) buffer, length,
+            socketData->server->fragmentCallback(p, (const char *) /*buffer*/ src, length,
                                                  socketData->opCode[socketData->opStack], socketData->fin, socketData->remainingBytes);
+
+            // did we close the socket using Socket.fail()?
+            if (uv_is_closing((uv_handle_t *) socket)) {
+                return;
+            }
 
             // if we perfectly read the last of the message, change state!
             if (!socketData->remainingBytes) {
@@ -588,6 +653,11 @@ void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, O
     this->fragmentCallback = fragmentCallback;
 }
 
+void Server::onMessage(void (*messageCallback)(Socket, const char *, size_t, OpCode))
+{
+    this->messageCallback = messageCallback;
+}
+
 // async Unix send (has a Message struct in the start if transferOwnership)
 void Socket::write(char *data, size_t length, bool transferOwnership)
 {
@@ -597,6 +667,14 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
 
     // async send
     ssize_t sent = ::send(p->io_watcher.fd, data, length, MSG_NOSIGNAL);
+
+    // test for plausible bug
+    SocketData *socketData = (SocketData *) p->data;
+    if (sent > 0 && !socketData->messageQueue.empty()) {
+        cout << "SEND ERROR!" << endl;
+        exit(-33);
+    }
+
     if (sent == length) {
         // everything was sent in one go!
         if (transferOwnership) {

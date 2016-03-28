@@ -41,11 +41,13 @@ private:
     static void onReadable(void *vp, int status, int events);
     static void onWritable(void *vp, int status, int events);
     static void onAcceptable(void *vp, int status, int events);
+    static void internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes);
 
     // external callbacks
     void (*connectionCallback)(Socket);
     void (*disconnectionCallback)(Socket);
     void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t);
+    void (*messageCallback)(Socket socket, const char *message, size_t length, OpCode opCode);
 
     // buffers
     static const int BUFFER_SIZE = 1024 * 300;
@@ -64,6 +66,7 @@ public:
     void onConnection(void (*connectionCallback)(Socket));
     void onDisconnection(void (*disconnectionCallback)(Socket));
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
+    void onMessage(void (*messageCallback)(Socket, const char *, size_t, OpCode));
     void run();
     void close();
     static bool isValidUtf8(std::string &str);
