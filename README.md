@@ -20,19 +20,24 @@ WebSocket++ | µWS is **70x** better | µWS is equal or slightly better | µWS i
 
 ## Overview
 ```c++
-uWS::Server server(3000, ...);
+int main()
+{
+    /* this is an echo server that properly passes every supported Autobahn test */
+    uWS::Server server(3000);
+    server.onConnection([](uWS::Socket socket) {
+        cout << "[Connection] clients: " << ++connections << endl;
+    });
 
-server.onConnection([](uWS::Socket socket) {
+    server.onMessage([](uWS::Socket socket, const char *message, size_t length, OpCode opCode) {
+        socket.send((char *) message, length, opCode);
+    });
 
-});
+    server.onDisconnection([](uWS::Socket socket) {
+        cout << "[Disconnection] clients: " << --connections << endl;
+    });
 
-server.onFragment([](uWS::Socket socket, const char *fragment, size_t length, uWS::OpCode opCode, size_t remainingBytes) {
-
-});
-
-server.onDisconnection([](uWS::Socket socket) {
-
-});
+    server.run();
+}
 ```
 
 ## Dependencies
