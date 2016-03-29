@@ -23,11 +23,8 @@ private:
     void *socket;
     Socket(void *p) : socket(p) {}
     void write(char *data, size_t length, bool transferOwnership);
-
-    static const int SHORT_SEND = 4096;
-    static char *sendBuffer;
 public:
-    void fail();
+    void fail(); // aka close
     void send(char *data, size_t length, OpCode opCode, size_t fakedLength = 0);
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
 };
@@ -50,15 +47,13 @@ private:
     void (*messageCallback)(Socket socket, const char *message, size_t length, OpCode opCode);
 
     // buffers
-    static const int BUFFER_SIZE = 1024 * 300;
-    char *receiveBuffer;
-
-    // socket management
-    void disconnect(void *vp);
-    void upgrade(int fd, const char *secKey);
+    char *receiveBuffer, *sendBuffer;
+    static const int BUFFER_SIZE = 307200,
+                     SHORT_SEND = 4096;
 
     // accept poll
     void *server;
+    void *listenAddr;
 
 public:
     Server(int port);
@@ -69,6 +64,7 @@ public:
     void onMessage(void (*messageCallback)(Socket, const char *, size_t, OpCode));
     void run();
     void close();
+    void upgrade(int fd, const char *secKey);
     static bool isValidUtf8(std::string &str);
 };
 

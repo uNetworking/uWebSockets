@@ -10,6 +10,7 @@ using namespace std;
 #include <unistd.h>
 #include <cstring>
 #include <endian.h>
+#include <malloc.h>
 
 #include <openssl/sha.h>
 #include <openssl/bio.h>
@@ -91,13 +92,11 @@ struct SocketData {
     char spillLength = 0;
     unsigned int remainingBytes = 0;
     uint32_t mask;
-    //char *controlBuffer = nullptr;
     OpCode opCode[2];
     Server *server;
     Queue messageQueue;
 
-    // these needs to be pointers and allocate in worst case!
-    unsigned int bufferLength = 0;
+    // turns out these are very lightweight (in GCC)
     string buffer;
     string controlBuffer;
 };
@@ -133,10 +132,6 @@ struct __attribute__((packed)) frameFormat {
     bool mask : 1;
 };
 
-#include <malloc.h>
-
-char *Socket::sendBuffer = nullptr;
-
 Server::Server(int port)
 {
     // we need 24 bytes over to not read invalidly outside
@@ -145,14 +140,15 @@ Server::Server(int port)
     receiveBuffer = (char *) memalign(32, BUFFER_SIZE + 24);
     //receiveBuffer = (char *) new uint32_t[BUFFER_SIZE / 4 + 6];
 
-
-    // shared among all process
-    if (!Socket::sendBuffer) {
-        Socket::sendBuffer = new char[Socket::SHORT_SEND];
-    }
+    sendBuffer = new char[SHORT_SEND];
 
     // set default fragment handler
     fragmentCallback = internalFragment;
+
+    listenAddr = new sockaddr_in;
+    ((sockaddr_in *) listenAddr)->sin_family = AF_INET;
+    ((sockaddr_in *) listenAddr)->sin_addr.s_addr = INADDR_ANY;
+    ((sockaddr_in *) listenAddr)->sin_port = htons(port);
 }
 
 Server::~Server()
@@ -160,7 +156,8 @@ Server::~Server()
     free(receiveBuffer);
     //delete [] receiveBuffer;
 
-
+    delete [] sendBuffer;
+    delete (sockaddr_in *) listenAddr;
 }
 
 void Server::onConnection(void (*connectionCallback)(Socket))
@@ -176,12 +173,7 @@ void Server::onDisconnection(void (*disconnectionCallback)(Socket))
 void Server::run()
 {
     int listenFd = socket(AF_INET, SOCK_STREAM, 0);
-
-    sockaddr_in listenAddr;
-    listenAddr.sin_family = AF_INET;
-    listenAddr.sin_addr.s_addr = INADDR_ANY;
-    listenAddr.sin_port = htons(3000);
-    bind(listenFd, (sockaddr *) &listenAddr, sizeof(listenAddr));
+    bind(listenFd, (sockaddr *) listenAddr, sizeof(sockaddr_in));
 
     if (listen(listenFd, 10) == -1) {
         throw 0; //ERR_LISTEN
@@ -212,13 +204,8 @@ void Server::onAcceptable(void *vp, int status, int events)
 {
     uv_poll_t *p = (uv_poll_t *) vp;
 
-    sockaddr_in listenAddr;
-    listenAddr.sin_family = AF_INET;
-    listenAddr.sin_addr.s_addr = INADDR_ANY;
-    listenAddr.sin_port = htons(3000);
-
     socklen_t listenAddrLength = sizeof(sockaddr_in);
-    int clientFd = accept(p->io_watcher.fd, (sockaddr *) &listenAddr, &listenAddrLength);
+    int clientFd = accept(p->io_watcher.fd, (sockaddr *) ((Server *) p->data)->listenAddr, &listenAddrLength);
 
     //SSL *SSL_new(SSL_CTX *ctx);
     //int SSL_set_fd(SSL *ssl, int fd);
@@ -296,19 +283,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
     }
 }
 
-void Server::disconnect(void *vp)
-{
-    uv_poll_t *p = (uv_poll_t *) vp;
-    disconnectionCallback(vp);
-    int fd = p->io_watcher.fd;
-    uv_poll_stop(p);
-    delete (SocketData *) p->data;
-    uv_close((uv_handle_t *) p, [](uv_handle_t *h) {
-        delete (uv_poll_t *) h;
-    });
-    ::close(fd);
-}
-
+// this function needs to be thread safe, called from other thread!
 void Server::upgrade(int fd, const char *secKey)
 {
     unsigned char shaInput[] = "XXXXXXXXXXXXXXXXXXXXXXXX258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -331,6 +306,7 @@ void Server::upgrade(int fd, const char *secKey)
         cout << "Error sending upgrade!" << endl;
     }
 
+    // this will modify the event loop of another thread
     uv_poll_t *clientPoll = new uv_poll_t;
     uv_poll_init(uv_default_loop(), clientPoll, fd);
     SocketData *socketData = new SocketData;
@@ -346,21 +322,20 @@ inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int
     uint32_t maskBytes = *(uint32_t *) &src[maskOffset];
     char *start = src;
 
-    char *mask = (char *) &maskBytes;//src[maskOffset]; // use this instead for now
+    char *mask = (char *) &maskBytes;
 
-    // overwrite 3 bytes (possible with 6 byte header)
+    // overwrite 4 bytes (possible with 6 byte header)
     int n = (payloadLength >> 2) + 1;
     src += payloadOffset;
     while(n--) {
-        //*((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
-        //dst += 4;
-        //src += 4;
+        /**((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
+        dst += 4;
+        src += 4;*/
 
         *(dst++) = *(src++) ^ mask[0];
         *(dst++) = *(src++) ^ mask[1];
         *(dst++) = *(src++) ^ mask[2];
         *(dst++) = *(src++) ^ mask[3];
-
     }
 
     return start + payloadLength + payloadOffset;
@@ -797,7 +772,9 @@ void Socket::send(char *data, size_t length, OpCode opCode, size_t fakedLength)
         reportedLength = fakedLength;
     }
 
-    if (length <= SHORT_SEND - 10) {
+    if (length <= Server::SHORT_SEND - 10) {
+        SocketData *socketData = (SocketData *) ((uv_poll_t *) socket)->data;
+        char *sendBuffer = socketData->server->sendBuffer;
         write(sendBuffer, formatMessage(sendBuffer, data, length, opCode, reportedLength), false);
     } else {
         char *buffer = new char[sizeof(Message) + length + 10] + sizeof(Message);
