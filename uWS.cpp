@@ -84,15 +84,15 @@ struct Queue {
 };
 
 struct SocketData {
-    char state = READ_HEAD;
-    char sendState = FRAGMENT_START;
-    char fin = true;
+    unsigned char state = READ_HEAD;
+    unsigned char sendState = FRAGMENT_START;
+    unsigned char fin = true;
     char opStack = -1;
     char spill[16];
-    char spillLength = 0;
+    unsigned char spillLength = 0;
+    OpCode opCode[2];
     unsigned int remainingBytes = 0;
     uint32_t mask;
-    OpCode opCode[2];
     Server *server;
     Queue messageQueue;
 
