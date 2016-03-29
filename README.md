@@ -28,7 +28,7 @@ int main()
         cout << "[Connection] clients: " << ++connections << endl;
     });
 
-    server.onMessage([](uWS::Socket socket, const char *message, size_t length, OpCode opCode) {
+    server.onMessage([](uWS::Socket socket, const char *message, size_t length, uWS::OpCode opCode) {
         socket.send((char *) message, length, opCode);
     });
 
