@@ -41,6 +41,6 @@ int main()
 ```
 
 ## Dependencies
-* Unix (Linux, OS X)
+* Unix (& Windows planned)
 * libuv
 * OpenSSL
