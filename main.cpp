@@ -9,7 +9,6 @@ using namespace std;
 using namespace uWS;
 
 int connections = 0;
-Server *server;
 
 int main()
 {
@@ -22,8 +21,7 @@ int main()
         socket.send((char *) message, length, opCode);
     });
 
-    ::server = &server;
-    server.onDisconnection([](Socket socket) {
+    server.onDisconnection([&server](Socket socket) {
         cout << "[Disconnection] clients: " << --connections << endl;
 
         static int numDisconnections = 0;
@@ -31,7 +29,7 @@ int main()
         cout << numDisconnections << endl;
         if (numDisconnections == 302) {
             cout << "Closing after Autobahn test" << endl;
-            ::server->close();
+            server.close();
         }
     });
 
