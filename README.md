@@ -14,23 +14,6 @@ ws v1.0.1 + binary addons | µWS is **52x** as lightweight | µWS is **21x** as 
 WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **5x** as performant | µWS is **2x** as performant | µWS is **3x** as performant
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons.*
 
-## Installation
-#### Unix
-* First install the dependencies (openssl, libuv)
-* `git clone https://github.com/alexhultman/uWebSockets.git && cd uWebSockets`
-* `make`
-* `sudo make install`
-
-This will install to /usr/lib64 and /usr/include.
-
-#### Windows
-todo
-
-## Quality control
-* Valgrind clean
-* Autobahn chapters 1 - 9 [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/Autobahn/index.html).
-* Small & efficient code base.
-
 ## Overview
 ```c++
 int main()
@@ -52,3 +35,20 @@ int main()
     server.run();
 }
 ```
+
+## Quality control
+* Valgrind clean
+* Autobahn chapters 1 - 9 [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/Autobahn/index.html).
+* Small & efficient code base.
+
+## Installation
+#### Unix
+* First install the dependencies (openssl, libuv)
+* `git clone https://github.com/alexhultman/uWebSockets.git && cd uWebSockets`
+* `make`
+* `sudo make install`
+
+This will install to /usr/lib64 and /usr/include.
+
+#### Windows
+todo
