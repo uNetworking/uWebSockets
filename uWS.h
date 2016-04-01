@@ -71,7 +71,7 @@ public:
     void close();
     void broadcast(char *data, size_t length, OpCode opCode);
     void upgrade(int fd, const char *secKey);
-    static bool isValidUtf8(const char *str, size_t length);
+    static bool isValidUtf8(unsigned char *str, size_t length);
 };
 
 }

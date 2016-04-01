@@ -4,8 +4,7 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += main.cpp \
-    uWS.cpp \
-    utf8.cpp
+    uWS.cpp
 
 LIBS += -lssl -lcrypto -l:libuv.a -lpthread# -s
 
