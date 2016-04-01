@@ -1,5 +1,4 @@
-/* this is an example echo server that passes the Autobahn tests */
-/* it shows the three basic events and how to send messages back */
+/* this is just a test example */
 
 #include <iostream>
 #include <string>
@@ -13,28 +12,33 @@ Server *server;
 
 int main()
 {
-    Server server(3000);
-    server.onConnection([](Socket socket) {
-        cout << "[Connection] clients: " << ++connections << endl;
-    });
+    try {
+        Server server(3000);
+        server.onConnection([](Socket socket) {
+            cout << "[Connection] clients: " << ++connections << endl;
+        });
 
-    server.onMessage([](Socket socket, const char *message, size_t length, OpCode opCode) {
-        socket.send((char *) message, length, opCode);
-    });
+        server.onMessage([](Socket socket, const char *message, size_t length, OpCode opCode) {
+            socket.send((char *) message, length, opCode);
+        });
 
-    ::server = &server;
-    server.onDisconnection([](Socket socket) {
-        cout << "[Disconnection] clients: " << --connections << endl;
+        ::server = &server;
+        server.onDisconnection([](Socket socket) {
+            cout << "[Disconnection] clients: " << --connections << endl;
 
-        static int numDisconnections = 0;
-        numDisconnections++;
-        cout << numDisconnections << endl;
-        if (numDisconnections == 302) {
-            cout << "Closing after Autobahn test" << endl;
-            ::server->close();
-        }
-    });
+            static int numDisconnections = 0;
+            numDisconnections++;
+            cout << numDisconnections << endl;
+            if (numDisconnections == 302) {
+                cout << "Closing after Autobahn test" << endl;
+                ::server->close();
+            }
+        });
 
-    server.run();
+        server.run();
+    } catch (...) {
+        cout << "ERR_LISTEN" << endl;
+    }
+
     return 0;
 }

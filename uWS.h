@@ -7,6 +7,12 @@
 
 namespace uWS {
 
+#ifdef _WIN32
+typedef HANDLE FD;
+#else
+typedef int FD;
+#endif
+
 enum OpCode : unsigned char {
     TEXT = 1,
     BINARY = 2,
@@ -70,7 +76,7 @@ public:
     void run();
     void close();
     void broadcast(char *data, size_t length, OpCode opCode);
-    void upgrade(int fd, const char *secKey);
+    void upgrade(FD fd, const char *secKey);
     static bool isValidUtf8(unsigned char *str, size_t length);
 };
 

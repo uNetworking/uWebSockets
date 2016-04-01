@@ -54,15 +54,6 @@ struct Queue {
         }
     }
 
-    // compatibility
-    int size() {
-        if (tail == head) {
-            return 1;
-        } else {
-            return 0;
-        }
-    }
-
     bool empty() {
         return head == nullptr;
     }
@@ -173,7 +164,9 @@ void Server::onDisconnection(void (*disconnectionCallback)(Socket))
 void Server::run()
 {
     int listenFd = socket(AF_INET, SOCK_STREAM, 0);
-    bind(listenFd, (sockaddr *) listenAddr, sizeof(sockaddr_in));
+    if (bind(listenFd, (sockaddr *) listenAddr, sizeof(sockaddr_in))) {
+        throw nullptr; // ERR_LISTEN
+    }
 
     if (listen(listenFd, 10) == -1) {
         throw 0; //ERR_LISTEN
@@ -260,7 +253,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
 }
 
 // this function needs to be thread safe, called from other thread!
-void Server::upgrade(int fd, const char *secKey)
+void Server::upgrade(FD fd, const char *secKey)
 {
     unsigned char shaInput[] = "XXXXXXXXXXXXXXXXXXXXXXXX258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     memcpy(shaInput, secKey, 24);
@@ -418,7 +411,9 @@ void Server::onAcceptable(void *vp, int status, int events)
     uv_poll_t *p = (uv_poll_t *) vp;
 
     socklen_t listenAddrLength = sizeof(sockaddr_in);
-    int clientFd = accept(p->io_watcher.fd, (sockaddr *) ((Server *) p->data)->listenAddr, &listenAddrLength);
+    int serverFd;
+    uv_fileno((uv_handle_t *) p, &serverFd);
+    int clientFd = accept(serverFd, (sockaddr *) ((Server *) p->data)->listenAddr, &listenAddrLength);
 
     // start async reading of http headers
     uv_poll_t *http = new uv_poll_t;
@@ -426,15 +421,16 @@ void Server::onAcceptable(void *vp, int status, int events)
     uv_poll_init(uv_default_loop(), http, clientFd);
     uv_poll_start(http, UV_READABLE, [](uv_poll_t *p, int status, int events) {
 
+        int fd;
+        uv_fileno((uv_handle_t *) p, &fd);
         HTTPData *httpData = (HTTPData *) p->data;
-        int length = read(p->io_watcher.fd, httpData->server->receiveBuffer, BUFFER_SIZE);
+        int length = read(fd, httpData->server->receiveBuffer, BUFFER_SIZE);
         httpData->headerBuffer.append(httpData->server->receiveBuffer, length);
 
         // did we read the complete header?
         if (httpData->headerBuffer.find("\r\n\r\n") != string::npos) {
 
             // our part is done here
-            int fd = p->io_watcher.fd;
             uv_poll_stop(p);
             uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
                 delete (HTTPData *) handle->data;
@@ -488,7 +484,9 @@ void Server::onReadable(void *vp, int status, int events)
 
     char *src = socketData->server->receiveBuffer;
     memcpy(src, socketData->spill, socketData->spillLength);
-    int length = socketData->spillLength + read(p->io_watcher.fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength);
+    int fd;
+    uv_fileno((uv_handle_t *) p, &fd);
+    int length = socketData->spillLength + read(fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength);
 
     //int SSL_read(SSL *ssl, void *buf, int num);
 
@@ -500,7 +498,7 @@ void Server::onReadable(void *vp, int status, int events)
 
     // cork sends into one large package
     int cork = 1;
-    setsockopt(p->io_watcher.fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
+    setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
 
     parseNext:
     if (socketData->state == READ_HEAD) {
@@ -516,8 +514,8 @@ void Server::onReadable(void *vp, int status, int events)
             if (frame.opCode == 8) {
                 // we need to handle this non-blockingly
                 unsigned char closeFrame[2] = {128 | 8, 0};
-                ::send(p->io_watcher.fd, closeFrame, 2, MSG_NOSIGNAL);
-                shutdown(p->io_watcher.fd, SHUT_WR);
+                ::send(fd, closeFrame, 2, MSG_NOSIGNAL);
+                shutdown(fd, SHUT_WR);
                 return;
             }
 
@@ -691,7 +689,7 @@ void Server::onReadable(void *vp, int status, int events)
     }
 
     cork = 0;
-    setsockopt(p->io_watcher.fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
+    setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
 }
 
 void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t))
@@ -708,11 +706,13 @@ void Server::onMessage(void (*messageCallback)(Socket, const char *, size_t, OpC
 void Socket::write(char *data, size_t length, bool transferOwnership)
 {
     uv_poll_t *p = (uv_poll_t *) socket;
+    int fd;
+    uv_fileno((uv_handle_t *) p, &fd);
 
     // todo: directly queue if we have messages in the queue already!
 
     // async send
-    ssize_t sent = ::send(p->io_watcher.fd, data, length, MSG_NOSIGNAL);
+    ssize_t sent = ::send(fd, data, length, MSG_NOSIGNAL);
 
     // test for plausible bug
     SocketData *socketData = (SocketData *) p->data;
@@ -757,11 +757,13 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
             uv_poll_start(p, UV_WRITABLE, [](uv_poll_t *handle, int status, int events) {
 
                 SocketData *socketData = (SocketData *) handle->data;
+                int fd;
+                uv_fileno((uv_handle_t *) handle, &fd);
 
                 do {
                     Message *messagePtr = socketData->messageQueue.front();
 
-                    ssize_t sent = ::send(handle->io_watcher.fd, messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
+                    ssize_t sent = ::send(fd, messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
                     if (sent == messagePtr->length) {
                         // everything was sent in one go!
                         socketData->messageQueue.pop();
@@ -797,7 +799,8 @@ void Socket::fail()
 {
     // force close the connection, used in cases of invalid input
     uv_poll_t *p = (uv_poll_t *) socket;
-    int fd = p->io_watcher.fd;
+    int fd;
+    uv_fileno((uv_handle_t *) p, &fd);
     uv_poll_stop(p);
     uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
         delete (uv_poll_t *) handle;
