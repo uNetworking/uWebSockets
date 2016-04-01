@@ -1,4 +1,4 @@
-<div style="text-align: center"><img src ="logo.png" /></div>
+<p align="center"><img src ="logo.png" /></p>
 `µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. License is zlib/libpng (very permissive & suits commercial applications).
 
 * Planned SSL/TLS support (work in progress)
@@ -12,6 +12,7 @@ Implementation | Memory scaling | Connection performance | Short message through
 libwebsockets master(1.7-1.8) | µWS is **14x** as lightweight | µWS is **equal** in performance | µWS is **3x** as performant | µWS is **equal** in performance
 ws v1.0.1 + binary addons | µWS is **52x** as lightweight | µWS is **21x** as performant | µWS is **23x** as performant | µWS is **2x** as performant
 WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **5x** as performant | µWS is **2x** as performant | µWS is **3x** as performant
+*Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons.*
 
 ## Quality control
 * Valgrind clean
