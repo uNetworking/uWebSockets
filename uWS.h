@@ -14,11 +14,12 @@ enum OpCode : unsigned char {
     PONG = 10
 };
 
-class Parser;
+struct Parser;
+struct Request;
 
 class Socket {
     friend class Server;
-    friend class Parser;
+    friend struct Parser;
 private:
     void *socket;
     Socket(void *p) : socket(p) {}
@@ -31,13 +32,15 @@ public:
 
 class Server
 {
-    friend class Parser;
+    friend struct Parser;
     friend class Socket;
 private:
     // internal callbacks
     static void onReadable(void *vp, int status, int events);
     static void onWritable(void *vp, int status, int events);
     static void onAcceptable(void *vp, int status, int events);
+
+    static void internalHTTP(Request &request);
     static void internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes);
 
     // external callbacks
@@ -58,14 +61,17 @@ private:
 public:
     Server(int port);
     ~Server();
+    Server(const Server &server) = delete;
+    Server &operator=(const Server &server) = delete;
     void onConnection(void (*connectionCallback)(Socket));
     void onDisconnection(void (*disconnectionCallback)(Socket));
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
     void onMessage(void (*messageCallback)(Socket, const char *, size_t, OpCode));
     void run();
     void close();
+    void broadcast(char *data, size_t length, OpCode opCode);
     void upgrade(int fd, const char *secKey);
-    static bool isValidUtf8(std::string &str);
+    static bool isValidUtf8(const char *str, size_t length);
 };
 
 }

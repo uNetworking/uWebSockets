@@ -200,28 +200,10 @@ void Server::close()
     // use the same looper as when looping for broadcast
 }
 
-void Server::onAcceptable(void *vp, int status, int events)
+void Server::broadcast(char *data, size_t length, OpCode opCode)
 {
-    uv_poll_t *p = (uv_poll_t *) vp;
-
-    socklen_t listenAddrLength = sizeof(sockaddr_in);
-    int clientFd = accept(p->io_watcher.fd, (sockaddr *) ((Server *) p->data)->listenAddr, &listenAddrLength);
-
-    //SSL *SSL_new(SSL_CTX *ctx);
-    //int SSL_set_fd(SSL *ssl, int fd);
-
-    // todo: non-blocking read of HTTP header, and a real parser
-
-    // read HTTP upgrade
-    unsigned char buffer[4096];
-    int length = read(clientFd, buffer, sizeof(buffer));
-    string upgrade((const char *) buffer, length);
-
-    // parse headers
-    string secKey = upgrade.substr(upgrade.find("Sec-WebSocket-Key: ", 0) + 19, 24);
-    string secVersion = upgrade.substr(upgrade.find("Sec-WebSocket-Version: ", 0) + 23, 2);
-
-    ((Server *) p->data)->upgrade(clientFd, secKey.c_str());
+    // use same doubly linked list as the server uses to track its clients
+    // prepare the buffer, send multiple times
 }
 
 // default fragment handler
@@ -235,12 +217,11 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
 
         if (!remainingBytes && fin && !socketData->buffer.length()) {
 
-            // todo: check chapter 6 here also!
-            /*if (opCode == 1 && !Server::isValidUtf8(socketData->buffer)) {
+            if (opCode == 1 && !Server::isValidUtf8((char *) fragment, length)) {
                 socketData->server->disconnectionCallback(p);
                 socket.fail();
                 return;
-            }*/
+            }
 
             socketData->server->messageCallback(socket, (char *) fragment, length, opCode);
         } else {
@@ -249,7 +230,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
             if (!remainingBytes && fin) {
 
                 // Chapter 6
-                if (opCode == 1 && !Server::isValidUtf8(socketData->buffer)) {
+                if (opCode == 1 && !Server::isValidUtf8(socketData->buffer.c_str(), socketData->buffer.length())) {
                     socketData->server->disconnectionCallback(p);
                     socket.fail();
                     return;
@@ -268,11 +249,6 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
         } else if (opCode == PONG) {
             opCode = PING;
         }
-
-        /*if (remainingBytes) {
-            if ()
-        } else {
-        socket.send((char *) fragment, length, opCode);*/
 
         // append to a separate buffer for control messages
         socketData->controlBuffer.append(fragment, length);
@@ -300,12 +276,6 @@ void Server::upgrade(int fd, const char *secKey)
     memcpy(upgradeResponse + 97, b64 = base64(shaDigest, SHA_DIGEST_LENGTH), 28);
     free(b64);
 
-    // todo: non-blocking send
-    int bytesWritten = ::send(fd, upgradeResponse, sizeof(upgradeResponse) - 1, MSG_NOSIGNAL);
-    if (bytesWritten != sizeof(upgradeResponse) - 1) {
-        cout << "Error sending upgrade!" << endl;
-    }
-
     // this will modify the event loop of another thread
     uv_poll_t *clientPoll = new uv_poll_t;
     uv_poll_init(uv_default_loop(), clientPoll, fd);
@@ -314,6 +284,7 @@ void Server::upgrade(int fd, const char *secKey)
     clientPoll->data = socketData;
     uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
 
+    Socket(clientPoll).write(upgradeResponse, sizeof(upgradeResponse) - 1, false);
     connectionCallback(clientPoll);
 }
 
@@ -362,8 +333,7 @@ void unmask_inplace(uint32_t *data, uint32_t *stop, uint32_t mask)
 }
 
 namespace uWS {
-class Parser {
-public:
+struct Parser {
     template <typename T>
     static inline void consumeIncompleteMessage(int length, const int headerLength, T fullPayloadLength, SocketData *socketData, char *src, frameFormat &frame, void *socket)
     {
@@ -399,6 +369,106 @@ public:
         return 0;
     }
 };
+
+struct Request {
+    char *cursor;
+    pair<char *, size_t> key, value;
+    Request(char *cursor) : cursor(cursor)
+    {
+        (*this)++;
+    }
+    Request &operator++(int)
+    {
+        size_t length = 0;
+        for (; !(cursor[0] == '\r' && cursor[1] == '\n'); cursor++);
+        cursor += 2;
+        if (cursor[0] == '\r' && cursor[1] == '\n') {
+            key = value = {0, 0};
+        } else {
+            for (; cursor[length] != ':' && cursor[length] != '\r'; length++);
+            key = {cursor, length};
+            if (cursor[length] != '\r') {
+                cursor += length;
+                length = 0;
+                while (isspace(*(++cursor)));
+                for (; cursor[length] != '\r'; length++);
+                value = {cursor, length};
+            } else {
+                value = {0, 0};
+            }
+        }
+        return *this;
+    }
+};
+}
+
+struct HTTPData {
+    // concat header here
+    string headerBuffer;
+    // store pointers to segments in the buffer
+    vector<pair<char *, size_t>> headers;
+    //reference to the receive buffer
+    Server *server;
+
+    HTTPData(Server *server) : server(server) {}
+};
+
+void Server::onAcceptable(void *vp, int status, int events)
+{
+    uv_poll_t *p = (uv_poll_t *) vp;
+
+    socklen_t listenAddrLength = sizeof(sockaddr_in);
+    int clientFd = accept(p->io_watcher.fd, (sockaddr *) ((Server *) p->data)->listenAddr, &listenAddrLength);
+
+    // start async reading of http headers
+    uv_poll_t *http = new uv_poll_t;
+    http->data = new HTTPData((Server *) p->data);
+    uv_poll_init(uv_default_loop(), http, clientFd);
+    uv_poll_start(http, UV_READABLE, [](uv_poll_t *p, int status, int events) {
+
+        HTTPData *httpData = (HTTPData *) p->data;
+        int length = read(p->io_watcher.fd, httpData->server->receiveBuffer, BUFFER_SIZE);
+        httpData->headerBuffer.append(httpData->server->receiveBuffer, length);
+
+        // did we read the complete header?
+        if (httpData->headerBuffer.find("\r\n\r\n") != string::npos) {
+
+            // our part is done here
+            int fd = p->io_watcher.fd;
+            uv_poll_stop(p);
+            uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
+                delete (HTTPData *) handle->data;
+                delete (uv_poll_t *) handle;
+            });
+
+            for (Request h = (char *) httpData->headerBuffer.data(); h.key.second; h++) {
+                // lowercase the key
+                for (int i = 0; i < h.key.second; i++) {
+                    h.key.first[i] = tolower(h.key.first[i]);
+                }
+
+                if (h.key.second == 17 && !strncmp(h.key.first, "sec-websocket-key", 17)) {
+                    // this is an upgrade
+                    httpData->server->upgrade(fd, h.value.first);
+                    return;
+                }
+            }
+
+            // for now, we just close HTTP traffic
+            ::close(fd);
+        } else {
+            // todo: start timer to time out the connection!
+
+        }
+    });
+    //SSL *SSL_new(SSL_CTX *ctx);
+    //int SSL_set_fd(SSL *ssl, int fd);
+}
+
+// default HTTP handler
+void Server::internalHTTP(Request &request)
+{
+    cout << "Got some HTTP action!" << endl;
 }
 
 #define STRICT
@@ -802,8 +872,8 @@ void Socket::sendFragment(char *data, size_t length, OpCode opCode, size_t remai
     }
 }
 
-bool Server::isValidUtf8(string &str)
+bool Server::isValidUtf8(const char *str, size_t length)
 {
-    extern unsigned char *utf8_check(unsigned char *s);
-    return (!utf8_check((unsigned char *) str.c_str()));
+    extern unsigned char *utf8_check(unsigned char *s, unsigned char *e);
+    return (!utf8_check((unsigned char *) str, (unsigned char *) str + length));
 }

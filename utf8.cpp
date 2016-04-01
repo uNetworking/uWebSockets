@@ -21,9 +21,9 @@
 
 namespace uWS {
 
-unsigned char *utf8_check(unsigned char *s)
+unsigned char *utf8_check(unsigned char *s, unsigned char *e)
 {
-  while (*s) {
+  while (s != e) {
     if (*s < 0x80)
       /* 0xxxxxxx */
       s++;
