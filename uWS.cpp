@@ -212,7 +212,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
 
             if (opCode == 1 && !Server::isValidUtf8((unsigned char *) fragment, length)) {
                 socketData->server->disconnectionCallback(p);
-                socket.fail();
+                socket.close(true);
                 return;
             }
 
@@ -225,7 +225,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
                 // Chapter 6
                 if (opCode == 1 && !Server::isValidUtf8((unsigned char *) socketData->buffer.c_str(), socketData->buffer.length())) {
                     socketData->server->disconnectionCallback(p);
-                    socket.fail();
+                    socket.close(true);
                     return;
                 }
 
@@ -478,7 +478,7 @@ void Server::onReadable(void *vp, int status, int events)
     // this one is not needed, read will do this!
     if (status < 0) {
         socketData->server->disconnectionCallback(vp);
-        Socket(p).fail();
+        Socket(p).close(true);
         return;
     }
 
@@ -492,7 +492,7 @@ void Server::onReadable(void *vp, int status, int events)
 
     if (!(length - socketData->spillLength)) {
         socketData->server->disconnectionCallback(vp);
-        Socket(p).fail();
+        Socket(p).close(true);
         return;
     }
 
@@ -512,24 +512,21 @@ void Server::onReadable(void *vp, int status, int events)
 #ifdef STRICT
             // close frame
             if (frame.opCode == 8) {
-                // we need to handle this non-blockingly
-                unsigned char closeFrame[2] = {128 | 8, 0};
-                ::send(fd, closeFrame, 2, MSG_NOSIGNAL);
-                shutdown(fd, SHUT_WR);
+                Socket(p).close();
                 return;
             }
 
             // invalid reserved bits
             if (frame.rsv1 || frame.rsv2 || frame.rsv3) {
                 socketData->server->disconnectionCallback(p);
-                Socket(p).fail();
+                Socket(p).close(true);
                 return;
             }
 
             // invalid opcodes
             if ((frame.opCode > 2 && frame.opCode < 8) || frame.opCode > 10 /*|| (!frame.fin && frame.opCode && socketData->opStack != -1)*/) {
                 socketData->server->disconnectionCallback(p);
-                Socket(p).fail();
+                Socket(p).close(true);
                 return;
             }
 
@@ -547,14 +544,14 @@ void Server::onReadable(void *vp, int status, int events)
                 // Case 5.18
                 if (socketData->opStack == 0 && !lastFin && frame.fin) {
                     socketData->server->disconnectionCallback(p);
-                    Socket(p).fail();
+                    Socket(p).close(true);
                     return;
                 }
 
                 // control frames cannot be fragmented or long
                 if (frame.opCode > 2 && (!frame.fin || frame.payloadLength > 125)) {
                     socketData->server->disconnectionCallback(p);
-                    Socket(p).fail();
+                    Socket(p).close(true);
                     return;
                 }
 
@@ -562,7 +559,7 @@ void Server::onReadable(void *vp, int status, int events)
                 // continuation frame must have a opcode prior!
                 if (socketData->opStack == -1) {
                     socketData->server->disconnectionCallback(p);
-                    Socket(p).fail();
+                    Socket(p).close(true);
                     return;
                 }
 #endif
@@ -793,22 +790,29 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
     }
 }
 
-// this one can be called inside the parser!
-// if we close a socket we need to inform the parser!
-void Socket::fail()
+void Socket::close(bool force)
 {
-    // force close the connection, used in cases of invalid input
     uv_poll_t *p = (uv_poll_t *) socket;
     int fd;
     uv_fileno((uv_handle_t *) p, &fd);
-    uv_poll_stop(p);
-    uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
-        delete (uv_poll_t *) handle;
-    });
-    close(fd);
 
-    SocketData *socketData = (SocketData *) p->data;
-    delete socketData;
+    if (force) {
+        uv_poll_stop(p);
+        uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
+            delete (uv_poll_t *) handle;
+        });
+        ::close(fd);
+
+        SocketData *socketData = (SocketData *) p->data;
+        delete socketData;
+    } else {
+        // this assumes write finishes before shutdown
+        // write should take a callback so we know for sure
+        // it did finish before we called shutdown
+        unsigned char closeFrame[2] = {128 | 8, 0};
+        write((char *) closeFrame, 2, false);
+        shutdown(fd, SHUT_WR);
+    }
 }
 
 inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength)

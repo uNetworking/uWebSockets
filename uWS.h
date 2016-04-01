@@ -31,7 +31,7 @@ private:
     Socket(void *p) : socket(p) {}
     void write(char *data, size_t length, bool transferOwnership);
 public:
-    void fail(); // aka close
+    void close(bool force = false);
     void send(char *data, size_t length, OpCode opCode, size_t fakedLength = 0);
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
 };
