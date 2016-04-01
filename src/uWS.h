@@ -63,6 +63,7 @@ private:
     // accept poll
     void *server;
     void *listenAddr;
+    void *clients = nullptr;
 
 public:
     Server(int port);
@@ -74,7 +75,7 @@ public:
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
     void onMessage(void (*messageCallback)(Socket, const char *, size_t, OpCode));
     void run();
-    void close();
+    void close(bool force = false);
     void broadcast(char *data, size_t length, OpCode opCode);
     void upgrade(FD fd, const char *secKey);
     static bool isValidUtf8(unsigned char *str, size_t length);

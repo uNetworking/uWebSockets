@@ -16,6 +16,14 @@ int main()
         Server server(3000);
         server.onConnection([](Socket socket) {
             cout << "[Connection] clients: " << ++connections << endl;
+
+            // test shutting down the server when two clients are connected
+            // this should disconnect both clients and exit libuv loop
+            if (connections == 2) {
+                ::server->broadcast("I'm shutting you down now", 25, TEXT);
+                cout << "Shutting down server now" << endl;
+                ::server->close();
+            }
         });
 
         server.onMessage([](Socket socket, const char *message, size_t length, OpCode opCode) {

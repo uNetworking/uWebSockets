@@ -86,6 +86,8 @@ struct SocketData {
     uint32_t mask;
     Server *server;
     Queue messageQueue;
+    // points to uv_poll_t
+    void *next = nullptr, *prev = nullptr;
 
     // turns out these are very lightweight (in GCC)
     string buffer;
@@ -191,21 +193,28 @@ void Server::run()
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
 
-void Server::close()
+void Server::close(bool force)
 {
     uv_poll_stop((uv_poll_t *) this->server);
     uv_close((uv_handle_t *) this->server, [](uv_handle_t *handle) {
         delete (uv_poll_t *) handle;
     });
 
-    // todo: loop over all connected sockets and close them
-    // use the same looper as when looping for broadcast
+    for (void *p = clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
+        Socket(p).close(force);
+    }
 }
 
+// unoptimized!
 void Server::broadcast(char *data, size_t length, OpCode opCode)
 {
     // use same doubly linked list as the server uses to track its clients
     // prepare the buffer, send multiple times
+
+    // todo: this should be optimized to send the same message for every client!
+    for (void *p = clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
+        Socket(p).send(data, length, opCode);
+    }
 }
 
 // default fragment handler
@@ -285,6 +294,16 @@ void Server::upgrade(FD fd, const char *secKey)
     socketData->server = this;
     clientPoll->data = socketData;
     uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
+
+    // add this poll to the list
+    if (!clients) {
+        clients = clientPoll;
+    } else {
+        SocketData *tailData = (SocketData *) clients;
+        tailData->prev = clientPoll;
+        socketData->next = clients;
+        clients = clientPoll;
+    }
 
     Socket(clientPoll).write(upgradeResponse, sizeof(upgradeResponse) - 1, false);
     connectionCallback(clientPoll);
@@ -804,6 +823,21 @@ void Socket::close(bool force)
     uv_poll_t *p = (uv_poll_t *) socket;
     int fd;
     uv_fileno((uv_handle_t *) p, &fd);
+    SocketData *socketData = (SocketData *) p->data;
+
+    // Server::unlink(Socket)
+    if (socketData->prev == socketData->next) {
+        socketData->server->clients = nullptr;
+    } else {
+        if (socketData->prev) {
+            ((SocketData *)((uv_poll_t *) socketData->prev)->data)->next = socketData->next;
+        } else {
+            socketData->server->clients = socketData->next;
+        }
+        if (socketData->next) {
+            ((SocketData *)((uv_poll_t *) socketData->next)->data)->prev = socketData->prev;
+        }
+    }
 
     if (force) {
         uv_poll_stop(p);
@@ -811,8 +845,6 @@ void Socket::close(bool force)
             delete (uv_poll_t *) handle;
         });
         ::close(fd);
-
-        SocketData *socketData = (SocketData *) p->data;
         delete socketData;
     } else {
         // this assumes write finishes before shutdown
