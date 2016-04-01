@@ -113,7 +113,7 @@ char *base64(const unsigned char *input, int length)
     return buff;
 }
 
-struct __attribute__((packed)) frameFormat {
+/*struct __attribute__((packed)) frameFormat {
     unsigned int opCode : 4;
     bool rsv3 : 1;
     bool rsv2 : 1;
@@ -121,7 +121,16 @@ struct __attribute__((packed)) frameFormat {
     bool fin : 1;
     unsigned int payloadLength : 7;
     bool mask : 1;
-};
+};*/
+
+typedef uint16_t frameFormat;
+inline bool fin(frameFormat &frame) {return frame & 128;}
+inline unsigned char opCode(frameFormat &frame) {return frame & 15;}
+inline unsigned char payloadLength(frameFormat &frame) {return (frame >> 8) & 127;}
+inline bool rsv3(frameFormat &frame) {return frame & 16;}
+inline bool rsv2(frameFormat &frame) {return frame & 32;}
+inline bool rsv1(frameFormat &frame) {return frame & 64;}
+inline bool mask(frameFormat &frame) {return frame & 32768;}
 
 Server::Server(int port)
 {
@@ -352,7 +361,7 @@ struct Parser {
             return 1;
         }
 
-        if (frame.fin) {
+        if (/*frame.fin*/fin(frame)) {
             socketData->opStack--;
         }
 
@@ -507,24 +516,24 @@ void Server::onReadable(void *vp, int status, int events)
             frameFormat frame = *(frameFormat *) src;
 
             int lastFin = socketData->fin;
-            socketData->fin = frame.fin;
+            socketData->fin = /*frame.fin*/ fin(frame);
 
 #ifdef STRICT
             // close frame
-            if (frame.opCode == 8) {
+            if (/*frame.opCode*/ opCode(frame) == 8) {
                 Socket(p).close();
                 return;
             }
 
             // invalid reserved bits
-            if (frame.rsv1 || frame.rsv2 || frame.rsv3) {
+            if (/*frame.rsv1*/ rsv1(frame) || /*frame.rsv2*/ rsv2(frame) || /*frame.rsv3*/ rsv3(frame)) {
                 socketData->server->disconnectionCallback(p);
                 Socket(p).close(true);
                 return;
             }
 
             // invalid opcodes
-            if ((frame.opCode > 2 && frame.opCode < 8) || frame.opCode > 10 /*|| (!frame.fin && frame.opCode && socketData->opStack != -1)*/) {
+            if ((/*frame.opCode*/ opCode(frame) > 2 && /*frame.opCode*/ opCode(frame) < 8) || /*frame.opCode*/ opCode(frame) > 10 /*|| (!frame.fin && frame.opCode && socketData->opStack != -1)*/) {
                 socketData->server->disconnectionCallback(p);
                 Socket(p).close(true);
                 return;
@@ -533,23 +542,23 @@ void Server::onReadable(void *vp, int status, int events)
 #endif
 
             // do not store opCode continuation!
-            if (frame.opCode) {
+            if (/*frame.opCode*/opCode(frame)) {
 
                 // if empty stack or a new op-code, push on stack!
-                if (socketData->opStack == -1 || socketData->opCode[socketData->opStack] != (OpCode) frame.opCode) {
-                    socketData->opCode[++socketData->opStack] = (OpCode) frame.opCode;
+                if (socketData->opStack == -1 || socketData->opCode[socketData->opStack] != (OpCode) /*frame.opCode*/ opCode(frame)) {
+                    socketData->opCode[++socketData->opStack] = (OpCode) /*frame.opCode*/ opCode(frame);
                 }
 
 #ifdef STRICT
                 // Case 5.18
-                if (socketData->opStack == 0 && !lastFin && frame.fin) {
+                if (socketData->opStack == 0 && !lastFin && /*frame.fin*/ fin(frame)) {
                     socketData->server->disconnectionCallback(p);
                     Socket(p).close(true);
                     return;
                 }
 
                 // control frames cannot be fragmented or long
-                if (frame.opCode > 2 && (!frame.fin || frame.payloadLength > 125)) {
+                if (/*frame.opCode*/ opCode(frame) > 2 && (!/*frame.fin*/ fin(frame) || /*frame.payloadLength*/ payloadLength(frame) > 125)) {
                     socketData->server->disconnectionCallback(p);
                     Socket(p).close(true);
                     return;
@@ -565,8 +574,8 @@ void Server::onReadable(void *vp, int status, int events)
 #endif
             }
 
-            if (frame.payloadLength > 125) {
-                if (frame.payloadLength == 126) {
+            if (/*frame.payloadLength*/payloadLength(frame) > 125) {
+                if (/*frame.payloadLength*/payloadLength(frame) == 126) {
                     const int MEDIUM_MESSAGE_HEADER = 8;
                     // we need to have enough length to read the long length
                     if (length < 2 + sizeof(uint16_t)) {
@@ -603,15 +612,15 @@ void Server::onReadable(void *vp, int status, int events)
                 }
             } else {
                 const int SHORT_MESSAGE_HEADER = 6;
-                if (frame.payloadLength <= length - SHORT_MESSAGE_HEADER) {
-                    if (Parser::consumeCompleteMessage(length, SHORT_MESSAGE_HEADER, frame.payloadLength, socketData, &src, frame, p)) {
+                if (/*frame.payloadLength*/payloadLength(frame) <= length - SHORT_MESSAGE_HEADER) {
+                    if (Parser::consumeCompleteMessage(length, SHORT_MESSAGE_HEADER, /*frame.payloadLength*/ payloadLength(frame), socketData, &src, frame, p)) {
                         return;
                     }
                 } else {
                     if (length < SHORT_MESSAGE_HEADER + 1) {
                         break;
                     }
-                    Parser::consumeIncompleteMessage(length, SHORT_MESSAGE_HEADER, frame.payloadLength, socketData, src, frame, p);
+                    Parser::consumeIncompleteMessage(length, SHORT_MESSAGE_HEADER, /*frame.payloadLength*/ payloadLength(frame), socketData, src, frame, p);
                     return;
                 }
             }
