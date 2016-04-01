@@ -4,12 +4,12 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += main.cpp \
-    uWS.cpp
+    src/uWS.cpp
 
 LIBS += -lssl -lcrypto -l:libuv.a -lpthread# -s
 
 HEADERS += \
-    uWS.h
+    src/uWS.h
 
 QMAKE_CXXFLAGS_RELEASE -= -O1
 QMAKE_CXXFLAGS_RELEASE -= -O2
