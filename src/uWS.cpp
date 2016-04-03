@@ -134,7 +134,7 @@ inline bool rsv2(frameFormat &frame) {return frame & 32;}
 inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
 
-Server::Server(int port)
+Server::Server(int port) : port(port)
 {
     // we need 24 bytes over to not read invalidly outside
 
@@ -162,6 +162,11 @@ Server::~Server()
     delete (sockaddr_in *) listenAddr;
 }
 
+void Server::onUpgrade(void (*upgradeCallback)(FD, const char *))
+{
+    this->upgradeCallback = upgradeCallback;
+}
+
 void Server::onConnection(void (*connectionCallback)(Socket))
 {
     this->connectionCallback = connectionCallback;
@@ -174,21 +179,23 @@ void Server::onDisconnection(void (*disconnectionCallback)(Socket))
 
 void Server::run()
 {
-    int listenFd = socket(AF_INET, SOCK_STREAM, 0);
-    if (bind(listenFd, (sockaddr *) listenAddr, sizeof(sockaddr_in))) {
-        throw nullptr; // ERR_LISTEN
+    if (port) {
+        int listenFd = socket(AF_INET, SOCK_STREAM, 0);
+        if (bind(listenFd, (sockaddr *) listenAddr, sizeof(sockaddr_in))) {
+            throw nullptr; // ERR_LISTEN
+        }
+
+        if (listen(listenFd, 10) == -1) {
+            throw 0; //ERR_LISTEN
+        }
+
+        //SSL_CTX *SSL_CTX_new(const SSL_METHOD *method);
+
+        this->server = new uv_poll_t;
+        uv_poll_init(uv_default_loop(), (uv_poll_t *) this->server, listenFd);
+        uv_poll_start((uv_poll_t *) this->server, UV_READABLE, (uv_poll_cb) onAcceptable);
+        ((uv_poll_t *) this->server)->data = this;
     }
-
-    if (listen(listenFd, 10) == -1) {
-        throw 0; //ERR_LISTEN
-    }
-
-    //SSL_CTX *SSL_CTX_new(const SSL_METHOD *method);
-
-    this->server = new uv_poll_t;
-    uv_poll_init(uv_default_loop(), (uv_poll_t *) this->server, listenFd);
-    uv_poll_start((uv_poll_t *) this->server, UV_READABLE, (uv_poll_cb) onAcceptable);
-    ((uv_poll_t *) this->server)->data = this;
 
     uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 }
@@ -473,7 +480,11 @@ void Server::onAcceptable(void *vp, int status, int events)
 
                 if (h.key.second == 17 && !strncmp(h.key.first, "sec-websocket-key", 17)) {
                     // this is an upgrade
-                    httpData->server->upgrade(fd, h.value.first);
+                    if (httpData->server->upgradeCallback) {
+                        httpData->server->upgradeCallback(fd, h.value.first);
+                    } else {
+                        httpData->server->upgrade(fd, h.value.first);
+                    }
                     return;
                 }
             }

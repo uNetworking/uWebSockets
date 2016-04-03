@@ -50,10 +50,11 @@ private:
     static void internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes);
 
     // external callbacks
-    void (*connectionCallback)(Socket);
-    void (*disconnectionCallback)(Socket);
-    void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t);
-    void (*messageCallback)(Socket socket, const char *message, size_t length, OpCode opCode);
+    void (*upgradeCallback)(FD, const char *) = nullptr;
+    void (*connectionCallback)(Socket) = nullptr;
+    void (*disconnectionCallback)(Socket) = nullptr;
+    void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t) = nullptr;
+    void (*messageCallback)(Socket socket, const char *message, size_t length, OpCode opCode) = nullptr;
 
     // buffers
     char *receiveBuffer, *sendBuffer;
@@ -64,12 +65,14 @@ private:
     void *server;
     void *listenAddr;
     void *clients = nullptr;
+    int port = 0;
 
 public:
     Server(int port);
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
+    void onUpgrade(void (*upgradeCallback)(FD, const char *));
     void onConnection(void (*connectionCallback)(Socket));
     void onDisconnection(void (*disconnectionCallback)(Socket));
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
