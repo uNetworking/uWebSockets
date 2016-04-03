@@ -151,6 +151,8 @@ Server::Server(int port) : port(port)
     ((sockaddr_in *) listenAddr)->sin_family = AF_INET;
     ((sockaddr_in *) listenAddr)->sin_addr.s_addr = INADDR_ANY;
     ((sockaddr_in *) listenAddr)->sin_port = htons(port);
+
+    loop = uv_loop_new();
 }
 
 Server::~Server()
@@ -160,6 +162,9 @@ Server::~Server()
 
     delete [] sendBuffer;
     delete (sockaddr_in *) listenAddr;
+
+    // todo: when listen fails we crash because of handles still in loop
+    uv_loop_delete((uv_loop_t *) loop);
 }
 
 void Server::onUpgrade(void (*upgradeCallback)(FD, const char *))
@@ -179,13 +184,46 @@ void Server::onDisconnection(void (*disconnectionCallback)(Socket))
 
 void Server::run()
 {
-    uv_timer_t timer;
-    loop = uv_loop_new();
+    timer = new uv_timer_t;
+    uv_timer_init((uv_loop_t *) loop, (uv_timer_t *) timer);
+    upgradeAsync = new uv_async_t;
+    closeAsync = new uv_async_t;
+    ((uv_async_t *) upgradeAsync)->data = this;
+    ((uv_async_t *) closeAsync)->data = this;
 
-    async = new uv_async_t;
-    ((uv_async_t *) async)->data = this;
-    // woken up from other threads call to upgrade
-    uv_async_init((uv_loop_t *) loop, (uv_async_t *) async, [](uv_async_t *a) {
+    // this function should be private Server::threadUnsafeClose
+    uv_async_init((uv_loop_t *) loop, (uv_async_t *) closeAsync, [](uv_async_t *a) {
+        Server *server = (Server *) a->data;
+        uv_close((uv_handle_t *) server->upgradeAsync, [](uv_handle_t *a) {
+            delete (uv_async_t *) a;
+        });
+
+        uv_close((uv_handle_t *) server->closeAsync, [](uv_handle_t *a) {
+            delete (uv_async_t *) a;
+        });
+
+        if (server->server) {
+            FD listenFd;
+            uv_fileno((uv_handle_t *) server->server, &listenFd);
+            ::close(listenFd);
+            uv_poll_stop((uv_poll_t *) server->server);
+            uv_close((uv_handle_t *) server->server, [](uv_handle_t *handle) {
+                delete (uv_poll_t *) handle;
+            });
+        }
+
+        uv_timer_stop((uv_timer_t *) server->timer);
+        uv_close((uv_handle_t *) server->timer, [](uv_handle_t *t) {
+            delete (uv_timer_t *) t;
+        });
+
+        for (void *p = server->clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
+            Socket(p).close(server->forceClose);
+        }
+    });
+
+    // this function should be private Server::threadUnsafeUpgrade
+    uv_async_init((uv_loop_t *) loop, (uv_async_t *) upgradeAsync, [](uv_async_t *a) {
         Server *server = (Server *) a->data;
         server->upgradeQueueMutex.lock();
 
@@ -250,27 +288,21 @@ void Server::run()
         uv_poll_init((uv_loop_t *) loop, (uv_poll_t *) this->server, listenFd);
         uv_poll_start((uv_poll_t *) this->server, UV_READABLE, (uv_poll_cb) onAcceptable);
         ((uv_poll_t *) this->server)->data = this;
-    } else {
-        // add a timer to keep the server running
-        uv_timer_init((uv_loop_t *) loop, &timer);
-        uv_timer_start(&timer, [](uv_timer_t *t) {
-
-        }, 10000, 10000);
     }
+
+    // start a timer to keep the server running
+    uv_timer_start((uv_timer_t *) timer, [](uv_timer_t *t) {
+
+    }, 10000, 10000);
 
     uv_run((uv_loop_t *) loop, UV_RUN_DEFAULT);
 }
 
+// thread safe
 void Server::close(bool force)
 {
-    uv_poll_stop((uv_poll_t *) this->server);
-    uv_close((uv_handle_t *) this->server, [](uv_handle_t *handle) {
-        delete (uv_poll_t *) handle;
-    });
-
-    for (void *p = clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
-        Socket(p).close(force);
-    }
+    forceClose = force;
+    uv_async_send((uv_async_t *) closeAsync);
 }
 
 // unoptimized!
@@ -347,7 +379,7 @@ void Server::upgrade(FD fd, const char *secKey)
     upgradeQueueMutex.unlock();
 
     // request the event loop to empty the queue
-    uv_async_send((uv_async_t *) async);
+    uv_async_send((uv_async_t *) upgradeAsync);
 }
 
 inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int payloadLength)

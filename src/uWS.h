@@ -64,10 +64,11 @@ private:
                      SHORT_SEND = 4096;
 
     // accept poll
-    void *server;
+    void *server = nullptr;
     void *listenAddr;
-    void *loop, *async;
+    void *loop, *timer, *upgradeAsync, *closeAsync;
     void *clients = nullptr;
+    bool forceClose;
     int port = 0;
 
     // upgrade queue
@@ -75,6 +76,7 @@ private:
     std::mutex upgradeQueueMutex;
 
 public:
+    // thread unsafe
     Server(int port);
     ~Server();
     Server(const Server &server) = delete;
@@ -85,10 +87,12 @@ public:
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
     void onMessage(void (*messageCallback)(Socket, const char *, size_t, OpCode));
     void run();
-    void close(bool force = false);
     void broadcast(char *data, size_t length, OpCode opCode);
-    void upgrade(FD fd, const char *secKey);
     static bool isValidUtf8(unsigned char *str, size_t length);
+
+    // thread safe (should have thread-unsafe counterparts)
+    void close(bool force = false);
+    void upgrade(FD fd, const char *secKey);
 };
 
 }

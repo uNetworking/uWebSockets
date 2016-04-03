@@ -9,7 +9,7 @@ using namespace std;
 using namespace uWS;
 
 int connections = 0;
-Server *worker;
+Server *worker, *server;
 
 int main()
 {
@@ -24,6 +24,7 @@ int main()
         // our working server, does not listen
         Server worker(0);
         ::worker = &worker;
+        ::server = &server;
         worker.onConnection([](Socket socket) {
             cout << "[Connection] clients: " << ++connections << endl;
 
@@ -33,6 +34,7 @@ int main()
                 ::worker->broadcast("I'm shutting you down now", 25, TEXT);
                 cout << "Shutting down server now" << endl;
                 ::worker->close();
+                ::server->close();
             }
         });
 
@@ -49,16 +51,19 @@ int main()
             if (numDisconnections == 302) {
                 cout << "Closing after Autobahn test" << endl;
                 ::worker->close();
+                ::server->close();
             }
         });
 
         // work on other thread
-        new thread([]() {
+        thread *t = new thread([]() {
             ::worker->run();
         });
 
         // listen on main thread
         server.run();
+        t->join();
+        delete t;
     } catch (...) {
         cout << "ERR_LISTEN" << endl;
     }
