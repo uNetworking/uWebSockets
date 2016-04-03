@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <functional>
 #include <string>
+#include <queue>
+#include <mutex>
 
 namespace uWS {
 
@@ -64,8 +66,13 @@ private:
     // accept poll
     void *server;
     void *listenAddr;
+    void *loop, *async;
     void *clients = nullptr;
     int port = 0;
+
+    // upgrade queue
+    std::queue<std::pair<FD, std::string>> upgradeQueue;
+    std::mutex upgradeQueueMutex;
 
 public:
     Server(int port);
