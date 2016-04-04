@@ -204,21 +204,6 @@ Server::~Server()
     uv_loop_delete((uv_loop_t *) loop);
 }
 
-void Server::onUpgrade(void (*upgradeCallback)(FD, const char *))
-{
-    this->upgradeCallback = upgradeCallback;
-}
-
-void Server::onConnection(void (*connectionCallback)(Socket))
-{
-    this->connectionCallback = connectionCallback;
-}
-
-void Server::onDisconnection(void (*disconnectionCallback)(Socket))
-{
-    this->disconnectionCallback = disconnectionCallback;
-}
-
 void Server::run()
 {
     timer = new uv_timer_t;
@@ -841,7 +826,22 @@ void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, O
     this->fragmentCallback = fragmentCallback;
 }
 
-void Server::onMessage(void (*messageCallback)(Socket, const char *, size_t, OpCode))
+void Server::onUpgrade(function<void(FD, const char *)> upgradeCallback)
+{
+    this->upgradeCallback = upgradeCallback;
+}
+
+void Server::onConnection(function<void(Socket)> connectionCallback)
+{
+    this->connectionCallback = connectionCallback;
+}
+
+void Server::onDisconnection(function<void(Socket)> disconnectionCallback)
+{
+    this->disconnectionCallback = disconnectionCallback;
+}
+
+void Server::onMessage(function<void(Socket, const char *, size_t, OpCode)> messageCallback)
 {
     this->messageCallback = messageCallback;
 }

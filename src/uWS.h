@@ -59,11 +59,10 @@ private:
     static void internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes);
 
     // external callbacks
-    void (*upgradeCallback)(FD, const char *) = nullptr;
-    void (*connectionCallback)(Socket) = nullptr;
-    void (*disconnectionCallback)(Socket) = nullptr;
-    void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t) = nullptr;
-    void (*messageCallback)(Socket socket, const char *message, size_t length, OpCode opCode) = nullptr;
+    std::function<void(FD, const char *)> upgradeCallback;
+    std::function<void(Socket)> connectionCallback, disconnectionCallback;
+    std::function<void(Socket, const char *, size_t, OpCode)> messageCallback;
+    void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t);
 
     // buffers
     char *receiveBuffer, *sendBuffer;
@@ -88,11 +87,11 @@ public:
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
-    void onUpgrade(void (*upgradeCallback)(FD, const char *));
-    void onConnection(void (*connectionCallback)(Socket));
-    void onDisconnection(void (*disconnectionCallback)(Socket));
+    void onUpgrade(std::function<void(FD, const char *)> upgradeCallback);
+    void onConnection(std::function<void(Socket)> connectionCallback);
+    void onDisconnection(std::function<void(Socket)> disconnectionCallback);
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
-    void onMessage(void (*messageCallback)(Socket, const char *, size_t, OpCode));
+    void onMessage(std::function<void(Socket, const char *, size_t, OpCode)> messageCallback);
     void run();
     void broadcast(char *data, size_t length, OpCode opCode);
     static bool isValidUtf8(unsigned char *str, size_t length);
