@@ -5,8 +5,16 @@ using namespace uWS;
 #include <queue>
 using namespace std;
 
-#ifdef _WIN32
+#ifndef __linux
 #define MSG_NOSIGNAL 0
+#endif
+
+#ifdef __APPLE__
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#endif
+
+#ifdef _WIN32
 #define SHUT_WR SD_SEND
 
 // for little endian systems only
@@ -541,6 +549,11 @@ void Server::onAcceptable(void *vp, int status, int events)
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &serverFd);
     FD clientFd = accept(serverFd, (sockaddr *) ((Server *) p->data)->listenAddr, &listenAddrLength);
 
+#ifdef __APPLE__
+    int noSigpipe = 1;
+    setsockopt(clientFd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
+#endif
+
     // start async reading of http headers
     uv_poll_t *http = new uv_poll_t;
     http->data = new HTTPData((Server *) p->data);
@@ -627,7 +640,7 @@ void Server::onReadable(void *vp, int status, int events)
     }
 
     // cork sends into one large package
-#ifndef _WIN32
+#ifdef __linux
     int cork = 1;
     setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
 #endif
@@ -817,7 +830,7 @@ void Server::onReadable(void *vp, int status, int events)
         }
     }
 
-#ifndef _WIN32
+#ifdef __linux
     cork = 0;
     setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
 #endif
