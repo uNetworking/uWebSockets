@@ -439,7 +439,7 @@ void rotate_mask(int offset, uint32_t *mask)
 // 75% of all CPU time when sending large amounts of data
 void unmask_inplace(uint32_t *data, uint32_t *stop, uint32_t mask)
 {
-    while(data < stop) {
+    while (data < stop) {
         *(data++) ^= mask;
     }
 }
@@ -643,7 +643,7 @@ void Server::onReadable(void *vp, int status, int events)
     parseNext:
     if (socketData->state == READ_HEAD) {
 
-        while(length >= (int) sizeof(frameFormat)) {
+        while (length >= (int) sizeof(frameFormat)) {
             frameFormat frame = *(frameFormat *) src;
 
             int lastFin = socketData->fin;
@@ -973,6 +973,11 @@ void Socket::close(bool force)
     }
 
     if (force) {
+        // delete all messages in queue
+        while (!socketData->messageQueue.empty()) {
+
+        }
+
         uv_poll_stop(p);
         uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
             delete (uv_poll_t *) handle;
