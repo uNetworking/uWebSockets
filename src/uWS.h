@@ -7,14 +7,17 @@
 #include <queue>
 #include <mutex>
 
-namespace uWS {
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <WinSock2.h>
 #include <Windows.h>
 #pragma comment(lib, "Ws2_32.lib")
+#endif
+
+namespace uWS {
+
+#ifdef _WIN32
 typedef SOCKET FD;
 #else
 typedef int FD;

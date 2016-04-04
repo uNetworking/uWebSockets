@@ -233,7 +233,7 @@ void Server::run()
 
         if (server->server) {
             FD listenFd;
-            uv_fileno((uv_handle_t *) server->server, &listenFd);
+            uv_fileno((uv_handle_t *) server->server, (uv_os_fd_t *) &listenFd);
             ::close(listenFd);
             uv_poll_stop((uv_poll_t *) server->server);
             uv_close((uv_handle_t *) server->server, [](uv_handle_t *handle) {
@@ -537,9 +537,9 @@ void Server::onAcceptable(void *vp, int status, int events)
     uv_poll_t *p = (uv_poll_t *) vp;
 
     socklen_t listenAddrLength = sizeof(sockaddr_in);
-    int serverFd;
-    uv_fileno((uv_handle_t *) p, &serverFd);
-    int clientFd = accept(serverFd, (sockaddr *) ((Server *) p->data)->listenAddr, &listenAddrLength);
+    FD serverFd;
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &serverFd);
+    FD clientFd = accept(serverFd, (sockaddr *) ((Server *) p->data)->listenAddr, &listenAddrLength);
 
     // start async reading of http headers
     uv_poll_t *http = new uv_poll_t;
@@ -548,7 +548,7 @@ void Server::onAcceptable(void *vp, int status, int events)
     uv_poll_start(http, UV_READABLE, [](uv_poll_t *p, int status, int events) {
 
         FD fd;
-        uv_fileno((uv_handle_t *) p, &fd);
+        uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
         HTTPData *httpData = (HTTPData *) p->data;
         int length = read(fd, httpData->server->receiveBuffer, BUFFER_SIZE);
         httpData->headerBuffer.append(httpData->server->receiveBuffer, length);
@@ -615,7 +615,7 @@ void Server::onReadable(void *vp, int status, int events)
     char *src = socketData->server->receiveBuffer;
     memcpy(src, socketData->spill, socketData->spillLength);
     FD fd;
-    uv_fileno((uv_handle_t *) p, &fd);
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
     int length = socketData->spillLength + read(fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength);
 
     //int SSL_read(SSL *ssl, void *buf, int num);
@@ -838,7 +838,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
-    uv_fileno((uv_handle_t *) p, &fd);
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 
     // todo: directly queue if we have messages in the queue already!
 
@@ -889,7 +889,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
 
                 SocketData *socketData = (SocketData *) handle->data;
                 FD fd;
-                uv_fileno((uv_handle_t *) handle, &fd);
+                uv_fileno((uv_handle_t *) handle, (uv_os_fd_t *) &fd);
 
                 do {
                     Message *messagePtr = socketData->messageQueue.front();
@@ -928,7 +928,7 @@ void Socket::close(bool force)
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
-    uv_fileno((uv_handle_t *) p, &fd);
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
     SocketData *socketData = (SocketData *) p->data;
 
     // Server::unlink(Socket)
