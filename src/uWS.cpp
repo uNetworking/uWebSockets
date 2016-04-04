@@ -192,20 +192,21 @@ Server::Server(int port) : port(port)
     ((sockaddr_in *) listenAddr)->sin_port = htons(port);
 
     loop = uv_loop_new();
-}
 
-Server::~Server()
-{
-    delete [] receiveBuffer;
-    delete [] sendBuffer;
-    delete (sockaddr_in *) listenAddr;
+    if (port) {
+        FD listenFd = socket(AF_INET, SOCK_STREAM, 0);
+        if (::bind(listenFd, (sockaddr *) listenAddr, sizeof(sockaddr_in)) | listen(listenFd, 10)) {
+            throw nullptr; // ERR_LISTEN
+        }
 
-    // todo: when listen fails we crash because of handles still in loop
-    uv_loop_delete((uv_loop_t *) loop);
-}
+        //SSL_CTX *SSL_CTX_new(const SSL_METHOD *method);
 
-void Server::run()
-{
+        this->server = new uv_poll_t;
+        uv_poll_init_socket((uv_loop_t *) loop, (uv_poll_t *) this->server, listenFd);
+        uv_poll_start((uv_poll_t *) this->server, UV_READABLE, (uv_poll_cb) onAcceptable);
+        ((uv_poll_t *) this->server)->data = this;
+    }
+
     timer = new uv_timer_t;
     uv_timer_init((uv_loop_t *) loop, (uv_timer_t *) timer);
     upgradeAsync = new uv_async_t;
@@ -294,25 +295,24 @@ void Server::run()
         server->upgradeQueueMutex.unlock();
     });
 
-    if (port) {
-        FD listenFd = socket(AF_INET, SOCK_STREAM, 0);
-        if (::bind(listenFd, (sockaddr *) listenAddr, sizeof(sockaddr_in)) | listen(listenFd, 10)) {
-            throw nullptr; // ERR_LISTEN
-        }
-
-        //SSL_CTX *SSL_CTX_new(const SSL_METHOD *method);
-
-        this->server = new uv_poll_t;
-        uv_poll_init_socket((uv_loop_t *) loop, (uv_poll_t *) this->server, listenFd);
-        uv_poll_start((uv_poll_t *) this->server, UV_READABLE, (uv_poll_cb) onAcceptable);
-        ((uv_poll_t *) this->server)->data = this;
-    }
-
     // start a timer to keep the server running
     uv_timer_start((uv_timer_t *) timer, [](uv_timer_t *t) {
 
     }, 10000, 10000);
+}
 
+Server::~Server()
+{
+    delete [] receiveBuffer;
+    delete [] sendBuffer;
+    delete (sockaddr_in *) listenAddr;
+
+    // todo: when listen fails we crash because of handles still in loop
+    uv_loop_delete((uv_loop_t *) loop);
+}
+
+void Server::run()
+{
     uv_run((uv_loop_t *) loop, UV_RUN_DEFAULT);
 }
 
