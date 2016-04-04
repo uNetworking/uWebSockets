@@ -38,7 +38,7 @@ class Socket {
 private:
     void *socket;
     Socket(void *p) : socket(p) {}
-    void write(char *data, size_t length, bool transferOwnership);
+    void write(char *data, size_t length, bool transferOwnership, void(*callback)(FD fd) = nullptr);
 public:
     void close(bool force = false);
     void send(char *data, size_t length, OpCode opCode, size_t fakedLength = 0);

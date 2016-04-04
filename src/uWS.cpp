@@ -78,6 +78,7 @@ struct Message {
     char *data;
     size_t length;
     Message *nextMessage = nullptr;
+    void (*callback)(FD fd) = nullptr;
 };
 
 struct Queue {
@@ -857,29 +858,33 @@ void Server::onMessage(function<void(Socket, const char *, size_t, OpCode)> mess
 }
 
 // async Unix send (has a Message struct in the start if transferOwnership)
-void Socket::write(char *data, size_t length, bool transferOwnership)
+void Socket::write(char *data, size_t length, bool transferOwnership, void(*callback)(FD fd))
 {
+// We need to pass every test when only sending 1 byte a time
+#define SEND_THROTTLE 1
+
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 
-    // todo: directly queue if we have messages in the queue already!
-
-    // async send
-    ssize_t sent = ::send(fd, data, length, MSG_NOSIGNAL);
-
-    // test for plausible bug
+    ssize_t sent = 0;
     SocketData *socketData = (SocketData *) p->data;
-    if (sent > 0 && !socketData->messageQueue.empty()) {
-        cout << "SEND ERROR!" << endl;
-        exit(-33);
+    if (!socketData->messageQueue.empty()) {
+        goto queueIt;
     }
+
+    sent = ::send(fd, data, min<int>(SEND_THROTTLE, length), MSG_NOSIGNAL);
 
     if (sent == (int) length) {
         // everything was sent in one go!
         if (transferOwnership) {
             delete [] (data - sizeof(Message));
         }
+
+        if (callback) {
+            callback(fd);
+        }
+
     } else {
         // not everything was sent
         if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
@@ -889,6 +894,9 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
             }
             return;
         } else {
+
+            queueIt:
+
             // queue the rest of the message!
             Message *messagePtr;
             if (transferOwnership) {
@@ -905,6 +913,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
                 memcpy(messagePtr->data, data + sent, messagePtr->length);
             }
 
+            messagePtr->callback = callback;
             ((SocketData *) p->data)->messageQueue.push(messagePtr);
 
             // only start this if we just broke the 0 queue size!
@@ -912,6 +921,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
 
                 if (status < 0) {
                     // error send
+                    cout << "error send" << endl;
                 }
 
                 SocketData *socketData = (SocketData *) handle->data;
@@ -921,8 +931,13 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
                 do {
                     Message *messagePtr = socketData->messageQueue.front();
 
-                    ssize_t sent = ::send(fd, messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
+                    ssize_t sent = ::send(fd, messagePtr->data, min<int>(SEND_THROTTLE, messagePtr->length), MSG_NOSIGNAL);
                     if (sent == (int) messagePtr->length) {
+
+                        if (messagePtr->callback) {
+                            messagePtr->callback(fd);
+                        }
+
                         // everything was sent in one go!
                         socketData->messageQueue.pop();
                     } else {
@@ -974,9 +989,9 @@ void Socket::close(bool force)
 
     if (force) {
         // delete all messages in queue
-        while (!socketData->messageQueue.empty()) {
+        /*while (!socketData->messageQueue.empty()) {
 
-        }
+        }*/
 
         uv_poll_stop(p);
         uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
@@ -985,12 +1000,10 @@ void Socket::close(bool force)
         ::close(fd);
         delete socketData;
     } else {
-        // this assumes write finishes before shutdown
-        // write should take a callback so we know for sure
-        // it did finish before we called shutdown
         unsigned char closeFrame[2] = {128 | 8, 0};
-        write((char *) closeFrame, 2, false);
-        shutdown(fd, SHUT_WR);
+        write((char *) closeFrame, 2, false, [](FD fd) {
+            shutdown(fd, SHUT_WR);
+        });
     }
 }
 
