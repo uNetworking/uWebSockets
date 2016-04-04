@@ -410,7 +410,7 @@ inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int
     // overwrite 4 bytes (possible with 6 byte header)
     int n = (payloadLength >> 2) + 1;
     src += payloadOffset;
-    while(n--) {
+    while (n--) {
         /**((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
         dst += 4;
         src += 4;*/
@@ -447,7 +447,7 @@ void unmask_inplace(uint32_t *data, uint32_t *stop, uint32_t mask)
 namespace uWS {
 struct Parser {
     template <typename T>
-    static inline void consumeIncompleteMessage(int length, const int headerLength, T fullPayloadLength, SocketData *socketData, char *src, frameFormat &frame, void *socket)
+    static inline void consumeIncompleteMessage(int length, const int headerLength, T fullPayloadLength, SocketData *socketData, char *src, void *socket)
     {
         socketData->spillLength = 0;
         socketData->state = READ_MESSAGE;
@@ -457,14 +457,14 @@ struct Parser {
 
         unmask(src, src, headerLength - 4, headerLength, length);
         socketData->server->fragmentCallback(socket, src, length - headerLength,
-                                             socketData->opCode[socketData->opStack], socketData->fin, socketData->remainingBytes);
+                                             socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes);
     }
 
     template <typename T>
     static inline int consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, void *socket)
     {
         unmask(*src, *src, headerLength - 4, headerLength, fullPayloadLength);
-        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, socketData->opCode[socketData->opStack], socketData->fin, 0);
+        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0);
 
         // did we close the socket using Socket.fail()?
         if (uv_is_closing((uv_handle_t *) socket)) {
@@ -527,6 +527,10 @@ struct HTTPData {
 
 void Server::onAcceptable(void *vp, int status, int events)
 {
+    if (status < 0) {
+        // error accept
+    }
+
     uv_poll_t *p = (uv_poll_t *) vp;
 
     socklen_t listenAddrLength = sizeof(sockaddr_in);
@@ -545,6 +549,10 @@ void Server::onAcceptable(void *vp, int status, int events)
     uv_poll_init_socket((uv_loop_t *) ((Server *) p->data)->loop, http, clientFd);
     uv_poll_start(http, UV_READABLE, [](uv_poll_t *p, int status, int events) {
 
+        if (status < 0) {
+            // error read
+        }
+
         FD fd;
         uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
         HTTPData *httpData = (HTTPData *) p->data;
@@ -562,19 +570,21 @@ void Server::onAcceptable(void *vp, int status, int events)
             });
 
             for (Request h = (char *) httpData->headerBuffer.data(); h.key.second; h++) {
-                // lowercase the key
-                for (int i = 0; i < h.key.second; i++) {
-                    h.key.first[i] = tolower(h.key.first[i]);
-                }
-
-                if (h.key.second == 17 && !strncmp(h.key.first, "sec-websocket-key", 17)) {
-                    // this is an upgrade
-                    if (httpData->server->upgradeCallback) {
-                        httpData->server->upgradeCallback(fd, h.value.first);
-                    } else {
-                        httpData->server->upgrade(fd, h.value.first);
+                if (h.key.second == 17) {
+                    // lowercase the key
+                    for (size_t i = 0; i < h.key.second; i++) {
+                        h.key.first[i] = tolower(h.key.first[i]);
                     }
-                    return;
+
+                    if (!strncmp(h.key.first, "sec-websocket-key", 17)) {
+                        // this is an upgrade
+                        if (httpData->server->upgradeCallback) {
+                            httpData->server->upgradeCallback(fd, h.value.first);
+                        } else {
+                            httpData->server->upgrade(fd, h.value.first);
+                        }
+                        return;
+                    }
                 }
             }
 
@@ -633,7 +643,7 @@ void Server::onReadable(void *vp, int status, int events)
     parseNext:
     if (socketData->state == READ_HEAD) {
 
-        while(length >= sizeof(frameFormat)) {
+        while(length >= (int) sizeof(frameFormat)) {
             frameFormat frame = *(frameFormat *) src;
 
             int lastFin = socketData->fin;
@@ -666,8 +676,8 @@ void Server::onReadable(void *vp, int status, int events)
             if (/*frame.opCode*/opCode(frame)) {
 
                 // if empty stack or a new op-code, push on stack!
-                if (socketData->opStack == -1 || socketData->opCode[socketData->opStack] != (OpCode) /*frame.opCode*/ opCode(frame)) {
-                    socketData->opCode[++socketData->opStack] = (OpCode) /*frame.opCode*/ opCode(frame);
+                if (socketData->opStack == -1 || socketData->opCode[(unsigned char) socketData->opStack] != (OpCode) /*frame.opCode*/ opCode(frame)) {
+                    socketData->opCode[(unsigned char) ++socketData->opStack] = (OpCode) /*frame.opCode*/ opCode(frame);
                 }
 
 #ifdef STRICT
@@ -699,7 +709,7 @@ void Server::onReadable(void *vp, int status, int events)
                 if (/*frame.payloadLength*/payloadLength(frame) == 126) {
                     const int MEDIUM_MESSAGE_HEADER = 8;
                     // we need to have enough length to read the long length
-                    if (length < 2 + sizeof(uint16_t)) {
+                    if (length < 2 + (int) sizeof(uint16_t)) {
                         break;
                     }
                     if (ntohs(*(uint16_t *) &src[2]) <= length - MEDIUM_MESSAGE_HEADER) {
@@ -710,16 +720,16 @@ void Server::onReadable(void *vp, int status, int events)
                         if (length < MEDIUM_MESSAGE_HEADER + 1) {
                             break;
                         }
-                        Parser::consumeIncompleteMessage(length, MEDIUM_MESSAGE_HEADER, ntohs(*(uint16_t *) &src[2]), socketData, src, frame, p);
+                        Parser::consumeIncompleteMessage(length, MEDIUM_MESSAGE_HEADER, ntohs(*(uint16_t *) &src[2]), socketData, src, p);
                         return;
                     }
                 } else {
                     const int LONG_MESSAGE_HEADER = 14;
                     // we need to have enough length to read the long length
-                    if (length < 2 + sizeof(uint64_t)) {
+                    if (length < 2 + (int) sizeof(uint64_t)) {
                         break;
                     }
-                    if (be64toh(*(uint64_t *) &src[2]) <= length - LONG_MESSAGE_HEADER) {
+                    if (be64toh(*(uint64_t *) &src[2]) <= (uint64_t) length - LONG_MESSAGE_HEADER) {
                         if (Parser::consumeCompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, &src, frame, p)) {
                             return;
                         }
@@ -727,7 +737,7 @@ void Server::onReadable(void *vp, int status, int events)
                         if (length < LONG_MESSAGE_HEADER + 1) {
                             break;
                         }
-                        Parser::consumeIncompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, src, frame, p);
+                        Parser::consumeIncompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, src, p);
                         return;
                     }
                 }
@@ -741,7 +751,7 @@ void Server::onReadable(void *vp, int status, int events)
                     if (length < SHORT_MESSAGE_HEADER + 1) {
                         break;
                     }
-                    Parser::consumeIncompleteMessage(length, SHORT_MESSAGE_HEADER, /*frame.payloadLength*/ payloadLength(frame), socketData, src, frame, p);
+                    Parser::consumeIncompleteMessage(length, SHORT_MESSAGE_HEADER, /*frame.payloadLength*/ payloadLength(frame), socketData, src, p);
                     return;
                 }
             }
@@ -752,7 +762,7 @@ void Server::onReadable(void *vp, int status, int events)
             socketData->spillLength = length;
         }
     } else {
-        if (socketData->remainingBytes < length) {
+        if (socketData->remainingBytes < (unsigned int) length) {
             //int n = socketData->remainingBytes >> 2;
             uint32_t maskBytes = socketData->mask;
 
@@ -763,12 +773,12 @@ void Server::onReadable(void *vp, int status, int events)
 
             // unoptimized!
             char *mask = (char *) &maskBytes;
-            for (int i = 0; i < socketData->remainingBytes; i++) {
+            for (int i = 0; i < (int) socketData->remainingBytes; i++) {
                 src[i] ^= mask[i % 4];
             }
 
             socketData->server->fragmentCallback(p, (const char *) src, socketData->remainingBytes,
-                                                 socketData->opCode[socketData->opStack], socketData->fin, 0);
+                                                 socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0);
 
             // did we close the socket using Socket.fail()?
             if (uv_is_closing((uv_handle_t *) socket)) {
@@ -793,7 +803,7 @@ void Server::onReadable(void *vp, int status, int events)
             socketData->remainingBytes -= length;
 
             socketData->server->fragmentCallback(p, (const char *) src, length,
-                                                 socketData->opCode[socketData->opStack], socketData->fin, socketData->remainingBytes);
+                                                 socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes);
 
             // did we close the socket using Socket.fail()?
             if (uv_is_closing((uv_handle_t *) socket)) {
@@ -865,7 +875,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
         exit(-33);
     }
 
-    if (sent == length) {
+    if (sent == (int) length) {
         // everything was sent in one go!
         if (transferOwnership) {
             delete [] (data - sizeof(Message));
@@ -900,6 +910,10 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
             // only start this if we just broke the 0 queue size!
             uv_poll_start(p, UV_WRITABLE, [](uv_poll_t *handle, int status, int events) {
 
+                if (status < 0) {
+                    // error send
+                }
+
                 SocketData *socketData = (SocketData *) handle->data;
                 FD fd;
                 uv_fileno((uv_handle_t *) handle, (uv_os_fd_t *) &fd);
@@ -908,7 +922,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
                     Message *messagePtr = socketData->messageQueue.front();
 
                     ssize_t sent = ::send(fd, messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
-                    if (sent == messagePtr->length) {
+                    if (sent == (int) messagePtr->length) {
                         // everything was sent in one go!
                         socketData->messageQueue.pop();
                     } else {
@@ -928,7 +942,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
                             return;
                         }
                     }
-                } while(!socketData->messageQueue.empty());
+                } while (!socketData->messageQueue.empty());
 
                 // only receive when we have fully sent everything
                 uv_poll_start(handle, UV_READABLE, (uv_poll_cb) Server::onReadable);
@@ -1080,7 +1094,7 @@ bool Server::isValidUtf8(unsigned char *str, size_t length)
 
     // Modified (c) 2016 Alex Hultman
     uint8_t *utf8d_256 = utf8d + 256, state = 0;
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < (int) length; i++) {
         state = utf8d_256[(state << 4) + utf8d[str[i]]];
     }
     return !state;
