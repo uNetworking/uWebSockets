@@ -7,6 +7,8 @@ using namespace std;
 
 #ifndef __linux
 #define MSG_NOSIGNAL 0
+#else
+#include <endian.h>
 #endif
 
 #ifdef __APPLE__
@@ -49,7 +51,6 @@ struct WindowsInit {
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
-#include <endian.h>
 #endif
 
 #include <openssl/sha.h>
