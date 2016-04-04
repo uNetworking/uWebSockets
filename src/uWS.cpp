@@ -5,12 +5,44 @@ using namespace uWS;
 #include <queue>
 using namespace std;
 
+#ifdef _WIN32
+#define MSG_NOSIGNAL 0
+#define SHUT_WR SD_SEND
+
+// for little endian systems only
+#define htobe64(x) htonll(x)
+#define be64toh(x) ntohll(x)
+
+inline void close(SOCKET fd)
+{
+    closesocket(fd);
+}
+
+inline int read(FD fd, void *buf, size_t len)
+{
+    return recv(fd, (char *) buf, len, 0);
+}
+
+struct WindowsInit {
+    WSADATA wsaData;
+    WindowsInit()
+    {
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+    }
+
+    ~WindowsInit()
+    {
+        WSACleanup();
+    }
+} windowsInit;
+
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
 #include <endian.h>
-#include <malloc.h>
+#endif
 
 #include <openssl/sha.h>
 #include <openssl/bio.h>
@@ -139,8 +171,7 @@ Server::Server(int port) : port(port)
     // we need 24 bytes over to not read invalidly outside
 
     // we need 4 bytes (or 3 at least) outside for unmasking
-    receiveBuffer = (char *) memalign(32, BUFFER_SIZE + 24);
-    //receiveBuffer = (char *) new uint32_t[BUFFER_SIZE / 4 + 6];
+    receiveBuffer = (char *) new uint32_t[BUFFER_SIZE / 4 + 6];
 
     sendBuffer = new char[SHORT_SEND];
 
@@ -157,9 +188,7 @@ Server::Server(int port) : port(port)
 
 Server::~Server()
 {
-    free(receiveBuffer);
-    //delete [] receiveBuffer;
-
+    delete [] receiveBuffer;
     delete [] sendBuffer;
     delete (sockaddr_in *) listenAddr;
 
@@ -249,7 +278,7 @@ void Server::run()
 
             // this will modify the event loop of another thread
             uv_poll_t *clientPoll = new uv_poll_t;
-            uv_poll_init((uv_loop_t *) server->loop, clientPoll, upgradeRequest.first);
+            uv_poll_init_socket((uv_loop_t *) server->loop, clientPoll, upgradeRequest.first);
             SocketData *socketData = new SocketData;
             socketData->server = server;
             clientPoll->data = socketData;
@@ -273,19 +302,15 @@ void Server::run()
     });
 
     if (port) {
-        int listenFd = socket(AF_INET, SOCK_STREAM, 0);
-        if (bind(listenFd, (sockaddr *) listenAddr, sizeof(sockaddr_in))) {
+        FD listenFd = socket(AF_INET, SOCK_STREAM, 0);
+        if (::bind(listenFd, (sockaddr *) listenAddr, sizeof(sockaddr_in)) | listen(listenFd, 10)) {
             throw nullptr; // ERR_LISTEN
-        }
-
-        if (listen(listenFd, 10) == -1) {
-            throw 0; //ERR_LISTEN
         }
 
         //SSL_CTX *SSL_CTX_new(const SSL_METHOD *method);
 
         this->server = new uv_poll_t;
-        uv_poll_init((uv_loop_t *) loop, (uv_poll_t *) this->server, listenFd);
+        uv_poll_init_socket((uv_loop_t *) loop, (uv_poll_t *) this->server, listenFd);
         uv_poll_start((uv_poll_t *) this->server, UV_READABLE, (uv_poll_cb) onAcceptable);
         ((uv_poll_t *) this->server)->data = this;
     }
@@ -519,10 +544,10 @@ void Server::onAcceptable(void *vp, int status, int events)
     // start async reading of http headers
     uv_poll_t *http = new uv_poll_t;
     http->data = new HTTPData((Server *) p->data);
-    uv_poll_init((uv_loop_t *) ((Server *) p->data)->loop, http, clientFd);
+    uv_poll_init_socket((uv_loop_t *) ((Server *) p->data)->loop, http, clientFd);
     uv_poll_start(http, UV_READABLE, [](uv_poll_t *p, int status, int events) {
 
-        int fd;
+        FD fd;
         uv_fileno((uv_handle_t *) p, &fd);
         HTTPData *httpData = (HTTPData *) p->data;
         int length = read(fd, httpData->server->receiveBuffer, BUFFER_SIZE);
@@ -589,7 +614,7 @@ void Server::onReadable(void *vp, int status, int events)
 
     char *src = socketData->server->receiveBuffer;
     memcpy(src, socketData->spill, socketData->spillLength);
-    int fd;
+    FD fd;
     uv_fileno((uv_handle_t *) p, &fd);
     int length = socketData->spillLength + read(fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength);
 
@@ -602,8 +627,10 @@ void Server::onReadable(void *vp, int status, int events)
     }
 
     // cork sends into one large package
+#ifndef _WIN32
     int cork = 1;
     setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
+#endif
 
     parseNext:
     if (socketData->state == READ_HEAD) {
@@ -677,15 +704,15 @@ void Server::onReadable(void *vp, int status, int events)
                     if (length < 2 + sizeof(uint16_t)) {
                         break;
                     }
-                    if (be16toh(*(uint16_t *) &src[2]) <= length - MEDIUM_MESSAGE_HEADER) {
-                        if (Parser::consumeCompleteMessage(length, MEDIUM_MESSAGE_HEADER, be16toh(*(uint16_t *) &src[2]), socketData, &src, frame, p)) {
+                    if (ntohs(*(uint16_t *) &src[2]) <= length - MEDIUM_MESSAGE_HEADER) {
+                        if (Parser::consumeCompleteMessage(length, MEDIUM_MESSAGE_HEADER, ntohs(*(uint16_t *) &src[2]), socketData, &src, frame, p)) {
                             return;
                         }
                     } else {
                         if (length < MEDIUM_MESSAGE_HEADER + 1) {
                             break;
                         }
-                        Parser::consumeIncompleteMessage(length, MEDIUM_MESSAGE_HEADER, be16toh(*(uint16_t *) &src[2]), socketData, src, frame, p);
+                        Parser::consumeIncompleteMessage(length, MEDIUM_MESSAGE_HEADER, ntohs(*(uint16_t *) &src[2]), socketData, src, frame, p);
                         return;
                     }
                 } else {
@@ -790,8 +817,10 @@ void Server::onReadable(void *vp, int status, int events)
         }
     }
 
+#ifndef _WIN32
     cork = 0;
     setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
+#endif
 }
 
 void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t))
@@ -808,7 +837,7 @@ void Server::onMessage(void (*messageCallback)(Socket, const char *, size_t, OpC
 void Socket::write(char *data, size_t length, bool transferOwnership)
 {
     uv_poll_t *p = (uv_poll_t *) socket;
-    int fd;
+    FD fd;
     uv_fileno((uv_handle_t *) p, &fd);
 
     // todo: directly queue if we have messages in the queue already!
@@ -859,7 +888,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
             uv_poll_start(p, UV_WRITABLE, [](uv_poll_t *handle, int status, int events) {
 
                 SocketData *socketData = (SocketData *) handle->data;
-                int fd;
+                FD fd;
                 uv_fileno((uv_handle_t *) handle, &fd);
 
                 do {
@@ -898,7 +927,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership)
 void Socket::close(bool force)
 {
     uv_poll_t *p = (uv_poll_t *) socket;
-    int fd;
+    FD fd;
     uv_fileno((uv_handle_t *) p, &fd);
     SocketData *socketData = (SocketData *) p->data;
 
@@ -944,7 +973,7 @@ inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, 
         messageLength = length + 4;
         memcpy(dst + 4, src, length);
         dst[1] = 126;
-        *((uint16_t *) &dst[2]) = htobe16(reportedLength);
+        *((uint16_t *) &dst[2]) = htons(reportedLength);
     } else {
         messageLength = length + 10;
         memcpy(dst + 10, src, length);

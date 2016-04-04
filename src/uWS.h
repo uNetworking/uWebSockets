@@ -10,7 +10,12 @@
 namespace uWS {
 
 #ifdef _WIN32
-typedef HANDLE FD;
+#define WIN32_LEAN_AND_MEAN
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#include <WinSock2.h>
+#include <Windows.h>
+#pragma comment(lib, "Ws2_32.lib")
+typedef SOCKET FD;
 #else
 typedef int FD;
 #endif
