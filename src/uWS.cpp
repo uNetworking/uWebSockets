@@ -18,10 +18,9 @@ using namespace std;
 
 #ifdef _WIN32
 #define SHUT_WR SD_SEND
-
-// for little endian systems only
 #define htobe64(x) htonll(x)
 #define be64toh(x) ntohll(x)
+#pragma comment(lib, "Ws2_32.lib")
 
 inline void close(SOCKET fd)
 {
