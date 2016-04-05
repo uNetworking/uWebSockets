@@ -3,7 +3,7 @@
    "outdir": "./Autobahn",
 
    "servers": [
-                {"agent": "uWebSockets",
+                {"agent": "&#181;WebSockets",
                  "url": "ws://localhost:3000",
                  "options": {"version": 18}}
               ],

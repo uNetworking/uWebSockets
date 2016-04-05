@@ -108,6 +108,7 @@ struct Queue {
     {
         if (tail) {
             tail->nextMessage = message;
+            tail = message;
         } else {
             head = message;
             tail = message;
@@ -873,7 +874,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
         goto queueIt;
     }
 
-    sent = ::send(fd, data, min<int>(SEND_THROTTLE, length), MSG_NOSIGNAL);
+    sent = ::send(fd, data, length/*min<int>(SEND_THROTTLE, length)*/, MSG_NOSIGNAL);
 
     if (sent == (int) length) {
         // everything was sent in one go!
@@ -887,7 +888,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
     } else {
         // not everything was sent
-        if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) { // todo: fix up Windows checks
             // error sending!
             if (transferOwnership) {
                 delete [] (data - sizeof(Message));
@@ -931,20 +932,18 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                 do {
                     Message *messagePtr = socketData->messageQueue.front();
 
-                    ssize_t sent = ::send(fd, messagePtr->data, min<int>(SEND_THROTTLE, messagePtr->length), MSG_NOSIGNAL);
+                    ssize_t sent = ::send(fd, messagePtr->data, messagePtr->length/*min<int>(SEND_THROTTLE, messagePtr->length)*/, MSG_NOSIGNAL);
                     if (sent == (int) messagePtr->length) {
 
                         if (messagePtr->callback) {
                             messagePtr->callback(fd);
                         }
 
-                        // everything was sent in one go!
                         socketData->messageQueue.pop();
                     } else {
-                        if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                        if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) { // todo: fix up Windows checks
 
                             // will this trigger a read with 0 length?
-                            cout << "Send error in async write" << endl;
 
                             // error sending!
                             // when closing a socket, we need to empty the message queue!
@@ -989,14 +988,17 @@ void Socket::close(bool force)
 
     if (force) {
         // delete all messages in queue
-        /*while (!socketData->messageQueue.empty()) {
-
-        }*/
+        while (!socketData->messageQueue.empty()) {
+            socketData->messageQueue.pop();
+        }
 
         uv_poll_stop(p);
         uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
             delete (uv_poll_t *) handle;
         });
+
+        // todo: non-strict behavior, empty the queue before sending
+        // but then again we call it forced, so never mind!
         ::close(fd);
         delete socketData;
     } else {
