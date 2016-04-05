@@ -888,7 +888,11 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
     } else {
         // not everything was sent
-        if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) { // todo: fix up Windows checks
+#ifdef _WIN32
+        if (sent == -1 && WSAGetLastError() != WSAENOBUFS && WSAGetLastError() != WSAEWOULDBLOCK) {
+#else
+        if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+#endif
             // error sending!
             if (transferOwnership) {
                 delete [] (data - sizeof(Message));
@@ -941,7 +945,11 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
                         socketData->messageQueue.pop();
                     } else {
-                        if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) { // todo: fix up Windows checks
+#ifdef _WIN32
+                        if (sent == -1 && WSAGetLastError() != WSAENOBUFS && WSAGetLastError() != WSAEWOULDBLOCK) {
+#else
+                        if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+#endif
 
                             // will this trigger a read with 0 length?
 
