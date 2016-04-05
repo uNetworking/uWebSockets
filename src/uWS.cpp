@@ -284,7 +284,7 @@ Server::Server(int port) : port(port)
             if (!server->clients) {
                 server->clients = clientPoll;
             } else {
-                SocketData *tailData = (SocketData *) server->clients;
+                SocketData *tailData = (SocketData *) ((uv_poll_t *) server->clients)->data;
                 tailData->prev = clientPoll;
                 socketData->next = server->clients;
                 server->clients = clientPoll;
@@ -977,12 +977,12 @@ void Socket::close(bool force)
         socketData->server->clients = nullptr;
     } else {
         if (socketData->prev) {
-            ((SocketData *)((uv_poll_t *) socketData->prev)->data)->next = socketData->next;
+            ((SocketData *) ((uv_poll_t *) socketData->prev)->data)->next = socketData->next;
         } else {
             socketData->server->clients = socketData->next;
         }
         if (socketData->next) {
-            ((SocketData *)((uv_poll_t *) socketData->next)->data)->prev = socketData->prev;
+            ((SocketData *) ((uv_poll_t *) socketData->next)->data)->prev = socketData->prev;
         }
     }
 
