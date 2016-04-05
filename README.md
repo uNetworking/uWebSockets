@@ -3,6 +3,7 @@
 
 * Linux, OS X & Windows support.
 * Keep one thread per CPU core, each serving millions of connections.
+* Expose a port range or use the load balancer to only expose one port, scaling over all CPU cores.
 * Planned SSL/TLS support (work in progress)
 * Node.js bindings are planned and will target the `ws` interface.
 
