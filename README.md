@@ -46,13 +46,20 @@ int main()
 * Small & efficient code base.
 
 ## Installation
-#### Unix
-* First install the dependencies (openssl, libuv)
+#### Dependencies
+First of all you need install the required dependencies. On Unix systems this is typically done via package managers, like [homebrew](http://brew.sh) in the case of OS X or `dnf` in the case of Fedora Linux. On Windows you need to search the web for pre-compiled binaries or simply compile the dependencies yourself.
+
+* libuv 1.x
+* OpenSSL 1.0.x
+* CMake 3.x
+
+#### Compilation
+Obviously you will need to clone this repo to get the sources. We use CMake as build system.
+
 * `git clone https://github.com/alexhultman/uWebSockets.git && cd uWebSockets`
-* `make`
-* `sudo make install`
+* `cmake .`
 
-This will install to /usr/lib64 and /usr/include.
+Now, on Unix systems it should work by simply running `make`. Run [sudo] `make install` as you wish.
 
-#### Windows
-todo
+##### Windows, in all its glory
+If you are running Windows you should now have a bunch of Visual Studio project files and one solution file. Open the solution file, now you need to make sure the header include paths and library paths are all set according to where you installed the dependencies. You might also need to change the names of the libraries being linked against, all according to the names of the installed library files. You know the drill.
