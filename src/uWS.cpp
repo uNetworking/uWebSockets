@@ -130,6 +130,7 @@ struct SocketData {
     Queue messageQueue;
     // points to uv_poll_t
     void *next = nullptr, *prev = nullptr;
+    void *data = nullptr;
 
     // turns out these are very lightweight (in GCC)
     string buffer;
@@ -1071,6 +1072,16 @@ void Socket::sendFragment(char *data, size_t length, OpCode opCode, size_t remai
             socketData->sendState = FRAGMENT_START;
         }
     }
+}
+
+void *Socket::getData()
+{
+    return ((SocketData *) ((uv_poll_t *) socket)->data)->data;
+}
+
+void Socket::setData(void *data)
+{
+    ((SocketData *) ((uv_poll_t *) socket)->data)->data = data;
 }
 
 bool Server::isValidUtf8(unsigned char *str, size_t length)

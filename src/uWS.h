@@ -43,6 +43,8 @@ public:
     void close(bool force = false);
     void send(char *data, size_t length, OpCode opCode, size_t fakedLength = 0);
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
+    void *getData();
+    void setData(void *data);
 };
 
 class Server
