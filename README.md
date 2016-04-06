@@ -8,7 +8,7 @@
 * Planned SSL/TLS support (work in progress)
 * Node.js bindings are planned and will target the `ws` interface.
 
-Project is a work in progress, initial commit was **21 March, 2016**. I'm planning to release something in a month or less.
+[![](https://img.shields.io/github/tag/alexhultman/uWebSockets.svg)]()
 
 ## Benchmarks table
 Implementation | Memory scaling | Connection performance | Short message throughput | Huge message throughput
