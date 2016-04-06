@@ -136,25 +136,19 @@ struct SocketData {
     string controlBuffer;
 };
 
-char *base64(const unsigned char *input, int length)
+void base64(unsigned char *src, char *dst)
 {
-    BIO *bmem, *b64;
-    BUF_MEM *bptr;
-
-    b64 = BIO_new(BIO_f_base64());
-    bmem = BIO_new(BIO_s_mem());
-    b64 = BIO_push(b64, bmem);
-    BIO_write(b64, input, length);
-    BIO_flush(b64);
-    BIO_get_mem_ptr(b64, &bptr);
-
-    char *buff = (char *) malloc(bptr->length);
-    memcpy(buff, bptr->data, bptr->length - 1);
-    buff[bptr->length - 1] = 0;
-
-    BIO_free_all(b64);
-
-    return buff;
+    static const char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for (int i = 0; i < 18; i += 3) {
+        *dst++ = b64[(src[i] >> 2) & 63];
+        *dst++ = b64[((src[i] & 3) << 4) | ((src[i + 1] & 240) >> 4)];
+        *dst++ = b64[((src[i + 1] & 15) << 2) | ((src[i + 2] & 192) >> 6)];
+        *dst++ = b64[src[i + 2] & 63];
+    }
+    *dst++ = b64[(src[18] >> 2) & 63];
+    *dst++ = b64[((src[18] & 3) << 4) | ((src[19] & 240) >> 4)];
+    *dst++ = b64[((src[19] & 15) << 2)];
+    *dst++ = '=';
 }
 
 /*struct __attribute__((packed)) frameFormat {
@@ -268,9 +262,7 @@ Server::Server(int port) : port(port)
                                      "Sec-WebSocket-Accept: XXXXXXXXXXXXXXXXXXXXXXXXXXXX\r\n"
                                      "\r\n";
 
-            char *b64;
-            memcpy(upgradeResponse + 97, b64 = base64(shaDigest, SHA_DIGEST_LENGTH), 28);
-            free(b64);
+            base64(shaDigest, upgradeResponse + 97);
 
             // this will modify the event loop of another thread
             uv_poll_t *clientPoll = new uv_poll_t;
