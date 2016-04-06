@@ -9,6 +9,7 @@ target_include_directories(uWS PUBLIC src)
 target_compile_features(uWS PRIVATE cxx_nullptr)
 target_link_libraries (uWS LINK_PUBLIC uv)
 target_link_libraries (uWS LINK_PUBLIC ssl)
+target_link_libraries (uWS LINK_PUBLIC crypto)
 
 if (UNIX)
 target_link_libraries (uWS LINK_PUBLIC pthread)
