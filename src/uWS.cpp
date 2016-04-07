@@ -136,16 +136,6 @@ void base64(unsigned char *src, char *dst)
     *dst++ = '=';
 }
 
-/*struct __attribute__((packed)) frameFormat {
-    unsigned int opCode : 4;
-    bool rsv3 : 1;
-    bool rsv2 : 1;
-    bool rsv1 : 1;
-    bool fin : 1;
-    unsigned int payloadLength : 7;
-    bool mask : 1;
-};*/
-
 typedef uint16_t frameFormat;
 inline bool fin(frameFormat &frame) {return frame & 128;}
 inline unsigned char opCode(frameFormat &frame) {return frame & 15;}
@@ -450,7 +440,7 @@ struct Parser {
             return 1;
         }
 
-        if (/*frame.fin*/fin(frame)) {
+        if (fin(frame)) {
             socketData->opStack--;
         }
 
@@ -626,24 +616,24 @@ void Server::onReadable(void *vp, int status, int events)
             frameFormat frame = *(frameFormat *) src;
 
             int lastFin = socketData->fin;
-            socketData->fin = /*frame.fin*/ fin(frame);
+            socketData->fin = fin(frame);
 
 #ifdef STRICT
             // close frame
-            if (/*frame.opCode*/ opCode(frame) == 8) {
+            if (opCode(frame) == 8) {
                 Socket(p).close();
                 return;
             }
 
             // invalid reserved bits
-            if (/*frame.rsv1*/ rsv1(frame) || /*frame.rsv2*/ rsv2(frame) || /*frame.rsv3*/ rsv3(frame)) {
+            if (rsv1(frame) || rsv2(frame) || rsv3(frame)) {
                 socketData->server->disconnectionCallback(p);
                 Socket(p).close(true);
                 return;
             }
 
             // invalid opcodes
-            if ((/*frame.opCode*/ opCode(frame) > 2 && /*frame.opCode*/ opCode(frame) < 8) || /*frame.opCode*/ opCode(frame) > 10 /*|| (!frame.fin && frame.opCode && socketData->opStack != -1)*/) {
+            if ((opCode(frame) > 2 && opCode(frame) < 8) || opCode(frame) > 10) {
                 socketData->server->disconnectionCallback(p);
                 Socket(p).close(true);
                 return;
@@ -652,23 +642,23 @@ void Server::onReadable(void *vp, int status, int events)
 #endif
 
             // do not store opCode continuation!
-            if (/*frame.opCode*/opCode(frame)) {
+            if (opCode(frame)) {
 
                 // if empty stack or a new op-code, push on stack!
-                if (socketData->opStack == -1 || socketData->opCode[(unsigned char) socketData->opStack] != (OpCode) /*frame.opCode*/ opCode(frame)) {
-                    socketData->opCode[(unsigned char) ++socketData->opStack] = (OpCode) /*frame.opCode*/ opCode(frame);
+                if (socketData->opStack == -1 || socketData->opCode[(unsigned char) socketData->opStack] != (OpCode) opCode(frame)) {
+                    socketData->opCode[(unsigned char) ++socketData->opStack] = (OpCode) opCode(frame);
                 }
 
 #ifdef STRICT
                 // Case 5.18
-                if (socketData->opStack == 0 && !lastFin && /*frame.fin*/ fin(frame)) {
+                if (socketData->opStack == 0 && !lastFin && fin(frame)) {
                     socketData->server->disconnectionCallback(p);
                     Socket(p).close(true);
                     return;
                 }
 
                 // control frames cannot be fragmented or long
-                if (/*frame.opCode*/ opCode(frame) > 2 && (!/*frame.fin*/ fin(frame) || /*frame.payloadLength*/ payloadLength(frame) > 125)) {
+                if (opCode(frame) > 2 && (!fin(frame) || payloadLength(frame) > 125)) {
                     socketData->server->disconnectionCallback(p);
                     Socket(p).close(true);
                     return;
@@ -684,8 +674,8 @@ void Server::onReadable(void *vp, int status, int events)
 #endif
             }
 
-            if (/*frame.payloadLength*/payloadLength(frame) > 125) {
-                if (/*frame.payloadLength*/payloadLength(frame) == 126) {
+            if (payloadLength(frame) > 125) {
+                if (payloadLength(frame) == 126) {
                     const int MEDIUM_MESSAGE_HEADER = 8;
                     // we need to have enough length to read the long length
                     if (length < 2 + (int) sizeof(uint16_t)) {
@@ -722,15 +712,15 @@ void Server::onReadable(void *vp, int status, int events)
                 }
             } else {
                 const int SHORT_MESSAGE_HEADER = 6;
-                if (/*frame.payloadLength*/payloadLength(frame) <= length - SHORT_MESSAGE_HEADER) {
-                    if (Parser::consumeCompleteMessage(length, SHORT_MESSAGE_HEADER, /*frame.payloadLength*/ payloadLength(frame), socketData, &src, frame, p)) {
+                if (payloadLength(frame) <= length - SHORT_MESSAGE_HEADER) {
+                    if (Parser::consumeCompleteMessage(length, SHORT_MESSAGE_HEADER, payloadLength(frame), socketData, &src, frame, p)) {
                         return;
                     }
                 } else {
                     if (length < SHORT_MESSAGE_HEADER + 1) {
                         break;
                     }
-                    Parser::consumeIncompleteMessage(length, SHORT_MESSAGE_HEADER, /*frame.payloadLength*/ payloadLength(frame), socketData, src, p);
+                    Parser::consumeIncompleteMessage(length, SHORT_MESSAGE_HEADER, payloadLength(frame), socketData, src, p);
                     return;
                 }
             }
@@ -838,9 +828,6 @@ void Server::onMessage(function<void(Socket, const char *, size_t, OpCode)> mess
 // async Unix send (has a Message struct in the start if transferOwnership)
 void Socket::write(char *data, size_t length, bool transferOwnership, void(*callback)(FD fd))
 {
-// We need to pass every test when only sending 1 byte a time
-#define SEND_THROTTLE 1
-
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
@@ -851,7 +838,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
         goto queueIt;
     }
 
-    sent = ::send(fd, data, length/*min<int>(SEND_THROTTLE, length)*/, MSG_NOSIGNAL);
+    sent = ::send(fd, data, length, MSG_NOSIGNAL);
 
     if (sent == (int) length) {
         // everything was sent in one go!
@@ -903,7 +890,6 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
                 if (status < 0) {
                     // error send
-                    cout << "error send" << endl;
                 }
 
                 SocketData *socketData = (SocketData *) handle->data;
@@ -913,7 +899,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                 do {
                     Message *messagePtr = socketData->messageQueue.front();
 
-                    ssize_t sent = ::send(fd, messagePtr->data, messagePtr->length/*min<int>(SEND_THROTTLE, messagePtr->length)*/, MSG_NOSIGNAL);
+                    ssize_t sent = ::send(fd, messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
                     if (sent == (int) messagePtr->length) {
 
                         if (messagePtr->callback) {
