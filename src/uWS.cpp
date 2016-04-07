@@ -22,29 +22,13 @@ using namespace std;
 #define be64toh(x) ntohll(x)
 #pragma comment(lib, "Ws2_32.lib")
 
-inline void close(SOCKET fd)
-{
-    closesocket(fd);
-}
-
-inline int read(FD fd, void *buf, size_t len)
-{
-    return recv(fd, (char *) buf, len, 0);
-}
+inline void close(SOCKET fd) {closesocket(fd);}
 
 struct WindowsInit {
     WSADATA wsaData;
-    WindowsInit()
-    {
-        WSAStartup(MAKEWORD(2, 2), &wsaData);
-    }
-
-    ~WindowsInit()
-    {
-        WSACleanup();
-    }
+    WindowsInit() {WSAStartup(MAKEWORD(2, 2), &wsaData);}
+    ~WindowsInit() {WSACleanup();}
 } windowsInit;
-
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -551,7 +535,7 @@ void Server::onAcceptable(void *vp, int status, int events)
         FD fd;
         uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
         HTTPData *httpData = (HTTPData *) p->data;
-        int length = read(fd, httpData->server->receiveBuffer, BUFFER_SIZE);
+        int length = recv(fd, httpData->server->receiveBuffer, BUFFER_SIZE, 0);
         httpData->headerBuffer.append(httpData->server->receiveBuffer, length);
 
         // did we read the complete header?

@@ -35,7 +35,7 @@ struct Request;
 class Socket {
     friend class Server;
     friend struct Parser;
-private:
+protected:
     void *socket;
     Socket(void *p) : socket(p) {}
     void write(char *data, size_t length, bool transferOwnership, void(*callback)(FD fd) = nullptr);
