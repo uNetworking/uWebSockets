@@ -124,7 +124,7 @@ void upgrade(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     String::Utf8Value secKey(args[1]->ToString());
-    server->upgrade(args[0]->IntegerValue(), *secKey, true);
+    server->upgrade(args[0]->IntegerValue(), *secKey, true, true);
 }
 
 void send(const FunctionCallbackInfo<Value> &args)

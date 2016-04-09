@@ -83,6 +83,7 @@ private:
     // upgrade queue
     std::queue<std::pair<FD, std::string>> upgradeQueue;
     std::mutex upgradeQueueMutex;
+    static void upgradeHandler(Server *server);
 
 public:
     // thread unsafe
@@ -101,7 +102,7 @@ public:
 
     // thread safe (should have thread-unsafe counterparts)
     void close(bool force = false);
-    void upgrade(FD fd, const char *secKey, bool dupFd = false);
+    void upgrade(FD fd, const char *secKey, bool dupFd = false, bool immediately = false);
 };
 
 }

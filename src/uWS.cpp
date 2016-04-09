@@ -220,52 +220,9 @@ Server::Server(int port, bool defaultLoop) : port(port), defaultLoop(defaultLoop
         }
     });
 
-    // this function should be private Server::threadUnsafeUpgrade
     uv_async_init((uv_loop_t *) loop, (uv_async_t *) upgradeAsync, [](uv_async_t *a) {
         Server *server = (Server *) a->data;
-        server->upgradeQueueMutex.lock();
-
-        // todo: parallel upgrade, just move the queue here
-        while (!server->upgradeQueue.empty()) {
-            auto upgradeRequest = server->upgradeQueue.front();
-            server->upgradeQueue.pop();
-
-            // upgrade the connection
-            unsigned char shaInput[] = "XXXXXXXXXXXXXXXXXXXXXXXX258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-            memcpy(shaInput, upgradeRequest.second.c_str(), 24);
-            unsigned char shaDigest[SHA_DIGEST_LENGTH];
-            SHA1(shaInput, sizeof(shaInput) - 1, shaDigest);
-            char upgradeResponse[] = "HTTP/1.1 101 Switching Protocols\r\n"
-                                     "Upgrade: websocket\r\n"
-                                     "Connection: Upgrade\r\n"
-                                     "Sec-WebSocket-Accept: XXXXXXXXXXXXXXXXXXXXXXXXXXXX\r\n"
-                                     "\r\n";
-
-            base64(shaDigest, upgradeResponse + 97);
-
-            // this will modify the event loop of another thread
-            uv_poll_t *clientPoll = new uv_poll_t;
-            uv_poll_init_socket((uv_loop_t *) server->loop, clientPoll, upgradeRequest.first);
-            SocketData *socketData = new SocketData;
-            socketData->server = server;
-            clientPoll->data = socketData;
-            uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
-
-            // add this poll to the list
-            if (!server->clients) {
-                server->clients = clientPoll;
-            } else {
-                SocketData *tailData = (SocketData *) ((uv_poll_t *) server->clients)->data;
-                tailData->prev = clientPoll;
-                socketData->next = server->clients;
-                server->clients = clientPoll;
-            }
-
-            Socket(clientPoll).write(upgradeResponse, sizeof(upgradeResponse) - 1, false);
-            server->connectionCallback(clientPoll);
-        }
-
-        server->upgradeQueueMutex.unlock();
+        Server::upgradeHandler(server);
     });
 
     // start a timer to keep the server running
@@ -362,8 +319,56 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
     }
 }
 
+// thread unsafe implementation of upgrade
+void Server::upgradeHandler(Server *server)
+{
+    server->upgradeQueueMutex.lock();
+
+    // todo: parallel upgrade, just move the queue here
+    while (!server->upgradeQueue.empty()) {
+        auto upgradeRequest = server->upgradeQueue.front();
+        server->upgradeQueue.pop();
+
+        // upgrade the connection
+        unsigned char shaInput[] = "XXXXXXXXXXXXXXXXXXXXXXXX258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+        memcpy(shaInput, upgradeRequest.second.c_str(), 24);
+        unsigned char shaDigest[SHA_DIGEST_LENGTH];
+        SHA1(shaInput, sizeof(shaInput) - 1, shaDigest);
+        char upgradeResponse[] = "HTTP/1.1 101 Switching Protocols\r\n"
+                                 "Upgrade: websocket\r\n"
+                                 "Connection: Upgrade\r\n"
+                                 "Sec-WebSocket-Accept: XXXXXXXXXXXXXXXXXXXXXXXXXXXX\r\n"
+                                 "\r\n";
+
+        base64(shaDigest, upgradeResponse + 97);
+
+        // this will modify the event loop of another thread
+        uv_poll_t *clientPoll = new uv_poll_t;
+        uv_poll_init_socket((uv_loop_t *) server->loop, clientPoll, upgradeRequest.first);
+        SocketData *socketData = new SocketData;
+        socketData->server = server;
+        clientPoll->data = socketData;
+        uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
+
+        // add this poll to the list
+        if (!server->clients) {
+            server->clients = clientPoll;
+        } else {
+            SocketData *tailData = (SocketData *) ((uv_poll_t *) server->clients)->data;
+            tailData->prev = clientPoll;
+            socketData->next = server->clients;
+            server->clients = clientPoll;
+        }
+
+        Socket(clientPoll).write(upgradeResponse, sizeof(upgradeResponse) - 1, false);
+        server->connectionCallback(clientPoll);
+    }
+
+    server->upgradeQueueMutex.unlock();
+}
+
 // this function needs to be thread safe, called from other thread!
-void Server::upgrade(FD fd, const char *secKey, bool dupFd)
+void Server::upgrade(FD fd, const char *secKey, bool dupFd, bool immediately)
 {
     // if the socket is owned by another environment we can dup and close
     if (dupFd) {
@@ -375,8 +380,13 @@ void Server::upgrade(FD fd, const char *secKey, bool dupFd)
     upgradeQueue.push({fd, string(secKey, 24)});
     upgradeQueueMutex.unlock();
 
-    // request the event loop to empty the queue
-    uv_async_send((uv_async_t *) upgradeAsync);
+    if (immediately) {
+        // thread unsafe
+        Server::upgradeHandler(this);
+    } else {
+        // request the event loop to empty the queue
+        uv_async_send((uv_async_t *) upgradeAsync);
+    }
 }
 
 inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int payloadLength)

@@ -69,9 +69,8 @@ module.exports.Server = function Server(options) {
             /* this will probably never be noticed as you don't mix upgrade handling */
         });
 
-        /* upgrades will be handled next iteration in a FIFO fashion */
+        /* upgrades will be handled immediately */
         self.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key']);
-        /* dup happens directly though */
         socket.destroy();
     };
 
