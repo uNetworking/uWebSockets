@@ -78,6 +78,7 @@ private:
     void *clients = nullptr;
     bool forceClose;
     int port = 0;
+    bool defaultLoop;
 
     // upgrade queue
     std::queue<std::pair<FD, std::string>> upgradeQueue;
@@ -85,7 +86,7 @@ private:
 
 public:
     // thread unsafe
-    Server(int port);
+    Server(int port, bool deafultLoop = false);
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;

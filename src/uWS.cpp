@@ -145,8 +145,12 @@ inline bool rsv2(frameFormat &frame) {return frame & 32;}
 inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
 
-Server::Server(int port) : port(port)
+Server::Server(int port, bool defaultLoop) : port(port), defaultLoop(defaultLoop)
 {
+    onConnection([](Socket socket) {});
+    onDisconnection([](Socket socket) {});
+    onMessage([](Socket socket, const char *data, size_t length, OpCode opCode) {});
+
     // we need 24 bytes over to not read invalidly outside
 
     // we need 4 bytes (or 3 at least) outside for unmasking
@@ -162,7 +166,7 @@ Server::Server(int port) : port(port)
     ((sockaddr_in *) listenAddr)->sin_addr.s_addr = INADDR_ANY;
     ((sockaddr_in *) listenAddr)->sin_port = htons(port);
 
-    loop = uv_loop_new();
+    loop = defaultLoop ? uv_default_loop() : uv_loop_new();
 
     if (port) {
         FD listenFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -276,8 +280,9 @@ Server::~Server()
     delete [] sendBuffer;
     delete (sockaddr_in *) listenAddr;
 
-    // todo: when listen fails we crash because of handles still in loop
-    uv_loop_delete((uv_loop_t *) loop);
+    if (!defaultLoop) {
+        uv_loop_delete((uv_loop_t *) loop);
+    }
 }
 
 void Server::run()
