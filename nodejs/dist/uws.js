@@ -1,98 +1,131 @@
-/* ws interface for Node.js developers */
+'use strict';
 
-const NativeServer = require('./uws_' + process.platform + '_' + process.versions.modules).Server;
 const EventEmitter = require('events');
-const util = require('util');
 
-function Socket(nativeSocket, server) {
-    EventEmitter.call(this);
-    var self = this;
-    this.nativeSocket = nativeSocket;
-    this.server = server;
+const uws = require(`./uws_${process.platform}_${process.versions.modules}`);
+const NativeServer = uws.Server;
 
-    this.send = function(message, options) {
-        if (self.nativeSocket !== null) {
-            var binary = false;
-            if (options !== undefined) {
-                binary = options.binary;
-            }
-            self.server.nativeServer.send(self.nativeSocket, message, binary);
-        } else {
-            /* ignore sends on closed sockets */
-        }
+class Socket extends EventEmitter {
+    /**
+     * Creates a Socket instance.
+     *
+     * @param {Object} nativeSocket Socket instance
+     * @param {Server} server Server instance
+     */
+    constructor(nativeSocket, server) {
+        super();
+        this.nativeSocket = nativeSocket;
+        this.server = server;
     }
 
-    this.close = function() {
-        if (self.nativeSocket !== null) {
-            self.server.nativeServer.close(self.nativeSocket);
-            self.nativeSocket = null;
-        } else {
-            /* ignore close on closed sockets */
-        }
+    /**
+     * Sends a message.
+     *
+     * @param {String|Buffer} message The message to send
+     * @param {Object} options Send options
+     * @public
+     */
+    send(message, options) {
+        /* ignore sends on closed sockets */
+        if (!this.nativeSocket) return;
+
+        const binary = options && options.binary || false;
+        this.server.nativeServer.send(this.nativeSocket, message, binary);
+    }
+
+    /**
+     * Closes the socket.
+     *
+     * @public
+     */
+    close() {
+        /* ignore close on closed sockets */
+        if (!this.nativeSocket) return;
+
+        this.server.nativeServer.close(this.nativeSocket);
+        this.server = this.nativeSocket = undefined;
     }
 }
 
-module.exports.Server = function Server(options) {
-    EventEmitter.call(this);
+class Server extends EventEmitter {
+    /**
+     * Creates a Server instance.
+     *
+     * @param {Object} options Configuration options
+     */
+    constructor(options) {
+        super();
+        /* we currently do only support port as option */
+        this.nativeServer = new NativeServer(options.port);
 
-    /* we currently do only support port as option */
-    this.nativeServer = new NativeServer(options.port);
-    var self = this;
+        this.nativeServer.onConnection((nativeSocket) => {
+            const socket = new Socket(nativeSocket, this);
+            this.nativeServer.setData(nativeSocket, socket);
+            this.emit('connection', socket);
+        });
 
-    this.close = function () {
-        self.nativeServer.close();
+        this.nativeServer.onDisconnection((nativeSocket) => {
+            const socket = this.nativeServer.getData(nativeSocket);
+            socket.emit('close');
+            /* make sure to clear any set data */
+            this.nativeServer.setData(nativeSocket);
+        });
+
+        this.nativeServer.onMessage((nativeSocket, message, binary) => {
+            const socket = this.nativeServer.getData(nativeSocket);
+            socket.emit('message', binary ? message : message.toString());
+        });
     }
-    this.broadcast = function (message, options) {
+
+    /**
+     * Closes the server.
+     *
+     * @public
+     */
+    close() {
+        this.nativeServer.close();
+    }
+
+    /**
+     * Broadcast a message to all sockets.
+     *
+     * @param {String|Buffer} message The message to broadcast
+     * @param {Object} options Broadcast options
+     * @public
+     */
+    broadcast(message, options) {
         /* only listen to binary option */
-        this.nativeServer.broadcast(message, options.binary);
-    };
+        this.nativeServer.broadcast(message, options && options.binary || false);
+    }
 
-    /* original connection callback */
-    this.connectionCallback = function (nativeSocket) {
-        var socket = new Socket(nativeSocket, self);
-        self.nativeServer.setData(nativeSocket, socket);
-        self.emit('connection', socket);
-    };
-
-    /* this function needs to handle the upgrade directly! */
-    this.handleUpgrade = function (request, socket, upgradeHead, callback) {
+    /**
+     * Handles a HTTP Upgrade request.
+     *
+     * @param {http.IncomingMessage} request HTTP request
+     * @param {net.Socket} Socket between server and client
+     * @param {Buffer} upgradeHead The first packet of the upgraded stream
+     * @param {Function} callback Callback function
+     * @public
+     */
+    handleUpgrade(request, socket, upgradeHead, callback) {
         /* register a special connection handler */
-        self.nativeServer.onConnection(function (nativeSocket) {
-            var socket = new Socket(nativeSocket, self);
-            self.nativeServer.setData(nativeSocket, socket);
+        this.nativeServer.onConnection((nativeSocket) => {
+            const sock = new Socket(nativeSocket, this);
+            this.nativeServer.setData(nativeSocket, sock);
 
             /* internal variables */
-            socket.upgradeReq = request;
-            socket.readyState = socket.OPEN;
-            callback(socket);
+            sock.upgradeReq = request;
+            callback(sock);
 
             /* todo: reset connection handler when the upgrade queue is empty */
             /* this will probably never be noticed as you don't mix upgrade handling */
         });
 
         /* upgrades will be handled immediately */
-        self.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key']);
+        this.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key']);
         socket.destroy();
-    };
+    }
+}
 
-    this.nativeServer.onConnection(this.connectionCallback);
-    this.nativeServer.onDisconnection(function (nativeSocket) {
-        var socket = self.nativeServer.getData(nativeSocket);
-        socket.emit('close');
-        /* make sure to clear any set data */
-        self.nativeServer.setData(nativeSocket);
-    });
-
-    this.nativeServer.onMessage(function (nativeSocket, message, binary) {
-        var socket = self.nativeServer.getData(nativeSocket);
-        if (binary) {
-            socket.emit('message', message);
-        } else {
-            /* we are supposed to pass text as strings */
-            socket.emit('message', message.toString());
-        }
-    });
-};
-
-util.inherits(Socket, EventEmitter);
-util.inherits(module.exports.Server, EventEmitter);
+exports.Server = Server;
+exports.uws = uws;
