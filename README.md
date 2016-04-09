@@ -1,4 +1,4 @@
-<p align="center"><img src ="logo.png" /></p>
+<p align="center"><img src = "logo.png"/></p>
 `µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. License is zlib/libpng (very permissive & suits commercial applications).
 
 * Linux, OS X & Windows support.
@@ -42,7 +42,7 @@ int main()
 
 ## Quality control
 * Valgrind clean
-* Autobahn chapters 1 - 9 [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/Autobahn/index.html).
+* Autobahn chapters 1 - 9 [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
 * Small & efficient code base.
 
 ## Installation
