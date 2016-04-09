@@ -94,7 +94,13 @@ void setData(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Socket socket = unwrapSocket(args[0]->ToObject());
     if (socket.getData()) {
-        ((Persistent<Value> *) socket.getData())->Reset(args.GetIsolate(), args[1]);
+        /* reset data when only specifying the socket */
+        if (args.Length() == 1) {
+            ((Persistent<Value> *) socket.getData())->Reset();
+            delete (Persistent<Value> *) socket.getData();
+        } else {
+            ((Persistent<Value> *) socket.getData())->Reset(args.GetIsolate(), args[1]);
+        }
     } else {
         socket.setData(new Persistent<Value>(args.GetIsolate(), args[1]));
     }

@@ -79,6 +79,8 @@ module.exports.Server = function Server(options) {
     this.nativeServer.onDisconnection(function (nativeSocket) {
         var socket = self.nativeServer.getData(nativeSocket);
         socket.emit('close');
+        /* make sure to clear any set data */
+        self.nativeServer.setData(nativeSocket);
     });
 
     this.nativeServer.onMessage(function (nativeSocket, message, binary) {
