@@ -19,6 +19,22 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **5x** as performa
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons.*
 
 ## Overview
+
+For Node.js developers, the `ws` interface is exposed:
+
+```javascript
+var WebSocketServer = require('uws').Server /* you replace 'ws' with 'uws' */
+  , wss = new WebSocketServer({ port: 8080 });
+
+wss.on('connection', function connection(ws) {
+  ws.on('message', function incoming(message) {
+    console.log('received: %s', message);
+  });
+
+  ws.send('something');
+});
+```
+For C++ developers:
 ```c++
 int main()
 {
