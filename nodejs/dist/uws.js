@@ -51,6 +51,7 @@ module.exports.Server = function Server(options) {
     this.connectionCallback = function (nativeSocket) {
         var socket = new Socket(nativeSocket, self);
         self.nativeServer.setData(nativeSocket, socket);
+        self.emit('connection', socket);
     };
 
     /* this function needs to handle the upgrade directly! */
