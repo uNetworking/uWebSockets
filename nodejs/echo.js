@@ -1,8 +1,10 @@
-/* this is the native interface, to be wrapped */
+/* echo server */
 
-var ni = require('./dist/uws').NativeInterface;
-var nativeServer = new ni.Server(3000);
+const WebSocketServer = require('./dist/uws').Server;
+const wss = new WebSocketServer({ port: 3000 });
 
-nativeServer.onMessage(function (socket, message, binary) {
-	nativeServer.send(socket, message, binary);
+wss.on('connection', function connection(ws) {
+  ws.on('message', function incoming(message) {
+    ws.send(message, { binary: Buffer.isBuffer(message) });
+  });
 });
