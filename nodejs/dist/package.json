@@ -1,0 +1,25 @@
+{
+  "name": "uws",
+  "version": "0.2.0",
+  "scripts": {
+    "build": ""
+  },
+  "main": "uws.js",
+  "description": "Highly scalable WebSocket server library",
+  "keywords": [
+    "websockets",
+    "µWS",
+    "µWebSockets",
+    "uws",
+    "microWS",
+    "lightweight",
+    "fast"
+  ],
+  "homepage": "https://github.com/alexhultman/uWebSockets",
+  "license": "zlib/libpng",
+  "author": "Alex Hultman <alexhultman@gmail.com> (https://github.com/alexhultman)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alexhultman/uWebSockets.git"
+  }
+}

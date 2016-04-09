@@ -47,6 +47,16 @@ int main()
 * Small & efficient code base.
 
 ## Installation
+### Node.js developers
+[![](https://nodei.co/npm/uws.png)](https://www.npmjs.com/package/uws)
+
+```
+npm install --save uws
+```
+
+* Node 4.x, 5.x support (ABI 46-47)
+* Linux & Mac OS X 10.7+
+### Native developers
 #### Dependencies
 First of all you need install the required dependencies. On Unix systems this is typically done via package managers, like [homebrew](http://brew.sh) in the case of OS X or `dnf` in the case of Fedora Linux. On Windows you need to search the web for pre-compiled binaries or simply compile the dependencies yourself.
 
