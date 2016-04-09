@@ -20,7 +20,7 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **5x** as performa
 
 ## Overview
 
-For Node.js developers, the `ws` interface is exposed:
+For Node.js developers, the `ws` interface is exposed (read [their](https://github.com/websockets/ws/blob/master/doc/ws.md) documentation):
 
 ```javascript
 var WebSocketServer = require('uws').Server /* you replace 'ws' with 'uws' */
