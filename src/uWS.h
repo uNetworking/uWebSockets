@@ -101,7 +101,7 @@ public:
 
     // thread safe (should have thread-unsafe counterparts)
     void close(bool force = false);
-    void upgrade(FD fd, const char *secKey);
+    void upgrade(FD fd, const char *secKey, bool dupFd = false);
 };
 
 }

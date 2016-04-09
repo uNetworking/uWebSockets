@@ -111,14 +111,20 @@ void getData(const FunctionCallbackInfo<Value> &args)
 void close(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
-    server->close();
+    if (args.Length()) {
+        uWS::Socket socket = unwrapSocket(args[0]->ToObject());
+        socket.close(false);
+    } else {
+        server->close(false);
+    }
 }
 
+/* we dup the fd, Node.js needs to destroy the passed socket */
 void upgrade(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     String::Utf8Value secKey(args[1]->ToString());
-    server->upgrade(args[0]->IntegerValue(), *secKey);
+    server->upgrade(args[0]->IntegerValue(), *secKey, true);
 }
 
 void send(const FunctionCallbackInfo<Value> &args)
@@ -166,6 +172,7 @@ void Main(Local<Object> exports) {
     NODE_SET_PROTOTYPE_METHOD(tpl, "onDisconnection", onDisconnection);
     NODE_SET_PROTOTYPE_METHOD(tpl, "close", close);
     NODE_SET_PROTOTYPE_METHOD(tpl, "broadcast", broadcast);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "upgrade", upgrade);
 
     // C-like, todo: move to Socket object
     NODE_SET_PROTOTYPE_METHOD(tpl, "setData", setData);

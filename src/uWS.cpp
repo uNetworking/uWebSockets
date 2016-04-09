@@ -363,8 +363,13 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
 }
 
 // this function needs to be thread safe, called from other thread!
-void Server::upgrade(FD fd, const char *secKey)
+void Server::upgrade(FD fd, const char *secKey, bool dupFd)
 {
+    // if the socket is owned by another environment we can dup and close
+    if (dupFd) {
+        fd = dup(fd);
+    }
+
     // add upgrade request to the queue
     upgradeQueueMutex.lock();
     upgradeQueue.push({fd, string(secKey, 24)});

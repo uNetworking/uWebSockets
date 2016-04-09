@@ -24,7 +24,7 @@ function Socket(nativeSocket, server) {
 
     this.close = function() {
         if (self.nativeSocket !== null) {
-            self.server.close(self.nativeSocket);
+            self.server.nativeServer.close(self.nativeSocket);
             self.nativeSocket = null;
         } else {
             /* ignore close on closed sockets */
@@ -39,16 +39,43 @@ module.exports.Server = function Server(options) {
     this.nativeServer = new NativeServer(options.port);
     var self = this;
 
-    /* these seem to match already */
-    this.close = this.nativeServer.close;
-    this.broadcast = this.nativeServer.broadcast;
+    this.close = function () {
+        self.nativeServer.close();
+    }
+    this.broadcast = function (message, options) {
+        /* only listen to binary option */
+        this.nativeServer.broadcast(message, options.binary);
+    };
 
-    this.nativeServer.onConnection(function (nativeSocket) {
+    /* original connection callback */
+    this.connectionCallback = function (nativeSocket) {
         var socket = new Socket(nativeSocket, self);
         self.nativeServer.setData(nativeSocket, socket);
-        self.emit('connection', socket);
-    });
+    };
 
+    /* this function needs to handle the upgrade directly! */
+    this.handleUpgrade = function (request, socket, upgradeHead, callback) {
+        /* register a special connection handler */
+        self.nativeServer.onConnection(function (nativeSocket) {
+            var socket = new Socket(nativeSocket, self);
+            self.nativeServer.setData(nativeSocket, socket);
+
+            /* internal variables */
+            socket.upgradeReq = request;
+            socket.readyState = socket.OPEN;
+            callback(socket);
+
+            /* todo: reset connection handler when the upgrade queue is empty */
+            /* this will probably never be noticed as you don't mix upgrade handling */
+        });
+
+        /* upgrades will be handled next iteration in a FIFO fashion */
+        self.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key']);
+        /* dup happens directly though */
+        socket.destroy();
+    };
+
+    this.nativeServer.onConnection(this.connectionCallback);
     this.nativeServer.onDisconnection(function (nativeSocket) {
         var socket = self.nativeServer.getData(nativeSocket);
         socket.emit('close');
