@@ -1,3 +1,7 @@
+#if HAVE_WIN32_CPP_CLI
+#error "c++/cli does not support WIN32 threading model"
+#endif
+
 #include "uWS.h"
 using namespace uWS;
 
@@ -40,8 +44,6 @@ struct WindowsInit {
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
-
-#include <uv.h>
 
 enum SendFlags {
     SND_CONTINUATION = 1,
