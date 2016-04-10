@@ -17,6 +17,19 @@ using namespace std;
 #endif
 
 #ifdef _WIN32
+#if _MSC_VER >= 1900
+#include <cassert>
+inline FD dup(FD socket)
+{
+ WSAPROTOCOL_INFO pi;
+ auto rv = WSADuplicateSocket(socket, ::GetCurrentProcessId(), &pi); 
+ assert(rv == 0);
+ auto socketDuped = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, &pi, 0, WSA_FLAG_OVERLAPPED); 
+ assert(socketDuped > 0);
+ return socketDuped;  
+}
+#endif
+
 #define SHUT_WR SD_SEND
 #define htobe64(x) htonll(x)
 #define be64toh(x) ntohll(x)
