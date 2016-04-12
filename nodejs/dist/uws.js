@@ -5,7 +5,7 @@ const EventEmitter = require('events');
 const uws = require(`./uws_${process.platform}_${process.versions.modules}`);
 const NativeServer = uws.Server;
 
-class Socket extends EventEmitter {
+class Socket {
     /**
      * Creates a Socket instance.
      *
@@ -13,9 +13,38 @@ class Socket extends EventEmitter {
      * @param {Server} server Server instance
      */
     constructor(nativeSocket, server) {
-        super();
         this.nativeSocket = nativeSocket;
         this.server = server;
+    }
+
+    /**
+     * Registers a callback for given eventName
+     *
+     * @param {String} eventName
+     * @param {Function} f
+     */
+    on(eventName, f) {
+        if (eventName === 'message') {
+            this.messageCallback = f;
+        } else if (eventName === 'close') {
+            this.disconnectionCallback = f;
+        }
+    }
+
+    /**
+     * Removes all registered callbacks for the given eventName
+     * or, in the case of no eventName, all registered callbacks
+     *
+     * @param {String} eventName optional
+     */
+    removeAllListeners(eventName) {
+        if (!eventName || eventName === 'message') {
+            this.messageCallback = undefined;
+        }
+        if (!eventName || eventName === 'close') {
+            this.disconnectionCallback = undefined;
+        }
+        return this;
     }
 
     /**
@@ -65,13 +94,17 @@ class Server extends EventEmitter {
         });
 
         this.nativeServer.onDisconnection((nativeSocket, socket) => {
-            socket.emit('close');
+            if (socket.disconnectionCallback) {
+                socket.disconnectionCallback();
+            }
             /* make sure to clear any set data */
             this.nativeServer.setData(nativeSocket);
         });
 
         this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
-            socket.emit('message', binary ? message : message.toString());
+            if (socket.messageCallback) {
+                socket.messageCallback(binary ? message : message.toString());
+            }
         });
     }
 
