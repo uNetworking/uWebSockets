@@ -28,31 +28,22 @@ void Server(const FunctionCallbackInfo<Value> &args) {
     }
 }
 
-inline Local<Object> wrapSocket(uWS::Socket socket, Isolate *isolate) {
-    struct SocketWrapper : uWS::Socket {
-        SocketWrapper(uWS::Socket &socket) : uWS::Socket(socket) {
-        }
+struct Socket : uWS::Socket {
+    Socket(void *s) : uWS::Socket(s) {}
+    Socket(const uWS::Socket &s) : uWS::Socket(s) {}
+    void **getSocketPtr() {return &socket;}
+};
 
-        Local<Object> wrap(Local<Object> s) {
-            s->SetAlignedPointerInInternalField(0, socket);
-            return s;
-        }
-    };
-
-  return ((SocketWrapper) socket).wrap(Local<Object>::New(isolate, persistentSocket));
+inline Local<Number> wrapSocket(uWS::Socket socket, Isolate *isolate) {
+    return Number::New(isolate, *(double *) ::Socket(socket).getSocketPtr());
 }
 
-inline uWS::Socket unwrapSocket(Local<Object> object) {
-    struct SocketUnwrapper : Socket {
-        SocketUnwrapper(Local<Object> object) : Socket(object->GetAlignedPointerFromInternalField(0)) {
-        }
-
-        operator void *() const {
-            return socket;
-        }
-    };
-
-    return (SocketUnwrapper) object;
+inline uWS::Socket unwrapSocket(Local<Number> number) {
+    union {
+        double number;
+        void *socket;
+    } socketUnwrapper = {number->Value()};
+    return ::Socket(socketUnwrapper.socket);
 }
 
 void onConnection(const FunctionCallbackInfo<Value> &args) {
@@ -61,7 +52,7 @@ void onConnection(const FunctionCallbackInfo<Value> &args) {
     connectionCallback.Reset(isolate, Local<Function>::Cast(args[0]));
     server->onConnection([isolate](uWS::Socket socket) {
         HandleScope hs(isolate);
-        Local<Value> argv[] = {wrapSocket(socket, isolate)->Clone()};
+        Local<Value> argv[] = {wrapSocket(socket, isolate)/*->Clone()*/};
         Local<Function>::New(isolate, connectionCallback)->Call(Null(isolate), 1, argv);
     });
 }
@@ -98,7 +89,7 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
 
 void setData(const FunctionCallbackInfo<Value> &args)
 {
-    uWS::Socket socket = unwrapSocket(args[0]->ToObject());
+    uWS::Socket socket = unwrapSocket(args[0]->ToNumber());
     if (socket.getData()) {
         /* reset data when only specifying the socket */
         if (args.Length() == 1) {
@@ -114,14 +105,14 @@ void setData(const FunctionCallbackInfo<Value> &args)
 
 void getData(const FunctionCallbackInfo<Value> &args)
 {
-    args.GetReturnValue().Set(getDataV8(unwrapSocket(args[0]->ToObject()), args.GetIsolate()));
+    args.GetReturnValue().Set(getDataV8(unwrapSocket(args[0]->ToNumber()), args.GetIsolate()));
 }
 
 void close(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     if (args.Length()) {
-        uWS::Socket socket = unwrapSocket(args[0]->ToObject());
+        uWS::Socket socket = unwrapSocket(args[0]->ToNumber());
         socket.close(false);
     } else {
         server->close(false);
@@ -142,12 +133,12 @@ void send(const FunctionCallbackInfo<Value> &args)
 
     if (args[1]->IsString()) {
         String::Utf8Value v8String(args[1]);
-        unwrapSocket(args[0]->ToObject())
+        unwrapSocket(args[0]->ToNumber())
                      .send(*v8String,
                      v8String.length(),
                      opCode);
     } else {
-        unwrapSocket(args[0]->ToObject())
+        unwrapSocket(args[0]->ToNumber())
                      .send(node::Buffer::Data(args[1]),
                      node::Buffer::Length(args[1]),
                      opCode);
