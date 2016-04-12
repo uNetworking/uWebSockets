@@ -24,7 +24,7 @@ using namespace std;
 
 inline void close(SOCKET fd) {closesocket(fd);}
 
-inline FD dup(FD socket) {
+inline SOCKET dup(SOCKET socket) {
     WSAPROTOCOL_INFO pi;
     WSADuplicateSocket(socket, GetCurrentProcessId(), &pi);
     return WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, &pi, 0, WSA_FLAG_OVERLAPPED);

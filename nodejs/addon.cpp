@@ -66,6 +66,10 @@ void onConnection(const FunctionCallbackInfo<Value> &args) {
     });
 }
 
+inline Local<Value> getDataV8(uWS::Socket socket, Isolate *isolate) {
+    return socket.getData() ? Local<Value>::New(isolate, *(Persistent<Value> *) socket.getData()) : Local<Value>::Cast(Undefined(isolate));
+}
+
 void onMessage(const FunctionCallbackInfo<Value> &args) {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     Isolate *isolate = args.GetIsolate();
@@ -74,8 +78,9 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(socket, isolate),
                                node::Buffer::New(isolate, (char *) message, length, [](char *data, void *hint) {}, nullptr).ToLocalChecked(),
-                               Boolean::New(isolate, opCode == BINARY)};
-        Local<Function>::New(isolate, messageCallback)->Call(Null(isolate), 3, argv);
+                               Boolean::New(isolate, opCode == BINARY),
+                               getDataV8(socket, isolate)};
+        Local<Function>::New(isolate, messageCallback)->Call(Null(isolate), 4, argv);
     });
 }
 
@@ -85,8 +90,9 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     disconnectionCallback.Reset(isolate, Local<Function>::Cast(args[0]));
     server->onDisconnection([isolate](uWS::Socket socket) {
         HandleScope hs(isolate);
-        Local<Value> argv[] = {wrapSocket(socket, isolate)};
-        Local<Function>::New(isolate, disconnectionCallback)->Call(Null(isolate), 1, argv);
+        Local<Value> argv[] = {wrapSocket(socket, isolate),
+                               getDataV8(socket, isolate)};
+        Local<Function>::New(isolate, disconnectionCallback)->Call(Null(isolate), 2, argv);
     });
 }
 
@@ -108,10 +114,7 @@ void setData(const FunctionCallbackInfo<Value> &args)
 
 void getData(const FunctionCallbackInfo<Value> &args)
 {
-    uWS::Socket socket = unwrapSocket(args[0]->ToObject());
-    if (socket.getData()) {
-        args.GetReturnValue().Set(Local<Value>::New(args.GetIsolate(), *(Persistent<Value> *) socket.getData()));
-    }
+    args.GetReturnValue().Set(getDataV8(unwrapSocket(args[0]->ToObject()), args.GetIsolate()));
 }
 
 void close(const FunctionCallbackInfo<Value> &args)

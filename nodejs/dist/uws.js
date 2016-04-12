@@ -64,15 +64,13 @@ class Server extends EventEmitter {
             this.emit('connection', socket);
         });
 
-        this.nativeServer.onDisconnection((nativeSocket) => {
-            const socket = this.nativeServer.getData(nativeSocket);
+        this.nativeServer.onDisconnection((nativeSocket, socket) => {
             socket.emit('close');
             /* make sure to clear any set data */
             this.nativeServer.setData(nativeSocket);
         });
 
-        this.nativeServer.onMessage((nativeSocket, message, binary) => {
-            const socket = this.nativeServer.getData(nativeSocket);
+        this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
             socket.emit('message', binary ? message : message.toString());
         });
     }
