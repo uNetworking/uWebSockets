@@ -1,11 +1,30 @@
 #ifndef UWS_H
 #define UWS_H
 
+#if defined(_WIN32) && defined(__cplusplus_cli)
+#define HAVE_WIN32_CPP_CLI 1
+#pragma managed(push, off)
+#else
+#ifndef HAVE_WIN32_CPP_CLI 
+#define HAVE_WIN32_CPP_CLI 0
+#endif
+#endif
+
+#ifndef USE_WIN32_THREADS
+#if HAVE_WIN32_CPP_CLI
+#define USE_WIN32_THREADS 1
+#else
+#define USE_WIN32_THREADS 0
+#endif
+#endif
+
 #include <cstddef>
 #include <functional>
-#include <string>
 #include <queue>
+
+#if !USE_WIN32_THREADS
 #include <mutex>
+#endif
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -14,7 +33,50 @@
 #include <Windows.h>
 #endif
 
+#include <uv.h>
+
 namespace uWS {
+
+class MutexImpl {
+private:
+#if USE_WIN32_THREADS
+  CRITICAL_SECTION m_mutex;
+#else
+  std::mutex m_mutex;
+#endif
+  
+  MutexImpl(const MutexImpl& other) = delete;
+  MutexImpl& operator=(const MutexImpl& other) = delete;
+
+public:
+  MutexImpl() {
+#if USE_WIN32_THREADS
+    InitializeCriticalSection(&m_mutex);
+#endif
+  }
+
+  ~MutexImpl() {
+#if USE_WIN32_THREADS
+    DeleteCriticalSection(&m_mutex);
+#endif
+  }
+
+  void lock() {
+#if USE_WIN32_THREADS
+    EnterCriticalSection(&m_mutex);
+#else
+    m_mutex.lock();
+#endif
+  }
+
+  void unlock() {
+#if USE_WIN32_THREADS
+    LeaveCriticalSection(&m_mutex);
+#else
+    m_mutex.unlock();
+#endif
+  }
+};
 
 #ifdef _WIN32
 typedef SOCKET FD;
@@ -82,7 +144,7 @@ private:
 
     // upgrade queue
     std::queue<std::pair<FD, std::string>> upgradeQueue;
-    std::mutex upgradeQueueMutex;
+    MutexImpl upgradeQueueMutex;
     static void upgradeHandler(Server *server);
 
 public:
@@ -106,5 +168,9 @@ public:
 };
 
 }
+
+#if HAVE_WIN32_CPP_CLI
+#pragma managed(pop)
+#endif
 
 #endif // UWS_H
