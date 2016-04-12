@@ -24,15 +24,15 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **5x** as performa
 For Node.js developers, the `ws` interface is exposed (read [their](https://github.com/websockets/ws/blob/master/doc/ws.md) documentation):
 
 ```javascript
-var WebSocketServer = require('uws').Server /* you replace 'ws' with 'uws' */
-  , wss = new WebSocketServer({ port: 8080 });
+var WebSocketServer = require('uws').Server; /* you replace 'ws' with 'uws' */
+var wss = new WebSocketServer({ port: 8080 });
 
-wss.on('connection', function connection(ws) {
-  ws.on('message', function incoming(message) {
-    console.log('received: %s', message);
-  });
+wss.on('connection', function (ws) {
+    ws.on('message', function (message) {
+        console.log('received: ' + message);
+    });
 
-  ws.send('something');
+    ws.send('something');
 });
 ```
 For C++ developers:
