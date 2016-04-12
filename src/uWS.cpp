@@ -24,6 +24,12 @@ using namespace std;
 
 inline void close(SOCKET fd) {closesocket(fd);}
 
+inline FD dup(FD socket) {
+    WSAPROTOCOL_INFO pi;
+    WSADuplicateSocket(socket, GetCurrentProcessId(), &pi);
+    return WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, &pi, 0, WSA_FLAG_OVERLAPPED);
+}
+
 struct WindowsInit {
     WSADATA wsaData;
     WindowsInit() {WSAStartup(MAKEWORD(2, 2), &wsaData);}
