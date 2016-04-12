@@ -4,6 +4,7 @@ const EventEmitter = require('events');
 
 const uws = require(`./uws_${process.platform}_${process.versions.modules}`);
 const NativeServer = uws.Server;
+const EE_ERROR = "registering more than one listener to websocket";
 
 class Socket {
     /**
@@ -25,8 +26,14 @@ class Socket {
      */
     on(eventName, f) {
         if (eventName === 'message') {
+            if (this.messageCallback) {
+                throw EE_ERROR;
+            }
             this.messageCallback = f;
         } else if (eventName === 'close') {
+            if (this.disconnectionCallback) {
+                throw EE_ERROR;
+            }
             this.disconnectionCallback = f;
         }
     }
