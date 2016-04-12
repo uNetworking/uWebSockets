@@ -15,15 +15,11 @@ Persistent<Object> persistentSocket;
 
 void Server(const FunctionCallbackInfo<Value> &args) {
     if (args.IsConstructCall()) {
-
-        uWS::Server *server;
         try {
-            server = new uWS::Server(args[0]->IntegerValue(), true);
+            args.This()->SetAlignedPointerInInternalField(0, new uWS::Server(args[0]->IntegerValue(), true));
         } catch (...) {
-            server = nullptr;
+            args.This()->Set(String::NewFromUtf8(args.GetIsolate(), "error"), Boolean::New(args.GetIsolate(), true));
         }
-
-        args.This()->SetAlignedPointerInInternalField(0, server);
         args.GetReturnValue().Set(args.This());
     }
 }

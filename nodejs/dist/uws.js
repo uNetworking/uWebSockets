@@ -87,25 +87,35 @@ class Server extends EventEmitter {
         /* we currently do only support port as option */
         this.nativeServer = new NativeServer(options.port);
 
-        this.nativeServer.onConnection((nativeSocket) => {
-            const socket = new Socket(nativeSocket, this);
-            this.nativeServer.setData(nativeSocket, socket);
-            this.emit('connection', socket);
-        });
-
-        this.nativeServer.onDisconnection((nativeSocket, socket) => {
-            if (socket.disconnectionCallback) {
-                socket.disconnectionCallback();
-            }
-            /* make sure to clear any set data */
-            this.nativeServer.setData(nativeSocket);
-        });
-
-        this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
-            if (socket.messageCallback) {
-                socket.messageCallback(binary ? message : message.toString());
+        /* emit error if the server is in a broken state */
+        this.on('newListener', (eventName, f) => {
+            if (eventName === 'error' && this.nativeServer.error) {
+                f('EADDRINUSE');
             }
         });
+
+        /* only register events if the server is valid */
+        if (!this.nativeServer.error) {
+            this.nativeServer.onConnection((nativeSocket) => {
+                const socket = new Socket(nativeSocket, this);
+                this.nativeServer.setData(nativeSocket, socket);
+                this.emit('connection', socket);
+            });
+
+            this.nativeServer.onDisconnection((nativeSocket, socket) => {
+                if (socket.disconnectionCallback) {
+                    socket.disconnectionCallback();
+                }
+                /* make sure to clear any set data */
+                this.nativeServer.setData(nativeSocket);
+            });
+
+            this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
+                if (socket.messageCallback) {
+                    socket.messageCallback(binary ? message : message.toString());
+                }
+            });
+        }
     }
 
     /**

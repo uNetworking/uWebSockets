@@ -8,3 +8,7 @@ wss.on('connection', function connection(ws) {
     ws.send(message, { binary: Buffer.isBuffer(message) });
   });
 });
+
+wss.on('error', function error(e) {
+  console.log('Error: ' + e);
+});
