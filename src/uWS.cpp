@@ -615,7 +615,7 @@ void Server::onReadable(void *vp, int status, int events)
     memcpy(src, socketData->spill, socketData->spillLength);
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
-    int length = socketData->spillLength + read(fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength);
+    int length = socketData->spillLength + recv(fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength, 0);
 
     //int SSL_read(SSL *ssl, void *buf, int num);
 
