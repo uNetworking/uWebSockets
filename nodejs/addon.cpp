@@ -61,7 +61,7 @@ void onConnection(const FunctionCallbackInfo<Value> &args) {
     connectionCallback.Reset(isolate, Local<Function>::Cast(args[0]));
     server->onConnection([isolate](uWS::Socket socket) {
         HandleScope hs(isolate);
-        Local<Value> argv[] = {wrapSocket(socket, isolate)};
+        Local<Value> argv[] = {wrapSocket(socket, isolate)->Clone()};
         Local<Function>::New(isolate, connectionCallback)->Call(Null(isolate), 1, argv);
     });
 }
