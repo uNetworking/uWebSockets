@@ -6,6 +6,8 @@ const uws = require(`./uws_${process.platform}_${process.versions.modules}`);
 const NativeServer = uws.Server;
 const EE_ERROR = "registering more than one listener to websocket";
 
+function noop() {}
+
 class Socket {
     /**
      * Creates a Socket instance.
@@ -16,6 +18,8 @@ class Socket {
     constructor(nativeSocket, server) {
         this.nativeSocket = nativeSocket;
         this.server = server;
+        this.messageCallback = noop;
+        this.disconnectionCallback = noop;
     }
 
     /**
@@ -26,16 +30,17 @@ class Socket {
      */
     on(eventName, f) {
         if (eventName === 'message') {
-            if (this.messageCallback) {
+            if (this.messageCallback !== noop) {
                 throw Error(EE_ERROR);
             }
             this.messageCallback = f;
         } else if (eventName === 'close') {
-            if (this.disconnectionCallback) {
+            if (this.disconnectionCallback !== noop) {
                 throw Error(EE_ERROR);
             }
             this.disconnectionCallback = f;
         }
+        return this;
     }
 
     /**
@@ -46,10 +51,10 @@ class Socket {
      */
     removeAllListeners(eventName) {
         if (!eventName || eventName === 'message') {
-            this.messageCallback = undefined;
+            this.messageCallback = noop;
         }
         if (!eventName || eventName === 'close') {
-            this.disconnectionCallback = undefined;
+            this.disconnectionCallback = noop;
         }
         return this;
     }
@@ -110,17 +115,13 @@ class Server extends EventEmitter {
             });
 
             this.nativeServer.onDisconnection((nativeSocket, socket) => {
-                if (socket.disconnectionCallback) {
-                    socket.disconnectionCallback();
-                }
+                socket.disconnectionCallback();
                 /* make sure to clear any set data */
                 this.nativeServer.setData(nativeSocket);
             });
 
             this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
-                if (socket.messageCallback) {
-                    socket.messageCallback(binary ? message : message.toString());
-                }
+                socket.messageCallback(binary ? message : message.toString());
             });
         }
     }
