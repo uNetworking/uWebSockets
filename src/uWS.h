@@ -84,10 +84,11 @@ private:
     std::queue<std::pair<FD, std::string>> upgradeQueue;
     std::mutex upgradeQueueMutex;
     static void upgradeHandler(Server *server);
+    std::string path;
 
 public:
     // thread unsafe
-    Server(int port, bool deafultLoop = false);
+    Server(int port, bool deafultLoop = false, std::string path = "/");
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;

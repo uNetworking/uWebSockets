@@ -3,6 +3,7 @@ using namespace uWS;
 
 #include <iostream>
 #include <queue>
+#include <algorithm>
 using namespace std;
 
 #ifndef __linux
@@ -151,8 +152,14 @@ inline bool rsv2(frameFormat &frame) {return frame & 32;}
 inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
 
-Server::Server(int port, bool defaultLoop) : port(port), defaultLoop(defaultLoop)
+Server::Server(int port, bool defaultLoop, string path) : port(port), defaultLoop(defaultLoop), path(path)
 {
+    // lowercase the path
+    if (path[0] != '/') {
+        path = '/' + path;
+    }
+    transform(path.begin(), path.end(), path.begin(), ::tolower);
+
     onConnection([](Socket socket) {});
     onDisconnection([](Socket socket) {});
     onMessage([](Socket socket, const char *data, size_t length, OpCode opCode) {});
@@ -482,7 +489,13 @@ struct Request {
     pair<char *, size_t> key, value;
     Request(char *cursor) : cursor(cursor)
     {
-        (*this)++;
+        size_t length;
+        for (; isspace(*cursor); cursor++);
+        for (length = 0; !isspace(cursor[length]) && cursor[length] != '\r'; length++);
+        key = {cursor, length};
+        cursor += length + 1;
+        for (length = 0; !isspace(cursor[length]) && cursor[length] != '\r'; length++);
+        value = {cursor, length};
     }
     Request &operator++(int)
     {
@@ -564,21 +577,38 @@ void Server::onAcceptable(void *vp, int status, int events)
                 delete (uv_poll_t *) handle;
             });
 
-            for (Request h = (char *) httpData->headerBuffer.data(); h.key.second; h++) {
-                if (h.key.second == 17) {
-                    // lowercase the key
-                    for (size_t i = 0; i < h.key.second; i++) {
-                        h.key.first[i] = tolower(h.key.first[i]);
-                    }
+            Request h = (char *) httpData->headerBuffer.data();
 
-                    if (!strncmp(h.key.first, "sec-websocket-key", 17)) {
-                        // this is an upgrade
-                        if (httpData->server->upgradeCallback) {
-                            httpData->server->upgradeCallback(fd, h.value.first);
-                        } else {
-                            httpData->server->upgrade(fd, h.value.first);
+            // strip away any ? from the GET request
+            h.value.first[h.value.second] = 0;
+            for (int i = 0; i < h.value.second; i++) {
+                if (h.value.first[i] == '?') {
+                    h.value.first[i] = 0;
+                    break;
+                } else {
+                    // lowercase the request path
+                    h.value.first[i] = tolower(h.value.first[i]);
+                }
+            }
+
+            // only accept requests with our path
+            if (!strcmp(h.value.first, httpData->server->path.c_str())) {
+                for (h++; h.key.second; h++) {
+                    if (h.key.second == 17) {
+                        // lowercase the key
+                        for (size_t i = 0; i < h.key.second; i++) {
+                            h.key.first[i] = tolower(h.key.first[i]);
                         }
-                        return;
+
+                        if (!strncmp(h.key.first, "sec-websocket-key", 17)) {
+                            // this is an upgrade
+                            if (httpData->server->upgradeCallback) {
+                                httpData->server->upgradeCallback(fd, h.value.first);
+                            } else {
+                                httpData->server->upgrade(fd, h.value.first);
+                            }
+                            return;
+                        }
                     }
                 }
             }
