@@ -155,7 +155,7 @@ inline bool mask(frameFormat &frame) {return frame & 32768;}
 Server::Server(int port, bool defaultLoop, string path) : port(port), defaultLoop(defaultLoop), path(path)
 {
     // lowercase the path
-    if (path[0] != '/') {
+    if (!path.length() || path[0] != '/') {
         path = '/' + path;
     }
     transform(path.begin(), path.end(), path.begin(), ::tolower);
@@ -592,7 +592,7 @@ void Server::onAcceptable(void *vp, int status, int events)
             }
 
             // only accept requests with our path
-            if (!strcmp(h.value.first, httpData->server->path.c_str())) {
+            //if (!strcmp(h.value.first, httpData->server->path.c_str())) {
                 for (h++; h.key.second; h++) {
                     if (h.key.second == 17) {
                         // lowercase the key
@@ -611,7 +611,7 @@ void Server::onAcceptable(void *vp, int status, int events)
                         }
                     }
                 }
-            }
+            //}
 
             // for now, we just close HTTP traffic
             ::close(fd);
