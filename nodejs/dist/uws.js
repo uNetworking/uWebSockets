@@ -27,12 +27,12 @@ class Socket {
     on(eventName, f) {
         if (eventName === 'message') {
             if (this.messageCallback) {
-                throw EE_ERROR;
+                throw Error(EE_ERROR);
             }
             this.messageCallback = f;
         } else if (eventName === 'close') {
             if (this.disconnectionCallback) {
-                throw EE_ERROR;
+                throw Error(EE_ERROR);
             }
             this.disconnectionCallback = f;
         }
