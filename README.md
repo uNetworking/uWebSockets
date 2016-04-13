@@ -1,4 +1,4 @@
-<p align="center"><img src = "logo.png"/></p>
+<p align="center"><img src="https://raw.githubusercontent.com/alexhultman/uWebSockets/master/logo.png"/></p>
 `µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. License is zlib/libpng (very permissive & suits commercial applications).
 
 * Linux, OS X & Windows support.

@@ -15,11 +15,11 @@
     "lightweight",
     "fast"
   ],
+  "files": [
+    "uws*"
+  ],
   "homepage": "https://github.com/alexhultman/uWebSockets",
   "license": "zlib/libpng",
   "author": "Alex Hultman <alexhultman@gmail.com> (https://github.com/alexhultman)",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/alexhultman/uWebSockets.git"
-  }
+  "repository": "alexhultman/uWebSockets"
 }
