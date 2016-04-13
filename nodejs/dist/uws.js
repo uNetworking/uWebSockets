@@ -18,8 +18,8 @@ class Socket {
     constructor(nativeSocket, server) {
         this.nativeSocket = nativeSocket;
         this.server = server;
-        this.messageCallback = noop;
-        this.disconnectionCallback = noop;
+        this.onmessage = noop;
+        this.onclose = noop;
     }
 
     /**
@@ -30,15 +30,15 @@ class Socket {
      */
     on(eventName, f) {
         if (eventName === 'message') {
-            if (this.messageCallback !== noop) {
+            if (this.onmessage !== noop) {
                 throw Error(EE_ERROR);
             }
-            this.messageCallback = f;
+            this.onmessage = f;
         } else if (eventName === 'close') {
-            if (this.disconnectionCallback !== noop) {
+            if (this.onclose !== noop) {
                 throw Error(EE_ERROR);
             }
-            this.disconnectionCallback = f;
+            this.onclose = f;
         }
         return this;
     }
@@ -51,10 +51,10 @@ class Socket {
      */
     removeAllListeners(eventName) {
         if (!eventName || eventName === 'message') {
-            this.messageCallback = noop;
+            this.onmessage = noop;
         }
         if (!eventName || eventName === 'close') {
-            this.disconnectionCallback = noop;
+            this.onclose = noop;
         }
         return this;
     }
@@ -135,13 +135,13 @@ class Server extends EventEmitter {
             });
 
             this.nativeServer.onDisconnection((nativeSocket, socket) => {
-                socket.disconnectionCallback();
+                socket.onclose();
                 /* make sure to clear any set data */
                 this.nativeServer.setData(nativeSocket);
             });
 
             this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
-                socket.messageCallback(binary ? message : message.toString());
+                socket.onmessage(binary ? message : message.toString());
             });
         }
     }
