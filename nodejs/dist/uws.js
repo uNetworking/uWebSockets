@@ -118,9 +118,9 @@ class Server extends EventEmitter {
 
                 options.server.on('upgrade', (request, socket, head) => {
                     if (options.path == request.url.split('?')[0].split('#')[0]) {
-                        /* this will trigger the onConnection event */
-                        this.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key']);
-                        socket.destroy();
+                        this.handleUpgrade(request, socket, head, (ws) => {
+                            this.emit('connection', ws);
+                        });
                     } else {
                         /* are we really supposed to close the connection here? */
                         socket.end();
