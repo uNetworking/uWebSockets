@@ -96,7 +96,8 @@ class Server extends EventEmitter {
      */
     constructor(options) {
         super();
-        /* we currently do only support port as option */
+
+        /* undefined port will resolve to 0 which is okay */
         this.nativeServer = new NativeServer(options.port);
 
         /* emit error if the server is in a broken state */
@@ -108,6 +109,25 @@ class Server extends EventEmitter {
 
         /* only register events if the server is valid */
         if (!this.nativeServer.error) {
+            /* support server & path options */
+            if (options.server) {
+                /* we need to get paths with slash prefix */
+                if (!options.path.length || options.path[0] != '/') {
+                    options.path = '/' + options.path;
+                }
+
+                options.server.on('upgrade', (request, socket, head) => {
+                    if (options.path == request.url.split('?')[0].split('#')[0]) {
+                        /* this will trigger the onConnection event */
+                        this.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key']);
+                        socket.destroy();
+                    } else {
+                        /* are we really supposed to close the connection here? */
+                        socket.end();
+                    }
+                });
+            }
+
             this.nativeServer.onConnection((nativeSocket) => {
                 const socket = new Socket(nativeSocket, this);
                 this.nativeServer.setData(nativeSocket, socket);
