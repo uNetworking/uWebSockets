@@ -23,10 +23,11 @@ class Socket {
     }
 
     /**
-     * Registers a callback for given eventName
+     * Registers a callback for given eventName.
      *
-     * @param {String} eventName
-     * @param {Function} f
+     * @param {String} eventName Event name
+     * @param {Function} f Event listener
+     * @public
      */
     on(eventName, f) {
         if (eventName === 'message') {
@@ -45,9 +46,10 @@ class Socket {
 
     /**
      * Removes all registered callbacks for the given eventName
-     * or, in the case of no eventName, all registered callbacks
+     * or, in the case of no eventName, all registered callbacks.
      *
-     * @param {String} eventName optional
+     * @param {String} [eventName] Event name
+     * @public
      */
     removeAllListeners(eventName) {
         if (!eventName || eventName === 'message') {
@@ -103,7 +105,7 @@ class Server extends EventEmitter {
         /* emit error if the server is in a broken state */
         this.on('newListener', (eventName, f) => {
             if (eventName === 'error' && this.nativeServer.error) {
-                f('EADDRINUSE');
+                f(Error('EADDRINUSE'));
             }
         });
 
