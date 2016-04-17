@@ -25,6 +25,7 @@ typedef int FD;
 enum OpCode : unsigned char {
     TEXT = 1,
     BINARY = 2,
+    CLOSE = 8,
     PING = 9,
     PONG = 10
 };
@@ -40,7 +41,7 @@ protected:
     Socket(void *p) : socket(p) {}
     void write(char *data, size_t length, bool transferOwnership, void(*callback)(FD fd) = nullptr);
 public:
-    void close(bool force = false);
+    void close(bool force = false, unsigned short code = 0, char *data = nullptr, size_t length = 0);
     void send(char *data, size_t length, OpCode opCode, size_t fakedLength = 0);
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
     void *getData();

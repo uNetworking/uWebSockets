@@ -28,6 +28,9 @@ int main()
         worker.onConnection([](Socket socket) {
             cout << "[Connection] clients: " << ++connections << endl;
 
+            //socket.close();
+            //socket.close(false, 1011, "abcd", 4);
+
             // test shutting down the server when two clients are connected
             // this should disconnect both clients and exit libuv loop
             if (connections == 2) {

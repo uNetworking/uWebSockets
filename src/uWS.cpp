@@ -992,7 +992,34 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
     }
 }
 
-void Socket::close(bool force)
+inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength)
+{
+    size_t messageLength;
+    if (reportedLength < 126) {
+        messageLength = length + 2;
+        memcpy(dst + 2, src, length);
+        dst[1] = reportedLength;
+    } else if (reportedLength <= UINT16_MAX) {
+        messageLength = length + 4;
+        memcpy(dst + 4, src, length);
+        dst[1] = 126;
+        *((uint16_t *) &dst[2]) = htons(reportedLength);
+    } else {
+        messageLength = length + 10;
+        memcpy(dst + 10, src, length);
+        dst[1] = 127;
+        *((uint64_t *) &dst[2]) = htobe64(reportedLength);
+    }
+
+    int flags = 0;
+    dst[0] = (flags & SND_NO_FIN ? 0 : 128);
+    if (!(flags & SND_CONTINUATION)) {
+        dst[0] |= opCode;
+    }
+    return messageLength;
+}
+
+void Socket::close(bool force, unsigned short code, char *data, size_t length)
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
@@ -1029,38 +1056,18 @@ void Socket::close(bool force)
         ::close(fd);
         delete socketData;
     } else {
-        unsigned char closeFrame[2] = {128 | 8, 0};
-        write((char *) closeFrame, 2, false, [](FD fd) {
+        char *sendBuffer = socketData->server->sendBuffer;
+        if (length) {
+            length = min<size_t>(1024, length);
+            *((uint16_t *) &sendBuffer[length + 4]) = htons(code);
+            memcpy(&sendBuffer[length + 6], data, length);
+        } else {
+            length = -2;
+        }
+        write((char *) sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 4], length + 2, CLOSE, length + 2), false, [](FD fd) {
             shutdown(fd, SHUT_WR);
         });
     }
-}
-
-inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength)
-{
-    size_t messageLength;
-    if (reportedLength < 126) {
-        messageLength = length + 2;
-        memcpy(dst + 2, src, length);
-        dst[1] = reportedLength;
-    } else if (reportedLength <= UINT16_MAX) {
-        messageLength = length + 4;
-        memcpy(dst + 4, src, length);
-        dst[1] = 126;
-        *((uint16_t *) &dst[2]) = htons(reportedLength);
-    } else {
-        messageLength = length + 10;
-        memcpy(dst + 10, src, length);
-        dst[1] = 127;
-        *((uint64_t *) &dst[2]) = htobe64(reportedLength);
-    }
-
-    int flags = 0;
-    dst[0] = (flags & SND_NO_FIN ? 0 : 128);
-    if (!(flags & SND_CONTINUATION)) {
-        dst[0] |= opCode;
-    }
-    return messageLength;
 }
 
 void Socket::send(char *data, size_t length, OpCode opCode, size_t fakedLength)
