@@ -49,7 +49,7 @@ void onConnection(const FunctionCallbackInfo<Value> &args) {
     server->onConnection([isolate](uWS::Socket socket) {
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(socket, isolate)/*->Clone()*/};
-        Local<Function>::New(isolate, connectionCallback)->Call(Null(isolate), 1, argv);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, connectionCallback), 1, argv);
     });
 }
 
@@ -67,7 +67,7 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
                                node::Buffer::New(isolate, (char *) message, length, [](char *data, void *hint) {}, nullptr).ToLocalChecked(),
                                Boolean::New(isolate, opCode == BINARY),
                                getDataV8(socket, isolate)};
-        Local<Function>::New(isolate, messageCallback)->Call(Null(isolate), 4, argv);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, messageCallback), 4, argv);
     });
 }
 
@@ -79,7 +79,7 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(socket, isolate),
                                getDataV8(socket, isolate)};
-        Local<Function>::New(isolate, disconnectionCallback)->Call(Null(isolate), 2, argv);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, disconnectionCallback), 2, argv);
     });
 }
 
