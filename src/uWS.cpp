@@ -1003,7 +1003,7 @@ pair<char *, unsigned int> Socket::getAddress()
     socklen_t addrLength = sizeof(addr);
     getpeername(fd, (sockaddr *) &addr, &addrLength);
 
-    thread_local char buf[INET6_ADDRSTRLEN] = {};
+    static __thread char buf[INET6_ADDRSTRLEN] = {};
 
     if (addr.ss_family == AF_INET) {
         sockaddr_in *ipv4 = (sockaddr_in *) &addr;
