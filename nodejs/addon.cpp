@@ -1,4 +1,4 @@
-#include <uWS.h>
+#include "../src/uWS.h"
 
 #include <node.h>
 #include <node_buffer.h>
@@ -71,6 +71,7 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
     });
 }
 
+// todo: this one should also give the status code & close message
 void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     Isolate *isolate = args.GetIsolate();
@@ -104,12 +105,47 @@ void getData(const FunctionCallbackInfo<Value> &args)
     args.GetReturnValue().Set(getDataV8(unwrapSocket(args[0]->ToNumber()), args.GetIsolate()));
 }
 
+class NativeString {
+    char *data;
+    size_t length;
+    char utf8ValueMemory[sizeof(String::Utf8Value)];
+    String::Utf8Value *utf8Value = nullptr;
+public:
+    NativeString(const Local<Value> &value)
+    {
+        if (value->IsUndefined()) {
+            data = nullptr;
+            length = 0;
+        } else if (value->IsString()) {
+            utf8Value = new (utf8ValueMemory) String::Utf8Value(value);
+            data = (**utf8Value);
+            length = utf8Value->length();
+        } else if (value->IsTypedArray()) {
+            cout << "Error: Unsupported data type!" << endl;
+        } else {
+            data = node::Buffer::Data(value);
+            length = node::Buffer::Length(value);
+        }
+    }
+
+    char *getData() {return data;}
+    size_t getLength() {return length;}
+    ~NativeString()
+    {
+        if (utf8Value) {
+            utf8Value->~Utf8Value();
+        }
+    }
+};
+
 void close(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     if (args.Length()) {
+        // socket, code, data
         uWS::Socket socket = unwrapSocket(args[0]->ToNumber());
-        socket.close(false);
+        NativeString nativeString(args[2]);
+        socket.close(false, args[1]->IntegerValue(), nativeString.getData(), nativeString.getLength());
     } else {
         server->close(false);
     }
@@ -119,43 +155,26 @@ void close(const FunctionCallbackInfo<Value> &args)
 void upgrade(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
-    String::Utf8Value secKey(args[1]->ToString());
-    server->upgrade(args[0]->IntegerValue(), *secKey, true, true);
+    NativeString nativeString(args[1]);
+    server->upgrade(args[0]->IntegerValue(), nativeString.getData(), true, true);
 }
 
 void send(const FunctionCallbackInfo<Value> &args)
 {
     OpCode opCode = args[2]->BooleanValue() ? BINARY : TEXT;
-
-    if (args[1]->IsString()) {
-        String::Utf8Value v8String(args[1]);
-        unwrapSocket(args[0]->ToNumber())
-                     .send(*v8String,
-                     v8String.length(),
-                     opCode);
-    } else {
-        unwrapSocket(args[0]->ToNumber())
-                     .send(node::Buffer::Data(args[1]),
-                     node::Buffer::Length(args[1]),
-                     opCode);
-    }
+    NativeString nativeString(args[1]);
+    unwrapSocket(args[0]->ToNumber())
+                 .send(nativeString.getData(),
+                 nativeString.getLength(),
+                 opCode);
 }
 
 void broadcast(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     OpCode opCode = args[1]->BooleanValue() ? BINARY : TEXT;
-
-    if (args[0]->IsString()) {
-        String::Utf8Value v8String(args[0]);
-        server->broadcast(*v8String,
-                          v8String.length(),
-                          opCode);
-    } else {
-        server->broadcast(node::Buffer::Data(args[0]),
-                          node::Buffer::Length(args[0]),
-                          opCode);
-    }
+    NativeString nativeString(args[0]);
+    server->broadcast(nativeString.getData(), nativeString.getLength(), opCode);
 }
 
 void Main(Local<Object> exports) {

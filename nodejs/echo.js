@@ -4,6 +4,7 @@ const WebSocketServer = require('./dist/uws').Server;
 const wss = new WebSocketServer({ port: 3000 });
 
 wss.on('connection', function connection(ws) {
+  ws.close(/*1011, 'some string here'*/);
   ws.on('message', function incoming(message) {
     ws.send(message, { binary: Buffer.isBuffer(message) });
   });

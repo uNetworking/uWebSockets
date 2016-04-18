@@ -81,11 +81,11 @@ class Socket {
      *
      * @public
      */
-    close() {
+    close(code, data) {
         /* ignore close on closed sockets */
         if (!this.nativeSocket) return;
 
-        this.server.nativeServer.close(this.nativeSocket);
+        this.server.nativeServer.close(this.nativeSocket, code, data);
         this.server = this.nativeSocket = undefined;
     }
 }
