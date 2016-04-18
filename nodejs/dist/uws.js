@@ -77,6 +77,18 @@ class Socket {
     }
 
     /**
+     * Phony _socket object constructed on read.
+     *
+     * @public
+     */
+    get _socket() {
+        return {
+            remoteAddress: '...',
+            remotePort: 0
+        };
+    }
+
+    /**
      * Closes the socket.
      *
      * @public
