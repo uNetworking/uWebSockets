@@ -84,7 +84,7 @@ class Socket {
     get _socket() {
         return {
             remoteAddress: this.server.nativeServer.getAddress(this.nativeSocket),
-            remotePort: -1
+            remotePort: this.server.nativeServer.getPort(this.nativeSocket)
         };
     }
 

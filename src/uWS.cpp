@@ -993,7 +993,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
     }
 }
 
-string Socket::getAddress()
+pair<string, unsigned int> Socket::getAddress()
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
@@ -1006,7 +1006,7 @@ string Socket::getAddress()
     char buf[128] = {};
     inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf));
 
-    return buf;
+    return {buf, addr.sin_port};
 }
 
 inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength)
