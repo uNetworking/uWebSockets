@@ -993,6 +993,22 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
     }
 }
 
+string Socket::getAddress()
+{
+    uv_poll_t *p = (uv_poll_t *) socket;
+    FD fd;
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
+
+    sockaddr_in addr;
+    socklen_t addrLength = sizeof(addr);
+    getpeername(fd, (sockaddr *) &addr, &addrLength);
+
+    char buf[128] = {};
+    inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf));
+
+    return buf;
+}
+
 inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength)
 {
     size_t messageLength;

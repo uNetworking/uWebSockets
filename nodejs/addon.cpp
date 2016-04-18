@@ -172,6 +172,11 @@ void send(const FunctionCallbackInfo<Value> &args)
                  opCode);
 }
 
+void getAddress(const FunctionCallbackInfo<Value> &args)
+{
+    args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), unwrapSocket(args[0]->ToNumber()).getAddress().c_str()));
+}
+
 void broadcast(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
@@ -196,6 +201,7 @@ void Main(Local<Object> exports) {
     NODE_SET_PROTOTYPE_METHOD(tpl, "setData", setData);
     NODE_SET_PROTOTYPE_METHOD(tpl, "getData", getData);
     NODE_SET_PROTOTYPE_METHOD(tpl, "send", send);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "getAddress", getAddress);
 
     exports->Set(String::NewFromUtf8(isolate, "Server"), tpl->GetFunction());
 
