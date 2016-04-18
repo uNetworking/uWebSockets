@@ -1057,14 +1057,12 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
         delete socketData;
     } else {
         char *sendBuffer = socketData->server->sendBuffer;
-        if (length) {
-            length = min<size_t>(1024, length);
-            *((uint16_t *) &sendBuffer[length + 4]) = htons(code);
-            memcpy(&sendBuffer[length + 6], data, length);
-        } else {
-            length = -2;
+        if (code) {
+            length = min<size_t>(1024, length) + 2;
+            *((uint16_t *) &sendBuffer[length + 2]) = htons(code);
+            memcpy(&sendBuffer[length + 4], data, length - 2);
         }
-        write((char *) sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 4], length + 2, CLOSE, length + 2), false, [](FD fd) {
+        write((char *) sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](FD fd) {
             shutdown(fd, SHUT_WR);
         });
     }
