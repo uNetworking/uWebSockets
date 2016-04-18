@@ -121,7 +121,10 @@ public:
             data = (**utf8Value);
             length = utf8Value->length();
         } else if (value->IsTypedArray()) {
-            cout << "Error: Unsupported data type!" << endl;
+            Local<ArrayBufferView> arrayBuffer = Local<ArrayBufferView>::Cast(value);
+            ArrayBuffer::Contents contents = arrayBuffer->Buffer()->GetContents();
+            length = contents.ByteLength();
+            data = (char *) contents.Data();
         } else {
             data = node::Buffer::Data(value);
             length = node::Buffer::Length(value);

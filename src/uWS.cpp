@@ -677,6 +677,7 @@ void Server::onReadable(void *vp, int status, int events)
 #ifdef STRICT
             // close frame
             if (opCode(frame) == 8) {
+                // todo: force close if WE sent the frame!
                 Socket(p).close();
                 return;
             }
