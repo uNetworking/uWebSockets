@@ -993,20 +993,27 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
     }
 }
 
-pair<string, unsigned int> Socket::getAddress()
+pair<char *, unsigned int> Socket::getAddress()
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 
-    sockaddr_in addr;
+    sockaddr_storage addr;
     socklen_t addrLength = sizeof(addr);
     getpeername(fd, (sockaddr *) &addr, &addrLength);
 
-    char buf[128] = {};
-    inet_ntop(AF_INET, &addr.sin_addr, buf, sizeof(buf));
+    thread_local char buf[INET6_ADDRSTRLEN] = {};
 
-    return {buf, addr.sin_port};
+    if (addr.ss_family == AF_INET) {
+        sockaddr_in *ipv4 = (sockaddr_in *) &addr;
+        inet_ntop(AF_INET, &ipv4->sin_addr, buf, sizeof(buf));
+        return {buf, ntohs(ipv4->sin_port)};
+    } else {
+        sockaddr_in6 *ipv6 = (sockaddr_in6 *) &addr;
+        inet_ntop(AF_INET6, &ipv6->sin6_addr, buf, sizeof(buf));
+        return {buf, ntohs(ipv6->sin6_port)};
+    }
 }
 
 inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength)

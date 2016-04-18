@@ -175,13 +175,13 @@ void send(const FunctionCallbackInfo<Value> &args)
 /* todo: fix these up to match the native interface */
 void getAddress(const FunctionCallbackInfo<Value> &args)
 {
-    pair<string, unsigned int> address = unwrapSocket(args[0]->ToNumber()).getAddress();
-    args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), address.first.c_str()));
+    pair<char *, unsigned int> address = unwrapSocket(args[0]->ToNumber()).getAddress();
+    args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), address.first));
 }
 
 void getPort(const FunctionCallbackInfo<Value> &args)
 {
-    pair<string, unsigned int> address = unwrapSocket(args[0]->ToNumber()).getAddress();
+    pair<char *, unsigned int> address = unwrapSocket(args[0]->ToNumber()).getAddress();
     args.GetReturnValue().Set(Integer::NewFromUnsigned(args.GetIsolate(), address.second));
 }
 
