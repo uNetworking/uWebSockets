@@ -5,8 +5,13 @@ const httpServer = http.createServer((request, response) => {
   response.end('Hello');
 });
 
+function verify (info) {
+  console.log(info.secure);
+  return true;
+}
+
 const WebSocketServer = require('./dist/uws').Server;
-const wss = new WebSocketServer({ path: 'echo', server: httpServer });
+const wss = new WebSocketServer({ path: 'echo', server: httpServer, verifyClient: verify });
 
 wss.on('connection', function connection(ws) {
   ws.on('message', function incoming(message) {

@@ -137,8 +137,8 @@ class Server extends EventEmitter {
                         /* verify client */
                         if (options.verifyClient) {
                             const info = {
-                                origin: origin,
-                                secure: request.connection.authorized || request.connection.encrypted,
+                                origin: request.headers.origin,
+                                secure: request.connection.authorized !== undefined || request.connection.encrypted !== undefined,
                                 req: request
                             };
 
