@@ -147,6 +147,8 @@ class Server extends EventEmitter {
                                     if (!result) {
                                         /* close socket, todo: code */
                                         socket.end();
+                                        /* could be replaced with some kind of closing state check */
+                                        socket._ignoreUpgrade = true;
                                     }
                                 });
                             } else {
@@ -158,9 +160,11 @@ class Server extends EventEmitter {
                             }
                         }
 
-                        this.handleUpgrade(request, socket, head, (ws) => {
-                            this.emit('connection', ws);
-                        });
+                        if (!socket._ignoreUpgrade) {
+                            this.handleUpgrade(request, socket, head, (ws) => {
+                                this.emit('connection', ws);
+                            });
+                        }
                     } else {
                         /* are we really supposed to close the connection here? */
                         socket.end();
