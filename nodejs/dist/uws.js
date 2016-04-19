@@ -131,7 +131,33 @@ class Server extends EventEmitter {
                 }
 
                 options.server.on('upgrade', (request, socket, head) => {
+                    /* is this our path? */
                     if (options.path == request.url.split('?')[0].split('#')[0]) {
+
+                        /* verify client */
+                        if (options.verifyClient) {
+                            const info = {
+                                origin: origin,
+                                secure: request.connection.authorized || request.connection.encrypted,
+                                req: request
+                            };
+
+                            if (options.verifyClient.length === 2) {
+                                options.verifyClient(info, (result, code, name) => {
+                                    if (!result) {
+                                        /* close socket, todo: code */
+                                        socket.end();
+                                    }
+                                });
+                            } else {
+                                if (!options.verifyClient(info)) {
+                                    /* close socket, todo: code */
+                                    socket.end();
+                                    return;
+                                }
+                            }
+                        }
+
                         this.handleUpgrade(request, socket, head, (ws) => {
                             this.emit('connection', ws);
                         });
