@@ -133,7 +133,6 @@ class Server extends EventEmitter {
                 options.server.on('upgrade', (request, socket, head) => {
                     /* is this our path? */
                     if (options.path == request.url.split('?')[0].split('#')[0]) {
-
                         /* verify client */
                         if (options.verifyClient) {
                             const info = {
@@ -144,23 +143,29 @@ class Server extends EventEmitter {
 
                             if (options.verifyClient.length === 2) {
                                 options.verifyClient(info, (result, code, name) => {
-                                    if (!result) {
-                                        /* close socket, todo: code */
+                                    if (result) {
+                                        /* handle upgrade */
+                                        this.handleUpgrade(request, socket, head, (ws) => {
+                                            this.emit('connection', ws);
+                                        });
+                                    } else {
+                                        /* todo: send code & message */
                                         socket.end();
-                                        /* could be replaced with some kind of closing state check */
-                                        socket._ignoreUpgrade = true;
                                     }
                                 });
                             } else {
-                                if (!options.verifyClient(info)) {
-                                    /* close socket, todo: code */
+                                if (options.verifyClient(info)) {
+                                    /* handle upgrade */
+                                    this.handleUpgrade(request, socket, head, (ws) => {
+                                        this.emit('connection', ws);
+                                    });
+                                } else {
+                                    /* todo: send code & message */
                                     socket.end();
-                                    return;
                                 }
                             }
-                        }
-
-                        if (!socket._ignoreUpgrade) {
+                        } else {
+                            /* handle upgrade */
                             this.handleUpgrade(request, socket, head, (ws) => {
                                 this.emit('connection', ws);
                             });
