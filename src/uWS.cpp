@@ -995,6 +995,10 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
 pair<char *, unsigned int> Socket::getAddress()
 {
+#ifdef _WIN32
+    // todo: implement for Windows
+    return {(char *) "", -1};
+#else
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
@@ -1003,7 +1007,7 @@ pair<char *, unsigned int> Socket::getAddress()
     socklen_t addrLength = sizeof(addr);
     getpeername(fd, (sockaddr *) &addr, &addrLength);
 
-    static __thread char buf[INET6_ADDRSTRLEN] = {};
+    static __thread char buf[INET6_ADDRSTRLEN];
 
     if (addr.ss_family == AF_INET) {
         sockaddr_in *ipv4 = (sockaddr_in *) &addr;
@@ -1014,6 +1018,7 @@ pair<char *, unsigned int> Socket::getAddress()
         inet_ntop(AF_INET6, &ipv6->sin6_addr, buf, sizeof(buf));
         return {buf, ntohs(ipv6->sin6_port)};
     }
+#endif
 }
 
 inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength)
