@@ -3,11 +3,11 @@
 
 * Linux, OS X & Windows support.
 * Node.js binding exposed as the well-known `ws` interface.
+* Seamless SSL/TLS transfer from Node.js's HTTPS server.
 * Primus transformer ['uws'](https://github.com/primus/primus#uws).
 * Chrome, Safari, Firefox, Edge support.
 * Keep one thread per CPU core, each serving millions of connections.
 * Expose a port range or use the load balancer to only expose one port, scaling over all CPU cores.
-* Planned SSL/TLS support (work in progress)
 
 [![](https://img.shields.io/github/tag/alexhultman/uWebSockets.svg)]()
 
