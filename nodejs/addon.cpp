@@ -6,6 +6,10 @@
 #include <iostream>
 #include <future>
 
+// move this to core?
+#include <openssl/ssl.h>
+#include <openssl/bio.h>
+
 using namespace std;
 using namespace v8;
 using namespace uWS;
@@ -159,7 +163,19 @@ void upgrade(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     NativeString nativeString(args[1]);
-    server->upgrade(args[0]->IntegerValue(), nativeString.getData(), true, true);
+
+    SSL *ssl = nullptr;
+    if (args[2]->IsExternal()) {
+        ssl = (SSL *) args[2].As<External>()->Value();
+
+        /* Node.js DestroySSL calls SSL_free */
+        ssl->references++;
+        /* Node.js want to delete its own BIO's */
+        SSL_get_rbio(ssl)->references++;
+        SSL_get_wbio(ssl)->references++;
+    }
+
+    server->upgrade(args[0]->IntegerValue(), nativeString.getData(), ssl, true, true);
 }
 
 void send(const FunctionCallbackInfo<Value> &args)

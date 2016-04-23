@@ -240,7 +240,7 @@ class Server extends EventEmitter {
         });
 
         /* upgrades will be handled immediately */
-        this.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key']);
+        this.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key'], socket.ssl._external);
         socket.destroy();
     }
 }

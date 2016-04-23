@@ -47,6 +47,7 @@ struct WindowsInit {
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/buffer.h>
+#include <openssl/ssl.h>
 
 #include <uv.h>
 
@@ -122,6 +123,7 @@ struct SocketData {
     // points to uv_poll_t
     void *next = nullptr, *prev = nullptr;
     void *data = nullptr;
+    SSL *ssl = nullptr;
 
     // turns out these are very lightweight (in GCC)
     string buffer;
@@ -344,7 +346,7 @@ void Server::upgradeHandler(Server *server)
 
         // upgrade the connection
         unsigned char shaInput[] = "XXXXXXXXXXXXXXXXXXXXXXXX258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-        memcpy(shaInput, upgradeRequest.second.c_str(), 24);
+        memcpy(shaInput, get<1>(upgradeRequest).c_str(), 24);
         unsigned char shaDigest[SHA_DIGEST_LENGTH];
         SHA1(shaInput, sizeof(shaInput) - 1, shaDigest);
         char upgradeResponse[] = "HTTP/1.1 101 Switching Protocols\r\n"
@@ -357,9 +359,16 @@ void Server::upgradeHandler(Server *server)
 
         // this will modify the event loop of another thread
         uv_poll_t *clientPoll = new uv_poll_t;
-        uv_poll_init_socket((uv_loop_t *) server->loop, clientPoll, upgradeRequest.first);
+        uv_poll_init_socket((uv_loop_t *) server->loop, clientPoll, get<0>(upgradeRequest));
         SocketData *socketData = new SocketData;
         socketData->server = server;
+
+        socketData->ssl = (SSL *) get<2>(upgradeRequest);
+        if (socketData->ssl) {
+            cout << "Upgraded to SSL connection" << endl;
+            SSL_set_fd(socketData->ssl, get<0>(upgradeRequest));
+        }
+
         clientPoll->data = socketData;
         uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
 
@@ -381,7 +390,7 @@ void Server::upgradeHandler(Server *server)
 }
 
 // this function needs to be thread safe, called from other thread!
-void Server::upgrade(FD fd, const char *secKey, bool dupFd, bool immediately)
+void Server::upgrade(FD fd, const char *secKey, void *ssl, bool dupFd, bool immediately)
 {
     // if the socket is owned by another environment we can dup and close
     if (dupFd) {
@@ -390,7 +399,7 @@ void Server::upgrade(FD fd, const char *secKey, bool dupFd, bool immediately)
 
     // add upgrade request to the queue
     upgradeQueueMutex.lock();
-    upgradeQueue.push({fd, string(secKey, 24)});
+    upgradeQueue.push(make_tuple(fd, string(secKey, 24), ssl));
     upgradeQueueMutex.unlock();
 
     if (immediately) {
@@ -649,7 +658,12 @@ void Server::onReadable(void *vp, int status, int events)
     memcpy(src, socketData->spill, socketData->spillLength);
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
-    int length = socketData->spillLength + recv(fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength, 0);
+    int length = socketData->spillLength;
+    if (socketData->ssl) {
+        length += SSL_read(socketData->ssl, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength);
+    } else {
+        length += recv(fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength, 0);
+    }
 
     //int SSL_read(SSL *ssl, void *buf, int num);
 
@@ -895,7 +909,12 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
         goto queueIt;
     }
 
-    sent = ::send(fd, data, length, MSG_NOSIGNAL);
+    // very baisc SSL send, assume everything gets sent directly for now
+    if (socketData->ssl) {
+        sent = SSL_write(socketData->ssl, data, length);
+    } else {
+        sent = ::send(fd, data, length, MSG_NOSIGNAL);
+    }
 
     if (sent == (int) length) {
         // everything was sent in one go!
