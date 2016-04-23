@@ -45,6 +45,34 @@ class Socket {
     }
 
     /**
+     * Registers a callback for given eventName to be executed once.
+     *
+     * @param {String} eventName Event name
+     * @param {Function} f Event listener
+     * @public
+     */
+    once(eventName, f) {
+        if (eventName === 'message') {
+            if (this.onmessage !== noop) {
+                throw Error(EE_ERROR);
+            }
+            this.onmessage = () => {
+                f();
+                this.onmessage = noop;
+            };
+        } else if (eventName === 'close') {
+            if (this.onclose !== noop) {
+                throw Error(EE_ERROR);
+            }
+            this.onclose = () => {
+                f();
+                this.onclose = noop;
+            };
+        }
+        return this;
+    }
+
+    /**
      * Removes all registered callbacks for the given eventName
      * or, in the case of no eventName, all registered callbacks.
      *
