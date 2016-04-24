@@ -104,17 +104,12 @@ class Socket {
             options = {};
         }
         if (!this.nativeSocket) {
-            if(cb) {
-                cb('Socket closed');
-            }
-            return;
+            return cb && cb(new Error('not opened'));
         }
 
         const binary = options && options.binary || false;
         this.server.nativeServer.send(this.nativeSocket, message, binary);
-        if(cb) {
-            cb(null);
-        }
+        return cb && cb(null);
     }
 
     /**
