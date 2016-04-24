@@ -154,7 +154,9 @@ class Server extends EventEmitter {
             /* support server & path options */
             if (options.server) {
                 /* we need to get paths with slash prefix */
-                if (!options.path.length || options.path[0] != '/') {
+                if (!options.path) {
+                    options.path = '/';
+                } else if (!options.path.length || options.path[0] != '/') {
                     options.path = '/' + options.path;
                 }
 
@@ -268,7 +270,7 @@ class Server extends EventEmitter {
         });
 
         /* upgrades will be handled immediately */
-        this.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key'], socket.ssl._external);
+        this.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key'], socket.ssl ? socket.ssl._external : null);
         socket.destroy();
     }
 }
