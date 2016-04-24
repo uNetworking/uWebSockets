@@ -99,12 +99,12 @@ class Socket {
      */
     send(message, options, cb) {
         /* ignore sends on closed sockets */
-        if(typeof options==='function'){
+        if(typeof options === 'function') {
             cb = options;
             options = {};
         }
-        if (!this.nativeSocket){ 
-            if(cb){
+        if (!this.nativeSocket) {
+            if(cb) {
                 cb('Socket closed');
             }
             return;
@@ -112,7 +112,7 @@ class Socket {
 
         const binary = options && options.binary || false;
         this.server.nativeServer.send(this.nativeSocket, message, binary);
-        if(cb){
+        if(cb) {
             cb(null);
         }
     }
