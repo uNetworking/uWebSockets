@@ -99,6 +99,10 @@ class Socket {
      */
     send(message, options, cb) {
         /* ignore sends on closed sockets */
+        if(typeof options==='function'){
+            cb = options;
+            options = {};
+        }
         if (!this.nativeSocket){ 
             if(cb){
                 cb('Socket closed');
