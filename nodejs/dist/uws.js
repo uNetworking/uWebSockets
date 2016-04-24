@@ -101,7 +101,7 @@ class Socket {
         /* ignore sends on closed sockets */
         if (typeof options === 'function') {
             cb = options;
-            options = {};
+            options = null;
         }
         if (!this.nativeSocket) {
             return cb && cb(new Error('not opened'));
