@@ -99,7 +99,7 @@ class Socket {
      */
     send(message, options, cb) {
         /* ignore sends on closed sockets */
-        if(typeof options === 'function') {
+        if (typeof options === 'function') {
             cb = options;
             options = {};
         }
