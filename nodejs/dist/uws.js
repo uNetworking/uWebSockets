@@ -94,14 +94,22 @@ class Socket {
      *
      * @param {String|Buffer} message The message to send
      * @param {Object} options Send options
+     * @param {Function} cb optional callback
      * @public
      */
-    send(message, options) {
+    send(message, options, cb) {
         /* ignore sends on closed sockets */
-        if (!this.nativeSocket) return;
+        if (typeof options === 'function') {
+            cb = options;
+            options = null;
+        }
+        if (!this.nativeSocket) {
+            return cb && cb(new Error('not opened'));
+        }
 
         const binary = options && options.binary || false;
         this.server.nativeServer.send(this.nativeSocket, message, binary);
+        return cb && cb(null);
     }
 
     /**
