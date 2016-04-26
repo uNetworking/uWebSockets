@@ -124,14 +124,18 @@ public:
             utf8Value = new (utf8ValueMemory) String::Utf8Value(value);
             data = (**utf8Value);
             length = utf8Value->length();
+        } else if (node::Buffer::HasInstance(value)) {
+            data = node::Buffer::Data(value);
+            length = node::Buffer::Length(value);
         } else if (value->IsTypedArray()) {
             Local<ArrayBufferView> arrayBuffer = Local<ArrayBufferView>::Cast(value);
             ArrayBuffer::Contents contents = arrayBuffer->Buffer()->GetContents();
             length = contents.ByteLength();
             data = (char *) contents.Data();
         } else {
-            data = node::Buffer::Data(value);
-            length = node::Buffer::Length(value);
+            static char empty[] = "";
+            data = empty;
+            length = 0;
         }
     }
 
