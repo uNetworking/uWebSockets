@@ -827,7 +827,7 @@ void Server::onReadable(void *vp, int status, int events)
                                                  socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0);
 
             // did we close the socket using Socket.fail()?
-            if (uv_is_closing((uv_handle_t *) socket)) {
+            if (uv_is_closing((uv_handle_t *) p)) {
                 return;
             }
 
