@@ -546,6 +546,7 @@ void Server::onAcceptable(void *vp, int status, int events)
 {
     if (status < 0) {
         // error accept
+        return;
     }
 
     uv_poll_t *p = (uv_poll_t *) vp;
@@ -554,6 +555,11 @@ void Server::onAcceptable(void *vp, int status, int events)
     FD serverFd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &serverFd);
     FD clientFd = accept(serverFd, (sockaddr *) ((Server *) p->data)->listenAddr, &listenAddrLength);
+
+    // if accept fails, we just ignore the connection
+    if (clientFd == -1) {
+        return;
+    }
 
 #ifdef __APPLE__
     int noSigpipe = 1;
