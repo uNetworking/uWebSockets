@@ -16,8 +16,7 @@ const wss = new wsServer({ server: httpsServer, path: '/' });
 
 wss.on('connection', (ws) => {
     ws.on('message', (message) => {
-        console.log('Got this: ' + message);
-        ws.send('I\'m sending you this: ' + message);
+        ws.send(message, { binary: Buffer.isBuffer(message) });
     });
 });
 

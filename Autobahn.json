@@ -4,7 +4,7 @@
 
    "servers": [
                 {"agent": "&#181;WebSockets",
-                 "url": "ws://localhost:3000",
+                 "url": "wss://localhost:3000",
                  "options": {"version": 18}}
               ],
 
