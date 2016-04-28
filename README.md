@@ -71,7 +71,7 @@ int main()
 npm install --save uws
 ```
 
-* Node 4.x, 5.x support (ABI 46-47)
+* Node.js 4.x, 5.x & 6.x supported
 * Linux & Mac OS X 10.7+
 
 ### Native developers
