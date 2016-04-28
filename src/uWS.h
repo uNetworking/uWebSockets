@@ -47,6 +47,7 @@ public:
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
     void *getData();
     void setData(void *data);
+    bool operator<(const Socket &other) const {return socket < other.socket;}
 };
 
 class Server
