@@ -365,8 +365,8 @@ void Server::upgradeHandler(Server *server)
 
         socketData->ssl = (SSL *) get<2>(upgradeRequest);
         if (socketData->ssl) {
-            cout << "Upgraded to SSL connection" << endl;
             SSL_set_fd(socketData->ssl, get<0>(upgradeRequest));
+            SSL_set_mode(socketData->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE);
         }
 
         clientPoll->data = socketData;
@@ -915,7 +915,6 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
         goto queueIt;
     }
 
-    // very baisc SSL send, assume everything gets sent directly for now
     if (socketData->ssl) {
         sent = SSL_write(socketData->ssl, data, length);
     } else {
@@ -934,11 +933,23 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
     } else {
         // not everything was sent
+        if (sent == -1) {
+            // check to see if any error occurred
+            if (socketData->ssl) {
+                int error = SSL_get_error(socketData->ssl, sent);
+                if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE) {
+                    goto queueIt;
+                }
+            } else {
 #ifdef _WIN32
-        if (sent == -1 && WSAGetLastError() != WSAENOBUFS && WSAGetLastError() != WSAEWOULDBLOCK) {
+                if (WSAGetLastError() == WSAENOBUFS || WSAGetLastError() == WSAEWOULDBLOCK) {
 #else
-        if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
 #endif
+                    goto queueIt;
+                }
+            }
+
             // error sending!
             if (transferOwnership) {
                 delete [] (data - sizeof(Message));
@@ -981,7 +992,13 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                 do {
                     Message *messagePtr = socketData->messageQueue.front();
 
-                    ssize_t sent = ::send(fd, messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
+                    ssize_t sent;
+                    if (socketData->ssl) {
+                        sent = SSL_write(socketData->ssl, messagePtr->data, messagePtr->length);
+                    } else {
+                        sent = ::send(fd, messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
+                    }
+
                     if (sent == (int) messagePtr->length) {
 
                         if (messagePtr->callback) {
@@ -990,16 +1007,24 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
                         socketData->messageQueue.pop();
                     } else {
-#ifdef _WIN32
-                        if (sent == -1 && WSAGetLastError() != WSAENOBUFS && WSAGetLastError() != WSAEWOULDBLOCK) {
-#else
-                        if (sent == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
-#endif
-
-                            // will this trigger a read with 0 length?
+                        if (sent == -1) {
+                            // check to see if any error occurred
+                            if (socketData->ssl) {
+                                int error = SSL_get_error(socketData->ssl, sent);
+                                if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE) {
+                                    return;
+                                }
+                            } else {
+                #ifdef _WIN32
+                                if (WSAGetLastError() == WSAENOBUFS || WSAGetLastError() == WSAEWOULDBLOCK) {
+                #else
+                                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                #endif
+                                    return;
+                                }
+                            }
 
                             // error sending!
-                            // when closing a socket, we need to empty the message queue!
                             uv_poll_start(handle, UV_READABLE, (uv_poll_cb) Server::onReadable);
                             return;
                         } else {
@@ -1117,6 +1142,7 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
             memcpy(&sendBuffer[length + 4], data, length - 2);
         }
         write((char *) sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](FD fd) {
+            // todo: SSL_shutdown
             shutdown(fd, SHUT_WR);
         });
     }
