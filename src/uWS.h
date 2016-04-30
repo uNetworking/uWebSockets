@@ -39,7 +39,7 @@ class Socket {
 protected:
     void *socket;
     Socket(void *p) : socket(p) {}
-    void write(char *data, size_t length, bool transferOwnership, void(*callback)(FD fd) = nullptr);
+    void write(char *data, size_t length, bool transferOwnership, void(*callback)(void *s) = nullptr);
 public:
     std::pair<char *, unsigned int> getAddress();
     void close(bool force = false, unsigned short code = 0, char *data = nullptr, size_t length = 0);

@@ -70,7 +70,7 @@ struct Message {
     char *data;
     size_t length;
     Message *nextMessage = nullptr;
-    void (*callback)(FD fd) = nullptr;
+    void (*callback)(void *s) = nullptr;
 };
 
 struct Queue {
@@ -903,7 +903,7 @@ void Server::onMessage(function<void(Socket, const char *, size_t, OpCode)> mess
 }
 
 // async Unix send (has a Message struct in the start if transferOwnership)
-void Socket::write(char *data, size_t length, bool transferOwnership, void(*callback)(FD fd))
+void Socket::write(char *data, size_t length, bool transferOwnership, void(*callback)(void *s))
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
@@ -928,7 +928,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
         }
 
         if (callback) {
-            callback(fd);
+            callback(socket);
         }
 
     } else {
@@ -1002,7 +1002,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                     if (sent == (int) messagePtr->length) {
 
                         if (messagePtr->callback) {
-                            messagePtr->callback(fd);
+                            messagePtr->callback(handle);
                         }
 
                         socketData->messageQueue.pop();
@@ -1130,9 +1130,8 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
             delete (uv_poll_t *) handle;
         });
 
-        // todo: non-strict behavior, empty the queue before sending
-        // but then again we call it forced, so never mind!
         ::close(fd);
+        SSL_free(socketData->ssl);
         delete socketData;
     } else {
         char *sendBuffer = socketData->server->sendBuffer;
@@ -1141,8 +1140,14 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
             *((uint16_t *) &sendBuffer[length + 2]) = htons(code);
             memcpy(&sendBuffer[length + 4], data, length - 2);
         }
-        write((char *) sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](FD fd) {
-            // todo: SSL_shutdown
+        write((char *) sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](void *s) {
+            uv_poll_t *p = (uv_poll_t *) s;
+            FD fd;
+            uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
+            SocketData *socketData = (SocketData *) p->data;
+            if (socketData->ssl) {
+                SSL_shutdown(socketData->ssl);
+            }
             shutdown(fd, SHUT_WR);
         });
     }
