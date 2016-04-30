@@ -277,8 +277,15 @@ class Server extends EventEmitter {
             /* this will probably never be noticed as you don't mix upgrade handling */
         });
 
-        /* upgrades will be handled immediately */
-        this.nativeServer.upgrade(socket._handle.fd, request.headers['sec-websocket-key'], socket.ssl ? socket.ssl._external : null);
+        /* transfer, destroy, upgrade */
+        const ticket = this.nativeServer.transfer(socket._handle.fd, socket.ssl ? socket.ssl._external : null);
+        const nativeServer = this.nativeServer;
+        socket.on('close', function(error) {
+            if (!error) {
+                /* upgrades will be handled immediately */
+                nativeServer.upgrade(ticket, request.headers['sec-websocket-key']);
+            }
+        });
         socket.destroy();
     }
 }

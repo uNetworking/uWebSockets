@@ -10,12 +10,14 @@
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 
+// we depend on UNIX dup and int as fd
+#include <unistd.h>
+
 using namespace std;
 using namespace v8;
 using namespace uWS;
 
 Persistent<Function> connectionCallback, disconnectionCallback, messageCallback;
-Persistent<Object> persistentSocket;
 
 void Server(const FunctionCallbackInfo<Value> &args) {
     if (args.IsConstructCall()) {
@@ -162,24 +164,36 @@ void close(const FunctionCallbackInfo<Value> &args)
     }
 }
 
-/* we dup the fd, Node.js needs to destroy the passed socket */
 void upgrade(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
+    Local<Object> ticket = args[0]->ToObject();
     NativeString nativeString(args[1]);
 
-    SSL *ssl = nullptr;
-    if (args[2]->IsExternal()) {
-        ssl = (SSL *) args[2].As<External>()->Value();
+    int *fd = (int *) ticket->GetAlignedPointerFromInternalField(0);
+    SSL *ssl = (SSL *) ticket->GetAlignedPointerFromInternalField(1);
 
-        /* Node.js DestroySSL calls SSL_free */
+    server->upgrade(*fd, nativeString.getData(), ssl, false, true);
+    delete fd;
+}
+
+void transfer(const FunctionCallbackInfo<Value> &args)
+{
+    /* fd, SSL */
+    int *fd = new int(dup(args[0]->IntegerValue()));
+    SSL *ssl = nullptr;
+    if (args[1]->IsExternal()) {
+        ssl = (SSL *) args[1].As<External>()->Value();
         ssl->references++;
-        /* Node.js want to delete its own BIO's */
-        SSL_get_rbio(ssl)->references++;
-        SSL_get_wbio(ssl)->references++;
     }
 
-    server->upgrade(args[0]->IntegerValue(), nativeString.getData(), ssl, true, true);
+    Local<ObjectTemplate> ticketTemplate = ObjectTemplate::New(args.GetIsolate());
+    ticketTemplate->SetInternalFieldCount(2);
+
+    Local<Object> ticket = ticketTemplate->NewInstance();
+    ticket->SetAlignedPointerInInternalField(0, fd);
+    ticket->SetAlignedPointerInInternalField(1, ssl);
+    args.GetReturnValue().Set(ticket);
 }
 
 void send(const FunctionCallbackInfo<Value> &args)
@@ -224,6 +238,7 @@ void Main(Local<Object> exports) {
     NODE_SET_PROTOTYPE_METHOD(tpl, "close", close);
     NODE_SET_PROTOTYPE_METHOD(tpl, "broadcast", broadcast);
     NODE_SET_PROTOTYPE_METHOD(tpl, "upgrade", upgrade);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "transfer", transfer);
 
     // C-like, todo: move to Socket object
     NODE_SET_PROTOTYPE_METHOD(tpl, "setData", setData);
@@ -233,10 +248,6 @@ void Main(Local<Object> exports) {
     NODE_SET_PROTOTYPE_METHOD(tpl, "getPort", getPort);
 
     exports->Set(String::NewFromUtf8(isolate, "Server"), tpl->GetFunction());
-
-    Local<ObjectTemplate> socketTemplate = ObjectTemplate::New(isolate);
-    socketTemplate->SetInternalFieldCount(1);
-    persistentSocket.Reset(isolate, socketTemplate->NewInstance());
 }
 
 NODE_MODULE(uws, Main)
