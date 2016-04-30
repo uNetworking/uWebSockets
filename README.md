@@ -9,7 +9,7 @@
 * Keep one thread per CPU core, each serving millions of connections.
 * Expose a port range or use the load balancer to only expose one port, scaling over all CPU cores.
 
-[![](https://img.shields.io/github/tag/alexhultman/uWebSockets.svg)]()
+[![](https://img.shields.io/github/tag/alexhultman/uWebSockets.svg)]() [![](https://api.travis-ci.org/alexhultman/uWebSockets.svg?branch=master)]()
 
 ## Benchmarks table
 Implementation | Memory scaling | Connection performance | Short message throughput | Huge message throughput
