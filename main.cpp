@@ -45,7 +45,7 @@ int main()
             socket.send((char *) message, length, opCode);
         });
 
-        worker.onDisconnection([](Socket socket) {
+        worker.onDisconnection([](Socket socket, int code, char *message, size_t length) {
             cout << "[Disconnection] clients: " << --connections << endl;
 
             static int numDisconnections = 0;

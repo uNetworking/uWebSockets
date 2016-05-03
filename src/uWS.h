@@ -65,7 +65,8 @@ private:
 
     // external callbacks
     std::function<void(FD, const char *)> upgradeCallback;
-    std::function<void(Socket)> connectionCallback, disconnectionCallback;
+    std::function<void(Socket)> connectionCallback;
+    std::function<void(Socket, int code, char *message, size_t length)> disconnectionCallback;
     std::function<void(Socket, const char *, size_t, OpCode)> messageCallback;
     void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t);
 
@@ -97,7 +98,7 @@ public:
     Server &operator=(const Server &server) = delete;
     void onUpgrade(std::function<void(FD, const char *)> upgradeCallback);
     void onConnection(std::function<void(Socket)> connectionCallback);
-    void onDisconnection(std::function<void(Socket)> disconnectionCallback);
+    void onDisconnection(std::function<void(Socket, int code, char *message, size_t length)> disconnectionCallback);
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
     void onMessage(std::function<void(Socket, const char *, size_t, OpCode)> messageCallback);
     void run();

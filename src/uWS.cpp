@@ -163,7 +163,7 @@ Server::Server(int port, bool defaultLoop, string path) : port(port), defaultLoo
     transform(path.begin(), path.end(), path.begin(), ::tolower);
 
     onConnection([](Socket socket) {});
-    onDisconnection([](Socket socket) {});
+    onDisconnection([](Socket socket, int code, char *message, size_t length) {});
     onMessage([](Socket socket, const char *data, size_t length, OpCode opCode) {});
 
     // we need 24 bytes over to not read invalidly outside
@@ -293,7 +293,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
         if (!remainingBytes && fin && !socketData->buffer.length()) {
 
             if (opCode == 1 && !Server::isValidUtf8((unsigned char *) fragment, length)) {
-                socketData->server->disconnectionCallback(p);
+                socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
                 socket.close(true);
                 return;
             }
@@ -306,7 +306,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
 
                 // Chapter 6
                 if (opCode == 1 && !Server::isValidUtf8((unsigned char *) socketData->buffer.c_str(), socketData->buffer.length())) {
-                    socketData->server->disconnectionCallback(p);
+                    socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
                     socket.close(true);
                     return;
                 }
@@ -655,7 +655,7 @@ void Server::onReadable(void *vp, int status, int events)
 
     // this one is not needed, read will do this!
     if (status < 0) {
-        socketData->server->disconnectionCallback(vp);
+        socketData->server->disconnectionCallback(vp, 1006, nullptr, 0);
         Socket(p).close(true);
         return;
     }
@@ -674,7 +674,7 @@ void Server::onReadable(void *vp, int status, int events)
     //int SSL_read(SSL *ssl, void *buf, int num);
 
     if (!(length - socketData->spillLength)) {
-        socketData->server->disconnectionCallback(vp);
+        socketData->server->disconnectionCallback(vp, 1006, nullptr, 0);
         Socket(p).close(true);
         return;
     }
@@ -704,14 +704,14 @@ void Server::onReadable(void *vp, int status, int events)
 
             // invalid reserved bits
             if (rsv1(frame) || rsv2(frame) || rsv3(frame)) {
-                socketData->server->disconnectionCallback(p);
+                socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
                 Socket(p).close(true);
                 return;
             }
 
             // invalid opcodes
             if ((opCode(frame) > 2 && opCode(frame) < 8) || opCode(frame) > 10) {
-                socketData->server->disconnectionCallback(p);
+                socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
                 Socket(p).close(true);
                 return;
             }
@@ -729,14 +729,14 @@ void Server::onReadable(void *vp, int status, int events)
 #ifdef STRICT
                 // Case 5.18
                 if (socketData->opStack == 0 && !lastFin && fin(frame)) {
-                    socketData->server->disconnectionCallback(p);
+                    socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
                     Socket(p).close(true);
                     return;
                 }
 
                 // control frames cannot be fragmented or long
                 if (opCode(frame) > 2 && (!fin(frame) || payloadLength(frame) > 125)) {
-                    socketData->server->disconnectionCallback(p);
+                    socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
                     Socket(p).close(true);
                     return;
                 }
@@ -744,7 +744,7 @@ void Server::onReadable(void *vp, int status, int events)
             } else {
                 // continuation frame must have a opcode prior!
                 if (socketData->opStack == -1) {
-                    socketData->server->disconnectionCallback(p);
+                    socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
                     Socket(p).close(true);
                     return;
                 }
@@ -892,7 +892,7 @@ void Server::onConnection(function<void(Socket)> connectionCallback)
     this->connectionCallback = connectionCallback;
 }
 
-void Server::onDisconnection(function<void(Socket)> disconnectionCallback)
+void Server::onDisconnection(function<void(Socket, int code, char *message, size_t length)> disconnectionCallback)
 {
     this->disconnectionCallback = disconnectionCallback;
 }
