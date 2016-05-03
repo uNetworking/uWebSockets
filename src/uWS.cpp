@@ -980,10 +980,19 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
             ((SocketData *) p->data)->messageQueue.push(messagePtr);
 
             // only start this if we just broke the 0 queue size!
-            uv_poll_start(p, UV_WRITABLE, [](uv_poll_t *handle, int status, int events) {
+            uv_poll_start(p, UV_WRITABLE | UV_READABLE, [](uv_poll_t *handle, int status, int events) {
 
+                // ignore spurious wake-ups
                 if (status < 0) {
-                    // error send
+                    return;
+                }
+
+                // handle reads if available
+                if (events & UV_READABLE) {
+                    Server::onReadable(handle, status, events);
+                    if (!(events & UV_WRITABLE)) {
+                        return;
+                    }
                 }
 
                 SocketData *socketData = (SocketData *) handle->data;
