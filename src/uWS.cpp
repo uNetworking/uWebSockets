@@ -958,6 +958,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
         } else {
 
             queueIt:
+            sent = max<ssize_t>(sent, 0);
 
             // queue the rest of the message!
             Message *messagePtr;
