@@ -1,13 +1,14 @@
-# uWebSockets Benchmarks
+# WebSocket echo server benchmarks
 
 ## Building Instructions
 
 First, install dependencies:
 
-* `bench1` depends only uWebSockets.
+* `bench1` has no dependencies other than BSD networking syscalls (UNIX).
 * `bench2`, `bench3` and `wsPP` also depends on:
   - [WebSocket++](https://github.com/zaphoyd/websocketpp) which is header-only, you can run `make install` in its directory to install the headers to system include path
   - [boost](http://www.boost.org/) which must be built and installed, you could follow the [instructions for Linux/Mac](http://www.boost.org/doc/libs/1_60_0/more/getting_started/unix-variants.html) or [instructions for Windows](http://www.boost.org/doc/libs/1_60_0/more/getting_started/windows.html)
+  - Boost can otherwise be installed with package managers like dnf, homebrew, etc.
 
 Then just run `make`. You can change your environment vairable `CXX` to specify a C++11 compliant compiler, or it would default to `g++`. 
 
