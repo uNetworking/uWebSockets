@@ -706,6 +706,9 @@ void Server::onReadable(void *vp, int status, int events)
         // do we have a close frame in our buffer, and did we already set the state as CLOSING?
         if (socketData->state == CLOSING && socketData->controlBuffer.length()) {
             tuple<unsigned short, char *, size_t> closeFrame = parseCloseFrame(socketData->controlBuffer);
+            if (!get<0>(closeFrame)) {
+                get<0>(closeFrame) = 1006;
+            }
             socketData->server->disconnectionCallback(vp, get<0>(closeFrame), get<1>(closeFrame), get<2>(closeFrame));
         } else {
             socketData->server->disconnectionCallback(vp, 1006, nullptr, 0);
