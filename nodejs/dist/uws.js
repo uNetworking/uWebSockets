@@ -82,8 +82,24 @@ class Socket {
     removeAllListeners(eventName) {
         if (!eventName || eventName === 'message') {
             this.onmessage = noop;
+        } else if (!eventName || eventName === 'close') {
+            this.onclose = noop;
         }
-        if (!eventName || eventName === 'close') {
+        return this;
+    }
+
+    /**
+     * Removes one registered callback for the given eventName.
+     *
+     * @param {String} eventName Event name
+     * @param {Function} callback
+     * @public
+     */
+    removeListener(eventName, cb) {
+        if (eventName === 'message' && this.onmessage === cb) {
+            this.onmessage = noop;
+        }
+        if (eventName === 'close' && this.onclose === cb) {
             this.onclose = noop;
         }
         return this;
