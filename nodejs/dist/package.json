@@ -2,7 +2,7 @@
   "name": "uws",
   "version": "0.3.3",
   "scripts": {
-    "preinstall": "node-gyp rebuild && exit 0; echo 'Falling back to precompiled binaries';"
+    "install": "node-gyp rebuild && exit 0; echo 'Falling back to precompiled binaries';"
   },
   "main": "uws.js",
   "description": "Highly scalable WebSocket server library",
