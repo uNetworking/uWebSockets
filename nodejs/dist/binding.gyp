@@ -10,7 +10,7 @@
       'cflags_cc!': [ '-fno-exceptions' ],
       'conditions': [
         ['OS=="darwin"', {
-          'cflags_cc': [ '-stdlib=libc++', '-mmacosx-version-min=10.7', '-undefined' ]
+          'cflags_cc': [ '-stdlib=libc++' ]
         }]
        ]
     },
