@@ -7,7 +7,7 @@
   "main": "uws.js",
   "description": "Highly scalable WebSocket server library",
   "engines": {
-    "node": "4.x 6.x"
+    "node": ">=4"
   },
   "os": [ "darwin", "linux" ],
   "keywords": [
