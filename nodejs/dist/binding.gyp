@@ -7,6 +7,7 @@
         'src/addon.cpp'
       ],
       'cflags_cc': [ '-std=c++11', '-fexceptions' ],
+      'cflags_cc!': [ '-fno-exceptions' ],
       'conditions': [
         ['OS=="darwin"', {
           'cflags_cc': [ '-stdlib=libc++', '-mmacosx-version-min=10.7', '-undefined' ]
