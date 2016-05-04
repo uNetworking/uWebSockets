@@ -264,28 +264,29 @@ class Server extends EventEmitter {
      * @public
      */
     handleUpgrade(request, socket, upgradeHead, callback) {
-        /* register a special connection handler */
-        this.nativeServer.onConnection((nativeSocket) => {
-            const sock = new Socket(nativeSocket, this);
-            this.nativeServer.setData(nativeSocket, sock);
-
-            /* internal variables */
-            sock.upgradeReq = request;
-            callback(sock);
-
-            /* todo: reset connection handler when the upgrade queue is empty */
-            /* this will probably never be noticed as you don't mix upgrade handling */
-        });
-
         /* transfer, destroy, upgrade */
         const ticket = this.nativeServer.transfer(socket._handle.fd, socket.ssl ? socket.ssl._external : null);
-        const nativeServer = this.nativeServer;
-        socket.on('close', function(error) {
-            if (!error) {
-                /* upgrades will be handled immediately */
-                nativeServer.upgrade(ticket, request.headers['sec-websocket-key']);
-            }
+
+        socket.on('close', (error) => {
+            if (error) return;
+
+            /* register a special connection handler */
+            this.nativeServer.onConnection((nativeSocket) => {
+                const sock = new Socket(nativeSocket, this);
+                this.nativeServer.setData(nativeSocket, sock);
+
+                /* internal variables */
+                sock.upgradeReq = request;
+                callback(sock);
+
+                /* todo: reset connection handler when the upgrade queue is empty */
+                /* this will probably never be noticed as you don't mix upgrade handling */
+            });
+
+            /* upgrades will be handled immediately */
+            this.nativeServer.upgrade(ticket, request.headers['sec-websocket-key']);
         });
+
         socket.destroy();
     }
 }
