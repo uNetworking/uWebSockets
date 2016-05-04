@@ -36,6 +36,7 @@ struct Request;
 class Socket {
     friend class Server;
     friend struct Parser;
+    friend struct std::hash<uWS::Socket>;
 protected:
     void *socket;
     Socket(void *p) : socket(p) {}
@@ -47,6 +48,8 @@ public:
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
     void *getData();
     void setData(void *data);
+    Socket() : socket(nullptr) {}
+    bool operator==(const Socket &other) const {return socket == other.socket;}
     bool operator<(const Socket &other) const {return socket < other.socket;}
 };
 
@@ -110,6 +113,16 @@ public:
     void upgrade(FD fd, const char *secKey, void *ssl = nullptr, bool dupFd = false, bool immediately = false);
 };
 
+}
+
+namespace std {
+template <>
+struct hash<uWS::Socket> {
+    std::size_t operator()(const uWS::Socket &socket) const
+    {
+        return std::hash<void *>()(socket.socket);
+    }
+};
 }
 
 #endif // UWS_H
