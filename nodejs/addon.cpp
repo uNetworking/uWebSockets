@@ -77,7 +77,6 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
     });
 }
 
-// todo: this one should also give the status code & close message
 void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     Isolate *isolate = args.GetIsolate();
@@ -85,8 +84,10 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     server->onDisconnection([isolate](uWS::Socket socket, int code, char *message, size_t length) {
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(socket, isolate),
+                               Integer::New(isolate, code),
+                               node::Buffer::New(isolate, (char *) message, length, [](char *data, void *hint) {}, nullptr).ToLocalChecked(),
                                getDataV8(socket, isolate)};
-        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, disconnectionCallback), 2, argv);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, disconnectionCallback), 4, argv);
     });
 }
 

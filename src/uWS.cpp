@@ -58,7 +58,8 @@ enum SendFlags {
 
 enum SocketState : int {
     READ_HEAD,
-    READ_MESSAGE
+    READ_MESSAGE,
+    CLOSING
 };
 
 enum SocketSendState : int {
@@ -281,6 +282,34 @@ void Server::broadcast(char *data, size_t length, OpCode opCode)
     }
 }
 
+tuple<unsigned short, char *, size_t> parseCloseFrame(string &payload)
+{
+    unsigned short code = 0;
+    char *message = nullptr;
+    size_t length = 0;
+
+    if (payload.length() >= 2) {
+        code = ntohs(*(uint16_t *) payload.data());
+
+        // correct bad codes
+        if (code < 1000 || code > 1011 || (code >= 1004 && code <= 1006)) {
+            code = 0;
+        }
+    }
+
+    if (payload.length() > 2) {
+        message = (char *) payload.data() + 2;
+        length = payload.length() - 2;
+
+        // check utf-8
+        if (!Server::isValidUtf8((unsigned char *) message, length)) {
+            code = length = 0;
+        }
+    }
+
+    return make_tuple(code, message, length);
+}
+
 // default fragment handler
 void Server::internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes)
 {
@@ -289,9 +318,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
 
     // Text or binary
     if (opCode < 3) {
-
         if (!remainingBytes && fin && !socketData->buffer.length()) {
-
             if (opCode == 1 && !Server::isValidUtf8((unsigned char *) fragment, length)) {
                 socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
                 socket.close(true);
@@ -300,7 +327,6 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
 
             socketData->server->messageCallback(socket, (char *) fragment, length, opCode);
         } else {
-
             socketData->buffer.append(fragment, length);
             if (!remainingBytes && fin) {
 
@@ -315,20 +341,23 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
                 socketData->buffer.clear();
             }
         }
-
     } else {
-
-        // swap PING/PONG
-        if (opCode == PING) {
-            opCode = PONG;
-        } else if (opCode == PONG) {
-            opCode = PING;
-        }
-
-        // append to a separate buffer for control messages
         socketData->controlBuffer.append(fragment, length);
         if (!remainingBytes && fin) {
-            socket.send((char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length(), opCode);
+            if (opCode == CLOSE) {
+                tuple<unsigned short, char *, size_t> closeFrame = parseCloseFrame(socketData->controlBuffer);
+                Socket(p).close(false, get<0>(closeFrame), get<1>(closeFrame), get<2>(closeFrame));
+                // leave the controlBuffer with the close frame intact
+                return;
+            } else {
+                if (opCode == PING) {
+                    opCode = PONG;
+                } else if (opCode == PONG) {
+                    opCode = PING;
+                }
+
+                socket.send((char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length(), opCode);
+            }
             socketData->controlBuffer.clear();
         }
     }
@@ -478,7 +507,7 @@ struct Parser {
         socketData->server->fragmentCallback(socket, *src, fullPayloadLength, socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0);
 
         // did we close the socket using Socket.fail()?
-        if (uv_is_closing((uv_handle_t *) socket)) {
+        if (uv_is_closing((uv_handle_t *) socket) || socketData->state == CLOSING) {
             return 1;
         }
 
@@ -665,17 +694,28 @@ void Server::onReadable(void *vp, int status, int events)
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
     int length = socketData->spillLength;
+    // todo: handle return of -1
     if (socketData->ssl) {
         length += SSL_read(socketData->ssl, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength);
     } else {
         length += recv(fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength, 0);
     }
 
-    //int SSL_read(SSL *ssl, void *buf, int num);
-
+    // this is where we handle graceful close
     if (!(length - socketData->spillLength)) {
-        socketData->server->disconnectionCallback(vp, 1006, nullptr, 0);
+        // do we have a close frame in our buffer, and did we already set the state as CLOSING?
+        if (socketData->state == CLOSING && socketData->controlBuffer.length()) {
+            tuple<unsigned short, char *, size_t> closeFrame = parseCloseFrame(socketData->controlBuffer);
+            socketData->server->disconnectionCallback(vp, get<0>(closeFrame), get<1>(closeFrame), get<2>(closeFrame));
+        } else {
+            socketData->server->disconnectionCallback(vp, 1006, nullptr, 0);
+        }
         Socket(p).close(true);
+        return;
+    }
+
+    // do not parse any data once in closing state
+    if (socketData->state == CLOSING) {
         return;
     }
 
@@ -695,13 +735,6 @@ void Server::onReadable(void *vp, int status, int events)
             socketData->fin = fin(frame);
 
 #ifdef STRICT
-            // close frame
-            if (opCode(frame) == 8) {
-                // todo: force close if WE sent the frame!
-                Socket(p).close();
-                return;
-            }
-
             // invalid reserved bits
             if (rsv1(frame) || rsv2(frame) || rsv3(frame)) {
                 socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
@@ -715,7 +748,6 @@ void Server::onReadable(void *vp, int status, int events)
                 Socket(p).close(true);
                 return;
             }
-
 #endif
 
             // do not store opCode continuation!
@@ -827,7 +859,7 @@ void Server::onReadable(void *vp, int status, int events)
                                                  socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0);
 
             // did we close the socket using Socket.fail()?
-            if (uv_is_closing((uv_handle_t *) p)) {
+            if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
                 return;
             }
 
@@ -852,7 +884,7 @@ void Server::onReadable(void *vp, int status, int events)
                                                  socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes);
 
             // did we close the socket using Socket.fail()?
-            if (uv_is_closing((uv_handle_t *) p)) {
+            if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
                 return;
             }
 
@@ -1115,17 +1147,19 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
     SocketData *socketData = (SocketData *) p->data;
 
-    // Server::unlink(Socket)
-    if (socketData->prev == socketData->next) {
-        socketData->server->clients = nullptr;
-    } else {
-        if (socketData->prev) {
-            ((SocketData *) ((uv_poll_t *) socketData->prev)->data)->next = socketData->next;
+    if (socketData->state != CLOSING) {
+        socketData->state = CLOSING;
+        if (socketData->prev == socketData->next) {
+            socketData->server->clients = nullptr;
         } else {
-            socketData->server->clients = socketData->next;
-        }
-        if (socketData->next) {
-            ((SocketData *) ((uv_poll_t *) socketData->next)->data)->prev = socketData->prev;
+            if (socketData->prev) {
+                ((SocketData *) ((uv_poll_t *) socketData->prev)->data)->next = socketData->next;
+            } else {
+                socketData->server->clients = socketData->next;
+            }
+            if (socketData->next) {
+                ((SocketData *) ((uv_poll_t *) socketData->next)->data)->prev = socketData->prev;
+            }
         }
     }
 
@@ -1142,6 +1176,7 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
 
         ::close(fd);
         SSL_free(socketData->ssl);
+        socketData->controlBuffer.clear();
         delete socketData;
     } else {
         char *sendBuffer = socketData->server->sendBuffer;

@@ -221,8 +221,8 @@ class Server extends EventEmitter {
                 this.emit('connection', socket);
             });
 
-            this.nativeServer.onDisconnection((nativeSocket, socket) => {
-                socket.onclose();
+            this.nativeServer.onDisconnection((nativeSocket, code, message, socket) => {
+                socket.onclose(code, message);
                 /* make sure to clear any set data */
                 this.nativeServer.setData(nativeSocket);
             });

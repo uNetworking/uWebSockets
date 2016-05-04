@@ -47,6 +47,8 @@ int main()
 
         worker.onDisconnection([](Socket socket, int code, char *message, size_t length) {
             cout << "[Disconnection] clients: " << --connections << endl;
+            cout << "Code: " << code << endl;
+            cout << "Message: " << string(message, length) << endl;
 
             static int numDisconnections = 0;
             numDisconnections++;
