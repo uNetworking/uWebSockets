@@ -65,6 +65,7 @@ int main()
 
 ## Installation
 ### Node.js developers
+#### NPM
 [![](https://nodei.co/npm/uws.png)](https://www.npmjs.com/package/uws)
 
 ```
@@ -73,6 +74,18 @@ npm install --save uws
 
 * Node.js 4.x, 5.x & 6.x supported
 * Linux & Mac OS X 10.7+
+
+#### Manual compilation
+If you for some reason want and/or need to build the Node.js addon from source:
+
+* Jump to nodejs folder:
+  - `cd nodejs`
+* Download the Node.js header files once:
+  - `make targets`
+* Compile the project:
+  - `make`
+
+This populates the nodejs/dist folder with binaries.
 
 ### Native developers
 #### Dependencies
