@@ -82,7 +82,7 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     Isolate *isolate = args.GetIsolate();
     disconnectionCallback.Reset(isolate, Local<Function>::Cast(args[0]));
-    server->onDisconnection([isolate](uWS::Socket socket) {
+    server->onDisconnection([isolate](uWS::Socket socket, int code, char *message, size_t length) {
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(socket, isolate),
                                getDataV8(socket, isolate)};
