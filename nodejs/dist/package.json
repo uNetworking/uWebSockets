@@ -2,10 +2,14 @@
   "name": "uws",
   "version": "0.3.3",
   "scripts": {
-    "build": ""
+    "install": "node-gyp rebuild 2> /dev/null 1> /dev/null || exit 0;"
   },
   "main": "uws.js",
   "description": "Highly scalable WebSocket server library",
+  "engines": {
+    "node": ">=4"
+  },
+  "os": [ "darwin", "linux" ],
   "keywords": [
     "websockets",
     "µWS",
