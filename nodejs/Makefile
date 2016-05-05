@@ -3,12 +3,14 @@ CPP_OSX := -stdlib=libc++ -mmacosx-version-min=10.7 -undefined dynamic_lookup
 CPP_LINUX := -static-libstdc++ -static-libgcc
 
 default:
+	make targets
 	NODE=targets/node-v4.4.3 ABI=46 make `(uname -s)`
 	NODE=targets/node-v5.11.0 ABI=47 make `(uname -s)`
 	NODE=targets/node-v6.0.0 ABI=48 make `(uname -s)`
 	cp ../README.md dist/README.md
 	cp ../LICENSE dist/LICENSE
-.PHONY: targets
+	cp -r ../src dist/src
+	cp addon.cpp dist/src/addon.cpp
 targets:
 	mkdir targets
 	curl https://nodejs.org/dist/v4.4.3/node-v4.4.3-headers.tar.gz | tar xz -C targets
@@ -23,4 +25,5 @@ clean:
 	rm -f dist/README.md
 	rm -f dist/LICENSE
 	rm -f dist/uws_*.node
+	rm -rf dist/src
 	rm -rf targets
