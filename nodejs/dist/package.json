@@ -2,7 +2,7 @@
   "name": "uws",
   "version": "0.3.3",
   "scripts": {
-    "install": "node-gyp rebuild 2> /dev/null 1> /dev/null || exit 0;"
+    "install": "node-gyp rebuild > build_log.txt 2>&1 || exit 0"
   },
   "main": "uws.js",
   "description": "Highly scalable WebSocket server library",
@@ -19,7 +19,7 @@
     "fast"
   ],
   "homepage": "https://github.com/alexhultman/uWebSockets",
-  "license": "zlib/libpng",
+  "license": "Zlib",
   "author": "Alex Hultman <alexhultman@gmail.com> (https://github.com/alexhultman)",
   "repository": {
     "type": "git",
