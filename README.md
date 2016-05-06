@@ -5,6 +5,7 @@
 * Node.js binding exposed as the well-known `ws` interface.
 * Seamless SSL/TLS transfer from Node.js's HTTPS server.
 * Primus transformer ['uws'](https://github.com/primus/primus#uws).
+* Use Socket.IO [option](https://github.com/socketio/engine.io#methods-1) `wsEngine: 'uws'`.
 * Chrome, Safari, Firefox, Edge support.
 * Keep one thread per CPU core, each serving millions of connections.
 * Expose a port range or use the load balancer to only expose one port, scaling over all CPU cores.
