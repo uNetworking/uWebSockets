@@ -2,9 +2,17 @@
 
 const EventEmitter = require('events');
 
-const uws = require(`./uws_${process.platform}_${process.versions.modules}`);
+const uws = () => {
+    try {
+        return require(`./uws_${process.platform}_${process.versions.modules}`);
+    } catch (e) {
+        console.error('Error: Compilation of µWebSockets has failed and there is no pre-compiled binary ' +
+        'available for your system. Please install a supported C++ compiler and reinstall the module \'uws\'.');
+        process.exit(-1);
+    }
+}();
 const NativeServer = uws.Server;
-const EE_ERROR = "registering more than one listener to websocket";
+const EE_ERROR = "Registering more than one listener to a WebSocket is not supported.";
 
 function noop() {}
 
