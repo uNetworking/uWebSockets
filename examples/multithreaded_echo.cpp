@@ -27,7 +27,7 @@ int main()
         // launch the threads with their servers
         for (int i = 0; i < THREADS; i++) {
             new thread([i]{
-                threadedServer[i] = new Server(0);
+                threadedServer[i] = new Server(0, false);
 
                 // register our events
                 threadedServer[i]->onConnection([i](Socket socket) {

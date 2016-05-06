@@ -81,21 +81,20 @@ private:
     // accept poll
     void *server = nullptr;
     void *listenAddr;
-    void *loop, *timer, *upgradeAsync, *closeAsync;
+    void *loop, *upgradeAsync, *closeAsync;
     void *clients = nullptr;
-    bool forceClose;
-    int port = 0;
-    bool defaultLoop;
+    bool forceClose, master;
+    int port;
 
     // upgrade queue
     std::queue<std::tuple<FD, std::string, void *>> upgradeQueue;
     std::mutex upgradeQueueMutex;
     static void upgradeHandler(Server *server);
+    static void closeHandler(Server *server);
     std::string path;
 
 public:
-    // thread unsafe
-    Server(int port, bool deafultLoop = false, std::string path = "/");
+    Server(int port = 0, bool master = true, std::string path = "/");
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
@@ -110,7 +109,7 @@ public:
 
     // thread safe (should have thread-unsafe counterparts)
     void close(bool force = false);
-    void upgrade(FD fd, const char *secKey, void *ssl = nullptr, bool dupFd = false, bool immediately = false);
+    void upgrade(FD fd, const char *secKey, void *ssl = nullptr, bool dupFd = false);
 };
 
 }

@@ -155,7 +155,7 @@ inline bool rsv2(frameFormat &frame) {return frame & 32;}
 inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
 
-Server::Server(int port, bool defaultLoop, string path) : port(port), defaultLoop(defaultLoop), path(path)
+Server::Server(int port, bool master, string path) : port(port), master(master), path(path)
 {
     // lowercase the path
     if (!path.length() || path[0] != '/') {
@@ -182,7 +182,7 @@ Server::Server(int port, bool defaultLoop, string path) : port(port), defaultLoo
     ((sockaddr_in *) listenAddr)->sin_addr.s_addr = INADDR_ANY;
     ((sockaddr_in *) listenAddr)->sin_port = htons(port);
 
-    loop = defaultLoop ? uv_default_loop() : uv_loop_new();
+    loop = master ? uv_default_loop() : uv_loop_new();
 
     if (port) {
         FD listenFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -198,53 +198,20 @@ Server::Server(int port, bool defaultLoop, string path) : port(port), defaultLoo
         ((uv_poll_t *) this->server)->data = this;
     }
 
-    timer = new uv_timer_t;
-    uv_timer_init((uv_loop_t *) loop, (uv_timer_t *) timer);
-    upgradeAsync = new uv_async_t;
-    closeAsync = new uv_async_t;
-    ((uv_async_t *) upgradeAsync)->data = this;
-    ((uv_async_t *) closeAsync)->data = this;
+    if (!master) {
+        upgradeAsync = new uv_async_t;
+        closeAsync = new uv_async_t;
+        ((uv_async_t *) upgradeAsync)->data = this;
+        ((uv_async_t *) closeAsync)->data = this;
 
-    // this function should be private Server::threadUnsafeClose
-    uv_async_init((uv_loop_t *) loop, (uv_async_t *) closeAsync, [](uv_async_t *a) {
-        Server *server = (Server *) a->data;
-        uv_close((uv_handle_t *) server->upgradeAsync, [](uv_handle_t *a) {
-            delete (uv_async_t *) a;
+        uv_async_init((uv_loop_t *) loop, (uv_async_t *) closeAsync, [](uv_async_t *a) {
+            Server::closeHandler((Server *) a->data);
         });
 
-        uv_close((uv_handle_t *) server->closeAsync, [](uv_handle_t *a) {
-            delete (uv_async_t *) a;
+        uv_async_init((uv_loop_t *) loop, (uv_async_t *) upgradeAsync, [](uv_async_t *a) {
+            Server::upgradeHandler((Server *) a->data);
         });
-
-        if (server->server) {
-            FD listenFd;
-            uv_fileno((uv_handle_t *) server->server, (uv_os_fd_t *) &listenFd);
-            ::close(listenFd);
-            uv_poll_stop((uv_poll_t *) server->server);
-            uv_close((uv_handle_t *) server->server, [](uv_handle_t *handle) {
-                delete (uv_poll_t *) handle;
-            });
-        }
-
-        uv_timer_stop((uv_timer_t *) server->timer);
-        uv_close((uv_handle_t *) server->timer, [](uv_handle_t *t) {
-            delete (uv_timer_t *) t;
-        });
-
-        for (void *p = server->clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
-            Socket(p).close(server->forceClose);
-        }
-    });
-
-    uv_async_init((uv_loop_t *) loop, (uv_async_t *) upgradeAsync, [](uv_async_t *a) {
-        Server *server = (Server *) a->data;
-        Server::upgradeHandler(server);
-    });
-
-    // start a timer to keep the server running
-    uv_timer_start((uv_timer_t *) timer, [](uv_timer_t *t) {
-
-    }, 10000, 10000);
+    }
 }
 
 Server::~Server()
@@ -253,7 +220,7 @@ Server::~Server()
     delete [] sendBuffer;
     delete (sockaddr_in *) listenAddr;
 
-    if (!defaultLoop) {
+    if (!master) {
         uv_loop_delete((uv_loop_t *) loop);
     }
 }
@@ -263,11 +230,14 @@ void Server::run()
     uv_run((uv_loop_t *) loop, UV_RUN_DEFAULT);
 }
 
-// thread safe
 void Server::close(bool force)
 {
     forceClose = force;
-    uv_async_send((uv_async_t *) closeAsync);
+    if (master) {
+        Server::closeHandler(this);
+    } else {
+        uv_async_send((uv_async_t *) closeAsync);
+    }
 }
 
 // unoptimized!
@@ -363,7 +333,6 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
     }
 }
 
-// thread unsafe implementation of upgrade
 void Server::upgradeHandler(Server *server)
 {
     server->upgradeQueueMutex.lock();
@@ -418,8 +387,34 @@ void Server::upgradeHandler(Server *server)
     server->upgradeQueueMutex.unlock();
 }
 
-// this function needs to be thread safe, called from other thread!
-void Server::upgrade(FD fd, const char *secKey, void *ssl, bool dupFd, bool immediately)
+void Server::closeHandler(Server *server)
+{
+    if (!server->master) {
+        uv_close((uv_handle_t *) server->upgradeAsync, [](uv_handle_t *a) {
+            delete (uv_async_t *) a;
+        });
+
+        uv_close((uv_handle_t *) server->closeAsync, [](uv_handle_t *a) {
+            delete (uv_async_t *) a;
+        });
+    }
+
+    if (server->server) {
+        FD listenFd;
+        uv_fileno((uv_handle_t *) server->server, (uv_os_fd_t *) &listenFd);
+        ::close(listenFd);
+        uv_poll_stop((uv_poll_t *) server->server);
+        uv_close((uv_handle_t *) server->server, [](uv_handle_t *handle) {
+            delete (uv_poll_t *) handle;
+        });
+    }
+
+    for (void *p = server->clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
+        Socket(p).close(server->forceClose);
+    }
+}
+
+void Server::upgrade(FD fd, const char *secKey, void *ssl, bool dupFd)
 {
     // if the socket is owned by another environment we can dup and close
     if (dupFd) {
@@ -431,11 +426,9 @@ void Server::upgrade(FD fd, const char *secKey, void *ssl, bool dupFd, bool imme
     upgradeQueue.push(make_tuple(fd, string(secKey, 24), ssl));
     upgradeQueueMutex.unlock();
 
-    if (immediately) {
-        // thread unsafe
+    if (master) {
         Server::upgradeHandler(this);
     } else {
-        // request the event loop to empty the queue
         uv_async_send((uv_async_t *) upgradeAsync);
     }
 }

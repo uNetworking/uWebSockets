@@ -22,7 +22,7 @@ Persistent<Function> connectionCallback, disconnectionCallback, messageCallback;
 void Server(const FunctionCallbackInfo<Value> &args) {
     if (args.IsConstructCall()) {
         try {
-            args.This()->SetAlignedPointerInInternalField(0, new uWS::Server(args[0]->IntegerValue(), true));
+            args.This()->SetAlignedPointerInInternalField(0, new uWS::Server(args[0]->IntegerValue()));
         } catch (...) {
             args.This()->Set(String::NewFromUtf8(args.GetIsolate(), "error"), Boolean::New(args.GetIsolate(), true));
         }
@@ -174,7 +174,7 @@ void upgrade(const FunctionCallbackInfo<Value> &args)
     int *fd = (int *) ticket->GetAlignedPointerFromInternalField(0);
     SSL *ssl = (SSL *) ticket->GetAlignedPointerFromInternalField(1);
 
-    server->upgrade(*fd, nativeString.getData(), ssl, false, true);
+    server->upgrade(*fd, nativeString.getData(), ssl);
     delete fd;
 }
 
