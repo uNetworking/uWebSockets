@@ -75,13 +75,13 @@ npm install --save uws
 * Node.js 4.x, 5.x & 6.x supported
 * Linux & Mac OS X 10.7+
 
+*Node.js is broken on Windows and needs to be fixed for us to support the platform*
+
 #### Manual compilation
 If you for some reason want and/or need to build the Node.js addon from source:
 
 * Jump to nodejs folder:
-  - `cd nodejs`
-* Download the Node.js header files once:
-  - `make targets`
+  - `cd uWebSockets/nodejs`
 * Compile the project:
   - `make`
 
