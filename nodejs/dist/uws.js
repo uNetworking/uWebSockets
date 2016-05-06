@@ -131,7 +131,7 @@ class Socket {
             return cb && cb(new Error('not opened'));
         }
 
-        const binary = options && options.binary || false;
+        const binary = options && options.binary || typeof message !== 'string';
         this.server.nativeServer.send(this.nativeSocket, message, binary);
         return cb && cb(null);
     }
