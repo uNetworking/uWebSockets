@@ -2,7 +2,7 @@
 
 const EventEmitter = require('events');
 
-const uws = () => {
+const uws = (() => {
     try {
         return require(`./uws_${process.platform}_${process.versions.modules}`);
     } catch (e) {
@@ -10,7 +10,7 @@ const uws = () => {
         'available for your system. Please install a supported C++ compiler and reinstall the module \'uws\'.');
         process.exit(-1);
     }
-}();
+})();
 const NativeServer = uws.Server;
 const EE_ERROR = "Registering more than one listener to a WebSocket is not supported.";
 
