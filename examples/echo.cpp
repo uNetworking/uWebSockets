@@ -19,7 +19,7 @@ int main()
             socket.send((char *) message, length, opCode);
         });
 
-        server.onDisconnection([](Socket socket) {
+        server.onDisconnection([](Socket socket, int code, char *message, size_t length) {
 
         });
 

@@ -34,7 +34,7 @@ int main()
                     cout << "Connection on thread " << i << endl;
                 });
 
-                threadedServer[i]->onDisconnection([i](Socket socket) {
+                threadedServer[i]->onDisconnection([i](Socket socket, int code, char *message, size_t length) {
                     cout << "Disconnection on thread " << i << endl;
                 });
 
