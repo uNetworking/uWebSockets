@@ -61,6 +61,7 @@ int main()
 * Valgrind clean
 * Autobahn chapters 1 - 9 [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
 * All Primus transformer integration tests pass.
+* All Engine.IO server tests pass.
 * Small & efficient code base.
 
 ## Installation
