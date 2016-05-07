@@ -17,10 +17,26 @@ ws v1.0.1 + binary addons | µWS is **52x** as lightweight | µWS is **21x** as 
 WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **5x** as performant | µWS is **2x** as performant | µWS is **3x** as performant
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons.*
 
-## Overview
+## Usage
 
-For Node.js developers, the `ws` interface is exposed (read [their](https://github.com/websockets/ws/blob/master/doc/ws.md) documentation):
+### Node.js
+We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the well-known `ws` interface, allowing us to seamlessly integrate with famous projects like Socket.IO, Primus & SocketCluster.
 
+* Read the [ws documentation](https://github.com/websockets/ws/blob/master/doc/ws.md)
+* Read the [Primus transformer documentation](https://github.com/primus/primus#uws)
+
+For Socket.IO integration you simply specify the new `wsEngine: 'uws'` option like so:
+
+```javascript
+var io = var io = require('socket.io')(80, { wsEngine: 'uws' });
+```
+
+For Primus integration you specify 'uws' as transformer:
+
+```javascript
+var primus = new Primus(server, { transformer: 'uws' });
+```
+This also means you can swap between `ws` and `µWS` in your code base simply by changing `require('ws')` to `require('uws')`:
 ```javascript
 var WebSocketServer = require('uws').Server; /* you replace 'ws' with 'uws' */
 var wss = new WebSocketServer({ port: 8080 });
@@ -33,7 +49,8 @@ wss.on('connection', function (ws) {
     ws.send('something');
 });
 ```
-For C++ developers:
+### C++
+For maximum performance and memory scaling the native interface is recommended. Look in the examples folder for threading and load balancing examples.
 ```c++
 int main()
 {
