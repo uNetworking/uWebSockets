@@ -5,9 +5,9 @@
 * Built-in load balancing and multi-core scalability.
 * SSL/TLS support & integrates with foreign HTTPS servers.
 * Node.js binding exposed as the well-known `ws` interface.
-* Optional engine in well-known projects like Socket.IO, Primus & SocketCluster.
+* Optional engine in projects like Socket.IO, Primus & SocketCluster.
 
-[![](https://img.shields.io/github/tag/alexhultman/uWebSockets.svg)]() [![](https://api.travis-ci.org/alexhultman/uWebSockets.svg?branch=master)]()
+[![](https://img.shields.io/github/tag/alexhultman/uWebSockets.svg)]() [![](https://api.travis-ci.org/alexhultman/uWebSockets.svg?branch=master)]() [![](https://nodei.co/npm/uws.png?mini=true)](https://www.npmjs.com/package/uws)
 
 ## Benchmarks table
 Implementation | Memory scaling | Connection performance | Short message throughput | Huge message throughput
@@ -15,12 +15,13 @@ Implementation | Memory scaling | Connection performance | Short message through
 libwebsockets master(1.7-1.8) | µWS is **14x** as lightweight | µWS is **equal** in performance | µWS is **3x** as performant | µWS is **equal** in performance
 ws v1.0.1 + binary addons | µWS is **52x** as lightweight | µWS is **21x** as performant | µWS is **23x** as performant | µWS is **2x** as performant
 WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **5x** as performant | µWS is **2x** as performant | µWS is **3x** as performant
+
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons.*
 
 ## Usage
 
 ### Node.js
-We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the well-known `ws` interface, allowing us to seamlessly integrate with famous projects like Socket.IO, Primus & SocketCluster.
+We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the widespread `ws` interface, allowing us to seamlessly integrate with projects like Socket.IO, Primus & SocketCluster.
 
 * Read the [ws documentation](https://github.com/websockets/ws/blob/master/doc/ws.md)
 * Read the [Primus transformer documentation](https://github.com/primus/primus#uws)
@@ -36,7 +37,11 @@ For Primus integration you specify 'uws' as transformer:
 ```javascript
 var primus = new Primus(server, { transformer: 'uws' });
 ```
-This also means you can swap between `ws` and `µWS` in your code base simply by changing `require('ws')` to `require('uws')`:
+SocketCluster uses the same option as Socket.IO:
+```javascript
+var socketCluster = new SocketCluster({ wsEngine: 'uws' });
+```
+If your code directly relies on `ws` you can simply swap `require('ws')`with `require('uws')`:
 ```javascript
 var WebSocketServer = require('uws').Server; /* you replace 'ws' with 'uws' */
 var wss = new WebSocketServer({ port: 8080 });
@@ -50,7 +55,7 @@ wss.on('connection', function (ws) {
 });
 ```
 ### C++
-For maximum performance and memory scaling the native interface is recommended. Look in the examples folder for threading and load balancing examples.
+For maximum performance and memory scaling the native interface is recommended. Look in the examples folder for threading and load balancing examples. There is no documentation written yet but a bright person like you will have no problem just reading the header file.
 ```c++
 int main()
 {
@@ -73,17 +78,15 @@ int main()
 ```
 
 ## Quality control
-* Valgrind clean
+* Valgrind clean.
 * Autobahn chapters 1 - 9 [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
 * All Primus transformer integration tests pass.
 * All Engine.IO server tests pass.
 * Small & efficient code base.
 
 ## Installation
-### Node.js developers
-#### NPM
+### Node.js
 [![](https://nodei.co/npm/uws.png)](https://www.npmjs.com/package/uws)
-
 ```
 npm install --save uws
 ```
