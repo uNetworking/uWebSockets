@@ -28,7 +28,7 @@ We built `µWS` with the existing Node.js infrastructure in mind. That's why we 
 For Socket.IO integration you simply specify the new `wsEngine: 'uws'` option like so:
 
 ```javascript
-var io = var io = require('socket.io')(80, { wsEngine: 'uws' });
+var io = require('socket.io')(80, { wsEngine: 'uws' });
 ```
 
 For Primus integration you specify 'uws' as transformer:
