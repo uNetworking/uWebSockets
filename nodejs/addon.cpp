@@ -18,6 +18,7 @@ using namespace v8;
 using namespace uWS;
 
 Persistent<Function> connectionCallback, disconnectionCallback, messageCallback;
+Persistent<Object> persistentTicket;
 
 void Server(const FunctionCallbackInfo<Value> &args) {
     if (args.IsConstructCall()) {
@@ -188,10 +189,7 @@ void transfer(const FunctionCallbackInfo<Value> &args)
         ssl->references++;
     }
 
-    Local<ObjectTemplate> ticketTemplate = ObjectTemplate::New(args.GetIsolate());
-    ticketTemplate->SetInternalFieldCount(2);
-
-    Local<Object> ticket = ticketTemplate->NewInstance();
+    Local<Object> ticket = Local<Object>::New(args.GetIsolate(), persistentTicket)->Clone();
     ticket->SetAlignedPointerInInternalField(0, fd);
     ticket->SetAlignedPointerInInternalField(1, ssl);
     args.GetReturnValue().Set(ticket);
@@ -249,6 +247,10 @@ void Main(Local<Object> exports) {
     NODE_SET_PROTOTYPE_METHOD(tpl, "getPort", getPort);
 
     exports->Set(String::NewFromUtf8(isolate, "Server"), tpl->GetFunction());
+
+    Local<ObjectTemplate> ticketTemplate = ObjectTemplate::New(isolate);
+    ticketTemplate->SetInternalFieldCount(2);
+    persistentTicket.Reset(isolate, ticketTemplate->NewInstance());
 }
 
 NODE_MODULE(uws, Main)
