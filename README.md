@@ -41,7 +41,7 @@ SocketCluster uses the same option as Socket.IO:
 ```javascript
 var socketCluster = new SocketCluster({ wsEngine: 'uws' });
 ```
-If your code directly relies on `ws` you can simply swap `require('ws')`with `require('uws')`:
+If your code directly relies on `ws` you can simply swap `require('ws')` with `require('uws')`:
 ```javascript
 var WebSocketServer = require('uws').Server; /* you replace 'ws' with 'uws' */
 var wss = new WebSocketServer({ port: 8080 });
