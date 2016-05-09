@@ -17,13 +17,23 @@ using namespace std;
 using namespace v8;
 using namespace uWS;
 
-Persistent<Function> connectionCallback, disconnectionCallback, messageCallback;
+enum {
+    CONNECTION_CALLBACK = 1,
+    DISCONNECTION_CALLBACK,
+    MESSAGE_CALLBACK
+};
+
 Persistent<Object> persistentTicket;
 
 void Server(const FunctionCallbackInfo<Value> &args) {
     if (args.IsConstructCall()) {
         try {
             args.This()->SetAlignedPointerInInternalField(0, new uWS::Server(args[0]->IntegerValue()));
+
+            // todo: these needs to be removed on destruction
+            args.This()->SetAlignedPointerInInternalField(CONNECTION_CALLBACK, new Persistent<Function>);
+            args.This()->SetAlignedPointerInInternalField(DISCONNECTION_CALLBACK, new Persistent<Function>);
+            args.This()->SetAlignedPointerInInternalField(MESSAGE_CALLBACK, new Persistent<Function>);
         } catch (...) {
             args.This()->Set(String::NewFromUtf8(args.GetIsolate(), "error"), Boolean::New(args.GetIsolate(), true));
         }
@@ -52,11 +62,12 @@ inline uWS::Socket unwrapSocket(Local<Number> number) {
 void onConnection(const FunctionCallbackInfo<Value> &args) {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     Isolate *isolate = args.GetIsolate();
-    connectionCallback.Reset(isolate, Local<Function>::Cast(args[0]));
-    server->onConnection([isolate](uWS::Socket socket) {
+    Persistent<Function> *connectionCallback = (Persistent<Function> *) args.Holder()->GetAlignedPointerFromInternalField(CONNECTION_CALLBACK);
+    connectionCallback->Reset(isolate, Local<Function>::Cast(args[0]));
+    server->onConnection([isolate, connectionCallback](uWS::Socket socket) {
         HandleScope hs(isolate);
-        Local<Value> argv[] = {wrapSocket(socket, isolate)/*->Clone()*/};
-        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, connectionCallback), 1, argv);
+        Local<Value> argv[] = {wrapSocket(socket, isolate)};
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *connectionCallback), 1, argv);
     });
 }
 
@@ -67,28 +78,30 @@ inline Local<Value> getDataV8(uWS::Socket socket, Isolate *isolate) {
 void onMessage(const FunctionCallbackInfo<Value> &args) {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     Isolate *isolate = args.GetIsolate();
-    messageCallback.Reset(isolate, Local<Function>::Cast(args[0]));
-    server->onMessage([isolate](uWS::Socket socket, const char *message, size_t length, uWS::OpCode opCode) {
+    Persistent<Function> *messageCallback = (Persistent<Function> *) args.Holder()->GetAlignedPointerFromInternalField(MESSAGE_CALLBACK);
+    messageCallback->Reset(isolate, Local<Function>::Cast(args[0]));
+    server->onMessage([isolate, messageCallback](uWS::Socket socket, const char *message, size_t length, uWS::OpCode opCode) {
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(socket, isolate),
                                node::Buffer::New(isolate, (char *) message, length, [](char *data, void *hint) {}, nullptr).ToLocalChecked(),
                                Boolean::New(isolate, opCode == BINARY),
                                getDataV8(socket, isolate)};
-        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, messageCallback), 4, argv);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *messageCallback), 4, argv);
     });
 }
 
 void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     Isolate *isolate = args.GetIsolate();
-    disconnectionCallback.Reset(isolate, Local<Function>::Cast(args[0]));
-    server->onDisconnection([isolate](uWS::Socket socket, int code, char *message, size_t length) {
+    Persistent<Function> *disconnectionCallback = (Persistent<Function> *) args.Holder()->GetAlignedPointerFromInternalField(DISCONNECTION_CALLBACK);
+    disconnectionCallback->Reset(isolate, Local<Function>::Cast(args[0]));
+    server->onDisconnection([isolate, disconnectionCallback](uWS::Socket socket, int code, char *message, size_t length) {
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(socket, isolate),
                                Integer::New(isolate, code),
                                node::Buffer::New(isolate, (char *) message, length, [](char *data, void *hint) {}, nullptr).ToLocalChecked(),
                                getDataV8(socket, isolate)};
-        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, disconnectionCallback), 4, argv);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *disconnectionCallback), 4, argv);
     });
 }
 
@@ -229,7 +242,7 @@ void broadcast(const FunctionCallbackInfo<Value> &args)
 void Main(Local<Object> exports) {
     Isolate *isolate = exports->GetIsolate();
     Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, ::Server);
-    tpl->InstanceTemplate()->SetInternalFieldCount(1);
+    tpl->InstanceTemplate()->SetInternalFieldCount(4);
 
     NODE_SET_PROTOTYPE_METHOD(tpl, "onConnection", onConnection);
     NODE_SET_PROTOTYPE_METHOD(tpl, "onMessage", onMessage);
