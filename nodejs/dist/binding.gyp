@@ -11,10 +11,12 @@
           'cflags_cc': [ '-fexceptions', '-std=c++11' ],
           'cflags_cc!': [ '-fno-exceptions' ]
         }],
-        ['OS=="darwin"', {
-          'cflags_cc': [ '-fexceptions', '-std=c++11' ],
-          'cflags_cc!': [ '-fno-exceptions' ],
-          'ldflags': [ '-stdlib=libc++' ]
+        ['OS=="mac"', {
+          'xcode_settings': {
+            'CLANG_CXX_LANGUAGE_STANDARD':'c++11',
+            'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+            'CLANG_CXX_LIBRARY': 'libc++'
+          }
         }],
         ['OS=="win32"', {
           'cflags_cc': [],
@@ -41,4 +43,3 @@
     }
   ]
 }
-
