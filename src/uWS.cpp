@@ -1158,6 +1158,9 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
                 ((SocketData *) ((uv_poll_t *) socketData->next)->data)->prev = socketData->prev;
             }
         }
+
+        // reuse next as timer, mark no timer set
+        socketData->next = nullptr;
     }
 
     if (force) {
@@ -1174,8 +1177,29 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
         ::close(fd);
         SSL_free(socketData->ssl);
         socketData->controlBuffer.clear();
+
+        // cancel force close timer
+        if (socketData->next) {
+            cout << "Canceling timeout" << endl;
+            uv_timer_stop((uv_timer_t *) socketData->next);
+            uv_close((uv_handle_t *) socketData->next, [](uv_handle_t *handle) {
+                delete (uv_timer_t *) handle;
+            });
+        }
+
         delete socketData;
     } else {
+        // force close after 15 seconds
+        socketData->next = new uv_timer_t;
+        uv_timer_init((uv_loop_t *) socketData->server->loop, (uv_timer_t *) socketData->next);
+        ((uv_timer_t *) socketData->next)->data = socket;
+        uv_timer_start((uv_timer_t *) socketData->next, [](uv_timer_t *timer) {
+            Socket socket = Socket(timer->data);
+            SocketData *socketData = (SocketData *) ((uv_poll_t *) socket.socket)->data;
+            socketData->server->disconnectionCallback(socket.socket, 1006, nullptr, 0);
+            socket.close(true);
+        }, 15000, 0);
+
         char *sendBuffer = socketData->server->sendBuffer;
         if (code) {
             length = min<size_t>(1024, length) + 2;
