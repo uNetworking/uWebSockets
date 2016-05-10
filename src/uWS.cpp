@@ -686,16 +686,15 @@ void Server::onReadable(void *vp, int status, int events)
     memcpy(src, socketData->spill, socketData->spillLength);
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
-    int length = socketData->spillLength;
-    // todo: handle return of -1
+
+    ssize_t received;
     if (socketData->ssl) {
-        length += SSL_read(socketData->ssl, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength);
+        received = SSL_read(socketData->ssl, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength);
     } else {
-        length += recv(fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength, 0);
+        received = recv(fd, src + socketData->spillLength, BUFFER_SIZE - socketData->spillLength, 0);
     }
 
-    // this is where we handle graceful close
-    if (!(length - socketData->spillLength)) {
+    if (received == -1 || received == 0) {
         // do we have a close frame in our buffer, and did we already set the state as CLOSING?
         if (socketData->state == CLOSING && socketData->controlBuffer.length()) {
             tuple<unsigned short, char *, size_t> closeFrame = parseCloseFrame(socketData->controlBuffer);
@@ -720,6 +719,8 @@ void Server::onReadable(void *vp, int status, int events)
     int cork = 1;
     setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
 #endif
+
+    int length = socketData->spillLength + received;
 
     parseNext:
     if (socketData->state == READ_HEAD) {
