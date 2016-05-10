@@ -1180,7 +1180,6 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
 
         // cancel force close timer
         if (socketData->next) {
-            cout << "Canceling timeout" << endl;
             uv_timer_stop((uv_timer_t *) socketData->next);
             uv_close((uv_handle_t *) socketData->next, [](uv_handle_t *handle) {
                 delete (uv_timer_t *) handle;
