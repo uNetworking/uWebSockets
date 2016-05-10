@@ -290,8 +290,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
     if (opCode < 3) {
         if (!remainingBytes && fin && !socketData->buffer.length()) {
             if (opCode == 1 && !Server::isValidUtf8((unsigned char *) fragment, length)) {
-                socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
-                socket.close(true);
+                socket.close(true, 1006);
                 return;
             }
 
@@ -302,8 +301,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
 
                 // Chapter 6
                 if (opCode == 1 && !Server::isValidUtf8((unsigned char *) socketData->buffer.c_str(), socketData->buffer.length())) {
-                    socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
-                    socket.close(true);
+                    socket.close(true, 1006);
                     return;
                 }
 
@@ -677,8 +675,7 @@ void Server::onReadable(void *vp, int status, int events)
 
     // this one is not needed, read will do this!
     if (status < 0) {
-        socketData->server->disconnectionCallback(vp, 1006, nullptr, 0);
-        Socket(p).close(true);
+        Socket(p).close(true, 1006);
         return;
     }
 
@@ -701,11 +698,10 @@ void Server::onReadable(void *vp, int status, int events)
             if (!get<0>(closeFrame)) {
                 get<0>(closeFrame) = 1006;
             }
-            socketData->server->disconnectionCallback(vp, get<0>(closeFrame), get<1>(closeFrame), get<2>(closeFrame));
+            Socket(p).close(true, get<0>(closeFrame), get<1>(closeFrame), get<2>(closeFrame));
         } else {
-            socketData->server->disconnectionCallback(vp, 1006, nullptr, 0);
+            Socket(p).close(true, 1006);
         }
-        Socket(p).close(true);
         return;
     }
 
@@ -734,15 +730,13 @@ void Server::onReadable(void *vp, int status, int events)
 #ifdef STRICT
             // invalid reserved bits
             if (rsv1(frame) || rsv2(frame) || rsv3(frame)) {
-                socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
-                Socket(p).close(true);
+                Socket(p).close(true, 1006);
                 return;
             }
 
             // invalid opcodes
             if ((opCode(frame) > 2 && opCode(frame) < 8) || opCode(frame) > 10) {
-                socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
-                Socket(p).close(true);
+                Socket(p).close(true, 1006);
                 return;
             }
 #endif
@@ -758,23 +752,20 @@ void Server::onReadable(void *vp, int status, int events)
 #ifdef STRICT
                 // Case 5.18
                 if (socketData->opStack == 0 && !lastFin && fin(frame)) {
-                    socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
-                    Socket(p).close(true);
+                    Socket(p).close(true, 1006);
                     return;
                 }
 
                 // control frames cannot be fragmented or long
                 if (opCode(frame) > 2 && (!fin(frame) || payloadLength(frame) > 125)) {
-                    socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
-                    Socket(p).close(true);
+                    Socket(p).close(true, 1006);
                     return;
                 }
 
             } else {
                 // continuation frame must have a opcode prior!
                 if (socketData->opStack == -1) {
-                    socketData->server->disconnectionCallback(p, 1006, nullptr, 0);
-                    Socket(p).close(true);
+                    Socket(p).close(true, 1006);
                     return;
                 }
 #endif
@@ -1164,6 +1155,8 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
     }
 
     if (force) {
+        socketData->server->disconnectionCallback(socket, code, data, length);
+
         // delete all messages in queue
         while (!socketData->messageQueue.empty()) {
             socketData->messageQueue.pop();
@@ -1193,10 +1186,7 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
         uv_timer_init((uv_loop_t *) socketData->server->loop, (uv_timer_t *) socketData->next);
         ((uv_timer_t *) socketData->next)->data = socket;
         uv_timer_start((uv_timer_t *) socketData->next, [](uv_timer_t *timer) {
-            Socket socket = Socket(timer->data);
-            SocketData *socketData = (SocketData *) ((uv_poll_t *) socket.socket)->data;
-            socketData->server->disconnectionCallback(socket.socket, 1006, nullptr, 0);
-            socket.close(true);
+            Socket(timer->data).close(true, 1006);
         }, 15000, 0);
 
         char *sendBuffer = socketData->server->sendBuffer;
