@@ -8,15 +8,18 @@
       ],
       'conditions': [
         ['OS=="linux"', {
-          'cflags_cc': [ '-fexceptions', '-std=c++11' ],
-          'cflags_cc!': [ '-fno-exceptions' ]
+          'cflags_cc': [ '-std=c++11' ],
+          'cflags_cc!': [ '-fno-exceptions', '-std=gnu++0x', '-fno-omit-frame-pointer', '-fno-rtti' ]
         }],
-        ['OS=="darwin"', {
-          'cflags_cc': [ '-fexceptions', '-std=c++11' ],
-          'cflags_cc!': [ '-fno-exceptions' ],
-          'ldflags': [ '-stdlib=libc++' ]
+        ['OS=="mac"', {
+          'xcode_settings': {
+            'MACOSX_DEPLOYMENT_TARGET': '10.7',
+            'OTHER_CFLAGS': [
+              '-std=c++11', '-stdlib=libc++', '-fexceptions'
+            ]
+          }
         }],
-        ['OS=="win32"', {
+        ['OS=="win"', {
           'cflags_cc': [],
           'cflags_cc!': []
         }]
