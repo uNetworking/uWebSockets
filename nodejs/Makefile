@@ -8,7 +8,7 @@ default:
 	NODE=targets/node-v6.0.0 ABI=48 make `(uname -s)`
 	cp ../README.md dist/README.md
 	cp ../LICENSE dist/LICENSE
-	cp -r ../src dist/src
+	cp -r ../src dist/
 	cp addon.cpp dist/src/addon.cpp
 targets:
 	mkdir targets
