@@ -15,14 +15,14 @@ int main()
 {
     try {
         // our listening server
-        Server server(3000);
+        Server server(3000, false);
         server.onUpgrade([](FD fd, const char *secKey) {
             // transfer connection to one of our worker servers
             ::worker->upgrade(fd, secKey);
         });
 
         // our working server, does not listen
-        Server worker(0);
+        Server worker(0, false);
         ::worker = &worker;
         ::server = &server;
         worker.onConnection([](Socket socket) {

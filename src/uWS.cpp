@@ -1150,8 +1150,8 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
             }
         }
 
-        // reuse next as timer, mark no timer set
-        socketData->next = nullptr;
+        // reuse prev as timer, mark no timer set
+        socketData->prev = nullptr;
     }
 
     if (force) {
@@ -1172,9 +1172,9 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
         socketData->controlBuffer.clear();
 
         // cancel force close timer
-        if (socketData->next) {
-            uv_timer_stop((uv_timer_t *) socketData->next);
-            uv_close((uv_handle_t *) socketData->next, [](uv_handle_t *handle) {
+        if (socketData->prev) {
+            uv_timer_stop((uv_timer_t *) socketData->prev);
+            uv_close((uv_handle_t *) socketData->prev, [](uv_handle_t *handle) {
                 delete (uv_timer_t *) handle;
             });
         }
@@ -1182,10 +1182,10 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
         delete socketData;
     } else {
         // force close after 15 seconds
-        socketData->next = new uv_timer_t;
-        uv_timer_init((uv_loop_t *) socketData->server->loop, (uv_timer_t *) socketData->next);
-        ((uv_timer_t *) socketData->next)->data = socket;
-        uv_timer_start((uv_timer_t *) socketData->next, [](uv_timer_t *timer) {
+        socketData->prev = new uv_timer_t;
+        uv_timer_init((uv_loop_t *) socketData->server->loop, (uv_timer_t *) socketData->prev);
+        ((uv_timer_t *) socketData->prev)->data = socket;
+        uv_timer_start((uv_timer_t *) socketData->prev, [](uv_timer_t *timer) {
             Socket(timer->data).close(true, 1006);
         }, 15000, 0);
 
