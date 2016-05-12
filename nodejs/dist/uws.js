@@ -158,7 +158,7 @@ class Socket {
         if (!this.nativeSocket) return;
 
         this.nativeServer.close(this.nativeSocket, code, data);
-        this.server = this.nativeSocket = undefined;
+        this.nativeServer = this.nativeSocket = null;
     }
 }
 
@@ -228,6 +228,7 @@ class Server extends EventEmitter {
         }
 
         this.nativeServer.onDisconnection((nativeSocket, code, message, socket) => {
+            socket.nativeServer = socket.nativeSocket = null;
             socket.onclose(code, message);
             this.nativeServer.setData(nativeSocket);
         });
