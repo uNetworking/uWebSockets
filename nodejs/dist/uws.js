@@ -268,7 +268,10 @@ class Server extends EventEmitter {
             };
 
             this._upgradeCallback = callback ? callback : noop;
-            this.nativeServer.upgrade(ticket, request.headers['sec-websocket-key']);
+            const secKey = request.headers['sec-websocket-key'];
+            if (secKey && secKey.length == 24) {
+                this.nativeServer.upgrade(ticket, secKey);
+            }
         });
         socket.destroy();
     }
