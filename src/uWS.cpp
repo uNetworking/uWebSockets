@@ -824,6 +824,12 @@ void Server::onReadable(void *vp, int status, int events)
         }
 
         if (length) {
+
+            // debug
+            if (length > 16) {
+                throw overflow_error("Spill buffer overflown, length: " + to_string(length));
+            }
+
             memcpy(socketData->spill, src, length);
             socketData->spillLength = length;
         }
