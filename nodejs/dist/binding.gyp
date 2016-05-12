@@ -9,7 +9,10 @@
       'conditions': [
         ['OS=="linux"', {
           'cflags_cc': [ '-std=c++11' ],
-          'cflags_cc!': [ '-fno-exceptions', '-std=gnu++0x', '-fno-omit-frame-pointer', '-fno-rtti' ]
+          'cflags_cc!': [ '-fno-exceptions', '-std=gnu++0x', '-fno-rtti' ],
+          'cflags!': [ '-fno-omit-frame-pointer' ],
+          'ldflags!': [ '-rdynamic' ],
+          'ldflags': [ '-s' ]
         }],
         ['OS=="mac"', {
           'xcode_settings': {
