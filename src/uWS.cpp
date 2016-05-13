@@ -1158,6 +1158,9 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
 
         // reuse prev as timer, mark no timer set
         socketData->prev = nullptr;
+    } else if (!force) {
+        cout << "WARNING: Already gracefully closed: " << socket << endl;
+        return;
     }
 
     if (force) {
