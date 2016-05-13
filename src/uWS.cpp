@@ -6,6 +6,14 @@ using namespace uWS;
 #include <algorithm>
 using namespace std;
 
+// catch invalid usage
+#define VALIDATION
+
+#ifdef VALIDATION
+#include <set>
+std::set<void *> validPolls;
+#endif
+
 #ifndef __linux
 #define MSG_NOSIGNAL 0
 #else
@@ -367,6 +375,15 @@ void Server::upgradeHandler(Server *server)
 
         clientPoll->data = socketData;
         uv_poll_start(clientPoll, UV_READABLE, (uv_poll_cb) onReadable);
+
+#ifdef VALIDATION
+        if (!validPolls.insert(clientPoll).second) {
+            cout << "ERROR: Already opened: " << clientPoll << endl;
+            exit(-1);
+        } else {
+            cout << "INFO: Open: " << clientPoll << endl;
+        }
+#endif
 
         // add this poll to the list
         if (!server->clients) {
@@ -1136,6 +1153,22 @@ inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, 
 
 void Socket::close(bool force, unsigned short code, char *data, size_t length)
 {
+#ifdef VALIDATION
+    if (force) {
+        cout << "INFO: Close: " << socket << endl;
+        if (!validPolls.erase(socket)) {
+            cout << "ERROR: Already closed: " << socket << endl;
+            exit(-1);
+        }
+    } else {
+        cout << "INFO: Graceful close: " << socket << endl;
+        if (validPolls.find(socket) == validPolls.end()) {
+            cout << "ERROR: Already closed: " << socket << endl;
+            exit(-1);
+        }
+    }
+#endif
+
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
