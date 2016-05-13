@@ -1191,14 +1191,15 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
 
         // reuse prev as timer, mark no timer set
         socketData->prev = nullptr;
+
+        // call disconnection callback on first close (graceful or force)
+        socketData->server->disconnectionCallback(socket, code, data, length);
     } else if (!force) {
         cout << "WARNING: Already gracefully closed: " << socket << endl;
         return;
     }
 
     if (force) {
-        socketData->server->disconnectionCallback(socket, code, data, length);
-
         // delete all messages in queue
         while (!socketData->messageQueue.empty()) {
             socketData->messageQueue.pop();
