@@ -17,9 +17,14 @@
         ['OS=="mac"', {
           'xcode_settings': {
             'MACOSX_DEPLOYMENT_TARGET': '10.7',
-            'OTHER_CFLAGS': [
-              '-std=c++11', '-stdlib=libc++', '-fexceptions'
-            ]
+            'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',
+            'CLANG_CXX_LIBRARY': 'libc++',
+            'GCC_GENERATE_DEBUGGING_SYMBOLS': 'NO',
+            'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+            'GCC_THREADSAFE_STATICS': 'YES',
+            'GCC_OPTIMIZATION_LEVEL': '3',
+            'GCC_ENABLE_CPP_RTTI': 'YES',
+            'OTHER_CFLAGS!': [ '-fno-strict-aliasing' ]
           }
         }],
         ['OS=="win"', {
@@ -47,4 +52,3 @@
     }
   ]
 }
-
