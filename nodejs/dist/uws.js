@@ -9,9 +9,8 @@ const uws = (() => {
     try {
         return require(`./uws_${process.platform}_${process.versions.modules}`);
     } catch (e) {
-        console.error('Error: Compilation of µWebSockets has failed and there is no pre-compiled binary ' +
+        throw new Error('Error: Compilation of µWebSockets has failed and there is no pre-compiled binary ' +
         'available for your system. Please install a supported C++ compiler and reinstall the module \'uws\'.');
-        process.exit(-1);
     }
 })();
 
