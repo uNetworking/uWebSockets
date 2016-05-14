@@ -157,7 +157,12 @@ class Socket {
         /* ignore close on closed sockets */
         if (!this.nativeSocket) return;
 
-        this.nativeServer.close(this.nativeSocket, code, data);
+        /* Engine.IO, we cannot emit 'close' from within this function call */
+        const nativeSocket = this.nativeSocket, nativeServer = this.nativeServer;
+        process.nextTick(() => {
+            nativeServer.close(nativeSocket, code, data);
+        });
+
         this.nativeServer = this.nativeSocket = null;
     }
 }
@@ -241,7 +246,12 @@ class Server extends EventEmitter {
             const socket = new Socket(nativeSocket, this.nativeServer);
             this.nativeServer.setData(nativeSocket, socket);
 
-            socket.upgradeReq = this._upgradeReq;
+            socket.upgradeReq = {
+                url: this._upgradeReq.url,
+                headers: this._upgradeReq.headers,
+                connection: socket._socket
+            };
+
             this._upgradeCallback(socket);
         });
 
@@ -264,12 +274,7 @@ class Server extends EventEmitter {
         if (secKey && secKey.length == 24) {
             const ticket = this.nativeServer.transfer(socket._handle.fd, socket.ssl ? socket.ssl._external : null);
             socket.on('close', (error) => {
-
-                this._upgradeReq = {
-                    url: request.url,
-                    headers: request.headers
-                };
-
+                this._upgradeReq = request;
                 this._upgradeCallback = callback ? callback : noop;
                 this.nativeServer.upgrade(ticket, secKey);
             });
