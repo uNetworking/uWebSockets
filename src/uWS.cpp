@@ -6,9 +6,6 @@ using namespace uWS;
 #include <algorithm>
 using namespace std;
 
-// catch invalid usage
-#define VALIDATION
-
 #ifdef VALIDATION
 #include <set>
 std::set<void *> validPolls;
