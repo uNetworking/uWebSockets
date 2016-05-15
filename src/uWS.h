@@ -83,8 +83,8 @@ private:
     void *listenAddr;
     void *loop, *upgradeAsync, *closeAsync;
     void *clients = nullptr;
-    bool forceClose, master;
     int port;
+    bool forceClose, master;
 
     // upgrade queue
     std::queue<std::tuple<FD, std::string, void *>> upgradeQueue;

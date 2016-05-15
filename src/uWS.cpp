@@ -630,7 +630,7 @@ void Server::onAcceptable(void *vp, int status, int events)
 
             // strip away any ? from the GET request
             h.value.first[h.value.second] = 0;
-            for (int i = 0; i < h.value.second; i++) {
+            for (size_t i = 0; i < h.value.second; i++) {
                 if (h.value.first[i] == '?') {
                     h.value.first[i] = 0;
                     break;
