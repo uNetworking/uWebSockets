@@ -6,6 +6,8 @@ using namespace uWS;
 #include <algorithm>
 using namespace std;
 
+#define VALIDATION
+
 #ifdef VALIDATION
 #include <set>
 std::set<void *> validPolls;
@@ -684,6 +686,13 @@ void Server::internalHTTP(Request &request)
 // 0.17% CPU time
 void Server::onReadable(void *vp, int status, int events)
 {
+#ifdef VALIDATION
+    if (validPolls.find(vp) == validPolls.end()) {
+        cout << "ERROR: Woke up closed poll(UV_READABLE): " << vp << endl;
+        exit(-1);
+    }
+#endif
+
     uv_poll_t *p = (uv_poll_t *) vp;
     SocketData *socketData = (SocketData *) p->data;
 
@@ -1022,8 +1031,16 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
             // only start this if we just broke the 0 queue size!
             uv_poll_start(p, UV_WRITABLE | UV_READABLE, [](uv_poll_t *handle, int status, int events) {
 
+#ifdef VALIDATION
+                if (validPolls.find(handle) == validPolls.end()) {
+                    cout << "ERROR: Woke up closed poll(UV_WRITABLE | UV_READABLE): " << handle << endl;
+                    exit(-1);
+                }
+#endif
+
                 // ignore spurious wake-ups
                 if (status < 0) {
+                    cout << "Status < 0, Socket::write" << endl;
                     return;
                 }
 
@@ -1036,6 +1053,12 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                 }
 
                 SocketData *socketData = (SocketData *) handle->data;
+
+                if (socketData->state == CLOSING) {
+                    cout << "CLOSING state, Socket::write" << endl;
+                    return;
+                }
+
                 FD fd;
                 uv_fileno((uv_handle_t *) handle, (uv_os_fd_t *) &fd);
 
