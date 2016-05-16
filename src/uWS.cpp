@@ -690,6 +690,8 @@ void Server::onReadable(void *vp, int status, int events)
     if (validPolls.find(vp) == validPolls.end()) {
         cout << "ERROR: Woke up closed poll(UV_READABLE): " << vp << endl;
         exit(-1);
+    } else {
+        cout << "INFO: Woke up poll(UV_READABLE): " << vp << endl;
     }
 #endif
 
@@ -1035,6 +1037,8 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                 if (validPolls.find(handle) == validPolls.end()) {
                     cout << "ERROR: Woke up closed poll(UV_WRITABLE | UV_READABLE): " << handle << endl;
                     exit(-1);
+                } else {
+                    cout << "INFO: Woke up poll(UV_WRITABLE | UV_READABLE): " << handle << endl;
                 }
 #endif
 
