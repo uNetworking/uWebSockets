@@ -1234,7 +1234,6 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
             delete (uv_poll_t *) handle;
         });
 
-        ::close(fd);
         SSL_free(socketData->ssl);
         socketData->controlBuffer.clear();
 
@@ -1245,6 +1244,7 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
                 delete (uv_timer_t *) handle;
             });
         }
+        shutdown(fd, SHUT_WR);
 
         delete socketData;
     } else {
