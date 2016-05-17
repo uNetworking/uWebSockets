@@ -4,6 +4,7 @@
 * Linux, OS X & Windows support.
 * Built-in load balancing and multi-core scalability.
 * SSL/TLS support & integrates with foreign HTTPS servers.
+* Permessage-deflate built-in.
 * Node.js binding exposed as the well-known `ws` interface.
 * Optional engine in projects like Socket.IO, Primus & SocketCluster.
 
@@ -79,7 +80,7 @@ int main()
 
 ## Quality control
 * Valgrind clean.
-* Autobahn chapters 1 - 9 [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
+* Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
 * All Primus transformer integration tests pass.
 * All Engine.IO server tests pass.
 * Small & efficient code base.
