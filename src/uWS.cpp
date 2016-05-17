@@ -6,7 +6,7 @@ using namespace uWS;
 #include <algorithm>
 using namespace std;
 
-#define VALIDATION
+//#define VALIDATION
 
 #ifdef VALIDATION
 #include <set>
@@ -57,6 +57,7 @@ struct WindowsInit {
 #include <openssl/ssl.h>
 
 #include <uv.h>
+#include <zlib.h>
 
 enum SendFlags {
     SND_CONTINUATION = 1,
@@ -116,6 +117,38 @@ struct Queue {
     }
 };
 
+struct PerMessageDeflate {
+    z_stream readStream, writeStream;
+    bool compressedFrame;
+
+    // should take settings from the negotiation
+    PerMessageDeflate() : readStream({}), writeStream({})
+    {
+        inflateInit2(&readStream, -15);
+    }
+
+    ~PerMessageDeflate()
+    {
+        inflateEnd(&readStream);
+    }
+
+    bool inflate(char *src, size_t srcLength, char *dst, size_t &dstLength)
+    {
+        readStream.next_in = (unsigned char *) src;
+        readStream.avail_in = srcLength;
+        readStream.next_out = (unsigned char *) dst;
+        readStream.avail_out = dstLength;
+
+        if (Z_OK != ::inflate(&readStream, Z_NO_FLUSH)) {
+            dstLength = 0;
+            return true;
+        } else {
+            dstLength = (dstLength - readStream.avail_out);
+            return false;
+        }
+    }
+};
+
 struct SocketData {
     unsigned char state = READ_HEAD;
     unsigned char sendState = FRAGMENT_START;
@@ -132,6 +165,7 @@ struct SocketData {
     void *next = nullptr, *prev = nullptr;
     void *data = nullptr;
     SSL *ssl = nullptr;
+    PerMessageDeflate *pmd = nullptr;
 
     // turns out these are very lightweight (in GCC)
     string buffer;
@@ -180,6 +214,8 @@ Server::Server(int port, bool master, string path) : port(port), master(master),
     receiveBuffer = (char *) new uint32_t[BUFFER_SIZE / 4 + 6];
 
     sendBuffer = new char[SHORT_SEND];
+    inflateBuffer = new char[BUFFER_SIZE];
+    upgradeResponse = new char[2048];
 
     // set default fragment handler
     fragmentCallback = internalFragment;
@@ -288,13 +324,32 @@ tuple<unsigned short, char *, size_t> parseCloseFrame(string &payload)
 }
 
 // default fragment handler
-void Server::internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes)
+void Server::internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes, bool compressed)
 {
     uv_poll_t *p = (uv_poll_t *) socket.socket;
     SocketData *socketData = (SocketData *) p->data;
 
     // Text or binary
     if (opCode < 3) {
+
+        // permessage-deflate
+        if (compressed) {
+
+            // todo: if we did not fit in inflateBuffer, append to buffer, rerun
+
+            size_t inflatedLength = BUFFER_SIZE;
+            socketData->pmd->inflate((char *) fragment, length, socketData->server->inflateBuffer, inflatedLength);
+            fragment = socketData->server->inflateBuffer;
+            length = inflatedLength;
+
+            if (!remainingBytes && fin) {
+                size_t tailLength = BUFFER_SIZE - inflatedLength;
+                unsigned char tail[4] = {0, 0, 255, 255};
+                socketData->pmd->inflate((char *) tail, 4, socketData->server->inflateBuffer + inflatedLength, tailLength);
+                length += tailLength;
+            }
+        }
+
         if (!remainingBytes && fin && !socketData->buffer.length()) {
             if (opCode == 1 && !Server::isValidUtf8((unsigned char *) fragment, length)) {
                 socket.close(true, 1006);
@@ -316,6 +371,8 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
                 socketData->buffer.clear();
             }
         }
+
+
     } else {
         socketData->controlBuffer.append(fragment, length);
         if (!remainingBytes && fin) {
@@ -352,19 +409,29 @@ void Server::upgradeHandler(Server *server)
         memcpy(shaInput, get<1>(upgradeRequest).c_str(), 24);
         unsigned char shaDigest[SHA_DIGEST_LENGTH];
         SHA1(shaInput, sizeof(shaInput) - 1, shaDigest);
-        char upgradeResponse[] = "HTTP/1.1 101 Switching Protocols\r\n"
-                                 "Upgrade: websocket\r\n"
-                                 "Connection: Upgrade\r\n"
-                                 "Sec-WebSocket-Accept: XXXXXXXXXXXXXXXXXXXXXXXXXXXX\r\n"
-                                 "\r\n";
 
-        base64(shaDigest, upgradeResponse + 97);
+        memcpy(server->upgradeResponse, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ", 97);
+        base64(shaDigest, server->upgradeResponse + 97);
+        memcpy(server->upgradeResponse + 125, "\r\n", 2);
+        size_t upgradeResponseLength = 127;
 
         // this will modify the event loop of another thread
         uv_poll_t *clientPoll = new uv_poll_t;
         uv_poll_init_socket((uv_loop_t *) server->loop, clientPoll, get<0>(upgradeRequest));
         SocketData *socketData = new SocketData;
         socketData->server = server;
+
+        // do we have an extension?
+        if (get<3>(upgradeRequest).length()) {
+            // todo: add real extension negotiation
+            memcpy(server->upgradeResponse + 127, "Sec-WebSocket-Extensions: permessage-deflate\r\n\r\n", 48);
+            upgradeResponseLength += 48;
+
+            socketData->pmd = new PerMessageDeflate();
+        } else {
+            memcpy(server->upgradeResponse + 127, "\r\n", 2);
+            upgradeResponseLength += 2;
+        }
 
         socketData->ssl = (SSL *) get<2>(upgradeRequest);
         if (socketData->ssl) {
@@ -394,7 +461,9 @@ void Server::upgradeHandler(Server *server)
             server->clients = clientPoll;
         }
 
-        Socket(clientPoll).write(upgradeResponse, sizeof(upgradeResponse) - 1, false);
+        cout << "[" << string(server->upgradeResponse, upgradeResponseLength) << "]" << endl;
+
+        Socket(clientPoll).write(server->upgradeResponse, upgradeResponseLength, false);
         server->connectionCallback(clientPoll);
     }
 
@@ -428,16 +497,11 @@ void Server::closeHandler(Server *server)
     }
 }
 
-void Server::upgrade(FD fd, const char *secKey, void *ssl, bool dupFd)
+void Server::upgrade(FD fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength)
 {
-    // if the socket is owned by another environment we can dup and close
-    if (dupFd) {
-        fd = dup(fd);
-    }
-
     // add upgrade request to the queue
     upgradeQueueMutex.lock();
-    upgradeQueue.push(make_tuple(fd, string(secKey, 24), ssl));
+    upgradeQueue.push(make_tuple(fd, string(secKey, 24), ssl, string(extensions, extensionsLength)));
     upgradeQueueMutex.unlock();
 
     if (master) {
@@ -504,14 +568,14 @@ struct Parser {
 
         unmask(src, src, headerLength - 4, headerLength, length);
         socketData->server->fragmentCallback(socket, src, length - headerLength,
-                                             socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes);
+                                             socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
     }
 
     template <typename T>
     static inline int consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, void *socket)
     {
         unmask(*src, *src, headerLength - 4, headerLength, fullPayloadLength);
-        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0);
+        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
 
         // did we close the socket using Socket.fail()?
         if (uv_is_closing((uv_handle_t *) socket) || socketData->state == CLOSING) {
@@ -642,25 +706,32 @@ void Server::onAcceptable(void *vp, int status, int events)
                 }
             }
 
+            pair<char *, size_t> secKey = {}, extensions = {};
+
             // only accept requests with our path
             //if (!strcmp(h.value.first, httpData->server->path.c_str())) {
                 for (h++; h.key.second; h++) {
-                    if (h.key.second == 17) {
+                    if (h.key.second == 17 || h.key.second == 24) {
                         // lowercase the key
                         for (size_t i = 0; i < h.key.second; i++) {
                             h.key.first[i] = tolower(h.key.first[i]);
                         }
-
-                        if (!strncmp(h.key.first, "sec-websocket-key", 17)) {
-                            // this is an upgrade
-                            if (httpData->server->upgradeCallback) {
-                                httpData->server->upgradeCallback(fd, h.value.first);
-                            } else {
-                                httpData->server->upgrade(fd, h.value.first);
-                            }
-                            return;
+                        if (!strncmp(h.key.first, "sec-websocket-key", h.key.second)) {
+                            secKey = h.value;
+                        } else if (!strncmp(h.key.first, "sec-websocket-extensions", h.key.second)) {
+                            extensions = h.value;
                         }
                     }
+                }
+
+                // this is an upgrade
+                if (secKey.first && secKey.second == 24) {
+                    if (httpData->server->upgradeCallback) {
+                        httpData->server->upgradeCallback(fd, secKey.first, nullptr, extensions.first, extensions.second);
+                    } else {
+                        httpData->server->upgrade(fd, secKey.first, nullptr, extensions.first, extensions.second);
+                    }
+                    return;
                 }
             //}
 
@@ -752,9 +823,13 @@ void Server::onReadable(void *vp, int status, int events)
             int lastFin = socketData->fin;
             socketData->fin = fin(frame);
 
+            if (socketData->pmd && opCode(frame) != 0) {
+                socketData->pmd->compressedFrame = rsv1(frame);
+            }
+
 #ifdef STRICT
             // invalid reserved bits
-            if (rsv1(frame) || rsv2(frame) || rsv3(frame)) {
+            if ((rsv1(frame) && !socketData->pmd) || rsv2(frame) || rsv3(frame)) {
                 Socket(p).close(true, 1006);
                 return;
             }
@@ -875,7 +950,7 @@ void Server::onReadable(void *vp, int status, int events)
             }
 
             socketData->server->fragmentCallback(p, (const char *) src, socketData->remainingBytes,
-                                                 socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0);
+                                                 socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
 
             // did we close the socket using Socket.fail()?
             if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
@@ -900,7 +975,7 @@ void Server::onReadable(void *vp, int status, int events)
             socketData->remainingBytes -= length;
 
             socketData->server->fragmentCallback(p, (const char *) src, length,
-                                                 socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes);
+                                                 socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
 
             // did we close the socket using Socket.fail()?
             if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
@@ -928,12 +1003,12 @@ void Server::onReadable(void *vp, int status, int events)
 #endif
 }
 
-void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t))
+void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t, bool))
 {
     this->fragmentCallback = fragmentCallback;
 }
 
-void Server::onUpgrade(function<void(FD, const char *)> upgradeCallback)
+void Server::onUpgrade(function<void(FD, const char *, void *, const char *, size_t)> upgradeCallback)
 {
     this->upgradeCallback = upgradeCallback;
 }
@@ -1246,6 +1321,7 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
             });
         }
 
+        delete socketData->pmd;
         delete socketData;
     } else {
         // force close after 15 seconds

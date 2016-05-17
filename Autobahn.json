@@ -4,11 +4,11 @@
 
    "servers": [
                 {"agent": "&#181;WebSockets",
-                 "url": "wss://localhost:3000",
+                 "url": "ws://localhost:3000",
                  "options": {"version": 18}}
               ],
 
-   "cases": ["1.*", "2.*", "3.*", "4.*", "5.*", "6.*", "7.*", "9.*"],
+   "cases": ["1.*", "2.*", "3.*", "4.*", "5.*", "6.*", "7.*", "9.*", "10.*", "12.*", "13.*"],
    "exclude-cases": [],
    "exclude-agent-cases": {}
 }

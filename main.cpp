@@ -16,9 +16,9 @@ int main()
     try {
         // our listening server
         Server server(3000, false);
-        server.onUpgrade([](FD fd, const char *secKey) {
+        server.onUpgrade([](FD fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
             // transfer connection to one of our worker servers
-            ::worker->upgrade(fd, secKey);
+            ::worker->upgrade(fd, secKey, ssl, extensions, extensionsLength);
         });
 
         // our working server, does not listen
@@ -53,7 +53,7 @@ int main()
             static int numDisconnections = 0;
             numDisconnections++;
             cout << numDisconnections << endl;
-            if (numDisconnections == 302) {
+            if (numDisconnections == 519) {
                 cout << "Closing after Autobahn test" << endl;
                 ::worker->close();
                 ::server->close();

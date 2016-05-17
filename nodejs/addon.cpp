@@ -183,12 +183,13 @@ void upgrade(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     Local<Object> ticket = args[0]->ToObject();
-    NativeString nativeString(args[1]);
+    NativeString secKey(args[1]);
+    NativeString extensions(args[2]);
 
     int *fd = (int *) ticket->GetAlignedPointerFromInternalField(0);
     SSL *ssl = (SSL *) ticket->GetAlignedPointerFromInternalField(1);
 
-    server->upgrade(*fd, nativeString.getData(), ssl);
+    server->upgrade(*fd, secKey.getData(), ssl, extensions.getData(), extensions.getLength());
     delete fd;
 }
 

@@ -275,7 +275,7 @@ class Server extends EventEmitter {
             socket.on('close', (error) => {
                 this._upgradeReq = request;
                 this._upgradeCallback = callback ? callback : noop;
-                this.nativeServer.upgrade(ticket, secKey);
+                this.nativeServer.upgrade(ticket, secKey, request.headers['sec-websocket-extensions']);
             });
         }
         socket.destroy();

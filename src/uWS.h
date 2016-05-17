@@ -64,17 +64,17 @@ private:
     static void onAcceptable(void *vp, int status, int events);
 
     static void internalHTTP(Request &request);
-    static void internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes);
+    static void internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes, bool compressed);
 
     // external callbacks
-    std::function<void(FD, const char *)> upgradeCallback;
+    std::function<void(FD, const char *, void *, const char *, size_t)> upgradeCallback;
     std::function<void(Socket)> connectionCallback;
     std::function<void(Socket, int code, char *message, size_t length)> disconnectionCallback;
     std::function<void(Socket, const char *, size_t, OpCode)> messageCallback;
-    void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t);
+    void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t, bool);
 
     // buffers
-    char *receiveBuffer, *sendBuffer;
+    char *receiveBuffer, *sendBuffer, *inflateBuffer, *upgradeResponse;
     static const int BUFFER_SIZE = 307200,
                      SHORT_SEND = 4096;
 
@@ -87,7 +87,7 @@ private:
     bool forceClose, master;
 
     // upgrade queue
-    std::queue<std::tuple<FD, std::string, void *>> upgradeQueue;
+    std::queue<std::tuple<FD, std::string, void *, std::string>> upgradeQueue;
     std::mutex upgradeQueueMutex;
     static void upgradeHandler(Server *server);
     static void closeHandler(Server *server);
@@ -98,10 +98,10 @@ public:
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
-    void onUpgrade(std::function<void(FD, const char *)> upgradeCallback);
+    void onUpgrade(std::function<void(FD, const char *, void *, const char *, size_t)> upgradeCallback);
     void onConnection(std::function<void(Socket)> connectionCallback);
     void onDisconnection(std::function<void(Socket, int code, char *message, size_t length)> disconnectionCallback);
-    void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t));
+    void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t, bool));
     void onMessage(std::function<void(Socket, const char *, size_t, OpCode)> messageCallback);
     void run();
     void broadcast(char *data, size_t length, OpCode opCode);
@@ -109,7 +109,7 @@ public:
 
     // thread safe (should have thread-unsafe counterparts)
     void close(bool force = false);
-    void upgrade(FD fd, const char *secKey, void *ssl = nullptr, bool dupFd = false);
+    void upgrade(FD fd, const char *secKey, void *ssl = nullptr, const char *extensions = nullptr, size_t extensionsLength = 0);
 };
 
 }
