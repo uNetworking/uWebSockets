@@ -121,9 +121,82 @@ struct PerMessageDeflate {
     z_stream readStream, writeStream;
     bool compressedFrame;
 
-    // should take settings from the negotiation
-    PerMessageDeflate() : readStream({}), writeStream({})
+    struct NegotiationOffer {
+        int *lastInteger = nullptr;
+        enum tokens {
+            PERMESSAGE_DEFLATE = 1838,
+            SERVER_NO_CONTEXT_TAKEOVER = 2807,
+            CLIENT_NO_CONTEXT_TAKEOVER = 2783,
+            SERVER_MAX_WINDOW_BITS = 2372,
+            CLIENT_MAX_WINDOW_BITS = 2348
+        };
+
+        int getToken(char **in)
+        {
+            while (!isalnum(**in) && **in != '\0') {
+                (*in)++;
+            }
+
+            int hashedToken = 0;
+            while (isalnum(**in) || **in == '-' || **in == '_') {
+                if (isdigit(**in)) {
+                    hashedToken = hashedToken * 10 - (**in - '0');
+                } else {
+                    hashedToken += **in;
+                }
+                (*in)++;
+            }
+            return hashedToken;
+        }
+
+        bool serverNoContextTakeover = false;
+        bool clientNoContextTakeover = false;
+        int serverMaxWindowBits = 0;
+        int clientMaxWindowBits = 0;
+
+        NegotiationOffer(char *in)
+        {
+            int token = 1;
+            for (; token && token != PERMESSAGE_DEFLATE; token = getToken(&in));
+
+            while ((token = getToken(&in))) {
+                switch (token) {
+                case PERMESSAGE_DEFLATE:
+                    return;
+                case SERVER_NO_CONTEXT_TAKEOVER:
+                    serverNoContextTakeover = true;
+                    break;
+                case CLIENT_NO_CONTEXT_TAKEOVER:
+                    clientNoContextTakeover = true;
+                    break;
+                case SERVER_MAX_WINDOW_BITS:
+                    serverMaxWindowBits = 1;
+                    lastInteger = &serverMaxWindowBits;
+                    break;
+                case CLIENT_MAX_WINDOW_BITS:
+                    clientMaxWindowBits = 1;
+                    lastInteger = &clientMaxWindowBits;
+                    break;
+                default:
+                    if (token < 0 && lastInteger) {
+                        *lastInteger = -token;
+                    } else {
+                        cout << "UNKNOWN TOKEN: " << token << endl;
+                    }
+                    break;
+                }
+            }
+        }
+    };
+
+    PerMessageDeflate(string &request, string &response) : readStream({}), writeStream({})
     {
+        NegotiationOffer offer((char *) request.c_str());
+
+        // build the response from the parsed offer, initialize z with agreed upon settings
+        response = "permessage-deflate";
+
+
         inflateInit2(&readStream, -15);
     }
 
@@ -259,8 +332,10 @@ Server::Server(int port, bool master, string path) : port(port), master(master),
 
 Server::~Server()
 {
-    delete [] receiveBuffer;
+    delete [] (uint32_t *) receiveBuffer;
     delete [] sendBuffer;
+    delete [] inflateBuffer;
+    delete [] upgradeResponse;
     delete (sockaddr_in *) listenAddr;
 
     if (!master) {
@@ -423,11 +498,16 @@ void Server::upgradeHandler(Server *server)
 
         // do we have an extension?
         if (get<3>(upgradeRequest).length()) {
+
+            string response;
+            socketData->pmd = new PerMessageDeflate(get<3>(upgradeRequest), response);
+
+
             // todo: add real extension negotiation
             memcpy(server->upgradeResponse + 127, "Sec-WebSocket-Extensions: permessage-deflate\r\n\r\n", 48);
             upgradeResponseLength += 48;
 
-            socketData->pmd = new PerMessageDeflate();
+
         } else {
             memcpy(server->upgradeResponse + 127, "\r\n", 2);
             upgradeResponseLength += 2;
