@@ -120,6 +120,8 @@ struct Queue {
 struct PerMessageDeflate {
     z_stream readStream, writeStream;
     bool compressedFrame;
+    bool serverNoContextTakeover = false;
+    bool clientNoContextTakeover = false;
 
     struct NegotiationOffer {
         int *lastInteger = nullptr;
@@ -189,13 +191,19 @@ struct PerMessageDeflate {
         }
     };
 
-    PerMessageDeflate(string &request, string &response) : readStream({}), writeStream({})
+    PerMessageDeflate(string &request, int options, string &response) : readStream({}), writeStream({})
     {
         NegotiationOffer offer((char *) request.c_str());
 
-        // build the response from the parsed offer, initialize z with agreed upon settings
-        response = "permessage-deflate";
-
+        response = "Sec-WebSocket-Extensions: permessage-deflate";
+        if ((options & SERVER_NO_CONTEXT_TAKEOVER) || offer.serverNoContextTakeover) {
+            response += "; server_no_context_takeover";
+            serverNoContextTakeover = true;
+        }
+        if ((options & CLIENT_NO_CONTEXT_TAKEOVER) || offer.clientNoContextTakeover) {
+            response += "; client_no_context_takeover";
+            clientNoContextTakeover = true;
+        }
 
         inflateInit2(&readStream, -15);
     }
@@ -269,7 +277,7 @@ inline bool rsv2(frameFormat &frame) {return frame & 32;}
 inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
 
-Server::Server(int port, bool master, string path) : port(port), master(master), path(path)
+Server::Server(int port, bool master, int options, string path) : port(port), master(master), options(options), path(path)
 {
     // lowercase the path
     if (!path.length() || path[0] != '/') {
@@ -490,24 +498,17 @@ void Server::upgradeHandler(Server *server)
         memcpy(server->upgradeResponse + 125, "\r\n", 2);
         size_t upgradeResponseLength = 127;
 
-        // this will modify the event loop of another thread
         uv_poll_t *clientPoll = new uv_poll_t;
         uv_poll_init_socket((uv_loop_t *) server->loop, clientPoll, get<0>(upgradeRequest));
         SocketData *socketData = new SocketData;
         socketData->server = server;
 
-        // do we have an extension?
-        if (get<3>(upgradeRequest).length()) {
-
+        if ((server->options & PERMESSAGE_DEFLATE) && get<3>(upgradeRequest).length()) {
             string response;
-            socketData->pmd = new PerMessageDeflate(get<3>(upgradeRequest), response);
-
-
-            // todo: add real extension negotiation
-            memcpy(server->upgradeResponse + 127, "Sec-WebSocket-Extensions: permessage-deflate\r\n\r\n", 48);
-            upgradeResponseLength += 48;
-
-
+            socketData->pmd = new PerMessageDeflate(get<3>(upgradeRequest), server->options, response);
+            response.append("\r\n\r\n");
+            memcpy(server->upgradeResponse + 127, response.data(), response.length());
+            upgradeResponseLength += response.length();
         } else {
             memcpy(server->upgradeResponse + 127, "\r\n", 2);
             upgradeResponseLength += 2;

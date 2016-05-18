@@ -22,7 +22,7 @@ int main()
         });
 
         // our working server, does not listen
-        Server worker(0, false);
+        Server worker(0, false, PERMESSAGE_DEFLATE | SERVER_NO_CONTEXT_TAKEOVER | CLIENT_NO_CONTEXT_TAKEOVER);
         ::worker = &worker;
         ::server = &server;
         worker.onConnection([](Socket socket) {

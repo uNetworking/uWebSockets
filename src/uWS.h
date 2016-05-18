@@ -30,6 +30,13 @@ enum OpCode : unsigned char {
     PONG = 10
 };
 
+enum Options : int {
+    NO_OPTIONS = 0,
+    PERMESSAGE_DEFLATE = 1,
+    SERVER_NO_CONTEXT_TAKEOVER = 2,
+    CLIENT_NO_CONTEXT_TAKEOVER = 4
+};
+
 struct Parser;
 struct Request;
 
@@ -91,10 +98,11 @@ private:
     std::mutex upgradeQueueMutex;
     static void upgradeHandler(Server *server);
     static void closeHandler(Server *server);
+    int options;
     std::string path;
 
 public:
-    Server(int port = 0, bool master = true, std::string path = "/");
+    Server(int port = 0, bool master = true, int options = 0, std::string path = "/");
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
