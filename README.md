@@ -27,21 +27,32 @@ We built `µWS` with the existing Node.js infrastructure in mind. That's why we 
 * Read the [ws documentation](https://github.com/websockets/ws/blob/master/doc/ws.md)
 * Read the [Primus transformer documentation](https://github.com/primus/primus#uws)
 
-For Socket.IO integration you simply specify the new `wsEngine: 'uws'` option like so:
-
+##### Socket.IO
+Use the new `wsEngine: 'uws'` option like so:
 ```javascript
 var io = require('socket.io')(80, { wsEngine: 'uws' });
 ```
-
-For Primus integration you specify 'uws' as transformer:
-
+This option has not yet been released, one alternative way of enabling `uws` in current versions of Socket.IO is:
+```javascript
+var io = require('socket.io')(80);
+io.engine.ws = new require('uws').Server({
+    noServer: true,
+    clientTracking: false,
+    perMessageDeflate: false
+});
+```
+##### Primus
+Set 'uws' as transformer:
 ```javascript
 var primus = new Primus(server, { transformer: 'uws' });
 ```
-SocketCluster uses the same option as Socket.IO:
+##### SocketCluster
+Use the new `wsEngine: 'uws'` option like so:
 ```javascript
 var socketCluster = new SocketCluster({ wsEngine: 'uws' });
 ```
+*`uws` will be the default WebSocket engine in SocketCluster 5.*
+##### ws
 If your code directly relies on `ws` you can simply swap `require('ws')` with `require('uws')`:
 ```javascript
 var WebSocketServer = require('uws').Server; /* you replace 'ws' with 'uws' */
