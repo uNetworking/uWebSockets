@@ -166,6 +166,10 @@ class Socket {
     }
 }
 
+exports.PERMESSAGE_DEFLATE = 1;
+exports.SERVER_NO_CONTEXT_TAKEOVER = 2;
+exports.CLIENT_NO_CONTEXT_TAKEOVER = 4;
+
 class Server extends EventEmitter {
     /**
      * Creates a Server instance.
@@ -174,7 +178,22 @@ class Server extends EventEmitter {
      */
     constructor(options, callback) {
         super();
-        this.nativeServer = new uws.Server(0);
+
+        var nativeOptions = exports.PERMESSAGE_DEFLATE;
+        if (options.perMessageDeflate !== undefined) {
+            if (options.perMessageDeflate === false) {
+                nativeOptions = 0;
+            } else {
+                if (options.perMessageDeflate.serverNoContextTakeover === true) {
+                    nativeOptions |= exports.SERVER_NO_CONTEXT_TAKEOVER;
+                }
+                if (options.perMessageDeflate.clientNoContextTakeover === true) {
+                    nativeOptions |= exports.CLIENT_NO_CONTEXT_TAKEOVER;
+                }
+            }
+        }
+
+        this.nativeServer = new uws.Server(0, nativeOptions);
 
         // can these be made private?
         this._upgradeReq = null;
