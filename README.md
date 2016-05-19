@@ -14,10 +14,10 @@
 Implementation | Memory scaling | Connection performance | Short message throughput | Huge message throughput
 --- | --- | --- | --- | ---
 libwebsockets master(1.7-1.8) | µWS is **14x** as lightweight | µWS is **equal** in performance | µWS is **3x** as performant | µWS is **equal** in performance
-ws v1.0.1 + binary addons | µWS is **52x** as lightweight | µWS is **21x** as performant | µWS is **23x** as performant | µWS is **2x** as performant
-WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **5x** as performant | µWS is **2x** as performant | µWS is **3x** as performant
+ws v1.1.0 + binary addons | µWS is **47x** as lightweight | µWS is **18x** as performant | µWS is **33x** as performant | µWS is **2x** as performant
+WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **4x** as performant | µWS is **3x** as performant | µWS is **2x** as performant
 
-*Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons.*
+*Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. The libwebsockets benchmark is a little bit outdated, I'm going to fill in new data points with version 2.0.*
 
 ## Usage
 
