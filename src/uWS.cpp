@@ -1181,9 +1181,9 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                 }
 #endif
 
-                // ignore spurious wake-ups
+                // handle all poll errors with forced disconnection
                 if (status < 0) {
-                    cout << "Status < 0, Socket::write" << endl;
+                    Socket(handle).close(true, 1006);
                     return;
                 }
 
