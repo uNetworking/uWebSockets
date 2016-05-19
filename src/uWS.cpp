@@ -235,22 +235,18 @@ struct SocketData {
     unsigned char sendState = FRAGMENT_START;
     unsigned char fin = true;
     char opStack = -1;
-    char spill[16];
+    char spill[16]; // can be 14 in size
     unsigned char spillLength = 0;
     OpCode opCode[2];
     unsigned int remainingBytes = 0;
-    uint32_t mask;
+    char mask[4];
     Server *server;
     Queue messageQueue;
     // points to uv_poll_t
-    void *next = nullptr, *prev = nullptr;
-    void *data = nullptr;
+    void *next = nullptr, *prev = nullptr, *data = nullptr;
     SSL *ssl = nullptr;
     PerMessageDeflate *pmd = nullptr;
-
-    // turns out these are very lightweight (in GCC)
-    string buffer;
-    string controlBuffer;
+    string buffer, controlBuffer; // turns out these are very lightweight (in GCC)
 };
 
 void base64(unsigned char *src, char *dst)
@@ -542,7 +538,7 @@ void Server::upgradeHandler(Server *server)
             server->clients = clientPoll;
         }
 
-        cout << "[" << string(server->upgradeResponse, upgradeResponseLength) << "]" << endl;
+        //cout << "[" << string(server->upgradeResponse, upgradeResponseLength) << "]" << endl;
 
         Socket(clientPoll).write(server->upgradeResponse, upgradeResponseLength, false);
         server->connectionCallback(clientPoll);
@@ -578,6 +574,7 @@ void Server::closeHandler(Server *server)
     }
 }
 
+// move this into Server.cpp
 void Server::upgrade(FD fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength)
 {
     // add upgrade request to the queue
@@ -592,62 +589,55 @@ void Server::upgrade(FD fd, const char *secKey, void *ssl, const char *extension
     }
 }
 
-inline char *unmask(char *dst, char *src, int maskOffset, int payloadOffset, int payloadLength)
-{
-    uint32_t maskBytes = *(uint32_t *) &src[maskOffset];
-    char *start = src;
-
-    char *mask = (char *) &maskBytes;
-
-    // overwrite 4 bytes (possible with 6 byte header)
-    int n = (payloadLength >> 2) + 1;
-    src += payloadOffset;
-    while (n--) {
-        /**((uint32_t *) dst) = *((uint32_t *) src) ^ maskBytes;
-        dst += 4;
-        src += 4;*/
-
-        *(dst++) = *(src++) ^ mask[0];
-        *(dst++) = *(src++) ^ mask[1];
-        *(dst++) = *(src++) ^ mask[2];
-        *(dst++) = *(src++) ^ mask[3];
-    }
-
-    return start + payloadLength + payloadOffset;
-}
-
-void rotate_mask(int offset, uint32_t *mask)
-{
-    uint32_t originalMask = *mask;
-    char *originalMaskBytes = (char *) &originalMask;
-
-    char *byteMask = (char *) mask;
-    byteMask[(0 + offset) % 4] = originalMaskBytes[0];
-    byteMask[(1 + offset) % 4] = originalMaskBytes[1];
-    byteMask[(2 + offset) % 4] = originalMaskBytes[2];
-    byteMask[(3 + offset) % 4] = originalMaskBytes[3];
-}
-
-// 75% of all CPU time when sending large amounts of data
-void unmask_inplace(uint32_t *data, uint32_t *stop, uint32_t mask)
-{
-    while (data < stop) {
-        *(data++) ^= mask;
-    }
-}
-
+// move this into Parser.cpp
 namespace uWS {
 struct Parser {
+    static inline void unmask_imprecise(char *dst, char *src, char *mask, unsigned int length)
+    {
+        for (unsigned int n = (length >> 2) + 1; n; n--) {
+            *(dst++) = *(src++) ^ mask[0];
+            *(dst++) = *(src++) ^ mask[1];
+            *(dst++) = *(src++) ^ mask[2];
+            *(dst++) = *(src++) ^ mask[3];
+        }
+    }
+
+    static inline void unmask_imprecise_copy_mask(char *dst, char *src, char *maskPtr, unsigned int length)
+    {
+        char mask[4] = {maskPtr[0], maskPtr[1], maskPtr[2], maskPtr[3]};
+        unmask_imprecise(dst, src, mask, length);
+    }
+
+    static inline void rotate_mask(unsigned int offset, char *mask)
+    {
+        char originalMask[4] = {mask[0], mask[1], mask[2], mask[3]};
+        mask[(0 + offset) % 4] = originalMask[0];
+        mask[(1 + offset) % 4] = originalMask[1];
+        mask[(2 + offset) % 4] = originalMask[2];
+        mask[(3 + offset) % 4] = originalMask[3];
+    }
+
+    static inline void unmask_inplace(char *data, char *stop, char *mask)
+    {
+        while (data < stop) {
+            *(data++) ^= mask[0];
+            *(data++) ^= mask[1];
+            *(data++) ^= mask[2];
+            *(data++) ^= mask[3];
+        }
+    }
+
     template <typename T>
     static inline void consumeIncompleteMessage(int length, const int headerLength, T fullPayloadLength, SocketData *socketData, char *src, void *socket)
     {
         socketData->spillLength = 0;
         socketData->state = READ_MESSAGE;
         socketData->remainingBytes = fullPayloadLength - length + headerLength;
-        socketData->mask = *(uint32_t *) &src[headerLength - 4];
-        rotate_mask(4 - (length - headerLength) % 4, &socketData->mask);
 
-        unmask(src, src, headerLength - 4, headerLength, length);
+        memcpy(socketData->mask, src + headerLength - 4, 4);
+        unmask_imprecise(src, src + headerLength, socketData->mask, length);
+        rotate_mask(4 - (length - headerLength) % 4, socketData->mask);
+
         socketData->server->fragmentCallback(socket, src, length - headerLength,
                                              socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
     }
@@ -655,10 +645,9 @@ struct Parser {
     template <typename T>
     static inline int consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, void *socket)
     {
-        unmask(*src, *src, headerLength - 4, headerLength, fullPayloadLength);
+        unmask_imprecise_copy_mask(*src, *src + headerLength, *src + headerLength - 4, fullPayloadLength);
         socketData->server->fragmentCallback(socket, *src, fullPayloadLength, socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
 
-        // did we close the socket using Socket.fail()?
         if (uv_is_closing((uv_handle_t *) socket) || socketData->state == CLOSING) {
             return 1;
         }
@@ -672,8 +661,60 @@ struct Parser {
         socketData->spillLength = 0;
         return 0;
     }
+
+    static inline void consumeEntireBuffer(char *src, int length, SocketData *socketData, void *p)
+    {
+        int n = (length >> 2) + bool(length % 4); // this should always overwrite!
+
+        unmask_inplace(src, src + n * 4, socketData->mask);
+        socketData->remainingBytes -= length;
+        socketData->server->fragmentCallback(p, (const char *) src, length,
+                                             socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
+
+        if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
+            return;
+        }
+
+        // if we perfectly read the last of the message, change state!
+        if (!socketData->remainingBytes) {
+            socketData->state = READ_HEAD;
+
+            if (socketData->fin) {
+                socketData->opStack--;
+            }
+        } else if (length % 4) {
+            rotate_mask(4 - (length % 4), socketData->mask);
+        }
+    }
+
+    static inline int consumeCompleteTail(char **src, int &length, SocketData *socketData, void *p)
+    {
+        int n = (socketData->remainingBytes >> 2);
+        unmask_inplace(*src, *src + n * 4, socketData->mask);
+        for (int i = 0, s = socketData->remainingBytes % 4; i < s; i++) {
+            (*src)[n * 4 + i] ^= socketData->mask[i];
+        }
+
+        socketData->server->fragmentCallback(p, (const char *) *src, socketData->remainingBytes,
+                                             socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
+
+        if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
+            return 1;
+        }
+
+        if (socketData->fin) {
+            socketData->opStack--;
+        }
+
+        (*src) += socketData->remainingBytes;
+        length -= socketData->remainingBytes;
+
+        socketData->state = READ_HEAD;
+        return 0;
+    }
 };
 
+// move this into Parser.cpp
 struct Request {
     char *cursor;
     pair<char *, size_t> key, value;
@@ -712,6 +753,7 @@ struct Request {
 };
 }
 
+// move this into Parser.cpp
 struct HTTPData {
     // concat header here
     string headerBuffer;
@@ -1005,76 +1047,17 @@ void Server::onReadable(void *vp, int status, int events)
         }
 
         if (length) {
-
-            // debug
-            if (length > 16) {
-                throw overflow_error("Spill buffer overflown, length: " + to_string(length));
-            }
-
             memcpy(socketData->spill, src, length);
             socketData->spillLength = length;
         }
     } else {
         if (socketData->remainingBytes < (unsigned int) length) {
-            //int n = socketData->remainingBytes >> 2;
-            uint32_t maskBytes = socketData->mask;
-
-            // should these offset from src? instead of buffer?
-            //unmask_inplace((uint32_t *) buffer, ((uint32_t *) buffer) + n, maskBytes);
-
-            //todo: unmask the last bytes without overwriting
-
-            // unoptimized!
-            char *mask = (char *) &maskBytes;
-            for (int i = 0; i < (int) socketData->remainingBytes; i++) {
-                src[i] ^= mask[i % 4];
-            }
-
-            socketData->server->fragmentCallback(p, (const char *) src, socketData->remainingBytes,
-                                                 socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
-
-            // did we close the socket using Socket.fail()?
-            if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
+            if (Parser::consumeCompleteTail(&src, length, socketData, p)) {
                 return;
             }
-
-            if (socketData->fin) {
-                socketData->opStack--;
-            }
-
-            // update the src ptr
-            // update the length
-            src += socketData->remainingBytes;
-            length -= socketData->remainingBytes;
-            socketData->state = READ_HEAD;
             goto parseNext;
         } else {
-            // the complete buffer is all data
-            int n = (length >> 2) + bool(length % 4);
-            uint32_t maskBytes = socketData->mask;
-            unmask_inplace((uint32_t *) src, ((uint32_t *) src) + n, maskBytes);
-            socketData->remainingBytes -= length;
-
-            socketData->server->fragmentCallback(p, (const char *) src, length,
-                                                 socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
-
-            // did we close the socket using Socket.fail()?
-            if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
-                return;
-            }
-
-            // if we perfectly read the last of the message, change state!
-            if (!socketData->remainingBytes) {
-                socketData->state = READ_HEAD;
-
-                if (socketData->fin) {
-                    socketData->opStack--;
-                }
-            } else {
-                if (length % 4) {
-                    rotate_mask(4 - (length % 4), &socketData->mask);
-                }
-            }
+            Parser::consumeEntireBuffer(src, length, socketData, p);
         }
     }
 
