@@ -22,10 +22,17 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **4x** as performa
 ## Usage
 
 ### Node.js
-We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the widespread `ws` interface, allowing us to seamlessly integrate with projects like Socket.IO, Primus & SocketCluster.
+We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the widespread `ws` interface, allowing us to seamlessly integrate with projects like SocketCluster, Socket.IO & Primus.
 
 * Read the [ws documentation](https://github.com/websockets/ws/blob/master/doc/ws.md)
 * Read the [Primus transformer documentation](https://github.com/primus/primus#uws)
+
+##### SocketCluster
+Use the new `wsEngine: 'uws'` option like so:
+```javascript
+var socketCluster = new SocketCluster({ wsEngine: 'uws' });
+```
+We've worked closely together with the [SocketCluster](http://socketcluster.io) team and aim to bring you `µWS` as the default WebSocket engine in SocketCluster 5.
 
 ##### Socket.IO
 Use the new `wsEngine: 'uws'` option like so:
@@ -46,12 +53,6 @@ Set 'uws' as transformer:
 ```javascript
 var primus = new Primus(server, { transformer: 'uws' });
 ```
-##### SocketCluster
-Use the new `wsEngine: 'uws'` option like so:
-```javascript
-var socketCluster = new SocketCluster({ wsEngine: 'uws' });
-```
-*`uws` will be the default WebSocket engine in SocketCluster 5.*
 ##### ws
 If your code directly relies on `ws` you can simply swap `require('ws')` with `require('uws')`:
 ```javascript
