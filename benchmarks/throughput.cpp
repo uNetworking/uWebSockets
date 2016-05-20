@@ -20,6 +20,7 @@ const char upgradeHeaderBuffer[] = "GET / HTTP/1.1\r\n"
                                    "Upgrade: websocket\r\n"
                                    "Connection: Upgrade\r\n"
                                    "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"
+                                   "Host: server.example.com\r\n"
                                    "Sec-WebSocket-Version: 13\r\n\r\n";
 
 int connections, remainingBytes;

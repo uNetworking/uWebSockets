@@ -16,7 +16,7 @@ Problem number one when benchmarking a server is to actually benchmark *the serv
 Once you have installed `libuv` all you need is to hit `make` inside of uWebSockets/benchmarks (this folder) and you'll get the binaries used in these benchmarks.
 
 ## Scalability
-The first and in my opinion most valuable benchmark is about scalability. The name µWebSockets is a hint of it's small ("micro") WebSockets in terms of memory footprint.
+The first and in my opinion most valuable benchmark is about scalability. The name µWebSockets is a hint of its small ("micro") WebSockets in terms of memory footprint.
 
 `Usage: scalability numberOfConnections port`
 
@@ -45,7 +45,7 @@ Output is in the form of "echoes per millisecond" and is averaged over the entir
 ##### Plausible controversy
 There is this thing called confirmation bias - when one wants to badly "prove" their stance they can easily get carried away by making up invalid proofs. Since I wrote the server, and I also wrote the benchmark and supplied the arguments to it, there is a plausible controversy that I will discuss.
 
-There is one way to achieve a far smaller difference between the servers, and that is by supplying `1` as the argument for framesPerSend. This will not stress the WebSocket protocol parser as much, but rather only stress the epoll/event system. That's why I want to supply 10 to really stress the server maximally. If you supply `1` here, the difference between `ws` and `µWS` will drop from about 33x to 6x. Personally, I think it is fair to supply 10 - otherwise you are not really benchmarking anything else than the event-loop.
+There is one way to achieve a far smaller difference between the servers, and that is by supplying `1` as the argument for framesPerSend. This will not stress the WebSocket protocol parser as much, but rather only stress the epoll/event system. That's why I want to supply 10 to really stress the server maximally. If you supply `1` here, the difference between `ws` and `µWS` will drop from about 33x to 6x, and the difference between `WebSocket++` and `µWS` will drop from 3x to 2x. Personally, I think it is fair to supply 10 - otherwise you are not really benchmarking anything else than the event system.
 
 #### Huge message throughput
 There is no controversy involved in the huge message throughput benchmark, just run this and it will send 100mb of payload as fast as the server manages to echo it back:
