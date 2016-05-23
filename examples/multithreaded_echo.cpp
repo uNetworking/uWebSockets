@@ -19,9 +19,9 @@ int main()
         // you need at least one server listening to a port
         Server server(3000);
 
-        server.onUpgrade([](FD fd, const char *secKey) {
+        server.onUpgrade([](FD fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
             // we transfer the connection to one of the other servers
-            threadedServer[rand() % THREADS]->upgrade(fd, secKey);
+            threadedServer[rand() % THREADS]->upgrade(fd, secKey, ssl, extensions, extensionsLength);
         });
 
         // launch the threads with their servers
