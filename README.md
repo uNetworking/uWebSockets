@@ -9,6 +9,9 @@
 * Optional engine in projects like Socket.IO, Primus & SocketCluster.
 
 [![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/alexhultman/uWebSockets.svg?branch=master)](https://travis-ci.org/alexhultman/uWebSockets) [![](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/alexhultman/uWebSockets)
+[![OpenCollective](https://opencollective.com/uwebsockets/backers/badge.svg)](#backers) 
+[![OpenCollective](https://opencollective.com/uwebsockets/sponsors/badge.svg)](#sponsors)
+
 
 ## Benchmarks table - [validate](https://github.com/alexhultman/uWebSockets/tree/master/benchmarks#websocket-echo-server-benchmarks)
 Implementation | Memory scaling | Connection performance | Short message throughput | Huge message throughput
@@ -137,3 +140,76 @@ Now, on Unix systems it should work by simply running `make`. Run [sudo] `make i
 
 ##### Windows, in all its glory
 If you are running Windows you should now have a bunch of Visual Studio project files and one solution file. Open the solution file, now you need to make sure the header include paths and library paths are all set according to where you installed the dependencies. You might also need to change the names of the libraries being linked against, all according to the names of the installed library files. You know the drill.
+
+
+
+#### Backers
+
+Support us with a monthly donation and help us continue our activities. [[Become a backer](https://opencollective.com/uwebsockets#backer)]
+
+<a href="https://opencollective.com/uwebsockets/backer/0/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/0/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/1/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/1/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/2/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/2/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/3/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/3/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/4/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/4/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/5/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/5/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/6/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/6/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/7/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/7/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/8/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/8/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/9/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/9/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/10/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/10/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/11/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/11/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/12/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/12/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/13/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/13/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/14/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/14/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/15/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/15/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/16/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/16/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/17/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/17/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/18/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/18/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/19/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/19/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/20/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/20/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/21/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/21/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/22/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/22/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/23/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/23/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/24/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/24/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/25/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/25/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/26/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/26/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/27/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/27/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/28/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/28/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/backer/29/website" target="_blank"><img src="https://opencollective.com/uwebsockets/backer/29/avatar.svg"></a>
+
+
+#### Sponsors
+
+Become a sponsor and get your logo on our README on Github with a link to your site. [[Become a sponsor](https://opencollective.com/uwebsockets#sponsor)]
+
+<a href="https://opencollective.com/uwebsockets/sponsor/0/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/0/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/1/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/1/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/2/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/2/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/3/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/3/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/4/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/4/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/5/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/5/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/6/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/6/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/7/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/7/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/8/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/8/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/9/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/9/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/10/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/10/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/11/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/11/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/12/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/12/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/13/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/13/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/14/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/14/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/15/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/15/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/16/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/16/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/17/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/17/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/18/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/18/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/19/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/19/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/20/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/20/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/21/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/21/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/22/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/22/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/23/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/23/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/24/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/24/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/25/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/25/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/26/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/26/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/27/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/27/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/28/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/28/avatar.svg"></a>
+<a href="https://opencollective.com/uwebsockets/sponsor/29/website" target="_blank"><img src="https://opencollective.com/uwebsockets/sponsor/29/avatar.svg"></a>
