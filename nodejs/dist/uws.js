@@ -14,6 +14,13 @@ const uws = (() => {
     }
 })();
 
+exports.PERMESSAGE_DEFLATE = 1;
+exports.SERVER_NO_CONTEXT_TAKEOVER = 2;
+exports.CLIENT_NO_CONTEXT_TAKEOVER = 4;
+exports.OPCODE_TEXT = 1;
+exports.OPCODE_BINARY = 2;
+exports.OPCODE_PING = 9;
+
 class Socket {
     /**
      * Creates a Socket instance.
@@ -131,8 +138,25 @@ class Socket {
         }
 
         const binary = options && options.binary || typeof message !== 'string';
-        this.nativeServer.send(this.nativeSocket, message, binary);
+        this.nativeServer.send(this.nativeSocket, message, binary ? exports.OPCODE_BINARY : exports.OPCODE_TEXT);
         return cb && cb(null);
+    }
+
+    /**
+     * Sends a ping.
+     *
+     * @param {String|Buffer} message The message to send
+     * @param {Object} options Send options
+     * @param {Boolean} dontFailWhenClosed optional boolean
+     * @public
+     */
+    ping(message, options, dontFailWhenClosed) {
+        /* ignore sends on closed sockets */
+        if (!this.nativeSocket) {
+            return;
+        }
+
+        this.nativeServer.send(this.nativeSocket, message, exports.OPCODE_PING);
     }
 
     /**
@@ -165,10 +189,6 @@ class Socket {
         this.nativeServer = this.nativeSocket = null;
     }
 }
-
-exports.PERMESSAGE_DEFLATE = 1;
-exports.SERVER_NO_CONTEXT_TAKEOVER = 2;
-exports.CLIENT_NO_CONTEXT_TAKEOVER = 4;
 
 class Server extends EventEmitter {
     /**

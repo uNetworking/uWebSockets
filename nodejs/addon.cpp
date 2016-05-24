@@ -211,7 +211,7 @@ void transfer(const FunctionCallbackInfo<Value> &args)
 
 void send(const FunctionCallbackInfo<Value> &args)
 {
-    OpCode opCode = args[2]->BooleanValue() ? BINARY : TEXT;
+    OpCode opCode = (uWS::OpCode) args[2]->IntegerValue();
     NativeString nativeString(args[1]);
     unwrapSocket(args[0]->ToNumber())
                  .send(nativeString.getData(),
@@ -253,7 +253,6 @@ void Main(Local<Object> exports) {
     NODE_SET_PROTOTYPE_METHOD(tpl, "upgrade", upgrade);
     NODE_SET_PROTOTYPE_METHOD(tpl, "transfer", transfer);
 
-    // C-like, todo: move to Socket object
     NODE_SET_PROTOTYPE_METHOD(tpl, "setData", setData);
     NODE_SET_PROTOTYPE_METHOD(tpl, "getData", getData);
     NODE_SET_PROTOTYPE_METHOD(tpl, "send", send);
