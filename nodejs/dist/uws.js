@@ -213,11 +213,20 @@ class Server extends EventEmitter {
             }
         }
 
-        this.nativeServer = new uws.Server(0, nativeOptions);
-
         // can these be made private?
         this._upgradeReq = null;
         this._upgradeCallback = noop;
+
+        // todo: debug and find cause of massive memory difference
+        if (options.uwsHttp && options.port) {
+            this.nativeServer = new uws.Server(options.port, nativeOptions);
+            options.noServer = true;
+            this._upgradeCallback = ((ws) => {
+                this.emit('connection', ws);
+            });
+        } else {
+            this.nativeServer = new uws.Server(0, nativeOptions);
+        }
 
         if (!options.noServer) {
             this.httpServer = options.server ? options.server : http.createServer((request, response) => {
@@ -284,16 +293,18 @@ class Server extends EventEmitter {
             const socket = new Socket(nativeSocket, this.nativeServer);
             this.nativeServer.setData(nativeSocket, socket);
 
-            socket.upgradeReq = {
-                url: this._upgradeReq.url,
-                headers: this._upgradeReq.headers,
-                connection: socket._socket
-            };
+            if (!options.noUpgradeReq) {
+                socket.upgradeReq = {
+                    url: this._upgradeReq.url,
+                    headers: this._upgradeReq.headers,
+                    connection: socket._socket
+                };
+            }
 
             this._upgradeCallback(socket);
         });
 
-        if (options.port) {
+        if (options.port && this.httpServer) {
             this.httpServer.listen(options.port, callback);
         }
     }
