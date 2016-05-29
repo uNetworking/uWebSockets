@@ -1,5 +1,6 @@
 'use strict';
 
+const url  = require('url');
 const http = require('http');
 //const https = require('https'); // should we ever create an https server?
 const EventEmitter = require('events');
@@ -238,9 +239,16 @@ class Server extends EventEmitter {
                 options.path = '/' + options.path;
             }
 
-            this.httpServer.on('upgrade', (request, socket, head) => {
-                if (!options.path || options.path == request.url.split('?')[0].split('#')[0]) {
-                    if (options.verifyClient) {
+            this._onServerUpgrade = (request, socket, head) => {
+
+                // check for wrong path
+                if (options.path) {
+                  var u = url.parse(request.url);
+                  if (u && u.pathname !== options.path)
+                    return;
+                }
+		
+		                    if (options.verifyClient) {
                         const info = {
                             origin: request.headers.origin,
                             secure: request.connection.authorized !== undefined || request.connection.encrypted !== undefined,
@@ -273,10 +281,10 @@ class Server extends EventEmitter {
                             this.emit('connection', ws);
                         });
                     }
-                } else {
-                    socket.end();
-                }
-            });
+            };
+
+            this.httpServer.on('upgrade', this._onServerUpgrade);
+
         }
 
         this.nativeServer.onDisconnection((nativeSocket, code, message, socket) => {
@@ -349,6 +357,8 @@ class Server extends EventEmitter {
      */
     close() {
         this.nativeServer.close();
+        if(this.httpServer)
+          this.httpServer.removeListener('upgrade', this._onServerUpgrade);
     }
 
 }
