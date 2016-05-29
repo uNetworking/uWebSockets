@@ -41,8 +41,9 @@ var io = require('socket.io')(80, { wsEngine: 'uws' });
 ```
 This option has not yet been released, one alternative way of enabling `uws` in current versions of Socket.IO is:
 ```javascript
+var uws = require('uws');
 var io = require('socket.io')(80);
-io.engine.ws = new require('uws').Server({
+io.engine.ws = new uws.Server({
     noServer: true,
     clientTracking: false,
     perMessageDeflate: false
