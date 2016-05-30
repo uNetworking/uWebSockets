@@ -1,10 +1,54 @@
+/* this is an echo server in libwebsockets, it makes use of some of the optimizations found in µWS, like the thin Queue for minimal memory footprint */
+
 #include <libwebsockets.h>
 #include <iostream>
 #include <new>
 using namespace std;
 
+struct Message {
+    char *data;
+    size_t length;
+    Message *nextMessage = nullptr;
+};
+
+struct Queue {
+    Message *head = nullptr, *tail = nullptr;
+    void pop()
+    {
+        Message *nextMessage;
+        if ((nextMessage = head->nextMessage)) {
+            delete [] (char *) head;
+            head = nextMessage;
+        } else {
+            delete [] (char *) head;
+            head = tail = nullptr;
+        }
+    }
+
+    bool empty() {
+        return head == nullptr;
+    }
+
+    Message *front()
+    {
+        return head;
+    }
+
+    void push(Message *message)
+    {
+        if (tail) {
+            tail->nextMessage = message;
+            tail = message;
+        } else {
+            head = message;
+            tail = message;
+        }
+    }
+};
+
 struct SocketExtension {
     string buffer;
+    Queue messages;
 };
 
 int callback(lws *wsi, lws_callback_reasons reason, void *user, void *in, size_t len)
@@ -12,6 +56,25 @@ int callback(lws *wsi, lws_callback_reasons reason, void *user, void *in, size_t
     SocketExtension *ext = (SocketExtension *) user;
 
     switch (reason) {
+
+    case LWS_CALLBACK_SERVER_WRITEABLE:
+    {
+        do {
+            if (ext->messages.empty())
+                break;
+
+            Message *messagePtr = ext->messages.front();
+            lws_write(wsi, (unsigned char *) messagePtr->data, messagePtr->length, LWS_WRITE_BINARY);
+
+            ext->messages.pop();
+        } while(!ext->messages.empty() && !lws_partial_buffered(wsi));
+
+        if (!ext->messages.empty()) {
+            lws_callback_on_writable(wsi);
+        }
+
+        break;
+    }
 
     case LWS_CALLBACK_ESTABLISHED:
     {
@@ -21,20 +84,27 @@ int callback(lws *wsi, lws_callback_reasons reason, void *user, void *in, size_t
 
     case LWS_CALLBACK_CLOSED:
     {
-        ext->buffer.~string();
+        ext->~SocketExtension();
         break;
     }
 
     case LWS_CALLBACK_RECEIVE:
     {
-        size_t remainingBytes = lws_remaining_packet_payload(wsi);
-        if (!remainingBytes && !ext->buffer.length()) {
-            lws_write(wsi, (unsigned char *) in, len, lws_frame_is_binary(wsi) ? LWS_WRITE_BINARY : LWS_WRITE_TEXT);
-        } else {
-            ext->buffer.append((char *) in, len);
-            if (!remainingBytes) {
-                lws_write(wsi, (unsigned char *) ext->buffer.data(), ext->buffer.length(), lws_frame_is_binary(wsi) ? LWS_WRITE_BINARY : LWS_WRITE_TEXT);
-                ext->buffer.clear();
+        ext->buffer.append((char *) in, len);
+        if (!lws_remaining_packet_payload(wsi)) {
+
+            Message *messagePtr = (Message *) new char[sizeof(Message) + ext->buffer.length() + LWS_SEND_BUFFER_PRE_PADDING + LWS_SEND_BUFFER_POST_PADDING];
+            messagePtr->length = ext->buffer.length();
+            messagePtr->data = ((char *) messagePtr) + sizeof(Message) + LWS_SEND_BUFFER_PRE_PADDING;
+            messagePtr->nextMessage = nullptr;
+            memcpy(messagePtr->data, ext->buffer.data(), ext->buffer.length());
+
+            bool wasEmpty = ext->messages.empty();
+            ext->messages.push(messagePtr);
+            ext->buffer.clear();
+
+            if (wasEmpty) {
+                lws_callback_on_writable(wsi);
             }
         }
         break;
