@@ -6,7 +6,7 @@ CONFIG -= qt
 SOURCES += main.cpp \
     src/uWS.cpp
 
-LIBS += -lssl -lcrypto -lz -l:libuv.a -lpthread
+LIBS += -lssl -lcrypto -lz -luv -lpthread
 
 HEADERS += \
     src/uWS.h

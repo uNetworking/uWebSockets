@@ -273,7 +273,7 @@ inline bool rsv2(frameFormat &frame) {return frame & 32;}
 inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
 
-Server::Server(int port, bool master, int options, string path) : port(port), master(master), options(options), path(path)
+Server::Server(int port, bool master, int options, int maxPayload, string path) : port(port), master(master), options(options), maxPayload(maxPayload), path(path)
 {
     // lowercase the path
     if (!path.length() || path[0] != '/') {
@@ -437,7 +437,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
 
             socketData->server->messageCallback(socket, (char *) fragment, length, opCode);
         } else {
-            socketData->buffer.append(fragment, length);
+            socketData->buffer.append(fragment, socketData->server->maxPayload ? min(length, socketData->server->maxPayload - socketData->buffer.length()) : length);
             if (!remainingBytes && fin) {
 
                 // Chapter 6

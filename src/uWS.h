@@ -84,6 +84,7 @@ private:
     char *receiveBuffer, *sendBuffer, *inflateBuffer, *upgradeResponse;
     static const int BUFFER_SIZE = 307200,
                      SHORT_SEND = 4096;
+    int maxPayload = 0;
 
     // accept poll
     void *server = nullptr;
@@ -102,7 +103,7 @@ private:
     std::string path;
 
 public:
-    Server(int port = 0, bool master = true, int options = 0, std::string path = "/");
+    Server(int port = 0, bool master = true, int options = 0, int maxPayload = 0, std::string path = "/");
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
