@@ -28,7 +28,7 @@ Persistent<Object> persistentTicket;
 void Server(const FunctionCallbackInfo<Value> &args) {
     if (args.IsConstructCall()) {
         try {
-            args.This()->SetAlignedPointerInInternalField(0, new uWS::Server(args[0]->IntegerValue(), true, args[1]->IntegerValue()));
+            args.This()->SetAlignedPointerInInternalField(0, new uWS::Server(args[0]->IntegerValue(), true, args[1]->IntegerValue(), args[2]->IntegerValue()));
 
             // todo: these needs to be removed on destruction
             args.This()->SetAlignedPointerInInternalField(CONNECTION_CALLBACK, new Persistent<Function>);
