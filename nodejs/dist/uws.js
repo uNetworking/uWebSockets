@@ -218,6 +218,7 @@ class Server extends EventEmitter {
         // can these be made private?
         this._upgradeReq = null;
         this._upgradeCallback = noop;
+        this._upgradeListener = null;
 
         if (!options.noServer) {
             this.httpServer = options.server ? options.server : http.createServer((request, response) => {
@@ -229,7 +230,7 @@ class Server extends EventEmitter {
                 options.path = '/' + options.path;
             }
 
-            this.httpServer.on('upgrade', (request, socket, head) => {
+            this.httpServer.on('upgrade', this._upgradeListener = ((request, socket, head) => {
                 if (!options.path || options.path == request.url.split('?')[0].split('#')[0]) {
                     if (options.verifyClient) {
                         const info = {
@@ -267,7 +268,7 @@ class Server extends EventEmitter {
                 } else {
                     socket.end();
                 }
-            });
+            }));
         }
 
         this.nativeServer.onDisconnection((nativeSocket, code, message, socket) => {
@@ -337,6 +338,10 @@ class Server extends EventEmitter {
      * @public
      */
     close() {
+        if (this._upgradeListener && this.httpServer) {
+            this.httpServer.removeListener('upgrade', this._upgradeListener);
+        }
+
         this.nativeServer.close();
     }
 
