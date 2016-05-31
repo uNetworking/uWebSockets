@@ -165,9 +165,11 @@ class Socket {
      * @public
      */
     get _socket() {
+        const address = this.nativeServer.getAddress(this.nativeSocket);
         return {
-            remoteAddress: this.nativeServer.getAddress(this.nativeSocket),
-            remotePort: this.nativeServer.getPort(this.nativeSocket)
+            remotePort: address[0],
+            remoteAddress: address[1],
+            remoteFamily: address[2]
         };
     }
 

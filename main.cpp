@@ -31,6 +31,11 @@ int main()
             //socket.close();
             //socket.close(false, 1011, "abcd", 4);
 
+            Socket::Address a = socket.getAddress();
+            cout << a.address << endl;
+            cout << a.family << endl;
+            cout << a.port << endl;
+
             // test shutting down the server when two clients are connected
             // this should disconnect both clients and exit libuv loop
             if (connections == 2) {

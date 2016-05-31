@@ -49,7 +49,13 @@ protected:
     Socket(void *p) : socket(p) {}
     void write(char *data, size_t length, bool transferOwnership, void(*callback)(void *s) = nullptr);
 public:
-    std::pair<char *, unsigned int> getAddress();
+    struct Address {
+        unsigned int port;
+        char *address;
+        const char *family;
+    };
+
+    Address getAddress();
     void close(bool force = false, unsigned short code = 0, char *data = nullptr, size_t length = 0);
     void send(char *data, size_t length, OpCode opCode, size_t fakedLength = 0);
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);

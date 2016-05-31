@@ -219,17 +219,14 @@ void send(const FunctionCallbackInfo<Value> &args)
                  opCode);
 }
 
-/* todo: fix these up to match the native interface */
 void getAddress(const FunctionCallbackInfo<Value> &args)
 {
-    pair<char *, unsigned int> address = unwrapSocket(args[0]->ToNumber()).getAddress();
-    args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), address.first));
-}
-
-void getPort(const FunctionCallbackInfo<Value> &args)
-{
-    pair<char *, unsigned int> address = unwrapSocket(args[0]->ToNumber()).getAddress();
-    args.GetReturnValue().Set(Integer::NewFromUnsigned(args.GetIsolate(), address.second));
+    uWS::Socket::Address address = unwrapSocket(args[0]->ToNumber()).getAddress();
+    Local<Array> array = Array::New(args.GetIsolate(), 3);
+    array->Set(0, Integer::New(args.GetIsolate(), address.port));
+    array->Set(1, String::NewFromUtf8(args.GetIsolate(), address.address));
+    array->Set(2, String::NewFromUtf8(args.GetIsolate(), address.family));
+    args.GetReturnValue().Set(array);
 }
 
 void broadcast(const FunctionCallbackInfo<Value> &args)
@@ -257,7 +254,6 @@ void Main(Local<Object> exports) {
     NODE_SET_PROTOTYPE_METHOD(tpl, "getData", getData);
     NODE_SET_PROTOTYPE_METHOD(tpl, "send", send);
     NODE_SET_PROTOTYPE_METHOD(tpl, "getAddress", getAddress);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "getPort", getPort);
 
     exports->Set(String::NewFromUtf8(isolate, "Server"), tpl->GetFunction());
 

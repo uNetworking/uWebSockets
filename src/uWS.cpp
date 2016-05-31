@@ -1259,7 +1259,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
     }
 }
 
-pair<char *, unsigned int> Socket::getAddress()
+Socket::Address Socket::getAddress()
 {
 #ifdef _WIN32
     // todo: implement for Windows
@@ -1278,11 +1278,11 @@ pair<char *, unsigned int> Socket::getAddress()
     if (addr.ss_family == AF_INET) {
         sockaddr_in *ipv4 = (sockaddr_in *) &addr;
         inet_ntop(AF_INET, &ipv4->sin_addr, buf, sizeof(buf));
-        return {buf, ntohs(ipv4->sin_port)};
+        return {ntohs(ipv4->sin_port), buf, "IPv4"};
     } else {
         sockaddr_in6 *ipv6 = (sockaddr_in6 *) &addr;
         inet_ntop(AF_INET6, &ipv6->sin6_addr, buf, sizeof(buf));
-        return {buf, ntohs(ipv6->sin6_port)};
+        return {ntohs(ipv6->sin6_port), buf, "IPv6"};
     }
 #endif
 }
