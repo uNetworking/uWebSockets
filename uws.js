@@ -1,5 +1,7 @@
 'use strict';
 
+const url  = require('url');
+
 const http = require('http');
 //const https = require('https'); // should we ever create an https server?
 const EventEmitter = require('events');
@@ -233,27 +235,23 @@ class Server extends EventEmitter {
             }
 
             this.httpServer.on('upgrade', this._upgradeListener = ((request, socket, head) => {
-                if (!options.path || options.path == request.url.split('?')[0].split('#')[0]) {
-                    if (options.verifyClient) {
-                        const info = {
-                            origin: request.headers.origin,
-                            secure: request.connection.authorized !== undefined || request.connection.encrypted !== undefined,
-                            req: request
-                        };
 
-                        if (options.verifyClient.length === 2) {
-                            options.verifyClient(info, (result, code, name) => {
-                                if (result) {
-                                    this.handleUpgrade(request, socket, head, (ws) => {
-                                        this.emit('connection', ws);
-                                    });
-                                } else {
-                                    // todo: send code & message
-                                    socket.end();
-                                }
-                            });
-                        } else {
-                            if (options.verifyClient(info)) {
+                if (options.path) {
+                   var u = url.parse(request.url);
+                   if (u && u.pathname !== options.path)
+                     return;
+                 }
+
+                if (options.verifyClient) {
+                    const info = {
+                        origin: request.headers.origin,
+                        secure: request.connection.authorized !== undefined || request.connection.encrypted !== undefined,
+                        req: request
+                    };
+
+                    if (options.verifyClient.length === 2) {
+                        options.verifyClient(info, (result, code, name) => {
+                            if (result) {
                                 this.handleUpgrade(request, socket, head, (ws) => {
                                     this.emit('connection', ws);
                                 });
@@ -261,14 +259,21 @@ class Server extends EventEmitter {
                                 // todo: send code & message
                                 socket.end();
                             }
-                        }
-                    } else {
-                        this.handleUpgrade(request, socket, head, (ws) => {
-                            this.emit('connection', ws);
                         });
+                    } else {
+                        if (options.verifyClient(info)) {
+                            this.handleUpgrade(request, socket, head, (ws) => {
+                                this.emit('connection', ws);
+                            });
+                        } else {
+                            // todo: send code & message
+                            socket.end();
+                        }
                     }
                 } else {
-                    socket.end();
+                    this.handleUpgrade(request, socket, head, (ws) => {
+                        this.emit('connection', ws);
+                    });
                 }
             }));
         }
