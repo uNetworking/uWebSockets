@@ -1,7 +1,6 @@
-CMakeCache.txt
-CMakeFiles/
-Makefile
-cmake_install.cmake
 examples/CMakeFiles/
 examples/Makefile
 examples/cmake_install.cmake
+*.node
+/build
+/build_log.txt

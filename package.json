@@ -1,11 +1,11 @@
 {
-  "name": "uws",
+  "name": "uws-repack",
   "version": "0.4.1",
   "scripts": {
     "install": "node-gyp rebuild > build_log.txt 2>&1 || exit 0"
   },
   "main": "uws.js",
-  "description": "Highly scalable WebSocket server library",
+  "description": "Repacked version of uws",
   "engines": {
     "node": ">=4"
   },
@@ -18,11 +18,11 @@
     "lightweight",
     "fast"
   ],
-  "homepage": "https://github.com/alexhultman/uWebSockets",
+  "homepage": "https://github.com/131/uWebSockets",
   "license": "Zlib",
   "author": "Alex Hultman <alexhultman@gmail.com> (https://github.com/alexhultman)",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alexhultman/uWebSockets.git"
+    "url": "https://github.com/131/uWebSockets"
   }
 }

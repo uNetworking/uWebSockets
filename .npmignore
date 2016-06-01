@@ -1,0 +1,9 @@
+/benchmarks
+/build
+/examples
+/node_modules
+/nodejs
+
+/logo.png
+/.travis.yml
+/*.node
