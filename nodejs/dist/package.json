@@ -9,6 +9,10 @@
   "engines": {
     "node": ">=4"
   },
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "keywords": [
     "websockets",
     "µWS",
