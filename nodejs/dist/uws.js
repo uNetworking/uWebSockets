@@ -221,6 +221,7 @@ class Server extends EventEmitter {
         this._upgradeReq = null;
         this._upgradeCallback = noop;
         this._upgradeListener = null;
+        this._noDelay = options.noDelay || false;
 
         if (!options.noServer) {
             this.httpServer = options.server ? options.server : http.createServer((request, response) => {
@@ -313,6 +314,7 @@ class Server extends EventEmitter {
     handleUpgrade(request, socket, upgradeHead, callback) {
         const secKey = request.headers['sec-websocket-key'];
         if (secKey && secKey.length == 24) {
+            socket.setNoDelay(this._noDelay);
             const ticket = this.nativeServer.transfer(socket._handle.fd, socket.ssl ? socket.ssl._external : null);
             socket.on('close', (error) => {
                 this._upgradeReq = request;
