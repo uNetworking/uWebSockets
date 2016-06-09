@@ -1,4 +1,3 @@
-#include "base64.h"
 #include "uWS_Client.h"
 using namespace uWS_Client;
   
@@ -405,18 +404,23 @@ void Client::connect()
 		});
 
 		// Generate random bytes as websocket key
-		unsigned char key [NUM_BYTES_KEY];
-		for (size_t i = 0; i < NUM_BYTES_KEY; ++i) {
-			key[i] = rand();
+		static char palette[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+		// We are generating the base64 string directly, so 16 bytes = 24 bytes in base 64
+		char key [24];
+		for (size_t i = 0; i < 21; ++i) {
+			key[i] = palette[rand() % 64];
 		}
-		string base64Key = base64::encode(key, NUM_BYTES_KEY);
+		// Last char can only have first 2 bits set
+		key[21] = palette[(rand() % 64) | 0x30];
+		// Need 2 padding chars so that numChars * 6 is divisble by 8
+		key[22] = key[23] = '=';
 
 		// Construct message
 		string msg = "GET / HTTP/1.1" + HTTP_NEWLINE +
 			"Upgrade: WebSocket" + HTTP_NEWLINE +
 			"Connection: Upgrade" + HTTP_NEWLINE +
 			"Host: " + client->host + ":" + to_string(client->port) + HTTP_NEWLINE +
-			"Sec-WebSocket-Key: " + base64Key + HTTP_NEWLINE +
+			"Sec-WebSocket-Key: " + string(key, 24) + HTTP_NEWLINE +
 			"Sec-WebSocket-Version: 13" + HTTP_END_MESSAGE;
 		//cout << "First message: " << msg << endl;
 
