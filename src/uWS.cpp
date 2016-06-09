@@ -1728,7 +1728,7 @@ void Client::connect(const string &host, int port)
 			key[i] = palette[rand() % 64];
 		}
 		// Last char can only have first 2 bits set
-		key[21] = palette[(rand() % 64) | 0xC0];
+		key[21] = palette[(rand() % 64) | 0x30];
 		// Need 2 padding chars so that numChars * 6 is divisble by 8
 		key[22] = key[23] = '=';
 
