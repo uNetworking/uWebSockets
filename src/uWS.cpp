@@ -234,6 +234,7 @@ struct PerMessageDeflate {
     }
 };
 
+template <bool IsServer>
 struct SocketData {
     unsigned char state = READ_HEAD;
     unsigned char sendState = FRAGMENT_START;
@@ -244,7 +245,7 @@ struct SocketData {
     OpCode opCode[2];
     unsigned int remainingBytes = 0;
     char mask[4];
-    Server *server;
+    Agent<IsServer> *agent;
     Queue messageQueue;
     // points to uv_poll_t
     void *next = nullptr, *prev = nullptr, *data = nullptr;
@@ -277,7 +278,7 @@ inline bool rsv2(frameFormat &frame) {return frame & 32;}
 inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
 
-Server::Server(int port, bool master, int options, int maxPayload, string path) : port(port), master(master), options(options), maxPayload(maxPayload), path(path)
+Server::Server(int port, bool master, int options, int maxPayload, string path) : port(port), path(path), Agent(master, options, maxPayload)
 {
     // lowercase the path
     if (!path.length() || path[0] != '/') {
@@ -285,9 +286,9 @@ Server::Server(int port, bool master, int options, int maxPayload, string path) 
     }
     transform(path.begin(), path.end(), path.begin(), ::tolower);
 
-    onConnection([](Socket socket) {});
-    onDisconnection([](Socket socket, int code, char *message, size_t length) {});
-    onMessage([](Socket socket, const char *data, size_t length, OpCode opCode) {});
+    onConnection([](Socket<true> socket) {});
+    onDisconnection([](Socket<true> socket, int code, char *message, size_t length) {});
+    onMessage([](Socket<true> socket, const char *data, size_t length, OpCode opCode) {});
 
     // we need 24 bytes over to not read invalidly outside
 
@@ -329,7 +330,7 @@ Server::Server(int port, bool master, int options, int maxPayload, string path) 
         ((uv_async_t *) closeAsync)->data = this;
 
         uv_async_init((uv_loop_t *) loop, (uv_async_t *) closeAsync, [](uv_async_t *a) {
-            Server::closeHandler((Server *) a->data);
+            Agent<true>::closeHandler((Agent<true> *) a->data);
         });
 
         uv_async_init((uv_loop_t *) loop, (uv_async_t *) upgradeAsync, [](uv_async_t *a) {
@@ -351,30 +352,33 @@ Server::~Server()
     }
 }
 
-void Server::run()
+template <bool IsServer>
+void Agent<IsServer>::run()
 {
     uv_run((uv_loop_t *) loop, UV_RUN_DEFAULT);
 }
 
-void Server::close(bool force)
+template <bool IsServer>
+void Agent<IsServer>::close(bool force)
 {
     forceClose = force;
     if (master) {
-        Server::closeHandler(this);
+        closeHandler(this);
     } else {
         uv_async_send((uv_async_t *) closeAsync);
     }
 }
 
 // unoptimized!
-void Server::broadcast(char *data, size_t length, OpCode opCode)
+template <bool IsServer>
+void Agent<IsServer>::broadcast(char *data, size_t length, OpCode opCode)
 {
     // use same doubly linked list as the server uses to track its clients
     // prepare the buffer, send multiple times
 
     // todo: this should be optimized to send the same message for every client!
-    for (void *p = clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
-        Socket(p).send(data, length, opCode);
+    for (void *p = clients; p; p = ((SocketData<IsServer> *) ((uv_poll_t *) p)->data)->next) {
+        Socket<IsServer>(p).send(data, length, opCode);
     }
 }
 
@@ -407,10 +411,11 @@ tuple<unsigned short, char *, size_t> parseCloseFrame(string &payload)
 }
 
 // default fragment handler
-void Server::internalFragment(Socket socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes, bool compressed)
+template <bool IsServer>
+void Agent<IsServer>::internalFragment(Socket<IsServer> socket, const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes, bool compressed)
 {
     uv_poll_t *p = (uv_poll_t *) socket.socket;
-    SocketData *socketData = (SocketData *) p->data;
+    SocketData<IsServer> *socketData = (SocketData<IsServer> *) p->data;
 
     // Text or binary
     if (opCode < 3) {
@@ -421,36 +426,36 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
             // todo: if we did not fit in inflateBuffer, append to buffer, rerun
 
             size_t inflatedLength = BUFFER_SIZE;
-            socketData->pmd->inflate((char *) fragment, length, socketData->server->inflateBuffer, inflatedLength);
-            fragment = socketData->server->inflateBuffer;
+            socketData->pmd->inflate((char *) fragment, length, socketData->agent->inflateBuffer, inflatedLength);
+            fragment = socketData->agent->inflateBuffer;
             length = inflatedLength;
 
             if (!remainingBytes && fin) {
                 size_t tailLength = BUFFER_SIZE - inflatedLength;
                 unsigned char tail[4] = {0, 0, 255, 255};
-                socketData->pmd->inflate((char *) tail, 4, socketData->server->inflateBuffer + inflatedLength, tailLength);
+                socketData->pmd->inflate((char *) tail, 4, socketData->agent->inflateBuffer + inflatedLength, tailLength);
                 length += tailLength;
             }
         }
 
         if (!remainingBytes && fin && !socketData->buffer.length()) {
-            if (opCode == 1 && !Server::isValidUtf8((unsigned char *) fragment, length)) {
+            if (opCode == 1 && !Agent<IsServer>::isValidUtf8((unsigned char *) fragment, length)) {
                 socket.close(true, 1006);
                 return;
             }
 
-            socketData->server->messageCallback(socket, (char *) fragment, length, opCode);
+            socketData->agent->messageCallback(socket, (char *) fragment, length, opCode);
         } else {
-            socketData->buffer.append(fragment, socketData->server->maxPayload ? min(length, socketData->server->maxPayload - socketData->buffer.length()) : length);
+            socketData->buffer.append(fragment, socketData->agent->maxPayload ? min(length, socketData->agent->maxPayload - socketData->buffer.length()) : length);
             if (!remainingBytes && fin) {
 
                 // Chapter 6
-                if (opCode == 1 && !Server::isValidUtf8((unsigned char *) socketData->buffer.c_str(), socketData->buffer.length())) {
+                if (opCode == 1 && !Agent<IsServer>::isValidUtf8((unsigned char *) socketData->buffer.c_str(), socketData->buffer.length())) {
                     socket.close(true, 1006);
                     return;
                 }
 
-                socketData->server->messageCallback(socket, (char *) socketData->buffer.c_str(), socketData->buffer.length(), opCode);
+                socketData->agent->messageCallback(socket, (char *) socketData->buffer.c_str(), socketData->buffer.length(), opCode);
                 socketData->buffer.clear();
             }
         }
@@ -461,7 +466,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
         if (!remainingBytes && fin) {
             if (opCode == CLOSE) {
                 tuple<unsigned short, char *, size_t> closeFrame = parseCloseFrame(socketData->controlBuffer);
-                Socket(p).close(false, get<0>(closeFrame), get<1>(closeFrame), get<2>(closeFrame));
+                Socket<IsServer>(p).close(false, get<0>(closeFrame), get<1>(closeFrame), get<2>(closeFrame));
                 // leave the controlBuffer with the close frame intact
                 return;
             } else {
@@ -500,8 +505,8 @@ void Server::upgradeHandler(Server *server)
 
         uv_poll_t *clientPoll = new uv_poll_t;
         uv_poll_init_socket((uv_loop_t *) server->loop, clientPoll, get<0>(upgradeRequest));
-        SocketData *socketData = new SocketData;
-        socketData->server = server;
+        SocketData<true> *socketData = new SocketData<true>;
+        socketData->agent = server;
 
         if ((server->options & PERMESSAGE_DEFLATE) && get<3>(upgradeRequest).length()) {
             string response;
@@ -536,7 +541,7 @@ void Server::upgradeHandler(Server *server)
         if (!server->clients) {
             server->clients = clientPoll;
         } else {
-            SocketData *tailData = (SocketData *) ((uv_poll_t *) server->clients)->data;
+            SocketData<true> *tailData = (SocketData<true> *) ((uv_poll_t *) server->clients)->data;
             tailData->prev = clientPoll;
             socketData->next = server->clients;
             server->clients = clientPoll;
@@ -544,37 +549,41 @@ void Server::upgradeHandler(Server *server)
 
         //cout << "[" << string(server->upgradeResponse, upgradeResponseLength) << "]" << endl;
 
-        Socket(clientPoll).write(server->upgradeResponse, upgradeResponseLength, false);
+        Socket<true>(clientPoll).write(server->upgradeResponse, upgradeResponseLength, false);
         server->connectionCallback(clientPoll);
     }
 
     server->upgradeQueueMutex.unlock();
 }
 
-void Server::closeHandler(Server *server)
+template <bool IsServer>
+void Agent<IsServer>::closeHandler(Agent *agent)
 {
-    if (!server->master) {
-        uv_close((uv_handle_t *) server->upgradeAsync, [](uv_handle_t *a) {
-            delete (uv_async_t *) a;
-        });
+    if (!agent->master) {
+		if (IsServer) {
+			uv_close((uv_handle_t *) reinterpret_cast<Server*>(agent)->upgradeAsync, [](uv_handle_t *a) {
+				delete (uv_async_t *) a;
+			});
+		}
 
-        uv_close((uv_handle_t *) server->closeAsync, [](uv_handle_t *a) {
+        uv_close((uv_handle_t *) agent->closeAsync, [](uv_handle_t *a) {
             delete (uv_async_t *) a;
         });
     }
 
-    if (server->server) {
+    if (IsServer && ((Server *) agent)->server) {
+		Server *agentS = reinterpret_cast<Server*>(agent);
         FD listenFd;
-        uv_fileno((uv_handle_t *) server->server, (uv_os_fd_t *) &listenFd);
+        uv_fileno((uv_handle_t *) agentS->server, (uv_os_fd_t *) &listenFd);
         ::close(listenFd);
-        uv_poll_stop((uv_poll_t *) server->server);
-        uv_close((uv_handle_t *) server->server, [](uv_handle_t *handle) {
+        uv_poll_stop((uv_poll_t *) agentS->server);
+        uv_close((uv_handle_t *) agentS->server, [](uv_handle_t *handle) {
             delete (uv_poll_t *) handle;
         });
     }
 
-    for (void *p = server->clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
-        Socket(p).close(server->forceClose);
+    for (void *p = agent->clients; p; p = ((SocketData<IsServer> *) ((uv_poll_t *) p)->data)->next) {
+        Socket<IsServer>(p).close(agent->forceClose);
     }
 }
 
@@ -631,26 +640,37 @@ struct Parser {
         }
     }
 
-    template <typename T>
-    static inline void consumeIncompleteMessage(int length, const int headerLength, T fullPayloadLength, SocketData *socketData, char *src, void *socket)
+    template <bool IsServer, typename T>
+    static inline void consumeIncompleteMessage(int length, const int headerLength, T fullPayloadLength, SocketData<IsServer> *socketData, char *src, void *socket)
     {
         socketData->spillLength = 0;
         socketData->state = READ_MESSAGE;
         socketData->remainingBytes = fullPayloadLength - length + headerLength;
 
-        memcpy(socketData->mask, src + headerLength - 4, 4);
-        unmask_imprecise(src, src + headerLength, socketData->mask, length);
-        rotate_mask(4 - (length - headerLength) % 4, socketData->mask);
-
-        socketData->server->fragmentCallback(socket, src, length - headerLength,
-                                             socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
+		if (IsServer) {
+			memcpy(socketData->mask, src + headerLength - 4, 4);
+			unmask_imprecise(src, src + headerLength, socketData->mask, length);
+			rotate_mask(4 - (length - headerLength) % 4, socketData->mask);
+			socketData->agent->fragmentCallback(socket, src, length - headerLength,
+												 socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
+		}
+		else
+		{
+			socketData->agent->fragmentCallback(socket, src + headerLength, length - headerLength,
+												 socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
+		}
     }
 
-    template <typename T>
-    static inline int consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, void *socket)
+    template <bool IsServer, typename T>
+    static inline int consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData<IsServer> *socketData, char **src, frameFormat &frame, void *socket)
     {
-        unmask_imprecise_copy_mask(*src, *src + headerLength, *src + headerLength - 4, fullPayloadLength);
-        socketData->server->fragmentCallback(socket, *src, fullPayloadLength, socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
+		if (IsServer) {
+			unmask_imprecise_copy_mask(*src, *src + headerLength, *src + headerLength - 4, fullPayloadLength);
+			socketData->agent->fragmentCallback(socket, *src, fullPayloadLength, socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
+		}
+		else
+			socketData->agent->fragmentCallback(socket, *src + headerLength, fullPayloadLength, socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
+
 
         if (uv_is_closing((uv_handle_t *) socket) || socketData->state == CLOSING) {
             return 1;
@@ -666,13 +686,16 @@ struct Parser {
         return 0;
     }
 
-    static inline void consumeEntireBuffer(char *src, int length, SocketData *socketData, void *p)
+	template <bool IsServer>
+    static inline void consumeEntireBuffer(char *src, int length, SocketData<IsServer> *socketData, void *p)
     {
-        int n = (length >> 2) + bool(length % 4); // this should always overwrite!
+		if (IsServer) {
+			int n = (length >> 2) + bool(length % 4); // this should always overwrite!
+			unmask_inplace(src, src + n * 4, socketData->mask);
+		}
 
-        unmask_inplace(src, src + n * 4, socketData->mask);
         socketData->remainingBytes -= length;
-        socketData->server->fragmentCallback(p, (const char *) src, length,
+        socketData->agent->fragmentCallback(p, (const char *) src, length,
                                              socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
 
         if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
@@ -686,20 +709,23 @@ struct Parser {
             if (socketData->fin) {
                 socketData->opStack--;
             }
-        } else if (length % 4) {
+        } else if (IsServer && length % 4) {
             rotate_mask(4 - (length % 4), socketData->mask);
         }
     }
 
-    static inline int consumeCompleteTail(char **src, int &length, SocketData *socketData, void *p)
+	template <bool IsServer>
+    static inline int consumeCompleteTail(char **src, int &length, SocketData<IsServer> *socketData, void *p)
     {
-        int n = (socketData->remainingBytes >> 2);
-        unmask_inplace(*src, *src + n * 4, socketData->mask);
-        for (int i = 0, s = socketData->remainingBytes % 4; i < s; i++) {
-            (*src)[n * 4 + i] ^= socketData->mask[i];
-        }
+		if (IsServer) {
+			int n = (socketData->remainingBytes >> 2);
+			unmask_inplace(*src, *src + n * 4, socketData->mask);
+			for (int i = 0, s = socketData->remainingBytes % 4; i < s; i++) {
+				(*src)[n * 4 + i] ^= socketData->mask[i];
+			}
+		}
 
-        socketData->server->fragmentCallback(p, (const char *) *src, socketData->remainingBytes,
+        socketData->agent->fragmentCallback(p, (const char *) *src, socketData->remainingBytes,
                                              socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
 
         if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
@@ -717,6 +743,22 @@ struct Parser {
         return 0;
     }
 };
+template void Parser::consumeIncompleteMessage<true, unsigned char>(int length, const int headerLength, unsigned char fullPayloadLength, SocketData<true> *socketData, char *src, void *socket);
+template void Parser::consumeIncompleteMessage<false, unsigned char>(int length, const int headerLength, unsigned char fullPayloadLength, SocketData<false> *socketData, char *src, void *socket);
+template void Parser::consumeIncompleteMessage<true, uint16_t>(int length, const int headerLength, uint16_t fullPayloadLength, SocketData<true> *socketData, char *src, void *socket);
+template void Parser::consumeIncompleteMessage<false, uint16_t>(int length, const int headerLength, uint16_t fullPayloadLength, SocketData<false> *socketData, char *src, void *socket);
+template void Parser::consumeIncompleteMessage<true, uint64_t>(int length, const int headerLength, uint64_t fullPayloadLength, SocketData<true> *socketData, char *src, void *socket);
+template void Parser::consumeIncompleteMessage<false, uint64_t>(int length, const int headerLength, uint64_t fullPayloadLength, SocketData<false> *socketData, char *src, void *socket);
+template int Parser::consumeCompleteMessage<true, unsigned char>(int &length, const int headerLength, unsigned char fullPayloadLength, SocketData<true> *socketData, char **src, frameFormat &frame, void *socket);
+template int Parser::consumeCompleteMessage<false, unsigned char>(int &length, const int headerLength, unsigned char fullPayloadLength, SocketData<false> *socketData, char **src, frameFormat &frame, void *socket);
+template int Parser::consumeCompleteMessage<true, uint16_t>(int &length, const int headerLength, uint16_t fullPayloadLength, SocketData<true> *socketData, char **src, frameFormat &frame, void *socket);
+template int Parser::consumeCompleteMessage<false, uint16_t>(int &length, const int headerLength, uint16_t fullPayloadLength, SocketData<false> *socketData, char **src, frameFormat &frame, void *socket);
+template int Parser::consumeCompleteMessage<true, uint64_t>(int &length, const int headerLength, uint64_t fullPayloadLength, SocketData<true> *socketData, char **src, frameFormat &frame, void *socket);
+template int Parser::consumeCompleteMessage<false, uint64_t>(int &length, const int headerLength, uint64_t fullPayloadLength, SocketData<false> *socketData, char **src, frameFormat &frame, void *socket);
+template void Parser::consumeEntireBuffer<true>(char *src, int length, SocketData<true> *socketData, void *p);
+template void Parser::consumeEntireBuffer<false>(char *src, int length, SocketData<false> *socketData, void *p);
+template int Parser::consumeCompleteTail<true>(char **src, int &length, SocketData<true> *socketData, void *p);
+template int Parser::consumeCompleteTail<false>(char **src, int &length, SocketData<false> *socketData, void *p);
 
 // move this into Parser.cpp
 struct Request {
@@ -874,15 +916,22 @@ void Server::onAcceptable(void *vp, int status, int events)
 }
 
 // default HTTP handler
-void Server::internalHTTP(Request &request)
+template <bool IsServer>
+void Agent<IsServer>::internalHTTP(Request &request)
 {
     cout << "Got some HTTP action!" << endl;
 }
 
 #define STRICT
 
+// Header length for client first, then server
+const int SHORT_MESSAGE_HEADER[2] = { 2, 6 };
+const int MEDIUM_MESSAGE_HEADER[2] = { 4, 8 };
+const int LONG_MESSAGE_HEADER[2] = { 10, 14 };
+
 // 0.17% CPU time
-void Server::onReadable(void *vp, int status, int events)
+template <bool IsServer>
+void Agent<IsServer>::onReadable(void *vp, int status, int events)
 {
 #ifdef VALIDATION
     if (validPolls.find(vp) == validPolls.end()) {
@@ -894,15 +943,15 @@ void Server::onReadable(void *vp, int status, int events)
 #endif
 
     uv_poll_t *p = (uv_poll_t *) vp;
-    SocketData *socketData = (SocketData *) p->data;
+    SocketData<IsServer> *socketData = (SocketData<IsServer> *) p->data;
 
     // this one is not needed, read will do this!
     if (status < 0) {
-        Socket(p).close(true, 1006);
+        Socket<IsServer>(p).close(true, 1006);
         return;
     }
 
-    char *src = socketData->server->receiveBuffer;
+    char *src = socketData->agent->receiveBuffer;
     memcpy(src, socketData->spill, socketData->spillLength);
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
@@ -921,9 +970,9 @@ void Server::onReadable(void *vp, int status, int events)
             if (!get<0>(closeFrame)) {
                 get<0>(closeFrame) = 1006;
             }
-            Socket(p).close(true, get<0>(closeFrame), get<1>(closeFrame), get<2>(closeFrame));
+            Socket<IsServer>(p).close(true, get<0>(closeFrame), get<1>(closeFrame), get<2>(closeFrame));
         } else {
-            Socket(p).close(true, 1006);
+            Socket<IsServer>(p).close(true, 1006);
         }
         return;
     }
@@ -957,13 +1006,13 @@ void Server::onReadable(void *vp, int status, int events)
 #ifdef STRICT
             // invalid reserved bits
             if ((rsv1(frame) && !socketData->pmd) || rsv2(frame) || rsv3(frame)) {
-                Socket(p).close(true, 1006);
+                Socket<IsServer>(p).close(true, 1006);
                 return;
             }
 
             // invalid opcodes
             if ((opCode(frame) > 2 && opCode(frame) < 8) || opCode(frame) > 10) {
-                Socket(p).close(true, 1006);
+                Socket<IsServer>(p).close(true, 1006);
                 return;
             }
 #endif
@@ -979,20 +1028,20 @@ void Server::onReadable(void *vp, int status, int events)
 #ifdef STRICT
                 // Case 5.18
                 if (socketData->opStack == 0 && !lastFin && fin(frame)) {
-                    Socket(p).close(true, 1006);
+                    Socket<IsServer>(p).close(true, 1006);
                     return;
                 }
 
                 // control frames cannot be fragmented or long
                 if (opCode(frame) > 2 && (!fin(frame) || payloadLength(frame) > 125)) {
-                    Socket(p).close(true, 1006);
+                    Socket<IsServer>(p).close(true, 1006);
                     return;
                 }
 
             } else {
                 // continuation frame must have a opcode prior!
                 if (socketData->opStack == -1) {
-                    Socket(p).close(true, 1006);
+                    Socket<IsServer>(p).close(true, 1006);
                     return;
                 }
 #endif
@@ -1000,51 +1049,48 @@ void Server::onReadable(void *vp, int status, int events)
 
             if (payloadLength(frame) > 125) {
                 if (payloadLength(frame) == 126) {
-                    const int MEDIUM_MESSAGE_HEADER = 8;
                     // we need to have enough length to read the long length
                     if (length < 2 + (int) sizeof(uint16_t)) {
                         break;
                     }
-                    if (ntohs(*(uint16_t *) &src[2]) <= length - MEDIUM_MESSAGE_HEADER) {
-                        if (Parser::consumeCompleteMessage(length, MEDIUM_MESSAGE_HEADER, ntohs(*(uint16_t *) &src[2]), socketData, &src, frame, p)) {
+                    if (ntohs(*(uint16_t *) &src[2]) <= length - MEDIUM_MESSAGE_HEADER[IsServer]) {
+                        if (Parser::consumeCompleteMessage<IsServer>(length, MEDIUM_MESSAGE_HEADER[IsServer], ntohs(*(uint16_t *) &src[2]), socketData, &src, frame, p)) {
                             return;
                         }
                     } else {
-                        if (length < MEDIUM_MESSAGE_HEADER + 1) {
+                        if (length < MEDIUM_MESSAGE_HEADER[IsServer] + 1) {
                             break;
                         }
-                        Parser::consumeIncompleteMessage(length, MEDIUM_MESSAGE_HEADER, ntohs(*(uint16_t *) &src[2]), socketData, src, p);
+                        Parser::consumeIncompleteMessage<IsServer>(length, MEDIUM_MESSAGE_HEADER[IsServer], ntohs(*(uint16_t *) &src[2]), socketData, src, p);
                         return;
                     }
                 } else {
-                    const int LONG_MESSAGE_HEADER = 14;
                     // we need to have enough length to read the long length
                     if (length < 2 + (int) sizeof(uint64_t)) {
                         break;
                     }
-                    if (be64toh(*(uint64_t *) &src[2]) <= (uint64_t) length - LONG_MESSAGE_HEADER) {
-                        if (Parser::consumeCompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, &src, frame, p)) {
+                    if (be64toh(*(uint64_t *) &src[2]) <= (uint64_t) length - LONG_MESSAGE_HEADER[IsServer]) {
+                        if (Parser::consumeCompleteMessage<IsServer>(length, LONG_MESSAGE_HEADER[IsServer], be64toh(*(uint64_t *) &src[2]), socketData, &src, frame, p)) {
                             return;
                         }
                     } else {
-                        if (length < LONG_MESSAGE_HEADER + 1) {
+                        if (length < LONG_MESSAGE_HEADER[IsServer] + 1) {
                             break;
                         }
-                        Parser::consumeIncompleteMessage(length, LONG_MESSAGE_HEADER, be64toh(*(uint64_t *) &src[2]), socketData, src, p);
+                        Parser::consumeIncompleteMessage<IsServer>(length, LONG_MESSAGE_HEADER[IsServer], be64toh(*(uint64_t *) &src[2]), socketData, src, p);
                         return;
                     }
                 }
             } else {
-                const int SHORT_MESSAGE_HEADER = 6;
-                if (payloadLength(frame) <= length - SHORT_MESSAGE_HEADER) {
-                    if (Parser::consumeCompleteMessage(length, SHORT_MESSAGE_HEADER, payloadLength(frame), socketData, &src, frame, p)) {
+                if (payloadLength(frame) <= length - SHORT_MESSAGE_HEADER[IsServer]) {
+                    if (Parser::consumeCompleteMessage<IsServer>(length, SHORT_MESSAGE_HEADER[IsServer], payloadLength(frame), socketData, &src, frame, p)) {
                         return;
                     }
                 } else {
-                    if (length < SHORT_MESSAGE_HEADER + 1) {
+                    if (length < SHORT_MESSAGE_HEADER[IsServer] + 1) {
                         break;
                     }
-                    Parser::consumeIncompleteMessage(length, SHORT_MESSAGE_HEADER, payloadLength(frame), socketData, src, p);
+                    Parser::consumeIncompleteMessage<IsServer>(length, SHORT_MESSAGE_HEADER[IsServer], payloadLength(frame), socketData, src, p);
                     return;
                 }
             }
@@ -1056,12 +1102,12 @@ void Server::onReadable(void *vp, int status, int events)
         }
     } else {
         if (socketData->remainingBytes < (unsigned int) length) {
-            if (Parser::consumeCompleteTail(&src, length, socketData, p)) {
+            if (Parser::consumeCompleteTail<IsServer>(&src, length, socketData, p)) {
                 return;
             }
             goto parseNext;
         } else {
-            Parser::consumeEntireBuffer(src, length, socketData, p);
+            Parser::consumeEntireBuffer<IsServer>(src, length, socketData, p);
         }
     }
 
@@ -1071,7 +1117,8 @@ void Server::onReadable(void *vp, int status, int events)
 #endif
 }
 
-void Server::onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t, bool))
+template <bool IsServer>
+void Agent<IsServer>::onFragment(void (*fragmentCallback)(Socket<IsServer>, const char *, size_t, OpCode, bool, size_t, bool))
 {
     this->fragmentCallback = fragmentCallback;
 }
@@ -1081,30 +1128,34 @@ void Server::onUpgrade(function<void(FD, const char *, void *, const char *, siz
     this->upgradeCallback = upgradeCallback;
 }
 
-void Server::onConnection(function<void(Socket)> connectionCallback)
+template <bool IsServer>
+void Agent<IsServer>::onConnection(function<void(Socket<IsServer>)> connectionCallback)
 {
     this->connectionCallback = connectionCallback;
 }
 
-void Server::onDisconnection(function<void(Socket, int code, char *message, size_t length)> disconnectionCallback)
+template <bool IsServer>
+void Agent<IsServer>::onDisconnection(function<void(Socket<IsServer>, int code, char *message, size_t length)> disconnectionCallback)
 {
     this->disconnectionCallback = disconnectionCallback;
 }
 
-void Server::onMessage(function<void(Socket, const char *, size_t, OpCode)> messageCallback)
+template <bool IsServer>
+void Agent<IsServer>::onMessage(function<void(Socket<IsServer>, const char *, size_t, OpCode)> messageCallback)
 {
     this->messageCallback = messageCallback;
 }
 
 // async Unix send (has a Message struct in the start if transferOwnership)
-void Socket::write(char *data, size_t length, bool transferOwnership, void(*callback)(void *s))
+template <bool IsServer>
+void Socket<IsServer>::write(char *data, size_t length, bool transferOwnership, void(*callback)(void *s))
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 
     ssize_t sent = 0;
-    SocketData *socketData = (SocketData *) p->data;
+    SocketData<IsServer> *socketData = (SocketData<IsServer> *) p->data;
     if (!socketData->messageQueue.empty()) {
         goto queueIt;
     }
@@ -1171,7 +1222,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
             }
 
             messagePtr->callback = callback;
-            ((SocketData *) p->data)->messageQueue.push(messagePtr);
+            ((SocketData<IsServer> *) p->data)->messageQueue.push(messagePtr);
 
             // only start this if we just broke the 0 queue size!
             uv_poll_start(p, UV_WRITABLE | UV_READABLE, [](uv_poll_t *handle, int status, int events) {
@@ -1193,13 +1244,13 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
                 // handle reads if available
                 if (events & UV_READABLE) {
-                    Server::onReadable(handle, status, events);
+                    Agent<true>::onReadable(handle, status, events);
                     if (!(events & UV_WRITABLE)) {
                         return;
                     }
                 }
 
-                SocketData *socketData = (SocketData *) handle->data;
+                SocketData<IsServer> *socketData = (SocketData<IsServer> *) handle->data;
 
                 if (socketData->state == CLOSING) {
                     cout << "CLOSING state, Socket::write" << endl;
@@ -1245,7 +1296,7 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                             }
 
                             // error sending!
-                            uv_poll_start(handle, UV_READABLE, (uv_poll_cb) Server::onReadable);
+                            uv_poll_start(handle, UV_READABLE, (uv_poll_cb) Agent<true>::onReadable);
                             return;
                         } else {
                             // update the Message
@@ -1257,13 +1308,14 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                 } while (!socketData->messageQueue.empty());
 
                 // only receive when we have fully sent everything
-                uv_poll_start(handle, UV_READABLE, (uv_poll_cb) Server::onReadable);
+                uv_poll_start(handle, UV_READABLE, (uv_poll_cb) Agent<true>::onReadable);
             });
         }
     }
 }
 
-Socket::Address Socket::getAddress()
+template <bool IsServer>
+Address Socket<IsServer>::getAddress()
 {
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
@@ -1286,21 +1338,20 @@ Socket::Address Socket::getAddress()
     }
 }
 
+template <bool IsServer>
 inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength)
 {
     size_t messageLength;
+	size_t headerLength;
     if (reportedLength < 126) {
-        messageLength = length + 2;
-        memcpy(dst + 2, src, length);
+		headerLength = 2;
         dst[1] = reportedLength;
     } else if (reportedLength <= UINT16_MAX) {
-        messageLength = length + 4;
-        memcpy(dst + 4, src, length);
+		headerLength = 4;
         dst[1] = 126;
         *((uint16_t *) &dst[2]) = htons(reportedLength);
     } else {
-        messageLength = length + 10;
-        memcpy(dst + 10, src, length);
+		headerLength = 10;
         dst[1] = 127;
         *((uint64_t *) &dst[2]) = htobe64(reportedLength);
     }
@@ -1310,10 +1361,30 @@ inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, 
     if (!(flags & SND_CONTINUATION)) {
         dst[0] |= opCode;
     }
+
+	char mask[4];
+	if (!IsServer) {
+		dst[1] |= 0x80;
+		for (int i = 0; i < 4; ++i) {
+			mask[i] = rand();
+			dst[headerLength + i] = mask[i];
+		}
+		headerLength += 4;
+	}
+
+	messageLength = headerLength + length;
+	memcpy(dst + headerLength, src, length);
+
+	if (!IsServer) {
+        Parser::unmask_inplace(dst + headerLength, dst + headerLength + length, mask);
+	}
     return messageLength;
 }
+template size_t formatMessage<true>(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength);
+template size_t formatMessage<false>(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength);
 
-void Socket::close(bool force, unsigned short code, char *data, size_t length)
+template <bool IsServer>
+void Socket<IsServer>::close(bool force, unsigned short code, char *data, size_t length)
 {
 #ifdef VALIDATION
     if (force) {
@@ -1334,20 +1405,20 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
     uv_poll_t *p = (uv_poll_t *) socket;
     FD fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
-    SocketData *socketData = (SocketData *) p->data;
+    SocketData<IsServer> *socketData = (SocketData<IsServer> *) p->data;
 
     if (socketData->state != CLOSING) {
         socketData->state = CLOSING;
         if (socketData->prev == socketData->next) {
-            socketData->server->clients = nullptr;
+            socketData->agent->clients = nullptr;
         } else {
             if (socketData->prev) {
-                ((SocketData *) ((uv_poll_t *) socketData->prev)->data)->next = socketData->next;
+                ((SocketData<IsServer> *) ((uv_poll_t *) socketData->prev)->data)->next = socketData->next;
             } else {
-                socketData->server->clients = socketData->next;
+                socketData->agent->clients = socketData->next;
             }
             if (socketData->next) {
-                ((SocketData *) ((uv_poll_t *) socketData->next)->data)->prev = socketData->prev;
+                ((SocketData<IsServer> *) ((uv_poll_t *) socketData->next)->data)->prev = socketData->prev;
             }
         }
 
@@ -1355,7 +1426,7 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
         socketData->prev = nullptr;
 
         // call disconnection callback on first close (graceful or force)
-        socketData->server->disconnectionCallback(socket, code, data, length);
+        socketData->agent->disconnectionCallback(socket, code, data, length);
     } else if (!force) {
         cout << "WARNING: Already gracefully closed: " << socket << endl;
         return;
@@ -1389,23 +1460,23 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
     } else {
         // force close after 15 seconds
         socketData->prev = new uv_timer_t;
-        uv_timer_init((uv_loop_t *) socketData->server->loop, (uv_timer_t *) socketData->prev);
+        uv_timer_init((uv_loop_t *) socketData->agent->loop, (uv_timer_t *) socketData->prev);
         ((uv_timer_t *) socketData->prev)->data = socket;
         uv_timer_start((uv_timer_t *) socketData->prev, [](uv_timer_t *timer) {
             Socket(timer->data).close(true, 1006);
         }, 15000, 0);
 
-        char *sendBuffer = socketData->server->sendBuffer;
+        char *sendBuffer = socketData->agent->sendBuffer;
         if (code) {
             length = min<size_t>(1024, length) + 2;
             *((uint16_t *) &sendBuffer[length + 2]) = htons(code);
             memcpy(&sendBuffer[length + 4], data, length - 2);
         }
-        write((char *) sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](void *s) {
+        write((char *) sendBuffer, formatMessage<IsServer>(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](void *s) {
             uv_poll_t *p = (uv_poll_t *) s;
             FD fd;
             uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
-            SocketData *socketData = (SocketData *) p->data;
+            SocketData<IsServer> *socketData = (SocketData<IsServer> *) p->data;
             if (socketData->ssl) {
                 SSL_shutdown(socketData->ssl);
             }
@@ -1414,7 +1485,8 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
     }
 }
 
-void Socket::send(char *data, size_t length, OpCode opCode, size_t fakedLength)
+template <bool IsServer>
+void Socket<IsServer>::send(char *data, size_t length, OpCode opCode, size_t fakedLength)
 {
     size_t reportedLength = length;
     if (fakedLength) {
@@ -1422,18 +1494,19 @@ void Socket::send(char *data, size_t length, OpCode opCode, size_t fakedLength)
     }
 
     if (length <= Server::SHORT_SEND - 10) {
-        SocketData *socketData = (SocketData *) ((uv_poll_t *) socket)->data;
-        char *sendBuffer = socketData->server->sendBuffer;
-        write(sendBuffer, formatMessage(sendBuffer, data, length, opCode, reportedLength), false);
+        SocketData<IsServer> *socketData = (SocketData<IsServer> *) ((uv_poll_t *) socket)->data;
+        char *sendBuffer = socketData->agent->sendBuffer;
+        write(sendBuffer, formatMessage<IsServer>(sendBuffer, data, length, opCode, reportedLength), false);
     } else {
         char *buffer = new char[sizeof(Message) + length + 10] + sizeof(Message);
-        write(buffer, formatMessage(buffer, data, length, opCode, reportedLength), true);
+        write(buffer, formatMessage<IsServer>(buffer, data, length, opCode, reportedLength), true);
     }
 }
 
-void Socket::sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes)
+template <bool IsServer>
+void Socket<IsServer>::sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes)
 {
-    SocketData *socketData = (SocketData *) ((uv_poll_t *) socket)->data;
+    SocketData<IsServer> *socketData = (SocketData<IsServer> *) ((uv_poll_t *) socket)->data;
     if (remainingBytes) {
         if (socketData->sendState == FRAGMENT_START) {
             send(data, length, opCode, length + remainingBytes);
@@ -1451,17 +1524,22 @@ void Socket::sendFragment(char *data, size_t length, OpCode opCode, size_t remai
     }
 }
 
-void *Socket::getData()
+template <bool IsServer>
+void *Socket<IsServer>::getData()
 {
-    return ((SocketData *) ((uv_poll_t *) socket)->data)->data;
+    return ((SocketData<IsServer> *) ((uv_poll_t *) socket)->data)->data;
 }
 
-void Socket::setData(void *data)
+template <bool IsServer>
+void Socket<IsServer>::setData(void *data)
 {
-    ((SocketData *) ((uv_poll_t *) socket)->data)->data = data;
+    ((SocketData<IsServer> *) ((uv_poll_t *) socket)->data)->data = data;
 }
+template class uWS::Socket<true>;
+template class uWS::Socket<false>;
 
-bool Server::isValidUtf8(unsigned char *str, size_t length)
+template <bool IsServer>
+bool Agent<IsServer>::isValidUtf8(unsigned char *str, size_t length)
 {
     /*
     Copyright (c) 2008-2009 Bjoern Hoehrmann <bjoern@hoehrmann.de>
@@ -1506,4 +1584,174 @@ bool Server::isValidUtf8(unsigned char *str, size_t length)
         state = utf8d_256[(state << 4) + utf8d[str[i]]];
     }
     return !state;
+}
+template class uWS::Agent<true>;
+template class uWS::Agent<false>;
+
+bool firstClient = true;
+Client::Client(bool master, int options, int maxPayload) : Agent<false>(master, options, maxPayload)
+{
+	if (firstClient) {
+		srand(time(nullptr));
+		firstClient = false;
+	}
+    onConnection([](ClientSocket socket) {});
+    onConnectionFailure([]() {});
+    onDisconnection([](ClientSocket socket, int code, char *message, size_t length) {});
+    onMessage([](ClientSocket socket, const char *data, size_t length, OpCode opCode) {});
+
+    // we need 4 bytes (or 3 at least) outside for unmasking
+    receiveBuffer = (char *) new uint32_t[BUFFER_SIZE / 4 + 6];
+
+    sendBuffer = new char[SHORT_SEND];
+    inflateBuffer = new char[BUFFER_SIZE];
+
+    // set default fragment handler
+    fragmentCallback = internalFragment;
+
+    loop = master ? uv_default_loop() : uv_loop_new();
+
+    if (!master) {
+        closeAsync = new uv_async_t;
+        ((uv_async_t *) closeAsync)->data = this;
+
+        uv_async_init((uv_loop_t *) loop, (uv_async_t *) closeAsync, [](uv_async_t *a) {
+            Client::closeHandler((Client *) a->data);
+        });
+    }
+}
+
+Client::~Client()
+{
+    delete [] (uint32_t *) receiveBuffer;
+    delete [] sendBuffer;
+    delete [] inflateBuffer;
+
+    if (!master) {
+        uv_loop_delete((uv_loop_t *) loop);
+    }
+}
+
+struct ConnectData {
+	string host;
+	int port;
+	Client *client;
+
+	ConnectData(Client *client, string host, int port) : client(client), host(host), port(port) {};
+};
+
+// move this into Parser.cpp
+struct ClientHTTPData {
+    // concat header here
+    string headerBuffer;
+    // store pointers to segments in the buffer
+    vector<pair<char *, size_t>> headers;
+    //reference to the receive buffer
+    Client *client;
+
+    ClientHTTPData(Client *client) : client(client) {}
+};
+
+// Tcp connect handler
+const string HTTP_NEWLINE = "\r\n";
+const string HTTP_END_MESSAGE = "\r\n\r\n";
+void Client::connect(const string &host, int port)
+{
+	struct sockaddr_in dest = { 0 };
+	dest.sin_family = AF_INET;
+	dest.sin_port = htons(port);
+	inet_aton(host.c_str(), &(dest.sin_addr));
+
+	FD fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (fd < 0)
+		connectionFailureCallback();
+
+	uv_poll_t *connectHandle = new uv_poll_t;
+	connectHandle->data = new ConnectData(this, host, port);
+	uv_poll_init_socket((uv_loop_t *) loop, connectHandle, fd);
+	uv_poll_start(connectHandle, UV_WRITABLE, [](uv_poll_t *p, int status, int events) {
+		FD fd;
+		uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
+		ConnectData *cd = (ConnectData *) p->data;
+		Client *client = cd->client;
+		uv_poll_stop(p);
+	
+		p->data = new ClientHTTPData(client);
+		uv_poll_start(p, UV_READABLE, [](uv_poll_t *p, int status, int events) {
+			if (status < 0) {
+				// error read
+			}
+
+			FD fd;
+			uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
+			ClientHTTPData *httpData = (ClientHTTPData *) p->data;
+			Client* client = httpData->client;
+			int length = recv(fd, httpData->client->receiveBuffer, BUFFER_SIZE, 0);
+			httpData->headerBuffer.append(httpData->client->receiveBuffer, length);
+
+			// did we read the complete header?
+			if (httpData->headerBuffer.find(HTTP_END_MESSAGE) != string::npos) {
+				// our part is done here
+				uv_poll_stop(p);
+				delete httpData;
+
+				// TODO: Validate response
+
+				// We've received the response, so upgrade to websocket
+				SocketData<false> *socketData = new SocketData<false>;
+				socketData->agent = client;
+
+				p->data = socketData;
+				uv_poll_start(p, UV_READABLE, (uv_poll_cb) onReadable);
+
+				// add this poll to the list
+				if (!client->clients) {
+					client->clients = p;
+				} else {
+					SocketData<false> *tailData = (SocketData<false> *) ((uv_poll_t *) client->clients)->data;
+					tailData->prev = p;
+					socketData->next = client->clients;
+					client->clients = p;
+				}
+
+				client->connectionCallback(p);
+			} else {
+				// todo: start timer to time out the connection!
+			}
+		});
+
+		// Generate random bytes as websocket key
+		static const char palette[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+		// We are generating the base64 string directly, so 16 bytes = 24 bytes in base 64
+		char key [24];
+		for (size_t i = 0; i < 21; ++i) {
+			key[i] = palette[rand() % 64];
+		}
+		// Last char can only have first 2 bits set
+		key[21] = palette[(rand() % 64) | 0x30];
+		// Need 2 padding chars so that numChars * 6 is divisble by 8
+		key[22] = key[23] = '=';
+
+		// Construct message
+		string msg = "GET / HTTP/1.1" + HTTP_NEWLINE +
+			"Upgrade: WebSocket" + HTTP_NEWLINE +
+			"Connection: Upgrade" + HTTP_NEWLINE +
+			"Host: " + cd->host + ":" + to_string(cd->port) + HTTP_NEWLINE +
+			"Sec-WebSocket-Key: " + string(key, 24) + HTTP_NEWLINE +
+			"Sec-WebSocket-Version: 13" + HTTP_END_MESSAGE;
+		//cout << "First message: " << msg << endl;
+
+		// Actually write the message
+		int nWrite = write(fd, msg.c_str(), msg.length());
+		if (nWrite < 0) 
+			client->connectionFailureCallback();
+	});
+
+	if (::connect(fd, (struct sockaddr *) &dest, sizeof(dest)) < 0 && errno != EINPROGRESS)
+		connectionFailureCallback();
+}
+
+void Client::onConnectionFailure(function<void()> connectionFailureCallback)
+{
+    this->connectionFailureCallback = connectionFailureCallback;
 }

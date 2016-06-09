@@ -30,15 +30,15 @@ int main()
                 threadedServer[i] = new Server(0, false);
 
                 // register our events
-                threadedServer[i]->onConnection([i](Socket socket) {
+                threadedServer[i]->onConnection([i](ServerSocket socket) {
                     cout << "Connection on thread " << i << endl;
                 });
 
-                threadedServer[i]->onDisconnection([i](Socket socket, int code, char *message, size_t length) {
+                threadedServer[i]->onDisconnection([i](ServerSocket socket, int code, char *message, size_t length) {
                     cout << "Disconnection on thread " << i << endl;
                 });
 
-                threadedServer[i]->onMessage([i](Socket socket, const char *message, size_t length, OpCode opCode) {
+                threadedServer[i]->onMessage([i](ServerSocket socket, const char *message, size_t length, OpCode opCode) {
                     cout << "Message on thread " << i << ": " << string(message, length) << endl;
                     socket.send((char *) message, length, opCode);
                 });
