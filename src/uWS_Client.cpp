@@ -266,7 +266,7 @@ inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
 bool firstClient = true;
 
-Client::Client(const string &host, int port, bool master, int options, int maxPayload) : host(host), port(port), master(master), options(options), maxPayload(maxPayload)
+Client::Client(bool master, int options, int maxPayload) : master(master), options(options), maxPayload(maxPayload)
 {
 	if (firstClient) {
 		srand(time(nullptr));
@@ -326,6 +326,18 @@ void Client::close(bool force)
     }
 }
 
+// unoptimized!
+void Client::broadcast(char *data, size_t length, OpCode opCode)
+{
+    // use same doubly linked list as the server uses to track its clients
+    // prepare the buffer, send multiple times
+
+    // todo: this should be optimized to send the same message for every client!
+    for (void *p = clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
+        Socket(p).send(data, length, opCode);
+    }
+}
+
 // move this into Parser.cpp
 struct HTTPData {
     // concat header here
@@ -338,26 +350,37 @@ struct HTTPData {
     HTTPData(Client *client) : client(client) {}
 };
 
+struct ConnectData {
+	string host;
+	int port;
+	Client *client;
+
+	ConnectData(Client *client, string host, int port) : client(client), host(host), port(port) {};
+};
+
 // Tcp connect handler
 const string HTTP_NEWLINE = "\r\n";
 const string HTTP_END_MESSAGE = "\r\n\r\n";
 const size_t NUM_BYTES_KEY = 16;
-void Client::connect()
+void Client::connect(const string &host, int port)
 {
 	struct sockaddr_in dest = { 0 };
 	dest.sin_family = AF_INET;
 	dest.sin_port = htons(port);
 	inet_aton(host.c_str(), &(dest.sin_addr));
 
-	fd = socket(AF_INET, SOCK_STREAM, 0);
+	FD fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd < 0)
 		connectionFailureCallback();
 
 	uv_poll_t *connectHandle = new uv_poll_t;
-	connectHandle->data = this;
+	connectHandle->data = new ConnectData(this, host, port);
 	uv_poll_init_socket((uv_loop_t *) loop, connectHandle, fd);
 	uv_poll_start(connectHandle, UV_WRITABLE, [](uv_poll_t *p, int status, int events) {
-		Client *client = (Client *) p->data;
+		FD fd;
+		uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
+		ConnectData *cd = (ConnectData *) p->data;
+		Client *client = cd->client;
 		uv_poll_stop(p);
 	
 		p->data = new HTTPData(client);
@@ -366,9 +389,10 @@ void Client::connect()
 				// error read
 			}
 
+			FD fd;
+			uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 			HTTPData *httpData = (HTTPData *) p->data;
 			Client* client = httpData->client;
-			int fd = client->fd;
 			int length = recv(fd, httpData->client->receiveBuffer, BUFFER_SIZE, 0);
 			httpData->headerBuffer.append(httpData->client->receiveBuffer, length);
 
@@ -419,13 +443,13 @@ void Client::connect()
 		string msg = "GET / HTTP/1.1" + HTTP_NEWLINE +
 			"Upgrade: WebSocket" + HTTP_NEWLINE +
 			"Connection: Upgrade" + HTTP_NEWLINE +
-			"Host: " + client->host + ":" + to_string(client->port) + HTTP_NEWLINE +
+			"Host: " + cd->host + ":" + to_string(cd->port) + HTTP_NEWLINE +
 			"Sec-WebSocket-Key: " + string(key, 24) + HTTP_NEWLINE +
 			"Sec-WebSocket-Version: 13" + HTTP_END_MESSAGE;
 		//cout << "First message: " << msg << endl;
 
 		// Actually write the message
-		int nWrite = write(client->fd, msg.c_str(), msg.length());
+		int nWrite = write(fd, msg.c_str(), msg.length());
 		if (nWrite < 0) 
 			client->connectionFailureCallback();
 	});

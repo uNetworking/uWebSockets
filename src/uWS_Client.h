@@ -97,16 +97,12 @@ private:
     void *client = nullptr;
     void *loop, *closeAsync;
     void *clients = nullptr;
-    int port;
     bool forceClose, master;
 
     static void closeHandler(Client *client);
-	const std::string host;
     int options;
-    std::string path;
 public:
-	FD fd;
-    Client(const std::string &host, int port, bool master = true, int options = 0, int maxPayload = 0);
+    Client(bool master = true, int options = 0, int maxPayload = 0);
     ~Client();
     Client(const Client &client) = delete;
     Client &operator=(const Client &client) = delete;
@@ -116,7 +112,8 @@ public:
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t, bool));
     void onMessage(std::function<void(Socket, const char *, size_t, OpCode)> messageCallback);
     void run();
-	void connect();
+	void broadcast(char *data, size_t length, OpCode opCode);
+	void connect(const std::string &host, int port);
     static bool isValidUtf8(unsigned char *str, size_t length);
 
     // thread safe (should have thread-unsafe counterparts)

@@ -26,7 +26,7 @@ int main()
 
         });
 
-		uWS_Client::Client client("127.0.0.1", port, true);
+		uWS_Client::Client client(true);
         client.onConnectionSuccess([](uWS_Client::Socket socket) {
 			cout << "Client connection success" << endl;
 			string message = "hello world";
@@ -44,7 +44,8 @@ int main()
         client.onDisconnection([](uWS_Client::Socket socket, int code, char *message, size_t length) {
 
         });
-		client.connect();
+		client.connect("127.0.0.1", port);
+		client.connect("127.0.0.1", port);
 
         server.run();
     } catch (std::runtime_error& e) {
