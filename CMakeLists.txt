@@ -16,16 +16,3 @@ target_link_libraries (uWS LINK_PUBLIC z)
 if (UNIX)
 target_link_libraries (uWS LINK_PUBLIC pthread)
 endif (UNIX)
-
-
-add_library(uWS_Client SHARED src/uWS_Client.cpp)
-target_include_directories(uWS_Client PUBLIC src)
-target_compile_features(uWS_Client PRIVATE cxx_nullptr)
-target_link_libraries (uWS_Client LINK_PUBLIC uv)
-target_link_libraries (uWS_Client LINK_PUBLIC ssl)
-target_link_libraries (uWS_Client LINK_PUBLIC crypto)
-target_link_libraries (uWS_Client LINK_PUBLIC z)
-
-if (UNIX)
-target_link_libraries (uWS_Client LINK_PUBLIC pthread)
-endif (UNIX)

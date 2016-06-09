@@ -1535,6 +1535,8 @@ void Socket<IsServer>::setData(void *data)
 {
     ((SocketData<IsServer> *) ((uv_poll_t *) socket)->data)->data = data;
 }
+template class Socket<true>;
+template class Socket<false>;
 
 template <bool IsServer>
 bool Agent<IsServer>::isValidUtf8(unsigned char *str, size_t length)
