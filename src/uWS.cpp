@@ -1535,8 +1535,8 @@ void Socket<IsServer>::setData(void *data)
 {
     ((SocketData<IsServer> *) ((uv_poll_t *) socket)->data)->data = data;
 }
-template class Socket<true>;
-template class Socket<false>;
+template class uWS::Socket<true>;
+template class uWS::Socket<false>;
 
 template <bool IsServer>
 bool Agent<IsServer>::isValidUtf8(unsigned char *str, size_t length)
@@ -1585,8 +1585,8 @@ bool Agent<IsServer>::isValidUtf8(unsigned char *str, size_t length)
     }
     return !state;
 }
-template class Agent<true>;
-template class Agent<false>;
+template class uWS::Agent<true>;
+template class uWS::Agent<false>;
 
 bool firstClient = true;
 Client::Client(bool master, int options, int maxPayload) : Agent<false>(master, options, maxPayload)
