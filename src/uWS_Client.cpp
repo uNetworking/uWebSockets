@@ -264,8 +264,8 @@ inline bool rsv3(frameFormat &frame) {return frame & 16;}
 inline bool rsv2(frameFormat &frame) {return frame & 32;}
 inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
-bool firstClient = true;
 
+bool firstClient = true;
 Client::Client(bool master, int options, int maxPayload) : master(master), options(options), maxPayload(maxPayload)
 {
 	if (firstClient) {

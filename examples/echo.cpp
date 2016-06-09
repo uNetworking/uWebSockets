@@ -11,15 +11,15 @@ int main()
 {
     try {
         Server server(3000);
-        server.onConnection([](Socket socket) {
+        server.onConnection([](ServerSocket socket) {
 
         });
 
-        server.onMessage([](Socket socket, const char *message, size_t length, OpCode opCode) {
+        server.onMessage([](ServerSocket socket, const char *message, size_t length, OpCode opCode) {
             socket.send((char *) message, length, opCode);
         });
 
-        server.onDisconnection([](Socket socket, int code, char *message, size_t length) {
+        server.onDisconnection([](ServerSocket socket, int code, char *message, size_t length) {
 
         });
 

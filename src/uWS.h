@@ -49,9 +49,10 @@ template <bool IsServer> class Agent;
 
 template <bool IsServer>
 class Socket {
+    friend struct Parser;
     template <bool IsServer2> friend class Agent;
 	friend class Server;
-    friend struct Parser;
+	friend class Client;
     friend struct std::hash<uWS::Socket<IsServer>>;
 protected:
     void *socket;
@@ -68,8 +69,6 @@ public:
     bool operator==(const Socket<IsServer> &other) const {return socket == other.socket;}
     bool operator<(const Socket<IsServer> &other) const {return socket < other.socket;}
 };
-template class Socket<true>;
-template class Socket<false>;
 typedef Socket<true> ServerSocket;
 typedef Socket<false> ClientSocket;
 
@@ -79,6 +78,7 @@ class Agent
     friend struct Parser;
     template <bool IsServer2> friend class Socket;
 	friend class Server;
+	friend class Client;
 protected:
     // internal callbacks
     static void onReadable(void *vp, int status, int events);
@@ -99,6 +99,7 @@ protected:
     static const int BUFFER_SIZE = 307200,
                      SHORT_SEND = 4096;
     int maxPayload = 0;
+    int options;
 
     void *loop, *closeAsync;
     void *clients = nullptr;
@@ -106,7 +107,7 @@ protected:
     static void closeHandler(Agent *agent);
 
 public:
-    Agent(bool master, int maxPayload = 0) : master(master), maxPayload(maxPayload) {};
+    Agent(bool master, int options = 0, int maxPayload = 0) : master(master), options(options), maxPayload(maxPayload) {};
     Agent(const Agent &server) = delete;
     Agent &operator=(const Agent &server) = delete;
     void onConnection(std::function<void(Socket<IsServer>)> connectionCallback);
@@ -116,15 +117,17 @@ public:
     void run();
     void broadcast(char *data, size_t length, OpCode opCode);
     static bool isValidUtf8(unsigned char *str, size_t length);
+
+    // thread safe (should have thread-unsafe counterparts)
+    void close(bool force = false);
 };
-template class Agent<true>;
-template class Agent<false>;
 
 class Server : public Agent<true>
 {
     friend struct Parser;
     friend class Socket<true>;
-	friend class Agent<true>;
+	// uWS:: required here because of bug in gcc: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52625
+	template <bool IsServer> friend class uWS::Agent;
 private:
     static void onAcceptable(void *vp, int status, int events);
 
@@ -140,7 +143,6 @@ private:
     std::queue<std::tuple<FD, std::string, void *, std::string>> upgradeQueue;
     std::mutex upgradeQueueMutex;
     static void upgradeHandler(Server *server);
-    int options;
     std::string path;
 
 public:
@@ -150,9 +152,24 @@ public:
     Server &operator=(const Server &server) = delete;
     void onUpgrade(std::function<void(FD, const char *, void *, const char *, size_t)> upgradeCallback);
     void upgrade(FD fd, const char *secKey, void *ssl = nullptr, const char *extensions = nullptr, size_t extensionsLength = 0);
+};
 
-    // thread safe (should have thread-unsafe counterparts)
-    void close(bool force = false);
+class Client : public Agent<false>
+{
+    friend struct Parser;
+    friend class Socket<false>;
+	// uWS:: required here because of bug in gcc: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52625
+	template <bool IsServer> friend class uWS::Agent;
+private:
+    std::function<void()> connectionFailureCallback;
+
+public:
+    Client(bool master = true, int options = 0, int maxPayload = 0);
+    ~Client();
+    Client(const Client &client) = delete;
+    Client &operator=(const Client &client) = delete;
+    void onConnectionFailure(std::function<void()> connectionCallback);
+	void connect(const std::string &host, int port);
 };
 
 }

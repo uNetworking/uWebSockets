@@ -5,7 +5,6 @@
 using namespace std;
 
 #include <uWS.h>
-#include <uWS_Client.h>
 using namespace uWS;
 
 int main()
@@ -13,35 +12,35 @@ int main()
 	int port = 3000;
     try {
         Server server(port, true);
-        server.onConnection([](Socket socket) {
+        server.onConnection([](ServerSocket socket) {
 			cout << "Server received connection" << endl;
         });
 
-        server.onMessage([](Socket socket, const char *message, size_t length, OpCode opCode) {
+        server.onMessage([](ServerSocket socket, const char *message, size_t length, OpCode opCode) {
 			cout << "Server received message: " << string(message, length) << endl;
             socket.send((char *) message, length, opCode);
         });
 
-        server.onDisconnection([](Socket socket, int code, char *message, size_t length) {
+        server.onDisconnection([](ServerSocket socket, int code, char *message, size_t length) {
 
         });
 
-		uWS_Client::Client client(true);
-        client.onConnectionSuccess([](uWS_Client::Socket socket) {
+		Client client(true);
+        client.onConnection([](ClientSocket socket) {
 			cout << "Client connection success" << endl;
 			string message = "hello world";
-			socket.send((char *) message.c_str(), message.length(), uWS_Client::OpCode::TEXT);
+			socket.send((char *) message.c_str(), message.length(), OpCode::TEXT);
         });
 
         client.onConnectionFailure([]() {
 			cout << "Client connection failure" << endl;
         });
 
-        client.onMessage([](uWS_Client::Socket socket, const char *message, size_t length, uWS_Client::OpCode opCode) {
+        client.onMessage([](ClientSocket socket, const char *message, size_t length, OpCode opCode) {
 			cout << "Client received message: " << string(message, length) << endl;
         });
 
-        client.onDisconnection([](uWS_Client::Socket socket, int code, char *message, size_t length) {
+        client.onDisconnection([](ClientSocket socket, int code, char *message, size_t length) {
 
         });
 		client.connect("127.0.0.1", port);
