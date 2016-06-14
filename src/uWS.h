@@ -82,6 +82,7 @@ private:
     // external callbacks
     std::function<void(FD, const char *, void *, const char *, size_t)> upgradeCallback;
     std::function<void(Socket)> connectionCallback;
+    std::queue< std::function<void(void)> > cb_queue; // queue used to store user callbacks
     std::function<void(Socket, int code, char *message, size_t length)> disconnectionCallback;
     std::function<void(Socket, const char *, size_t, OpCode)> messageCallback;
     void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t, bool);
@@ -90,7 +91,6 @@ private:
     char *receiveBuffer, *sendBuffer, *inflateBuffer, *upgradeResponse;
     static const int BUFFER_SIZE = 307200,
                      SHORT_SEND = 4096;
-    int maxPayload = 0;
 
     // accept poll
     void *server = nullptr;
@@ -106,6 +106,7 @@ private:
     static void upgradeHandler(Server *server);
     static void closeHandler(Server *server);
     int options;
+    int maxPayload = 0;
     std::string path;
 
 public:
@@ -119,7 +120,7 @@ public:
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t, bool));
     void onMessage(std::function<void(Socket, const char *, size_t, OpCode)> messageCallback);
     void run();
-    void broadcast(char *data, size_t length, OpCode opCode);
+    void broadcast(char *data, size_t length, OpCode opCode,std::function<void(void)> cb = nullptr);
     static bool isValidUtf8(unsigned char *str, size_t length);
 
     // thread safe (should have thread-unsafe counterparts)

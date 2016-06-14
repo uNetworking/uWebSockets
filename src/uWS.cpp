@@ -277,6 +277,9 @@ inline bool rsv2(frameFormat &frame) {return frame & 32;}
 inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
 
+
+
+
 Server::Server(int port, bool master, int options, int maxPayload, string path) : port(port), master(master), options(options), maxPayload(maxPayload), path(path)
 {
     // lowercase the path
@@ -366,13 +369,14 @@ void Server::close(bool force)
     }
 }
 
-// unoptimized!
-void Server::broadcast(char *data, size_t length, OpCode opCode)
+void Server::broadcast(char *data, size_t length, OpCode opCode, std::function<void(void)> cb)
 {
-    // use same doubly linked list as the server uses to track its clients
-    // prepare the buffer, send multiple times
+    /*
+     enqueue the input callback to be executed later.
+     This a work-around the poor design provided by uWebsocket.
+    */
+    if(cb != nullptr) this->cb_queue.push(cb);
 
-    // todo: this should be optimized to send the same message for every client!
     for (void *p = clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
         Socket(p).send(data, length, opCode);
     }
@@ -1125,6 +1129,11 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
             callback(socket);
         }
 
+        if(!socketData->server->cb_queue.empty()) {
+            auto cb = socketData->server->cb_queue.front();
+            if(cb != nullptr) cb();
+            socketData->server->cb_queue.pop();
+        }
     } else {
         // not everything was sent
         if (sent == -1) {
@@ -1211,7 +1220,6 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
                 do {
                     Message *messagePtr = socketData->messageQueue.front();
-
                     ssize_t sent;
                     if (socketData->ssl) {
                         sent = SSL_write(socketData->ssl, messagePtr->data, messagePtr->length);
@@ -1226,6 +1234,12 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                         }
 
                         socketData->messageQueue.pop();
+
+                        if(!socketData->server->cb_queue.empty()) {
+                            auto cb = socketData->server->cb_queue.front();
+                            if(cb != nullptr) cb();
+                            socketData->server->cb_queue.pop();
+                        }
                     } else {
                         if (sent == -1) {
                             // check to see if any error occurred

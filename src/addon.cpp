@@ -234,7 +234,18 @@ void broadcast(const FunctionCallbackInfo<Value> &args)
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     OpCode opCode = args[1]->BooleanValue() ? BINARY : TEXT;
     NativeString nativeString(args[0]);
-    server->broadcast(nativeString.getData(), nativeString.getLength(), opCode);
+
+    Isolate *isolate = args.GetIsolate();
+    Persistent<Function> *cb = (Persistent<Function> *) args.Holder()->GetAlignedPointerFromInternalField(2); //using the existing Persistent<function>
+    cb->Reset(isolate, Local<Function>::Cast(args[2])); // reseting to user callback
+
+    server->broadcast(nativeString.getData(),
+                      nativeString.getLength(),
+                      opCode,
+                      [isolate, cb](void) {
+                          HandleScope hs(isolate); // needed since node 4.x
+                          node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *cb), 0, nullptr);
+                      });
 }
 
 void Main(Local<Object> exports) {

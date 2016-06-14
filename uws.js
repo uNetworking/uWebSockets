@@ -336,8 +336,8 @@ class Server extends EventEmitter {
      * @param {Object} options Broadcast options
      * @public
      */
-    broadcast(message, options) {
-        this.nativeServer.broadcast(message, options && options.binary || false);
+    broadcast(message, options, cb) {
+        this.nativeServer.broadcast(message, options && options.binary || false, cb);
     }
 
      /**
