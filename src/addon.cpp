@@ -213,10 +213,26 @@ void send(const FunctionCallbackInfo<Value> &args)
 {
     OpCode opCode = (uWS::OpCode) args[2]->IntegerValue();
     NativeString nativeString(args[1]);
-    unwrapSocket(args[0]->ToNumber())
+
+    if (args.Length() == 3) {
+        unwrapSocket(args[0]->ToNumber())
                  .send(nativeString.getData(),
                  nativeString.getLength(),
-                 opCode);
+                 opCode, 0);
+    } else if (args.Length() == 4) {
+        Isolate *isolate = args.GetIsolate();
+        Persistent<Function> *cb = (Persistent<Function> *) args.Holder()->GetAlignedPointerFromInternalField(2); //using the existing Persistent<function>
+        cb->Reset(isolate, Local<Function>::Cast(args[3])); // reseting to user callback
+        unwrapSocket(args[0]->ToNumber())
+                     .send(nativeString.getData(),
+                     nativeString.getLength(),
+                     opCode,
+                     0,
+                     [isolate, cb](void) {
+                          HandleScope hs(isolate); // needed since node 4.x
+                          node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *cb), 0, nullptr);
+                     });
+    }
 }
 
 void getAddress(const FunctionCallbackInfo<Value> &args)
@@ -234,7 +250,9 @@ void broadcast(const FunctionCallbackInfo<Value> &args)
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     OpCode opCode = args[1]->BooleanValue() ? BINARY : TEXT;
     NativeString nativeString(args[0]);
-    server->broadcast(nativeString.getData(), nativeString.getLength(), opCode);
+    server->broadcast(nativeString.getData(),
+                      nativeString.getLength(),
+                      opCode);
 }
 
 void Main(Local<Object> exports) {

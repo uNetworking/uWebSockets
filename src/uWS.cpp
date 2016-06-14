@@ -251,6 +251,7 @@ struct SocketData {
     SSL *ssl = nullptr;
     PerMessageDeflate *pmd = nullptr;
     string buffer, controlBuffer; // turns out these are very lightweight (in GCC)
+    std::queue< std::function<void(void)> > cb_queue; // queue used to store user callbacks
 };
 
 void base64(unsigned char *src, char *dst)
@@ -276,6 +277,9 @@ inline bool rsv3(frameFormat &frame) {return frame & 16;}
 inline bool rsv2(frameFormat &frame) {return frame & 32;}
 inline bool rsv1(frameFormat &frame) {return frame & 64;}
 inline bool mask(frameFormat &frame) {return frame & 32768;}
+
+
+
 
 Server::Server(int port, bool master, int options, int maxPayload, string path) : port(port), master(master), options(options), maxPayload(maxPayload), path(path)
 {
@@ -366,15 +370,10 @@ void Server::close(bool force)
     }
 }
 
-// unoptimized!
 void Server::broadcast(char *data, size_t length, OpCode opCode)
 {
-    // use same doubly linked list as the server uses to track its clients
-    // prepare the buffer, send multiple times
-
-    // todo: this should be optimized to send the same message for every client!
     for (void *p = clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
-        Socket(p).send(data, length, opCode);
+        Socket(p).send(data, length, opCode, 0);
     }
 }
 
@@ -471,7 +470,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
                     opCode = PING;
                 }
 
-                socket.send((char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length(), opCode);
+                socket.send((char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length(), opCode, 0);
             }
             socketData->controlBuffer.clear();
         }
@@ -1125,6 +1124,11 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
             callback(socket);
         }
 
+        if(!socketData->cb_queue.empty()) {
+            auto cb = socketData->cb_queue.front();
+            if(cb != nullptr) cb();
+            socketData->cb_queue.pop();
+        }
     } else {
         // not everything was sent
         if (sent == -1) {
@@ -1211,7 +1215,6 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
                 do {
                     Message *messagePtr = socketData->messageQueue.front();
-
                     ssize_t sent;
                     if (socketData->ssl) {
                         sent = SSL_write(socketData->ssl, messagePtr->data, messagePtr->length);
@@ -1226,6 +1229,12 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
                         }
 
                         socketData->messageQueue.pop();
+
+                        if(!socketData->cb_queue.empty()) {
+                            auto cb = socketData->cb_queue.front();
+                            if(cb != nullptr) cb();
+                            socketData->cb_queue.pop();
+                        }
                     } else {
                         if (sent == -1) {
                             // check to see if any error occurred
@@ -1414,8 +1423,15 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
     }
 }
 
-void Socket::send(char *data, size_t length, OpCode opCode, size_t fakedLength)
+void Socket::send(char *data, size_t length, OpCode opCode, size_t fakedLength, std::function<void(void)> cb)
 {
+    /*
+     enqueue the input callback to be executed later.
+     This a work-around the poor design provided by uWebsocket.
+    */
+    SocketData *socketData = (SocketData *) ((uv_poll_t *) socket)->data;
+    if(cb != nullptr) socketData->cb_queue.push(cb);
+
     size_t reportedLength = length;
     if (fakedLength) {
         reportedLength = fakedLength;
@@ -1443,7 +1459,7 @@ void Socket::sendFragment(char *data, size_t length, OpCode opCode, size_t remai
         }
     } else {
         if (socketData->sendState == FRAGMENT_START) {
-            send(data, length, opCode);
+            send(data, length, opCode, 0);
         } else {
             write(data, length, false);
             socketData->sendState = FRAGMENT_START;

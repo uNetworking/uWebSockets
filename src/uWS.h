@@ -57,7 +57,7 @@ public:
 
     Address getAddress();
     void close(bool force = false, unsigned short code = 0, char *data = nullptr, size_t length = 0);
-    void send(char *data, size_t length, OpCode opCode, size_t fakedLength = 0);
+    void send(char *data, size_t length, OpCode opCode, size_t fakedLength, std::function<void(void)> cb = nullptr);
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
     void *getData();
     void setData(void *data);
@@ -90,7 +90,6 @@ private:
     char *receiveBuffer, *sendBuffer, *inflateBuffer, *upgradeResponse;
     static const int BUFFER_SIZE = 307200,
                      SHORT_SEND = 4096;
-    int maxPayload = 0;
 
     // accept poll
     void *server = nullptr;
@@ -106,6 +105,7 @@ private:
     static void upgradeHandler(Server *server);
     static void closeHandler(Server *server);
     int options;
+    int maxPayload = 0;
     std::string path;
 
 public:
