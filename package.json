@@ -1,6 +1,6 @@
 {
   "name": "uws-repack",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "scripts": {
     "install": "node-gyp rebuild > build_log.txt 2>&1 || exit 0"
   },
