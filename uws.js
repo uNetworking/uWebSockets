@@ -129,19 +129,18 @@ class Socket {
      * @param {Function} cb optional callback
      * @public
      */
-    send(message, options, cb) {
-        /* ignore sends on closed sockets */
-        if (typeof options === 'function') {
-            cb = options;
-            options = null;
-        }
-        if (!this.nativeSocket) {
-            return cb && cb(new Error('not opened'));
-        }
+    send(/*message , [options,] cb*/) {
+        var args = [].slice.apply(arguments),
+            message = args.shift(),
+            cb = args.pop() || Function.prototype,
+            options = args.pop() || null;
+
+        if (!this.nativeSocket)
+            return cb(new Error('not opened'));
+
 
         const binary = options && options.binary || typeof message !== 'string';
-        this.nativeServer.send(this.nativeSocket, message, binary ? exports.OPCODE_BINARY : exports.OPCODE_TEXT);
-        return cb && cb(null);
+        this.nativeServer.send(this.nativeSocket, message, binary ? exports.OPCODE_BINARY : exports.OPCODE_TEXT, cb);
     }
 
     /**
@@ -336,8 +335,8 @@ class Server extends EventEmitter {
      * @param {Object} options Broadcast options
      * @public
      */
-    broadcast(message, options, cb) {
-        this.nativeServer.broadcast(message, options && options.binary || false, cb);
+    broadcast(message, options) {
+        this.nativeServer.broadcast(message, options && options.binary || false);
     }
 
      /**

@@ -57,7 +57,7 @@ public:
 
     Address getAddress();
     void close(bool force = false, unsigned short code = 0, char *data = nullptr, size_t length = 0);
-    void send(char *data, size_t length, OpCode opCode, size_t fakedLength = 0);
+    void send(char *data, size_t length, OpCode opCode, size_t fakedLength, std::function<void(void)> cb = nullptr);
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
     void *getData();
     void setData(void *data);
@@ -82,7 +82,6 @@ private:
     // external callbacks
     std::function<void(FD, const char *, void *, const char *, size_t)> upgradeCallback;
     std::function<void(Socket)> connectionCallback;
-    std::queue< std::function<void(void)> > cb_queue; // queue used to store user callbacks
     std::function<void(Socket, int code, char *message, size_t length)> disconnectionCallback;
     std::function<void(Socket, const char *, size_t, OpCode)> messageCallback;
     void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t, bool);
@@ -120,7 +119,7 @@ public:
     void onFragment(void (*fragmentCallback)(Socket, const char *, size_t, OpCode, bool, size_t, bool));
     void onMessage(std::function<void(Socket, const char *, size_t, OpCode)> messageCallback);
     void run();
-    void broadcast(char *data, size_t length, OpCode opCode,std::function<void(void)> cb = nullptr);
+    void broadcast(char *data, size_t length, OpCode opCode);
     static bool isValidUtf8(unsigned char *str, size_t length);
 
     // thread safe (should have thread-unsafe counterparts)

@@ -251,6 +251,7 @@ struct SocketData {
     SSL *ssl = nullptr;
     PerMessageDeflate *pmd = nullptr;
     string buffer, controlBuffer; // turns out these are very lightweight (in GCC)
+    std::queue< std::function<void(void)> > cb_queue; // queue used to store user callbacks
 };
 
 void base64(unsigned char *src, char *dst)
@@ -369,16 +370,10 @@ void Server::close(bool force)
     }
 }
 
-void Server::broadcast(char *data, size_t length, OpCode opCode, std::function<void(void)> cb)
+void Server::broadcast(char *data, size_t length, OpCode opCode)
 {
-    /*
-     enqueue the input callback to be executed later.
-     This a work-around the poor design provided by uWebsocket.
-    */
-    if(cb != nullptr) this->cb_queue.push(cb);
-
     for (void *p = clients; p; p = ((SocketData *) ((uv_poll_t *) p)->data)->next) {
-        Socket(p).send(data, length, opCode);
+        Socket(p).send(data, length, opCode, 0);
     }
 }
 
@@ -475,7 +470,7 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
                     opCode = PING;
                 }
 
-                socket.send((char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length(), opCode);
+                socket.send((char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length(), opCode, 0);
             }
             socketData->controlBuffer.clear();
         }
@@ -1129,10 +1124,10 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
             callback(socket);
         }
 
-        if(!socketData->server->cb_queue.empty()) {
-            auto cb = socketData->server->cb_queue.front();
+        if(!socketData->cb_queue.empty()) {
+            auto cb = socketData->cb_queue.front();
             if(cb != nullptr) cb();
-            socketData->server->cb_queue.pop();
+            socketData->cb_queue.pop();
         }
     } else {
         // not everything was sent
@@ -1235,10 +1230,10 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
                         socketData->messageQueue.pop();
 
-                        if(!socketData->server->cb_queue.empty()) {
-                            auto cb = socketData->server->cb_queue.front();
+                        if(!socketData->cb_queue.empty()) {
+                            auto cb = socketData->cb_queue.front();
                             if(cb != nullptr) cb();
-                            socketData->server->cb_queue.pop();
+                            socketData->cb_queue.pop();
                         }
                     } else {
                         if (sent == -1) {
@@ -1428,8 +1423,15 @@ void Socket::close(bool force, unsigned short code, char *data, size_t length)
     }
 }
 
-void Socket::send(char *data, size_t length, OpCode opCode, size_t fakedLength)
+void Socket::send(char *data, size_t length, OpCode opCode, size_t fakedLength, std::function<void(void)> cb)
 {
+    /*
+     enqueue the input callback to be executed later.
+     This a work-around the poor design provided by uWebsocket.
+    */
+    SocketData *socketData = (SocketData *) ((uv_poll_t *) socket)->data;
+    if(cb != nullptr) socketData->cb_queue.push(cb);
+
     size_t reportedLength = length;
     if (fakedLength) {
         reportedLength = fakedLength;
@@ -1457,7 +1459,7 @@ void Socket::sendFragment(char *data, size_t length, OpCode opCode, size_t remai
         }
     } else {
         if (socketData->sendState == FRAGMENT_START) {
-            send(data, length, opCode);
+            send(data, length, opCode, 0);
         } else {
             write(data, length, false);
             socketData->sendState = FRAGMENT_START;
