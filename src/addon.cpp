@@ -20,7 +20,8 @@ using namespace uWS;
 enum {
     CONNECTION_CALLBACK = 1,
     DISCONNECTION_CALLBACK,
-    MESSAGE_CALLBACK
+    MESSAGE_CALLBACK,
+    WRITE_CALLBACK
 };
 
 Persistent<Object> persistentTicket;
@@ -34,6 +35,7 @@ void Server(const FunctionCallbackInfo<Value> &args) {
             args.This()->SetAlignedPointerInInternalField(CONNECTION_CALLBACK, new Persistent<Function>);
             args.This()->SetAlignedPointerInInternalField(DISCONNECTION_CALLBACK, new Persistent<Function>);
             args.This()->SetAlignedPointerInInternalField(MESSAGE_CALLBACK, new Persistent<Function>);
+            args.This()->SetAlignedPointerInInternalField(WRITE_CALLBACK, new Persistent<Function>);
         } catch (...) {
             args.This()->Set(String::NewFromUtf8(args.GetIsolate(), "error"), Boolean::New(args.GetIsolate(), true));
         }
@@ -221,7 +223,7 @@ void send(const FunctionCallbackInfo<Value> &args)
                  opCode, 0);
     } else if (args.Length() == 4) {
         Isolate *isolate = args.GetIsolate();
-        Persistent<Function> *cb = (Persistent<Function> *) args.Holder()->GetAlignedPointerFromInternalField(2); //using the existing Persistent<function>
+        Persistent<Function> *cb = (Persistent<Function> *) args.Holder()->GetAlignedPointerFromInternalField(WRITE_CALLBACK);
         cb->Reset(isolate, Local<Function>::Cast(args[3])); // reseting to user callback
         unwrapSocket(args[0]->ToNumber())
                      .send(nativeString.getData(),
@@ -258,7 +260,7 @@ void broadcast(const FunctionCallbackInfo<Value> &args)
 void Main(Local<Object> exports) {
     Isolate *isolate = exports->GetIsolate();
     Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, ::Server);
-    tpl->InstanceTemplate()->SetInternalFieldCount(4);
+    tpl->InstanceTemplate()->SetInternalFieldCount(5);
 
     NODE_SET_PROTOTYPE_METHOD(tpl, "onConnection", onConnection);
     NODE_SET_PROTOTYPE_METHOD(tpl, "onMessage", onMessage);
