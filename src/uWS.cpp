@@ -137,7 +137,7 @@ struct PerMessageDeflate {
             CLIENT_MAX_WINDOW_BITS = 2348
         };
 
-        int getToken(char **in)
+        int getToken(const char **in)
         {
             while (!isalnum(**in) && **in != '\0') {
                 (*in)++;
@@ -155,16 +155,18 @@ struct PerMessageDeflate {
             return hashedToken;
         }
 
+        bool perMessageDeflate = false;
         bool serverNoContextTakeover = false;
         bool clientNoContextTakeover = false;
         int serverMaxWindowBits = 0;
         int clientMaxWindowBits = 0;
 
-        NegotiationOffer(char *in)
+        NegotiationOffer(const char *in)
         {
             int token = 1;
             for (; token && token != PERMESSAGE_DEFLATE; token = getToken(&in));
 
+            perMessageDeflate = (token == PERMESSAGE_DEFLATE);
             while ((token = getToken(&in))) {
                 switch (token) {
                 case PERMESSAGE_DEFLATE:
@@ -195,10 +197,8 @@ struct PerMessageDeflate {
         }
     };
 
-    PerMessageDeflate(string &request, int options, string &response) : readStream({}), writeStream({})
+    PerMessageDeflate(NegotiationOffer &offer, int options, string &response) : readStream({}), writeStream({})
     {
-        NegotiationOffer offer((char *) request.c_str());
-
         response = "Sec-WebSocket-Extensions: permessage-deflate";
         if ((options & SERVER_NO_CONTEXT_TAKEOVER) || offer.serverNoContextTakeover) {
             response += "; server_no_context_takeover";
@@ -515,9 +515,10 @@ void Server::upgradeHandler(Server *server)
         SocketData *socketData = new SocketData;
         socketData->server = server;
 
-        if ((server->options & PERMESSAGE_DEFLATE) && get<3>(upgradeRequest).length()) {
+        PerMessageDeflate::NegotiationOffer offer(get<3>(upgradeRequest).c_str());
+        if ((server->options & PERMESSAGE_DEFLATE) && offer.perMessageDeflate) {
             string response;
-            socketData->pmd = new PerMessageDeflate(get<3>(upgradeRequest), server->options, response);
+            socketData->pmd = new PerMessageDeflate(offer, server->options, response);
             response.append("\r\n\r\n");
             memcpy(server->upgradeResponse + 127, response.data(), response.length());
             upgradeResponseLength += response.length();
