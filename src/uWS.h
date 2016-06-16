@@ -89,7 +89,8 @@ private:
     // buffers
     char *receiveBuffer, *sendBuffer, *inflateBuffer, *upgradeResponse;
     static const int BUFFER_SIZE = 307200,
-                     SHORT_SEND = 4096;
+                     SHORT_SEND = 4096,
+                     INFLATE_BUFFER_SIZE = BUFFER_SIZE; //7;
     int maxPayload = 0;
 
     // accept poll

@@ -217,20 +217,19 @@ struct PerMessageDeflate {
         inflateEnd(&readStream);
     }
 
-    bool inflate(char *src, size_t srcLength, char *dst, size_t &dstLength)
-    {
+    void setInput(char *src, size_t srcLength) {
         readStream.next_in = (unsigned char *) src;
         readStream.avail_in = srcLength;
+    }
+
+    size_t inflate(char *dst, size_t dstLength) {
         readStream.next_out = (unsigned char *) dst;
         readStream.avail_out = dstLength;
-
-        if (Z_OK != ::inflate(&readStream, Z_NO_FLUSH)) {
-            dstLength = 0;
-            return true;
-        } else {
-            dstLength = (dstLength - readStream.avail_out);
-            return false;
+        int err = ::inflate(&readStream, Z_NO_FLUSH);
+        if (err != Z_STREAM_END && err != Z_OK) {
+            throw err;
         }
+        return readStream.avail_out;
     }
 };
 
@@ -295,7 +294,7 @@ Server::Server(int port, bool master, int options, int maxPayload, string path) 
     receiveBuffer = (char *) new uint32_t[BUFFER_SIZE / 4 + 6];
 
     sendBuffer = new char[SHORT_SEND];
-    inflateBuffer = new char[BUFFER_SIZE];
+    inflateBuffer = new char[INFLATE_BUFFER_SIZE];
     upgradeResponse = new char[2048];
 
     // set default fragment handler
@@ -417,20 +416,30 @@ void Server::internalFragment(Socket socket, const char *fragment, size_t length
 
         // permessage-deflate
         if (compressed) {
+            socketData->pmd->setInput((char *) fragment, length);
+            size_t bufferSpace;
+            try {
+                while (!(bufferSpace = socketData->pmd->inflate(socketData->server->inflateBuffer, INFLATE_BUFFER_SIZE))) {
+                    socketData->buffer.append(socketData->server->inflateBuffer, INFLATE_BUFFER_SIZE);
+                }
 
-            // todo: if we did not fit in inflateBuffer, append to buffer, rerun
-
-            size_t inflatedLength = BUFFER_SIZE;
-            socketData->pmd->inflate((char *) fragment, length, socketData->server->inflateBuffer, inflatedLength);
-            fragment = socketData->server->inflateBuffer;
-            length = inflatedLength;
-
-            if (!remainingBytes && fin) {
-                size_t tailLength = BUFFER_SIZE - inflatedLength;
-                unsigned char tail[4] = {0, 0, 255, 255};
-                socketData->pmd->inflate((char *) tail, 4, socketData->server->inflateBuffer + inflatedLength, tailLength);
-                length += tailLength;
+                if (!remainingBytes && fin) {
+                    unsigned char tail[4] = {0, 0, 255, 255};
+                    socketData->pmd->setInput((char *) tail, 4);
+                    if (!socketData->pmd->inflate(socketData->server->inflateBuffer + INFLATE_BUFFER_SIZE - bufferSpace, bufferSpace)) {
+                        socketData->buffer.append(socketData->server->inflateBuffer + INFLATE_BUFFER_SIZE - bufferSpace, bufferSpace);
+                        while (!(bufferSpace = socketData->pmd->inflate(socketData->server->inflateBuffer, INFLATE_BUFFER_SIZE))) {
+                            socketData->buffer.append(socketData->server->inflateBuffer, INFLATE_BUFFER_SIZE);
+                        }
+                    }
+                }
+            } catch (...) {
+                socket.close(true, 1006);
+                return;
             }
+
+            fragment = socketData->server->inflateBuffer;
+            length = INFLATE_BUFFER_SIZE - bufferSpace;
         }
 
         if (!remainingBytes && fin && !socketData->buffer.length()) {
