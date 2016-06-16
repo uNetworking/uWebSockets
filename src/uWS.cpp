@@ -223,6 +223,9 @@ struct PerMessageDeflate {
     }
 
     size_t inflate(char *dst, size_t dstLength) {
+        if (!readStream.avail_in) {
+            return dstLength;
+        }
         readStream.next_out = (unsigned char *) dst;
         readStream.avail_out = dstLength;
         int err = ::inflate(&readStream, Z_NO_FLUSH);
