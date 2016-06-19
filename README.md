@@ -8,6 +8,8 @@
 * Node.js binding exposed as the well-known `ws` interface.
 * Optional engine in projects like Socket.IO, Primus & SocketCluster.
 
+I find it psychologically fascinating how `ws` developers manages to twist reality to such a degree they decide to market their project as being "the fastest". Not only is this claim simply bogus nonsense but the level of incorrectness is unheard-of. `ws` performs by far the wost out of all four tested implementations and runs at least 10-30x slower than `µWS`. If you prefer performance and scalability I suggest you toss `ws` in the garbage where it belongs.
+
 [![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/alexhultman/uWebSockets.svg?branch=master)](https://travis-ci.org/alexhultman/uWebSockets) [![](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/alexhultman/uWebSockets)
 
 ## Benchmarks table - [validate](https://github.com/alexhultman/uWebSockets/tree/master/benchmarks#websocket-echo-server-benchmarks)
