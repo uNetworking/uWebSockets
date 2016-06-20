@@ -1280,18 +1280,30 @@ Socket::Address Socket::getAddress()
 
     sockaddr_storage addr;
     socklen_t addrLength = sizeof(addr);
+
+
+    sockaddr_storage addrLocal;
+    socklen_t addrLocalLength = sizeof(addrLocal);
+
+
     getpeername(fd, (sockaddr *) &addr, &addrLength);
+    getsockname(fd, (sockaddr *) &addrLocal, &addrLocalLength);
+
 
     static __thread char buf[INET6_ADDRSTRLEN];
+    static __thread char bufLocal[INET6_ADDRSTRLEN];
 
     if (addr.ss_family == AF_INET) {
         sockaddr_in *ipv4 = (sockaddr_in *) &addr;
         inet_ntop(AF_INET, &ipv4->sin_addr, buf, sizeof(buf));
-        return {ntohs(ipv4->sin_port), buf, "IPv4"};
+        sockaddr_in *ipv4Local = (sockaddr_in *) &addrLocal;
+        inet_ntop(AF_INET, &ipv4Local->sin_addr, bufLocal, sizeof(bufLocal));
+
+        return {ntohs(ipv4->sin_port), buf, "IPv4", ntohs(ipv4Local->sin_port),  bufLocal};
     } else {
         sockaddr_in6 *ipv6 = (sockaddr_in6 *) &addr;
         inet_ntop(AF_INET6, &ipv6->sin6_addr, buf, sizeof(buf));
-        return {ntohs(ipv6->sin6_port), buf, "IPv6"};
+        return {ntohs(ipv6->sin6_port), buf, "IPv6", 0, NULL};
     }
 }
 

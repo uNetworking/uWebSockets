@@ -168,9 +168,11 @@ class Socket {
     get _socket() {
         const address = this.nativeServer.getAddress(this.nativeSocket);
         return {
-            remotePort: address[0],
-            remoteAddress: address[1],
-            remoteFamily: address[2]
+            remotePort     : address[0],
+            remoteAddress  : address[1],
+            remoteFamily   : address[2],
+            localPort      : address[3],
+            localAddress   : address[4],
         };
     }
 
