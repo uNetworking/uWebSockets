@@ -23,6 +23,9 @@ Kaazing Gateway Community 5.0.0 | µWS is **62x** as lightweight | µWS is **15x
 
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. These results were achieved with the native C++ server, not the Node.js addon. Expect worse performance and scalability when using Node.js (don't worry, the Node.js addon will run circles around `ws`).*
 
+## What others are saying
+**“***With changing one letter in the code from "ws" to "uws" I've been able to serve twice as many players for the same cost.***”** - Rezoner / [wilds.io](http://wilds.io)
+
 ## Usage
 
 ### Node.js
