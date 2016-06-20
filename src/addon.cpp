@@ -240,10 +240,12 @@ void send(const FunctionCallbackInfo<Value> &args)
 void getAddress(const FunctionCallbackInfo<Value> &args)
 {
     uWS::Socket::Address address = unwrapSocket(args[0]->ToNumber()).getAddress();
-    Local<Array> array = Array::New(args.GetIsolate(), 3);
+    Local<Array> array = Array::New(args.GetIsolate(), 5);
     array->Set(0, Integer::New(args.GetIsolate(), address.port));
     array->Set(1, String::NewFromUtf8(args.GetIsolate(), address.address));
     array->Set(2, String::NewFromUtf8(args.GetIsolate(), address.family));
+    array->Set(3, Integer::New(args.GetIsolate(), address.portLocal));
+    array->Set(4, String::NewFromUtf8(args.GetIsolate(), address.addressLocal));
     args.GetReturnValue().Set(array);
 }
 

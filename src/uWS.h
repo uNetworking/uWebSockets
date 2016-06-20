@@ -53,6 +53,8 @@ public:
         unsigned int port;
         char *address;
         const char *family;
+        unsigned int portLocal;
+        char *addressLocal;
     };
 
     Address getAddress();
