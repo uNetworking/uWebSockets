@@ -1,15 +1,13 @@
 <div align="center"><img src="logo.png"/></div>
-`µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. License is zlib/libpng (very permissive & suits commercial applications).
+`µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance more important. License is zlib/libpng (very permissive & suits commercial applications).
 
-* 10-30x faster than `ws`.
 * Linux, OS X & Windows support.
 * Built-in load balancing and multi-core scalability.
 * SSL/TLS support & integrates with foreign HTTPS servers.
 * Permessage-deflate built-in.
 * Node.js binding exposed as the well-known `ws` interface.
+* 10-30x faster than `ws` (if they are "fastest", we are "fastester").
 * Optional engine in projects like Socket.IO, Primus & SocketCluster.
-
-I find it psychologically fascinating how `ws` developers manages to twist reality to such a degree they decide to market their project as being "the fastest". Not only is this claim simply bogus nonsense but the level of incorrectness is unheard-of. If you prefer performance and scalability I suggest you toss `ws` in the garbage where it belongs.
 
 [![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/alexhultman/uWebSockets.svg?branch=master)](https://travis-ci.org/alexhultman/uWebSockets) [![](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/alexhultman/uWebSockets)
 
