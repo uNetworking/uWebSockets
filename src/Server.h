@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include <queue>
+#include <string>
 #include <functional>
 #include <uv.h>
 

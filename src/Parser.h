@@ -3,6 +3,7 @@
 
 #include "SocketData.h"
 #include "UTF8.h"
+#include "Network.h"
 #include <uv.h>
 
 #define STRICT
