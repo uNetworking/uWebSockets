@@ -3,7 +3,12 @@
     {
       'target_name': 'uws',
       'sources': [
-        'src/uWS.cpp',
+        'src/Extensions.cpp',
+        'src/HTTPSocket.cpp',
+        'src/Network.cpp',
+        'src/Server.cpp',
+        'src/UTF8.cpp',
+        'src/WebSocket.cpp',
         'src/addon.cpp'
       ],
       'conditions': [
