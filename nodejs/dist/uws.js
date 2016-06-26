@@ -192,6 +192,27 @@ class Socket {
     }
 
     /**
+     * Static and per-instance readyState constants
+     *
+     * @public
+     */
+    static get OPEN() {
+        return 1;
+    }
+
+    static get CLOSED() {
+        return 0;
+    }
+
+    get OPEN() {
+        return Socket.OPEN;
+    }
+
+    get CLOSED() {
+        return Socket.CLOSED;
+    }
+
+    /**
      * Returns the state of the socket (OPEN or CLOSED)
      *
      * @public
@@ -218,9 +239,6 @@ class Socket {
         this.nativeServer = this.nativeSocket = null;
     }
 }
-
-Socket.prototype.OPEN = 1;
-Socket.prototype.CLOSED = 0;
 
 class Server extends EventEmitter {
     /**
