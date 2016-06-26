@@ -1,4 +1,4 @@
-CPP_SHARED := -std=c++11 -O3 -I ../src -shared -fPIC ../src/uWS.cpp addon.cpp
+CPP_SHARED := -std=c++11 -O3 -I ../src -shared -fPIC ../src/Extensions.cpp ../src/HTTPSocket.cpp ../src/Network.cpp ../src/Server.cpp ../src/UTF8.cpp ../src/WebSocket.cpp addon.cpp
 CPP_OSX := -stdlib=libc++ -mmacosx-version-min=10.7 -undefined dynamic_lookup
 
 default:

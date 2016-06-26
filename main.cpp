@@ -16,7 +16,7 @@ int main()
     try {
         // our listening server
         Server server(3000, false);
-        server.onUpgrade([](FD fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
+        server.onUpgrade([](uv_os_fd_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
             // transfer connection to one of our worker servers
             ::worker->upgrade(fd, secKey, ssl, extensions, extensionsLength);
         });
@@ -25,13 +25,13 @@ int main()
         Server worker(0, false, PERMESSAGE_DEFLATE | SERVER_NO_CONTEXT_TAKEOVER | CLIENT_NO_CONTEXT_TAKEOVER/*, 1000000*/);
         ::worker = &worker;
         ::server = &server;
-        worker.onConnection([](Socket socket) {
+        worker.onConnection([](WebSocket socket) {
             cout << "[Connection] clients: " << ++connections << endl;
 
             //socket.close();
             //socket.close(false, 1011, "abcd", 4);
 
-            Socket::Address a = socket.getAddress();
+            WebSocket::Address a = socket.getAddress();
             cout << a.address << endl;
             cout << a.family << endl;
             cout << a.port << endl;
@@ -46,11 +46,11 @@ int main()
             }
         });
 
-        worker.onMessage([](Socket socket, const char *message, size_t length, OpCode opCode) {
-            socket.send((char *) message, length, opCode);
+        worker.onMessage([](WebSocket socket, char *message, size_t length, OpCode opCode) {
+            socket.send(message, length, opCode);
         });
 
-        worker.onDisconnection([](Socket socket, int code, char *message, size_t length) {
+        worker.onDisconnection([](WebSocket socket, int code, char *message, size_t length) {
             cout << "[Disconnection] clients: " << --connections << endl;
             cout << "Code: " << code << endl;
             cout << "Message: " << string(message, length) << endl;
