@@ -218,6 +218,7 @@ void sendCallback(uWS::WebSocket webSocket, void *data, bool cancelled)
 {
     SendCallback *sc = (SendCallback *) data;
     if (!cancelled) {
+        HandleScope hs(sc->isolate);
         node::MakeCallback(sc->isolate, sc->isolate->GetCurrentContext()->Global(), Local<Function>::New(sc->isolate, sc->jsCallback), 0, nullptr);
     }
     sc->jsCallback.Reset();
