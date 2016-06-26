@@ -314,6 +314,10 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
     if (force) {
         // delete all messages in queue
         while (!socketData->messageQueue.empty()) {
+            SocketData::Queue::Message *message = socketData->messageQueue.front();
+            if (message->callback) {
+                message->callback(WebSocket(nullptr), message->callbackData);
+            }
             socketData->messageQueue.pop();
         }
 
