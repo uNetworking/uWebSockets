@@ -1,7 +1,7 @@
 // echo server
 
 const WebSocketServer = require('./dist/uws').Server;
-const wss = new WebSocketServer({ port: 3000 });
+const wss = new WebSocketServer({ port: 3000, maxPayload: 0 });
 
 var sentMessages = 0;
 function sent() {
