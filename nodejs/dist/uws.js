@@ -214,7 +214,7 @@ class Server extends EventEmitter {
             }
         }
 
-        this.nativeServer = new uws.Server(0, nativeOptions, options.maxPayload || 1048576);
+        this.nativeServer = new uws.Server(0, nativeOptions, options.maxPayload === undefined ? 1048576 : options.maxPayload);
 
         // can these be made private?
         this._upgradeReq = null;
