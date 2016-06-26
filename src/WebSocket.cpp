@@ -38,7 +38,7 @@ inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, 
     return messageLength;
 }
 
-void WebSocket::send(char *message, size_t length, OpCode opCode, size_t fakedLength)
+void WebSocket::send(char *message, size_t length, OpCode opCode, void (*callback)(WebSocket webSocket), size_t fakedLength)
 {
     size_t reportedLength = length;
     if (fakedLength) {
@@ -48,10 +48,10 @@ void WebSocket::send(char *message, size_t length, OpCode opCode, size_t fakedLe
     if (length <= Server::SHORT_BUFFER_SIZE - 10) {
         SocketData *socketData = (SocketData *) p->data;
         char *sendBuffer = socketData->server->sendBuffer;
-        write(sendBuffer, formatMessage(sendBuffer, message, length, opCode, reportedLength), false);
+        write(sendBuffer, formatMessage(sendBuffer, message, length, opCode, reportedLength), false, callback);
     } else {
         char *buffer = new char[sizeof(SocketData::Queue::Message) + length + 10] + sizeof(SocketData::Queue::Message);
-        write(buffer, formatMessage(buffer, message, length, opCode, reportedLength), true);
+        write(buffer, formatMessage(buffer, message, length, opCode, reportedLength), true, callback);
     }
 }
 
@@ -60,7 +60,7 @@ void WebSocket::sendFragment(char *data, size_t length, OpCode opCode, size_t re
     SocketData *socketData = (SocketData *) p->data;
     if (remainingBytes) {
         if (socketData->sendState == FRAGMENT_START) {
-            send(data, length, opCode, length + remainingBytes);
+            send(data, length, opCode, nullptr, length + remainingBytes);
             socketData->sendState = FRAGMENT_MID;
         } else {
             write(data, length, false);
@@ -351,10 +351,10 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
             *((uint16_t *) &sendBuffer[length + 2]) = htons(code);
             memcpy(&sendBuffer[length + 4], data, length - 2);
         }
-        write((char *) sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](uv_poll_t *s) {
+        write((char *) sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](WebSocket webSocket) {
             uv_os_fd_t fd;
-            uv_fileno((uv_handle_t *) s, &fd);
-            SocketData *socketData = (SocketData *) s->data;
+            uv_fileno((uv_handle_t *) webSocket.p, &fd);
+            SocketData *socketData = (SocketData *) webSocket.p->data;
             if (socketData->ssl) {
                 SSL_shutdown(socketData->ssl);
             }
@@ -364,7 +364,7 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
 }
 
 // async Unix send (has a Message struct in the start if transferOwnership)
-void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*callback)(uv_poll_t *s))
+void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*callback)(WebSocket webSocket))
 {
     uv_os_fd_t fd;
     uv_fileno((uv_handle_t *) p, &fd);

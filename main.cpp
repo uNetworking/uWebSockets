@@ -47,7 +47,9 @@ int main()
         });
 
         worker.onMessage([](WebSocket socket, char *message, size_t length, OpCode opCode) {
-            socket.send(message, length, opCode);
+            socket.send(message, length, opCode, [](WebSocket webSocket) {
+                cout << "Sent!" << endl;
+            });
         });
 
         worker.onDisconnection([](WebSocket socket, int code, char *message, size_t length) {
