@@ -173,6 +173,15 @@ class Socket {
     }
 
     /**
+     * Returns the state of the socket (OPEN or CLOSED)
+     *
+     * @public
+     */
+    get readyState() {
+        return this.nativeSocket !== null ? Socket.OPEN : Socket.CLOSED;
+    }
+
+    /**
      * Closes the socket.
      *
      * @public
@@ -190,6 +199,9 @@ class Socket {
         this.nativeServer = this.nativeSocket = null;
     }
 }
+
+Socket.prototype.OPEN = 1;
+Socket.prototype.CLOSED = 0;
 
 class Server extends EventEmitter {
     /**
