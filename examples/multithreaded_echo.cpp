@@ -19,7 +19,7 @@ int main()
         // you need at least one server listening to a port
         Server server(3000);
 
-        server.onUpgrade([](FD fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
+        server.onUpgrade([](uv_os_fd_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
             // we transfer the connection to one of the other servers
             threadedServer[rand() % THREADS]->upgrade(fd, secKey, ssl, extensions, extensionsLength);
         });
@@ -30,17 +30,17 @@ int main()
                 threadedServer[i] = new Server(0, false);
 
                 // register our events
-                threadedServer[i]->onConnection([i](Socket socket) {
+                threadedServer[i]->onConnection([i](WebSocket socket) {
                     cout << "Connection on thread " << i << endl;
                 });
 
-                threadedServer[i]->onDisconnection([i](Socket socket, int code, char *message, size_t length) {
+                threadedServer[i]->onDisconnection([i](WebSocket socket, int code, char *message, size_t length) {
                     cout << "Disconnection on thread " << i << endl;
                 });
 
-                threadedServer[i]->onMessage([i](Socket socket, const char *message, size_t length, OpCode opCode) {
+                threadedServer[i]->onMessage([i](WebSocket socket, char *message, size_t length, OpCode opCode) {
                     cout << "Message on thread " << i << ": " << string(message, length) << endl;
-                    socket.send((char *) message, length, opCode);
+                    socket.send(message, length, opCode);
                 });
 
                 threadedServer[i]->run();

@@ -11,15 +11,15 @@ int main()
 {
     try {
         Server server(3000);
-        server.onConnection([](Socket socket) {
+        server.onConnection([](WebSocket socket) {
 
         });
 
-        server.onMessage([](Socket socket, const char *message, size_t length, OpCode opCode) {
-            socket.send((char *) message, length, opCode);
+        server.onMessage([](WebSocket socket, char *message, size_t length, OpCode opCode) {
+            socket.send(message, length, opCode);
         });
 
-        server.onDisconnection([](Socket socket, int code, char *message, size_t length) {
+        server.onDisconnection([](WebSocket socket, int code, char *message, size_t length) {
 
         });
 

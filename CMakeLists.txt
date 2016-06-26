@@ -4,7 +4,7 @@ project (µWebSockets)
 
 add_subdirectory(examples)
 
-add_library(uWS SHARED src/uWS.cpp)
+add_library(uWS SHARED src/Extensions.cpp src/HTTPSocket.cpp src/Network.cpp src/Server.cpp src/UTF8.cpp src/WebSocket.cpp)
 target_include_directories(uWS PUBLIC src)
 target_compile_features(uWS PRIVATE cxx_nullptr)
 target_link_libraries (uWS LINK_PUBLIC uv)
