@@ -56,6 +56,7 @@ private:
     std::function<void(WebSocket)> connectionCallback;
     std::function<void(WebSocket, int code, char *message, size_t length)> disconnectionCallback;
     std::function<void(WebSocket, char *, size_t, OpCode)> messageCallback;
+    std::function<void(WebSocket, char *, size_t)> pongCallback;
 public:
     Server(int port = 0, bool master = true, int options = 0, int maxPayload = 1048576);
     ~Server();
@@ -65,6 +66,7 @@ public:
     void onConnection(std::function<void(WebSocket)> connectionCallback);
     void onDisconnection(std::function<void(WebSocket, int code, char *message, size_t length)> disconnectionCallback);
     void onMessage(std::function<void(WebSocket, char *, size_t, OpCode)> messageCallback);
+    void onPong(std::function<void(WebSocket, char *, size_t)> pongCallback);
     void close(bool force = false);
     void upgrade(uv_os_fd_t fd, const char *secKey, void *ssl = nullptr, const char *extensions = nullptr, size_t extensionsLength = 0);
     void run();

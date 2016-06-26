@@ -42,6 +42,7 @@ public:
     Address getAddress();
     void close(bool force = false, unsigned short code = 0, char *data = nullptr, size_t length = 0);
     void send(char *message, size_t length, OpCode opCode, void(*callback)(WebSocket webSocket, void *data, bool cancelled) = nullptr, void *callbackData = nullptr, size_t fakedLength = 0);
+    void ping(char *message = nullptr, size_t length = 0);
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
     void *getData();
     void setData(void *data);

@@ -55,6 +55,11 @@ void WebSocket::send(char *message, size_t length, OpCode opCode, void (*callbac
     }
 }
 
+void WebSocket::ping(char *message, size_t length)
+{
+    send(message, length, OpCode::PING);
+}
+
 void WebSocket::sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes)
 {
     SocketData *socketData = (SocketData *) p->data;
@@ -141,12 +146,10 @@ void WebSocket::handleFragment(const char *fragment, size_t length, OpCode opCod
                 return;
             } else {
                 if (opCode == PING) {
-                    opCode = PONG;
+                    send((char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length(), OpCode::PONG);
                 } else if (opCode == PONG) {
-                    opCode = PING;
+                    socketData->server->pongCallback(p, (char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length());
                 }
-
-                send((char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length(), opCode);
             }
             socketData->controlBuffer.clear();
         }

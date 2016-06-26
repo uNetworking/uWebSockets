@@ -28,6 +28,8 @@ int main()
         worker.onConnection([](WebSocket socket) {
             cout << "[Connection] clients: " << ++connections << endl;
 
+            //socket.ping();
+
             //socket.close();
             //socket.close(false, 1011, "abcd", 4);
 
@@ -44,6 +46,10 @@ int main()
                 ::worker->close();
                 ::server->close();
             }*/
+        });
+
+        worker.onPong([](WebSocket webSocket, char *message, size_t length) {
+            cout << "Got a pong!" << endl;
         });
 
         worker.onMessage([](WebSocket socket, char *message, size_t length, OpCode opCode) {
