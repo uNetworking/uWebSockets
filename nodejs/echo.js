@@ -13,6 +13,10 @@ function sent() {
 wss.on('connection', function connection(ws) {
   // console.log(ws._socket);
 
+  ws.on('pong', function pong(message) {
+    console.log('Got a pong!');
+  });
+
   ws.on('message', function incoming(message) {
     ws.send(message, { binary: Buffer.isBuffer(message) }, sent);
   });

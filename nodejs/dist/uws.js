@@ -33,6 +33,7 @@ class Socket {
         this.nativeServer = nativeServer;
         this.onmessage = noop;
         this.onclose = noop;
+        this.onpong = noop;
         this.upgradeReq = null;
     }
 
@@ -54,6 +55,11 @@ class Socket {
                 throw Error(EE_ERROR);
             }
             this.onclose = f;
+        } else if (eventName === 'pong') {
+            if (this.onpong !== noop) {
+                throw Error(EE_ERROR);
+            }
+            this.onpong = f;
         }
         return this;
     }
@@ -82,6 +88,14 @@ class Socket {
                 f();
                 this.onclose = noop;
             };
+        } else if (eventName === 'pong') {
+            if (this.onpong !== noop) {
+                throw Error(EE_ERROR);
+            }
+            this.onpong = () => {
+                f();
+                this.onpong = noop;
+            };
         }
         return this;
     }
@@ -98,6 +112,8 @@ class Socket {
             this.onmessage = noop;
         } else if (!eventName || eventName === 'close') {
             this.onclose = noop;
+        } else if (!eventName || eventName === 'pong') {
+            this.onpong = noop;
         }
         return this;
     }
@@ -115,6 +131,9 @@ class Socket {
         }
         if (eventName === 'close' && this.onclose === cb) {
             this.onclose = noop;
+        }
+        if (eventName === 'pong' && this.onpong === cb) {
+            this.onpong = noop;
         }
         return this;
     }
@@ -293,6 +312,10 @@ class Server extends EventEmitter {
 
         this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
             socket.onmessage(binary ? message : message.toString());
+        });
+
+        this.nativeServer.onPong((nativeSocket, message, socket) => {
+            socket.onpong(message.toString());
         });
 
         this.nativeServer.onConnection((nativeSocket) => {
