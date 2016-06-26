@@ -214,10 +214,10 @@ struct SendCallback {
     Isolate *isolate;
 };
 
-void sendCallback(uWS::WebSocket webSocket, void *data)
+void sendCallback(uWS::WebSocket webSocket, void *data, bool cancelled)
 {
     SendCallback *sc = (SendCallback *) data;
-    if (webSocket) {
+    if (!cancelled) {
         node::MakeCallback(sc->isolate, sc->isolate->GetCurrentContext()->Global(), Local<Function>::New(sc->isolate, sc->jsCallback), 0, nullptr);
     }
     sc->jsCallback.Reset();
@@ -230,7 +230,7 @@ void send(const FunctionCallbackInfo<Value> &args)
     NativeString nativeString(args[1]);
 
     SendCallback *sc = nullptr;
-    void (*callback)(WebSocket, void *) = nullptr;
+    void (*callback)(WebSocket, void *, bool) = nullptr;
 
     if (args[3]->IsFunction()) {
         callback = sendCallback;

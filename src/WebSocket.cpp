@@ -38,7 +38,7 @@ inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, 
     return messageLength;
 }
 
-void WebSocket::send(char *message, size_t length, OpCode opCode, void (*callback)(WebSocket webSocket, void *data), void *callbackData, size_t fakedLength)
+void WebSocket::send(char *message, size_t length, OpCode opCode, void (*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData, size_t fakedLength)
 {
     size_t reportedLength = length;
     if (fakedLength) {
@@ -316,7 +316,7 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
         while (!socketData->messageQueue.empty()) {
             SocketData::Queue::Message *message = socketData->messageQueue.front();
             if (message->callback) {
-                message->callback(WebSocket(nullptr), message->callbackData);
+                message->callback(nullptr, message->callbackData, true);
             }
             socketData->messageQueue.pop();
         }
@@ -355,7 +355,7 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
             *((uint16_t *) &sendBuffer[length + 2]) = htons(code);
             memcpy(&sendBuffer[length + 4], data, length - 2);
         }
-        write(sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](WebSocket webSocket, void *data) {
+        write(sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](WebSocket webSocket, void *data, bool cancelled) {
             uv_os_fd_t fd;
             uv_fileno((uv_handle_t *) webSocket.p, &fd);
             SocketData *socketData = (SocketData *) webSocket.p->data;
@@ -368,7 +368,7 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
 }
 
 // async Unix send (has a Message struct in the start if transferOwnership)
-void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*callback)(WebSocket webSocket, void *data), void *callbackData)
+void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData)
 {
     uv_os_fd_t fd;
     uv_fileno((uv_handle_t *) p, &fd);
@@ -392,7 +392,7 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
         }
 
         if (callback) {
-            callback(p, callbackData);
+            callback(p, callbackData, false);
         }
 
     } else {
@@ -487,7 +487,7 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
                     if (sent == (int) messagePtr->length) {
 
                         if (messagePtr->callback) {
-                            messagePtr->callback(handle, messagePtr->callbackData);
+                            messagePtr->callback(handle, messagePtr->callbackData, false);
                         }
 
                         socketData->messageQueue.pop();

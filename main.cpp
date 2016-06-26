@@ -38,18 +38,18 @@ int main()
 
             // test shutting down the server when two clients are connected
             // this should disconnect both clients and exit libuv loop
-            if (connections == 2) {
+            /*if (connections == 2) {
                 ::worker->broadcast("I'm shutting you down now", 25, TEXT);
                 cout << "Shutting down server now" << endl;
                 ::worker->close();
                 ::server->close();
-            }
+            }*/
         });
 
         worker.onMessage([](WebSocket socket, char *message, size_t length, OpCode opCode) {
-            socket.send(message, length, opCode, [](WebSocket webSocket, void *data) {
+            socket.send(message, length, opCode/*, [](WebSocket webSocket, void *data, bool cancelled) {
                 cout << "Sent: " << (char *) data << endl;
-            }, (void *) "Some callback data here");
+            }, (void *) "Some callback data here"*/);
         });
 
         worker.onDisconnection([](WebSocket socket, int code, char *message, size_t length) {
