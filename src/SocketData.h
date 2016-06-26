@@ -39,7 +39,8 @@ struct SocketData {
             char *data;
             size_t length;
             Message *nextMessage = nullptr;
-            void (*callback)(WebSocket webSocket) = nullptr;
+            void (*callback)(WebSocket webSocket, void *data) = nullptr;
+            void *callbackData = nullptr;
         };
 
         Message *head = nullptr, *tail = nullptr;
