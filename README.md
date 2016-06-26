@@ -81,15 +81,15 @@ int main()
 {
     /* this is an echo server that properly passes every supported Autobahn test */
     uWS::Server server(3000);
-    server.onConnection([](uWS::Socket socket) {
+    server.onConnection([](uWS::WebSocket socket) {
         cout << "[Connection] clients: " << ++connections << endl;
     });
 
-    server.onMessage([](uWS::Socket socket, const char *message, size_t length, uWS::OpCode opCode) {
-        socket.send((char *) message, length, opCode);
+    server.onMessage([](uWS::WebSocket socket, char *message, size_t length, uWS::OpCode opCode) {
+        socket.send(message, length, opCode);
     });
 
-    server.onDisconnection([](uWS::Socket socket) {
+    server.onDisconnection([](uWS::WebSocket socket) {
         cout << "[Disconnection] clients: " << --connections << endl;
     });
 
