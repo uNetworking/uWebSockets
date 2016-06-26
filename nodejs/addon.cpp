@@ -209,14 +209,40 @@ void transfer(const FunctionCallbackInfo<Value> &args)
     args.GetReturnValue().Set(ticket);
 }
 
+struct SendCallback {
+    Persistent<Function> jsCallback;
+    Isolate *isolate;
+};
+
+void sendCallback(uWS::WebSocket webSocket, void *data)
+{
+    SendCallback *sc = (SendCallback *) data;
+    if (webSocket) {
+        node::MakeCallback(sc->isolate, sc->isolate->GetCurrentContext()->Global(), Local<Function>::New(sc->isolate, sc->jsCallback), 0, nullptr);
+    }
+    sc->jsCallback.Reset();
+    delete sc;
+}
+
 void send(const FunctionCallbackInfo<Value> &args)
 {
     OpCode opCode = (uWS::OpCode) args[2]->IntegerValue();
     NativeString nativeString(args[1]);
+
+    SendCallback *sc = nullptr;
+    void (*callback)(WebSocket, void *) = nullptr;
+
+    if (args[3]->IsFunction()) {
+        callback = sendCallback;
+        sc = new SendCallback;
+        sc->jsCallback.Reset(args.GetIsolate(), Local<Function>::Cast(args[3]));
+        sc->isolate = args.GetIsolate();
+    }
+
     unwrapSocket(args[0]->ToNumber())
                  .send(nativeString.getData(),
                  nativeString.getLength(),
-                 opCode);
+                 opCode, callback, sc);
 }
 
 void getAddress(const FunctionCallbackInfo<Value> &args)

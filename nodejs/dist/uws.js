@@ -138,8 +138,7 @@ class Socket {
         }
 
         const binary = options && options.binary || typeof message !== 'string';
-        this.nativeServer.send(this.nativeSocket, message, binary ? exports.OPCODE_BINARY : exports.OPCODE_TEXT);
-        return cb && cb(null);
+        this.nativeServer.send(this.nativeSocket, message, binary ? exports.OPCODE_BINARY : exports.OPCODE_TEXT, cb);
     }
 
     /**
