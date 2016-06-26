@@ -9,7 +9,8 @@ namespace uWS {
 
 class Server;
 
-struct HTTPSocket {
+class HTTPSocket {
+    friend class Server;
     std::string headerBuffer;
     std::vector<std::pair<char *, size_t>> headers;
 

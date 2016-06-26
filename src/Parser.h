@@ -10,7 +10,7 @@
 
 namespace uWS {
 
-struct Parser {
+class Parser {
 private:
     typedef uint16_t frameFormat;
     static inline bool fin(frameFormat &frame) {return frame & 128;}
