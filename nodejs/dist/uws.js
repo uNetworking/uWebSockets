@@ -269,7 +269,7 @@ class Server extends EventEmitter {
         this._upgradeReq = null;
         this._upgradeCallback = noop;
         this._upgradeListener = null;
-        this._noDelay = options.noDelay || false;
+        this._noDelay = options.noDelay === undefined ? true : options.noDelay;
 
         if (!options.noServer) {
             this.httpServer = options.server ? options.server : http.createServer((request, response) => {
