@@ -270,6 +270,7 @@ class Server extends EventEmitter {
         this._upgradeCallback = noop;
         this._upgradeListener = null;
         this._noDelay = options.noDelay === undefined ? true : options.noDelay;
+        this._lastUpgradeListener = true;
 
         if (!options.noServer) {
             this.httpServer = options.server ? options.server : http.createServer((request, response) => {
@@ -298,7 +299,9 @@ class Server extends EventEmitter {
                                     });
                                 } else {
                                     // todo: send code & message
-                                    socket.end();
+                                    if (this._lastUpgradeListener) {
+                                        socket.end();
+                                    }
                                 }
                             });
                         } else {
@@ -308,7 +311,9 @@ class Server extends EventEmitter {
                                 });
                             } else {
                                 // todo: send code & message
-                                socket.end();
+                                if (this.__lastUpgradeListener) {
+                                    socket.end();
+                                }
                             }
                         }
                     } else {
@@ -317,9 +322,17 @@ class Server extends EventEmitter {
                         });
                     }
                 } else {
-                    socket.end();
+                    if (this._lastUpgradeListener) {
+                        socket.end();
+                    }
                 }
             }));
+
+            this.httpServer.on('newListener', (eventName, listener) => {
+                if (eventName === 'upgrade') {
+                    this._lastUpgradeListener = false;
+                }
+            });
         }
 
         this.nativeServer.onDisconnection((nativeSocket, code, message, socket) => {
