@@ -468,6 +468,13 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
                 messagePtr->data = data + sent;
                 messagePtr->length = length - sent;
                 messagePtr->nextMessage = nullptr;
+            } else if (preparedMessage) {
+                // these allocations are always small and could belong to the same memory block
+                // best would be to use a stack and delete the whole stack when the prepared message gets deleted
+                messagePtr = (SocketData::Queue::Message *) new char[sizeof(SocketData::Queue::Message)];
+                messagePtr->data = data + sent;
+                messagePtr->length = length - sent;
+                messagePtr->nextMessage = nullptr;
             } else {
                 // we need to copy the buffer
                 messagePtr = (SocketData::Queue::Message *) new char[sizeof(SocketData::Queue::Message) + length - sent];
