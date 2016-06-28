@@ -389,13 +389,15 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
             memcpy(&sendBuffer[length + 4], data, length - 2);
         }
         write(sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](WebSocket webSocket, void *data, bool cancelled) {
-            uv_os_fd_t fd;
-            uv_fileno((uv_handle_t *) webSocket.p, &fd);
-            SocketData *socketData = (SocketData *) webSocket.p->data;
-            if (socketData->ssl) {
-                SSL_shutdown(socketData->ssl);
+            if (!cancelled) {
+                uv_os_fd_t fd;
+                uv_fileno((uv_handle_t *) webSocket.p, &fd);
+                SocketData *socketData = (SocketData *) webSocket.p->data;
+                if (socketData->ssl) {
+                    SSL_shutdown(socketData->ssl);
+                }
+                shutdown(fd, SHUT_WR);
             }
-            shutdown(fd, SHUT_WR);
         });
     }
 }
