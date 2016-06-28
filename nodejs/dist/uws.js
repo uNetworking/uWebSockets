@@ -161,6 +161,21 @@ class Socket {
     }
 
     /**
+     * Sends a prepared message.
+     *
+     * @param {Object} preparedMessage The prepared message to send
+     * @public
+     */
+    sendPrepared(preparedMessage) {
+        /* ignore sends on closed sockets */
+        if (!this.nativeSocket) {
+            return;
+        }
+
+        this.nativeServer.sendPrepared(this.nativeSocket, preparedMessage);
+    }
+
+    /**
      * Sends a ping.
      *
      * @param {String|Buffer} message The message to send
@@ -392,6 +407,27 @@ class Server extends EventEmitter {
             });
         }
         socket.destroy();
+    }
+
+    /**
+     * Prepare a message for bulk sending.
+     *
+     * @param {String|Buffer} message The message to prepare
+     * @param {Boolean} binary Binary (or text) OpCode
+     * @public
+     */
+    prepareMessage(message, binary) {
+        return this.nativeServer.prepareMessage(message, binary ? exports.OPCODE_BINARY : exports.OPCODE_TEXT);
+    }
+
+    /**
+     * Finalize (unreference) a message after bulk sending.
+     *
+     * @param {Object} preparedMessage The prepared message to finalize
+     * @public
+     */
+    finalizeMessage(preparedMessage) {
+        return this.nativeServer.finalizeMessage(preparedMessage);
     }
 
     /**

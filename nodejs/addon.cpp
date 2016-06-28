@@ -280,6 +280,26 @@ void broadcast(const FunctionCallbackInfo<Value> &args)
     server->broadcast(nativeString.getData(), nativeString.getLength(), opCode);
 }
 
+void prepareMessage(const FunctionCallbackInfo<Value> &args)
+{
+    OpCode opCode = (uWS::OpCode) args[1]->IntegerValue();
+    NativeString nativeString(args[0]);
+    Local<Object> preparedMessage = Local<Object>::New(args.GetIsolate(), persistentTicket)->Clone();
+    preparedMessage->SetAlignedPointerInInternalField(0, WebSocket::prepareMessage(nativeString.getData(), nativeString.getLength(), opCode));
+    args.GetReturnValue().Set(preparedMessage);
+}
+
+void sendPrepared(const FunctionCallbackInfo<Value> &args)
+{
+    unwrapSocket(args[0]->ToNumber())
+                 .sendPrepared((WebSocket::PreparedMessage *) args[1]->ToObject()->GetAlignedPointerFromInternalField(0));
+}
+
+void finalizeMessage(const FunctionCallbackInfo<Value> &args)
+{
+    WebSocket::finalizeMessage((WebSocket::PreparedMessage *) args[0]->ToObject()->GetAlignedPointerFromInternalField(0));
+}
+
 void Main(Local<Object> exports) {
     Isolate *isolate = exports->GetIsolate();
     Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, ::Server);
@@ -297,6 +317,9 @@ void Main(Local<Object> exports) {
     NODE_SET_PROTOTYPE_METHOD(tpl, "setData", setData);
     NODE_SET_PROTOTYPE_METHOD(tpl, "getData", getData);
     NODE_SET_PROTOTYPE_METHOD(tpl, "send", send);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "prepareMessage", prepareMessage);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "sendPrepared", sendPrepared);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "finalizeMessage", finalizeMessage);
     NODE_SET_PROTOTYPE_METHOD(tpl, "getAddress", getAddress);
 
     exports->Set(String::NewFromUtf8(isolate, "Server"), tpl->GetFunction());
