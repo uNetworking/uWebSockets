@@ -1207,6 +1207,8 @@ void Socket::write(char *data, size_t length, bool transferOwnership, void(*call
 
                 if (socketData->state == CLOSING) {
                     cout << "CLOSING state, Socket::write" << endl;
+                    // force close in order to prevent infinite loop.
+                    Socket(handle).close(true, 1006);
                     return;
                 }
 
