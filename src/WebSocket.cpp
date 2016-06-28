@@ -176,6 +176,7 @@ void WebSocket::handleFragment(const char *fragment, size_t length, OpCode opCod
             } else {
                 if (opCode == PING) {
                     send((char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length(), OpCode::PONG);
+                    socketData->server->pingCallback(p, (char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length());
                 } else if (opCode == PONG) {
                     socketData->server->pongCallback(p, (char *) socketData->controlBuffer.c_str(), socketData->controlBuffer.length());
                 }

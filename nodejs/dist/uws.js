@@ -33,6 +33,7 @@ class Socket {
         this.nativeServer = nativeServer;
         this.onmessage = noop;
         this.onclose = noop;
+        this.onping = noop;
         this.onpong = noop;
         this.upgradeReq = null;
     }
@@ -55,6 +56,11 @@ class Socket {
                 throw Error(EE_ERROR);
             }
             this.onclose = f;
+        } else if (eventName === 'ping') {
+            if (this.onping !== noop) {
+                throw Error(EE_ERROR);
+            }
+            this.onping = f;
         } else if (eventName === 'pong') {
             if (this.onpong !== noop) {
                 throw Error(EE_ERROR);
@@ -88,6 +94,14 @@ class Socket {
                 f();
                 this.onclose = noop;
             };
+        } else if (eventName === 'ping') {
+            if (this.onping !== noop) {
+                throw Error(EE_ERROR);
+            }
+            this.onping = () => {
+                f();
+                this.onping = noop;
+            };
         } else if (eventName === 'pong') {
             if (this.onpong !== noop) {
                 throw Error(EE_ERROR);
@@ -112,6 +126,8 @@ class Socket {
             this.onmessage = noop;
         } else if (!eventName || eventName === 'close') {
             this.onclose = noop;
+        } else if (!eventName || eventName === 'ping') {
+            this.onping = noop;
         } else if (!eventName || eventName === 'pong') {
             this.onpong = noop;
         }
@@ -131,6 +147,9 @@ class Socket {
         }
         if (eventName === 'close' && this.onclose === cb) {
             this.onclose = noop;
+        }
+        if (eventName === 'ping' && this.onping === cb) {
+            this.onping = noop;
         }
         if (eventName === 'pong' && this.onpong === cb) {
             this.onpong = noop;
@@ -358,6 +377,10 @@ class Server extends EventEmitter {
 
         this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
             socket.onmessage(binary ? message : message.toString());
+        });
+
+        this.nativeServer.onPing((nativeSocket, message, socket) => {
+            socket.onping(message.toString());
         });
 
         this.nativeServer.onPong((nativeSocket, message, socket) => {
