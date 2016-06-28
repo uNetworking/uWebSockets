@@ -21,6 +21,7 @@ enum {
     CONNECTION_CALLBACK = 1,
     DISCONNECTION_CALLBACK,
     MESSAGE_CALLBACK,
+    PING_CALLBACK,
     PONG_CALLBACK
 };
 
@@ -35,6 +36,7 @@ void Server(const FunctionCallbackInfo<Value> &args) {
             args.This()->SetAlignedPointerInInternalField(CONNECTION_CALLBACK, new Persistent<Function>);
             args.This()->SetAlignedPointerInInternalField(DISCONNECTION_CALLBACK, new Persistent<Function>);
             args.This()->SetAlignedPointerInInternalField(MESSAGE_CALLBACK, new Persistent<Function>);
+            args.This()->SetAlignedPointerInInternalField(PING_CALLBACK, new Persistent<Function>);
             args.This()->SetAlignedPointerInInternalField(PONG_CALLBACK, new Persistent<Function>);
         } catch (...) {
             args.This()->Set(String::NewFromUtf8(args.GetIsolate(), "error"), Boolean::New(args.GetIsolate(), true));
@@ -90,6 +92,20 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
                                getDataV8(socket, isolate)};
         node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *messageCallback), 4, argv);
     });
+}
+
+void onPing(const FunctionCallbackInfo<Value> &args) {
+  uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
+  Isolate *isolate = args.GetIsolate();
+  Persistent<Function> *pingCallback = (Persistent<Function> *) args.Holder()->GetAlignedPointerFromInternalField(PING_CALLBACK);
+  pingCallback->Reset(isolate, Local<Function>::Cast(args[0]));
+  server->onPing([isolate, pingCallback](uWS::WebSocket socket, const char *message, size_t length) {
+      HandleScope hs(isolate);
+      Local<Value> argv[] = {wrapSocket(socket, isolate),
+                             node::Buffer::New(isolate, (char *) message, length, [](char *data, void *hint) {}, nullptr).ToLocalChecked(),
+                             getDataV8(socket, isolate)};
+      node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *pingCallback), 3, argv);
+  });
 }
 
 void onPong(const FunctionCallbackInfo<Value> &args) {
@@ -303,10 +319,11 @@ void finalizeMessage(const FunctionCallbackInfo<Value> &args)
 void Main(Local<Object> exports) {
     Isolate *isolate = exports->GetIsolate();
     Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, ::Server);
-    tpl->InstanceTemplate()->SetInternalFieldCount(5);
+    tpl->InstanceTemplate()->SetInternalFieldCount(6);
 
     NODE_SET_PROTOTYPE_METHOD(tpl, "onConnection", onConnection);
     NODE_SET_PROTOTYPE_METHOD(tpl, "onMessage", onMessage);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "onPing", onPing);
     NODE_SET_PROTOTYPE_METHOD(tpl, "onPong", onPong);
     NODE_SET_PROTOTYPE_METHOD(tpl, "onDisconnection", onDisconnection);
     NODE_SET_PROTOTYPE_METHOD(tpl, "close", close);

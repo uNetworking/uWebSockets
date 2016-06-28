@@ -130,6 +130,7 @@ Server::Server(int port, bool master, int options, int maxPayload) : master(mast
     onConnection([](WebSocket webSocket) {});
     onDisconnection([](WebSocket webSocket, int code, char *message, size_t length) {});
     onMessage([](WebSocket webSocket, char *message, size_t length, OpCode opCode) {});
+    onPing([](WebSocket webSocket, char *message, size_t length) {});
     onPong([](WebSocket webSocket, char *message, size_t length) {});
     onUpgrade([this](uv_os_fd_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
         upgrade(fd, secKey, ssl, extensions, extensionsLength);
@@ -196,6 +197,11 @@ void Server::onDisconnection(std::function<void (WebSocket, int, char *, size_t)
 void Server::onMessage(std::function<void (WebSocket, char *, size_t, OpCode)> messageCallback)
 {
     this->messageCallback = messageCallback;
+}
+
+void Server::onPing(std::function<void (WebSocket, char *, size_t)> pingCallback)
+{
+    this->pingCallback = pingCallback;
 }
 
 void Server::onPong(std::function<void (WebSocket, char *, size_t)> pongCallback)

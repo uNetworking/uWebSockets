@@ -51,6 +51,10 @@ int main()
             }*/
         });
 
+        worker.onPing([](WebSocket webSocket, char *message, size_t length) {
+            cout << "Got a ping!" << endl;
+        });
+
         worker.onPong([](WebSocket webSocket, char *message, size_t length) {
             cout << "Got a pong!" << endl;
         });
