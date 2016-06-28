@@ -228,9 +228,11 @@ void Server::upgrade(uv_os_fd_t fd, const char *secKey, void *ssl, const char *e
 
 void Server::broadcast(char *data, size_t length, OpCode opCode)
 {
+    WebSocket::PreparedMessage *preparedMessage = WebSocket::prepareMessage(data, length, opCode);
     for (WebSocket webSocket = clients; webSocket; webSocket = webSocket.next()) {
-        webSocket.send(data, length, opCode);
+        webSocket.sendPrepared(preparedMessage);
     }
+    WebSocket::finalizeMessage(preparedMessage);
 }
 
 void Server::run()

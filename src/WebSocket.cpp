@@ -80,6 +80,35 @@ void WebSocket::sendFragment(char *data, size_t length, OpCode opCode, size_t re
     }
 }
 
+WebSocket::PreparedMessage *WebSocket::prepareMessage(char *data, size_t length, OpCode opCode)
+{
+    PreparedMessage *preparedMessage = new PreparedMessage;
+    preparedMessage->buffer = new char[sizeof(SocketData::Queue::Message) + length + 10] + sizeof(SocketData::Queue::Message);
+    preparedMessage->length = formatMessage(preparedMessage->buffer, data, length, opCode, length);
+    preparedMessage->references = 1;
+    return preparedMessage;
+}
+
+void WebSocket::sendPrepared(WebSocket::PreparedMessage *preparedMessage)
+{
+    preparedMessage->references++;
+    write(preparedMessage->buffer, preparedMessage->length, false, [](WebSocket webSocket, void *userData, bool cancelled) {
+        PreparedMessage *preparedMessage = (PreparedMessage *) userData;
+        if (!--preparedMessage->references) {
+            delete [] (preparedMessage->buffer - sizeof(SocketData::Queue::Message));
+            delete preparedMessage;
+        }
+    }, preparedMessage, true);
+}
+
+void WebSocket::finalizeMessage(WebSocket::PreparedMessage *preparedMessage)
+{
+    if (!--preparedMessage->references) {
+        delete [] (preparedMessage->buffer - sizeof(SocketData::Queue::Message));
+        delete preparedMessage;
+    }
+}
+
 void WebSocket::handleFragment(const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes, bool compressed)
 {
     SocketData *socketData = (SocketData *) p->data;
@@ -370,8 +399,8 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
     }
 }
 
-// async Unix send (has a Message struct in the start if transferOwnership)
-void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData)
+// async Unix send (has a Message struct in the start if transferOwnership OR preparedMessage)
+void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData, bool preparedMessage)
 {
     uv_os_fd_t fd;
     uv_fileno((uv_handle_t *) p, &fd);
@@ -421,6 +450,11 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
             if (transferOwnership) {
                 delete [] (data - sizeof(SocketData::Queue::Message));
             }
+
+            if (callback) {
+                callback(p, callbackData, true);
+            }
+
             return;
         } else {
 

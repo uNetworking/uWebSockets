@@ -38,6 +38,9 @@ int main()
             cout << a.family << endl;
             cout << a.port << endl;
 
+            char message[] = "Welcome!";
+            ::worker->broadcast(message, sizeof(message) - 1, OpCode::TEXT);
+
             // test shutting down the server when two clients are connected
             // this should disconnect both clients and exit libuv loop
             /*if (connections == 2) {
