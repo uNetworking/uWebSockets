@@ -259,8 +259,10 @@ SSLContext::SSLContext(std::string certFileName, std::string keyFileName)
 {
     static bool first = true;
     if (first) {
-        //SSL_load_error_strings();
-        OpenSSL_add_ssl_algorithms();
+        SSL_library_init();
+        atexit([]() {
+            EVP_cleanup();
+        });
         first = false;
     }
 
@@ -276,9 +278,15 @@ SSLContext::SSLContext(std::string certFileName, std::string keyFileName)
     }
 }
 
-SSLContext::SSLContext()
+SSLContext::SSLContext(const SSLContext &other)
 {
+    sslContext = other.sslContext;
+    sslContext->references++;
+}
 
+SSLContext::~SSLContext()
+{
+    SSL_CTX_free(sslContext);
 }
 
 void *SSLContext::newSSL(int fd)

@@ -30,7 +30,9 @@ private:
     SSL_CTX *sslContext;
 public:
     SSLContext(std::string certFileName, std::string keyFileName);
-    SSLContext();
+    SSLContext() = default;
+    SSLContext(const SSLContext &other);
+    ~SSLContext();
     operator bool() {
         return sslContext;
     }
