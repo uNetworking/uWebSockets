@@ -26,7 +26,7 @@ int main()
         });
 
         // our working server, does not listen
-        Server worker(0, false, PERMESSAGE_DEFLATE | SERVER_NO_CONTEXT_TAKEOVER | CLIENT_NO_CONTEXT_TAKEOVER/*, 1000000*/);
+        Server worker(0, false, PERMESSAGE_DEFLATE | SERVER_NO_CONTEXT_TAKEOVER | CLIENT_NO_CONTEXT_TAKEOVER, 0);
         ::worker = &worker;
         ::server = &server;
         worker.onConnection([](WebSocket socket) {
@@ -42,8 +42,8 @@ int main()
             cout << a.family << endl;
             cout << a.port << endl;
 
-            char message[] = "Welcome!";
-            ::worker->broadcast(message, sizeof(message) - 1, OpCode::TEXT);
+            //char message[] = "Welcome!";
+            //::worker->broadcast(message, sizeof(message) - 1, OpCode::TEXT);
 
             // test shutting down the server when two clients are connected
             // this should disconnect both clients and exit libuv loop
