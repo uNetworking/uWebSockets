@@ -27,7 +27,7 @@ enum Options : int {
 
 class SSLContext {
 private:
-    SSL_CTX *sslContext;
+    SSL_CTX *sslContext = nullptr;
 public:
     SSLContext(std::string certFileName, std::string keyFileName);
     SSLContext() = default;

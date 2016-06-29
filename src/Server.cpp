@@ -280,8 +280,10 @@ SSLContext::SSLContext(std::string certFileName, std::string keyFileName)
 
 SSLContext::SSLContext(const SSLContext &other)
 {
-    sslContext = other.sslContext;
-    sslContext->references++;
+    if (other.sslContext) {
+        sslContext = other.sslContext;
+        sslContext->references++;
+    }
 }
 
 SSLContext::~SSLContext()

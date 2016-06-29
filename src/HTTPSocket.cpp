@@ -1,5 +1,3 @@
-/* The native HTTP support is currently very basic and somewhat unfinished */
-
 #include "HTTPSocket.h"
 #include "Server.h"
 #include "Network.h"
@@ -51,90 +49,124 @@ namespace uWS {
 
 HTTPSocket::HTTPSocket(uv_os_fd_t fd, Server *server, void *ssl) : server(server), ssl(ssl)
 {
-    uv_poll_init_socket(server->loop, &p, fd);
-    uv_poll_start(&p, UV_READABLE, onReadable);
-    p.data = this;
+    p = new uv_poll_t;
+    uv_poll_init_socket(server->loop, p, fd);
+    uv_poll_start(p, UV_READABLE, onReadable);
+    p->data = this;
+
+    t = new uv_timer_t;
+    uv_timer_init(server->loop, t);
+    uv_timer_start(t, onTimeout, 15000, 0);
+    t->data = this;
+}
+
+HTTPSocket::~HTTPSocket()
+{
+    // stop can be called before dstructor, but needs to be called in the same loop tick
+    if (!uv_is_closing((uv_handle_t *) p)) {
+        stop();
+    }
+}
+
+void HTTPSocket::stop()
+{
+    uv_poll_stop(p);
+    uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
+        delete (uv_poll_t *) handle;
+    });
+
+    uv_timer_stop(t);
+    uv_close((uv_handle_t *) t, [](uv_handle_t *handle) {
+        delete (uv_timer_t *) handle;
+    });
+}
+
+void HTTPSocket::close()
+{
+    uv_os_fd_t fd;
+    uv_fileno((uv_handle_t *) p, &fd);
+
+    if (ssl) {
+        SSL_free((SSL *) ssl);
+    }
+    ::close(fd);
+}
+
+void HTTPSocket::onTimeout(uv_timer_t *t)
+{
+    HTTPSocket *httpData = (HTTPSocket *) t->data;
+    httpData->close();
+    delete httpData;
 }
 
 void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
 {
+    HTTPSocket *httpData = (HTTPSocket *) p->data;
+
     if (status < 0) {
-        // error read
+        httpData->close();
+        delete httpData;
+        return;
     }
 
     uv_os_fd_t fd;
     uv_fileno((uv_handle_t *) p, &fd);
 
-    HTTPSocket *httpData = (HTTPSocket *) p->data;
     int length;
     if (httpData->ssl) {
         length = SSL_read((SSL *) httpData->ssl, httpData->server->recvBuffer, Server::LARGE_BUFFER_SIZE);
+        if (length < 1) {
+            switch (SSL_get_error((SSL *) httpData->ssl, length)) {
+            case SSL_ERROR_WANT_WRITE:
+            case SSL_ERROR_WANT_READ:
+                return;
+            }
+        }
     } else {
         length = recv(fd, httpData->server->recvBuffer, Server::LARGE_BUFFER_SIZE, 0);
     }
-    httpData->headerBuffer.append(httpData->server->recvBuffer, length);
 
-    // did we read the complete header?
+    if (length == -1 || length == 0 || httpData->headerBuffer.length() + length > MAX_HEADER_BUFFER_LENGTH) {
+        httpData->close();
+        delete httpData;
+        return;
+    }
+
+    httpData->headerBuffer.append(httpData->server->recvBuffer, length);
     if (httpData->headerBuffer.find("\r\n\r\n") != std::string::npos) {
 
-        // our part is done here
-        uv_poll_stop(p);
-        uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
-            delete (HTTPSocket *) handle->data;
-            //delete (uv_poll_t *) handle;
-        });
+        // stop poll and timer
+        httpData->stop();
 
+        // parse secKey, extensions
         Request h = (char *) httpData->headerBuffer.data();
-
-        // strip away any ? from the GET request
-        h.value.first[h.value.second] = 0;
-        for (size_t i = 0; i < h.value.second; i++) {
-            if (h.value.first[i] == '?') {
-                h.value.first[i] = 0;
-                break;
-            } else {
-                // lowercase the request path
-                h.value.first[i] = tolower(h.value.first[i]);
-            }
-        }
-
         std::pair<char *, size_t> secKey = {}, extensions = {};
-
-        // only accept requests with our path
-        //if (!strcmp(h.value.first, httpData->server->path.c_str())) {
-            for (h++; h.key.second; h++) {
-                if (h.key.second == 17 || h.key.second == 24) {
-                    // lowercase the key
-                    for (size_t i = 0; i < h.key.second; i++) {
-                        h.key.first[i] = tolower(h.key.first[i]);
-                    }
-                    if (!strncmp(h.key.first, "sec-websocket-key", h.key.second)) {
-                        secKey = h.value;
-                    } else if (!strncmp(h.key.first, "sec-websocket-extensions", h.key.second)) {
-                        extensions = h.value;
-                    }
+        for (h++; h.key.second; h++) {
+            if (h.key.second == 17 || h.key.second == 24) {
+                // lowercase the key
+                for (size_t i = 0; i < h.key.second; i++) {
+                    h.key.first[i] = tolower(h.key.first[i]);
+                }
+                if (!strncmp(h.key.first, "sec-websocket-key", h.key.second)) {
+                    secKey = h.value;
+                } else if (!strncmp(h.key.first, "sec-websocket-extensions", h.key.second)) {
+                    extensions = h.value;
                 }
             }
-
-            // this is an upgrade
-            if (secKey.first && secKey.second == 24) {
-                if (httpData->server->upgradeCallback) {
-                    httpData->server->upgradeCallback(fd, secKey.first, httpData->ssl, extensions.first, extensions.second);
-                } else {
-                    httpData->server->upgrade(fd, secKey.first, httpData->ssl, extensions.first, extensions.second);
-                }
-                return;
-            }
-        //}
-
-        // for now, we just close HTTP traffic
-        if (httpData->ssl) {
-            SSL_free((SSL *) httpData->ssl);
         }
-        ::close(fd);
-    } else {
-        // todo: start timer to time out the connection!
 
+        // this is an upgrade
+        if (secKey.first && secKey.second == 24) {
+            if (httpData->server->upgradeCallback) {
+                httpData->server->upgradeCallback(fd, secKey.first, httpData->ssl, extensions.first, extensions.second);
+            } else {
+                httpData->server->upgrade(fd, secKey.first, httpData->ssl, extensions.first, extensions.second);
+            }
+        } else {
+            // we do not handle any HTTP-only requests
+            httpData->close();
+        }
+        delete httpData;
     }
 }
 
