@@ -8,6 +8,7 @@
 #include <utility>
 #include <cstring>
 #include <uv.h>
+#include <openssl/ssl.h>
 
 struct Request {
     char *cursor;
@@ -48,7 +49,7 @@ struct Request {
 
 namespace uWS {
 
-HTTPSocket::HTTPSocket(uv_os_fd_t fd, Server *server) : server(server)
+HTTPSocket::HTTPSocket(uv_os_fd_t fd, Server *server, void *ssl) : server(server), ssl(ssl)
 {
     uv_poll_init_socket(server->loop, &p, fd);
     uv_poll_start(&p, UV_READABLE, onReadable);
@@ -65,7 +66,12 @@ void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
     uv_fileno((uv_handle_t *) p, &fd);
 
     HTTPSocket *httpData = (HTTPSocket *) p->data;
-    int length = recv(fd, httpData->server->recvBuffer, Server::LARGE_BUFFER_SIZE, 0);
+    int length;
+    if (httpData->ssl) {
+        length = SSL_read((SSL *) httpData->ssl, httpData->server->recvBuffer, Server::LARGE_BUFFER_SIZE);
+    } else {
+        length = recv(fd, httpData->server->recvBuffer, Server::LARGE_BUFFER_SIZE, 0);
+    }
     httpData->headerBuffer.append(httpData->server->recvBuffer, length);
 
     // did we read the complete header?
@@ -113,15 +119,18 @@ void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
             // this is an upgrade
             if (secKey.first && secKey.second == 24) {
                 if (httpData->server->upgradeCallback) {
-                    httpData->server->upgradeCallback(fd, secKey.first, nullptr, extensions.first, extensions.second);
+                    httpData->server->upgradeCallback(fd, secKey.first, httpData->ssl, extensions.first, extensions.second);
                 } else {
-                    httpData->server->upgrade(fd, secKey.first, nullptr, extensions.first, extensions.second);
+                    httpData->server->upgrade(fd, secKey.first, httpData->ssl, extensions.first, extensions.second);
                 }
                 return;
             }
         //}
 
         // for now, we just close HTTP traffic
+        if (httpData->ssl) {
+            SSL_free((SSL *) httpData->ssl);
+        }
         ::close(fd);
     } else {
         // todo: start timer to time out the connection!

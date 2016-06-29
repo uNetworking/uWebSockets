@@ -46,7 +46,16 @@ void Server::acceptHandler(uv_poll_t *p, int status, int events)
     setsockopt(clientFd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
 #endif
 
-    new HTTPSocket(clientFd, server);
+    void *ssl = nullptr;
+    if (server->sslContext) {
+        ssl = server->sslContext.newSSL(clientFd);
+        if (SSL_accept((SSL *) ssl) <= 0) {
+            SSL_free((SSL *) ssl);
+            return;
+        }
+    }
+
+    new HTTPSocket(clientFd, server, ssl);
 }
 
 void Server::upgradeHandler(Server *server)
@@ -118,7 +127,7 @@ void Server::closeHandler(Server *server)
     }
 }
 
-Server::Server(int port, bool master, int options, int maxPayload) : master(master), options(options), maxPayload(maxPayload)
+Server::Server(int port, bool master, int options, int maxPayload, SSLContext sslContext) : master(master), options(options), maxPayload(maxPayload), sslContext(sslContext)
 {
     loop = master ? uv_default_loop() : uv_loop_new();
 
@@ -244,6 +253,39 @@ void Server::broadcast(char *data, size_t length, OpCode opCode)
 void Server::run()
 {
     uv_run(loop, UV_RUN_DEFAULT);
+}
+
+SSLContext::SSLContext(std::string certFileName, std::string keyFileName)
+{
+    static bool first = true;
+    if (first) {
+        //SSL_load_error_strings();
+        OpenSSL_add_ssl_algorithms();
+        first = false;
+    }
+
+    sslContext = SSL_CTX_new(SSLv23_server_method());
+    if (!sslContext) {
+        throw ERR_SSL;
+    }
+
+    if (SSL_CTX_use_certificate_file(sslContext, certFileName.c_str(), SSL_FILETYPE_PEM) < 0) {
+        throw ERR_SSL;
+    } else if (SSL_CTX_use_PrivateKey_file(sslContext, keyFileName.c_str(), SSL_FILETYPE_PEM) < 0) {
+        throw ERR_SSL;
+    }
+}
+
+SSLContext::SSLContext()
+{
+
+}
+
+void *SSLContext::newSSL(int fd)
+{
+    SSL *ssl = SSL_new(sslContext);
+    SSL_set_fd(ssl, fd);
+    return ssl;
 }
 
 }

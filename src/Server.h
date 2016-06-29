@@ -6,13 +6,15 @@
 #include <string>
 #include <functional>
 #include <uv.h>
+#include <openssl/ossl_typ.h>
 
 #include "WebSocket.h"
 
 namespace uWS {
 
 enum Error {
-    ERR_LISTEN
+    ERR_LISTEN,
+    ERR_SSL
 };
 
 enum Options : int {
@@ -21,6 +23,18 @@ enum Options : int {
     SERVER_NO_CONTEXT_TAKEOVER = 2,
     CLIENT_NO_CONTEXT_TAKEOVER = 4,
     NO_DELAY = 8
+};
+
+class SSLContext {
+private:
+    SSL_CTX *sslContext;
+public:
+    SSLContext(std::string certFileName, std::string keyFileName);
+    SSLContext();
+    operator bool() {
+        return sslContext;
+    }
+    void *newSSL(int fd);
 };
 
 class Server
@@ -34,6 +48,7 @@ private:
     sockaddr_in listenAddr;
     bool master, forceClose;
     int options, maxPayload;
+    SSLContext sslContext;
     static void acceptHandler(uv_poll_t *p, int status, int events);
     static void upgradeHandler(Server *server);
     static void closeHandler(Server *server);
@@ -59,7 +74,7 @@ private:
     std::function<void(WebSocket, char *, size_t)> pingCallback;
     std::function<void(WebSocket, char *, size_t)> pongCallback;
 public:
-    Server(int port = 0, bool master = true, int options = 0, int maxPayload = 1048576);
+    Server(int port = 0, bool master = true, int options = 0, int maxPayload = 1048576, SSLContext sslContext = SSLContext());
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;

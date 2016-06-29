@@ -14,8 +14,12 @@ Server *worker, *server;
 int main()
 {
     try {
+        // set up ssl
+        SSLContext sslContext("/home/alexhultman/uws-connections-dropped/secrets/cert.pem",
+                              "/home/alexhultman/uws-connections-dropped/secrets/key.pem");
+
         // our listening server
-        Server server(3000, false);
+        Server server(3000, false, 0, 0, sslContext);
         server.onUpgrade([](uv_os_fd_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
             // transfer connection to one of our worker servers
             ::worker->upgrade(fd, secKey, ssl, extensions, extensionsLength);
