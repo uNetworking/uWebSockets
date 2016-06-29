@@ -285,6 +285,7 @@ void *SSLContext::newSSL(int fd)
 {
     SSL *ssl = SSL_new(sslContext);
     SSL_set_fd(ssl, fd);
+    SSL_set_mode(ssl, SSL_MODE_ENABLE_PARTIAL_WRITE);
     return ssl;
 }
 
