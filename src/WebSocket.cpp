@@ -227,17 +227,17 @@ void WebSocket::onReadable(uv_poll_t *p, int status, int events)
     ssize_t received;
     if (socketData->ssl) {
         received = SSL_read(socketData->ssl, src + socketData->spillLength, Server::LARGE_BUFFER_SIZE - socketData->spillLength);
+
+        // do not treat SSL_ERROR_WANT_* as hang ups
+        if (received < 1) {
+            switch (SSL_get_error(socketData->ssl, received)) {
+            case SSL_ERROR_WANT_WRITE:
+            case SSL_ERROR_WANT_READ:
+                return;
+            }
+        }
     } else {
         received = recv(fd, src + socketData->spillLength, Server::LARGE_BUFFER_SIZE - socketData->spillLength, 0);
-    }
-
-    // do not treat SSL_ERROR_WANT_* as hang ups
-    if (socketData->ssl && received < 1) {
-        switch (SSL_get_error(socketData->ssl, received)) {
-        case SSL_ERROR_WANT_WRITE:
-        case SSL_ERROR_WANT_READ:
-            return;
-        }
     }
 
     if (received == -1 || received == 0) {
