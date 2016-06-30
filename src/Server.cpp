@@ -51,6 +51,7 @@ void Server::acceptHandler(uv_poll_t *p, int status, int events)
         ssl = server->sslContext.newSSL(clientFd);
         if (SSL_accept((SSL *) ssl) <= 0) {
             SSL_free((SSL *) ssl);
+            ::close(clientFd);
             return;
         }
     }

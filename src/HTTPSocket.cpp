@@ -60,16 +60,11 @@ HTTPSocket::HTTPSocket(uv_os_fd_t fd, Server *server, void *ssl) : server(server
     t->data = this;
 }
 
-HTTPSocket::~HTTPSocket()
+uv_os_fd_t HTTPSocket::stop()
 {
-    // stop can be called before dstructor, but needs to be called in the same loop tick
-    if (!uv_is_closing((uv_handle_t *) p)) {
-        stop();
-    }
-}
+    uv_os_fd_t fd;
+    uv_fileno((uv_handle_t *) p, &fd);
 
-void HTTPSocket::stop()
-{
     uv_poll_stop(p);
     uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
         delete (uv_poll_t *) handle;
@@ -79,13 +74,12 @@ void HTTPSocket::stop()
     uv_close((uv_handle_t *) t, [](uv_handle_t *handle) {
         delete (uv_timer_t *) handle;
     });
+
+    return fd;
 }
 
-void HTTPSocket::close()
+void HTTPSocket::close(uv_os_fd_t fd)
 {
-    uv_os_fd_t fd;
-    uv_fileno((uv_handle_t *) p, &fd);
-
     if (ssl) {
         SSL_free((SSL *) ssl);
     }
@@ -95,7 +89,7 @@ void HTTPSocket::close()
 void HTTPSocket::onTimeout(uv_timer_t *t)
 {
     HTTPSocket *httpData = (HTTPSocket *) t->data;
-    httpData->close();
+    httpData->close(httpData->stop());
     delete httpData;
 }
 
@@ -104,7 +98,7 @@ void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
     HTTPSocket *httpData = (HTTPSocket *) p->data;
 
     if (status < 0) {
-        httpData->close();
+        httpData->close(httpData->stop());
         delete httpData;
         return;
     }
@@ -127,7 +121,8 @@ void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
     }
 
     if (length == -1 || length == 0 || httpData->headerBuffer.length() + length > MAX_HEADER_BUFFER_LENGTH) {
-        httpData->close();
+        int fd = httpData->stop();
+        httpData->close(fd);
         delete httpData;
         return;
     }
@@ -136,7 +131,7 @@ void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
     if (httpData->headerBuffer.find("\r\n\r\n") != std::string::npos) {
 
         // stop poll and timer
-        httpData->stop();
+        uv_os_fd_t fd = httpData->stop();
 
         // parse secKey, extensions
         Request h = (char *) httpData->headerBuffer.data();
@@ -164,7 +159,7 @@ void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
             }
         } else {
             // we do not handle any HTTP-only requests
-            httpData->close();
+            httpData->close(fd);
         }
         delete httpData;
     }

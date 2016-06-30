@@ -21,9 +21,8 @@ class HTTPSocket {
     void *ssl;
 
     HTTPSocket(uv_os_fd_t fd, Server *server, void *ssl);
-    ~HTTPSocket();
-    void stop();
-    void close();
+    uv_os_fd_t stop();
+    void close(uv_os_fd_t fd);
     static void onReadable(uv_poll_t *p, int status, int events);
     static void onTimeout(uv_timer_t *t);
 };
