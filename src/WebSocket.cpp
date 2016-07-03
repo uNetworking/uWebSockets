@@ -11,7 +11,7 @@
 
 namespace uWS {
 
-inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength)
+inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed)
 {
     size_t messageLength;
     if (reportedLength < 126) {
@@ -31,7 +31,7 @@ inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, 
     }
 
     int flags = 0;
-    dst[0] = (flags & SND_NO_FIN ? 0 : 128);
+    dst[0] = (flags & SND_NO_FIN ? 0 : 128) | (compressed ? SND_COMPRESSED : 0);
     if (!(flags & SND_CONTINUATION)) {
         dst[0] |= opCode;
     }
@@ -48,10 +48,10 @@ void WebSocket::send(char *message, size_t length, OpCode opCode, void (*callbac
     if (length <= Server::SHORT_BUFFER_SIZE - 10) {
         SocketData *socketData = (SocketData *) p->data;
         char *sendBuffer = socketData->server->sendBuffer;
-        write(sendBuffer, formatMessage(sendBuffer, message, length, opCode, reportedLength), false, callback, callbackData);
+        write(sendBuffer, formatMessage(sendBuffer, message, length, opCode, reportedLength, false), false, callback, callbackData);
     } else {
         char *buffer = new char[sizeof(SocketData::Queue::Message) + length + 10] + sizeof(SocketData::Queue::Message);
-        write(buffer, formatMessage(buffer, message, length, opCode, reportedLength), true, callback, callbackData);
+        write(buffer, formatMessage(buffer, message, length, opCode, reportedLength, false), true, callback, callbackData);
     }
 }
 
@@ -80,11 +80,11 @@ void WebSocket::sendFragment(char *data, size_t length, OpCode opCode, size_t re
     }
 }
 
-WebSocket::PreparedMessage *WebSocket::prepareMessage(char *data, size_t length, OpCode opCode)
+WebSocket::PreparedMessage *WebSocket::prepareMessage(char *data, size_t length, OpCode opCode, bool compressed)
 {
     PreparedMessage *preparedMessage = new PreparedMessage;
     preparedMessage->buffer = new char[sizeof(SocketData::Queue::Message) + length + 10] + sizeof(SocketData::Queue::Message);
-    preparedMessage->length = formatMessage(preparedMessage->buffer, data, length, opCode, length);
+    preparedMessage->length = formatMessage(preparedMessage->buffer, data, length, opCode, length, compressed);
     preparedMessage->references = 1;
     return preparedMessage;
 }
@@ -398,7 +398,7 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
             *((uint16_t *) &sendBuffer[length + 2]) = htons(code);
             memcpy(&sendBuffer[length + 4], data, length - 2);
         }
-        write(sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length), false, [](WebSocket webSocket, void *data, bool cancelled) {
+        write(sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length, false), false, [](WebSocket webSocket, void *data, bool cancelled) {
             if (!cancelled) {
                 uv_os_fd_t fd;
                 uv_fileno((uv_handle_t *) webSocket.p, &fd);

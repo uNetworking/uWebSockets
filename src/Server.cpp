@@ -171,6 +171,12 @@ Server::Server(int port, bool master, int options, int maxPayload, SSLContext ss
             upgradeHandler((Server *) a->data);
         });
     }
+
+    // todo: move this into PerMessageDeflate class
+    writeStream = {};
+    if (deflateInit2(&writeStream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -15, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK) {
+        throw ERR_ZLIB;
+    }
 }
 
 Server::~Server()
@@ -183,6 +189,9 @@ Server::~Server()
     if (!master) {
         uv_loop_delete(loop);
     }
+
+    // todo: move this into PerMessageDeflate class
+    deflateEnd(&writeStream);
 }
 
 void Server::onUpgrade(std::function<void (uv_os_fd_t, const char *, void *, const char *, size_t)> upgradeCallback)
@@ -240,9 +249,21 @@ void Server::upgrade(uv_os_fd_t fd, const char *secKey, void *ssl, const char *e
 
 void Server::broadcast(char *data, size_t length, OpCode opCode)
 {
-    WebSocket::PreparedMessage *preparedMessage = WebSocket::prepareMessage(data, length, opCode);
-    for (WebSocket webSocket = clients; webSocket; webSocket = webSocket.next()) {
-        webSocket.sendPrepared(preparedMessage);
+    WebSocket::PreparedMessage *preparedMessage = WebSocket::prepareMessage(data, length, opCode, false);
+    if (options & (PERMESSAGE_DEFLATE | SERVER_NO_CONTEXT_TAKEOVER)) {
+        size_t compressedLength = compress(data, length, inflateBuffer);
+        WebSocket::PreparedMessage *preparedCompressedMessage = WebSocket::prepareMessage(inflateBuffer, compressedLength, opCode, true);
+
+        for (WebSocket webSocket = clients; webSocket; webSocket = webSocket.next()) {
+            SocketData *socketData = (SocketData *) webSocket.p->data;
+            webSocket.sendPrepared(socketData->pmd ? preparedCompressedMessage : preparedMessage);
+        }
+
+        WebSocket::finalizeMessage(preparedCompressedMessage);
+    } else {
+        for (WebSocket webSocket = clients; webSocket; webSocket = webSocket.next()) {
+            webSocket.sendPrepared(preparedMessage);
+        }
     }
     WebSocket::finalizeMessage(preparedMessage);
 }
@@ -250,6 +271,22 @@ void Server::broadcast(char *data, size_t length, OpCode opCode)
 void Server::run()
 {
     uv_run(loop, UV_RUN_DEFAULT);
+}
+
+// todo: move this into PerMessageDeflate class
+size_t Server::compress(char *src, size_t srcLength, char *dst)
+{
+    deflateReset(&writeStream);
+    writeStream.avail_in = srcLength;
+    writeStream.next_in = (unsigned char *) src;
+    writeStream.avail_out = LARGE_BUFFER_SIZE;
+    writeStream.next_out = (unsigned char *) dst;
+    int err = deflate(&writeStream, Z_SYNC_FLUSH);
+    if (err != Z_OK && err != Z_STREAM_END) {
+        return 0;
+    } else {
+        return LARGE_BUFFER_SIZE - writeStream.avail_out - 4;
+    }
 }
 
 SSLContext::SSLContext(std::string certFileName, std::string keyFileName)

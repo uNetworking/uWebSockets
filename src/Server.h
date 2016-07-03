@@ -7,6 +7,7 @@
 #include <functional>
 #include <uv.h>
 #include <openssl/ossl_typ.h>
+#include <zlib.h>
 
 #include "WebSocket.h"
 
@@ -14,7 +15,8 @@ namespace uWS {
 
 enum Error {
     ERR_LISTEN,
-    ERR_SSL
+    ERR_SSL,
+    ERR_ZLIB
 };
 
 enum Options : int {
@@ -48,6 +50,7 @@ private:
     uv_poll_t *listenPoll = nullptr, *clients = nullptr;
     uv_async_t upgradeAsync, closeAsync;
     sockaddr_in listenAddr;
+    z_stream writeStream;
     bool master, forceClose;
     int options, maxPayload;
     SSLContext sslContext;
@@ -89,6 +92,7 @@ public:
     void close(bool force = false);
     void upgrade(uv_os_fd_t fd, const char *secKey, void *ssl = nullptr, const char *extensions = nullptr, size_t extensionsLength = 0);
     void run();
+    size_t compress(char *src, size_t srcLength, char *dst);
     void broadcast(char *data, size_t length, OpCode opCode);
 };
 
