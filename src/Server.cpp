@@ -151,7 +151,10 @@ Server::Server(int port, bool master, int options, int maxPayload, SSLContext ss
         listenPoll = new uv_poll_t;
         listenPoll->data = this;
 
-        if (bind(listenFd, (sockaddr *) &listenAddr, sizeof(sockaddr_in)) | listen(listenFd, 10)) {
+        int on = 1;
+        setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+
+        if (bind(listenFd, (sockaddr *) &listenAddr, sizeof(sockaddr_in)) || listen(listenFd, 10)) {
             throw ERR_LISTEN;
         }
 
