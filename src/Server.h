@@ -31,7 +31,7 @@ class SSLContext {
 private:
     SSL_CTX *sslContext = nullptr;
 public:
-    SSLContext(std::string certFileName, std::string keyFileName);
+    SSLContext(std::string certChainFileName, std::string keyFileName);
     SSLContext() = default;
     SSLContext(const SSLContext &other);
     ~SSLContext();
