@@ -305,6 +305,8 @@ SSLContext::SSLContext(std::string certFileName, std::string keyFileName)
         throw ERR_SSL;
     }
 
+    SSL_CTX_set_options(sslContext, SSL_OP_NO_SSLv3);
+
     if (SSL_CTX_use_certificate_file(sslContext, certFileName.c_str(), SSL_FILETYPE_PEM) < 0) {
         throw ERR_SSL;
     } else if (SSL_CTX_use_PrivateKey_file(sslContext, keyFileName.c_str(), SSL_FILETYPE_PEM) < 0) {
