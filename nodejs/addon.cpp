@@ -1,3 +1,4 @@
+#include "../src/Network.h"
 #include "../src/uWS.h"
 
 #include <node.h>
@@ -10,8 +11,7 @@
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 
-// we depend on UNIX dup and int as fd
-#include <unistd.h>
+#include <uv.h>
 
 using namespace std;
 using namespace v8;
@@ -218,7 +218,7 @@ void upgrade(const FunctionCallbackInfo<Value> &args)
     NativeString secKey(args[1]);
     NativeString extensions(args[2]);
 
-    int *fd = (int *) ticket->GetAlignedPointerFromInternalField(0);
+    uv_os_sock_t *fd = (uv_os_sock_t *) ticket->GetAlignedPointerFromInternalField(0);
     SSL *ssl = (SSL *) ticket->GetAlignedPointerFromInternalField(1);
 
     server->upgrade(*fd, secKey.getData(), ssl, extensions.getData(), extensions.getLength());
@@ -228,7 +228,7 @@ void upgrade(const FunctionCallbackInfo<Value> &args)
 void transfer(const FunctionCallbackInfo<Value> &args)
 {
     /* fd, SSL */
-    int *fd = new int(dup(args[0]->IntegerValue()));
+    uv_os_sock_t *fd = new uv_os_sock_t(dup(args[0]->IntegerValue()));
     SSL *ssl = nullptr;
     if (args[1]->IsExternal()) {
         ssl = (SSL *) args[1].As<External>()->Value();
@@ -301,7 +301,7 @@ void prepareMessage(const FunctionCallbackInfo<Value> &args)
     OpCode opCode = (uWS::OpCode) args[1]->IntegerValue();
     NativeString nativeString(args[0]);
     Local<Object> preparedMessage = Local<Object>::New(args.GetIsolate(), persistentTicket)->Clone();
-    preparedMessage->SetAlignedPointerInInternalField(0, WebSocket::prepareMessage(nativeString.getData(), nativeString.getLength(), opCode));
+    preparedMessage->SetAlignedPointerInInternalField(0, WebSocket::prepareMessage(nativeString.getData(), nativeString.getLength(), opCode, false));
     args.GetReturnValue().Set(preparedMessage);
 }
 
