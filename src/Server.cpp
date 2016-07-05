@@ -1,3 +1,4 @@
+#include "Network.h"
 #include "Server.h"
 #include "HTTPSocket.h"
 #include "WebSocket.h"

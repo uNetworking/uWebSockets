@@ -1,6 +1,6 @@
+#include "Network.h"
 #include "WebSocket.h"
 #include "Server.h"
-#include "Network.h"
 #include "Extensions.h"
 #include "SocketData.h"
 #include "Parser.h"
