@@ -47,7 +47,7 @@ struct Request {
 
 namespace uWS {
 
-HTTPSocket::HTTPSocket(uv_os_fd_t fd, Server *server, void *ssl) : server(server), ssl(ssl)
+HTTPSocket::HTTPSocket(uv_os_sock_t fd, Server *server, void *ssl) : server(server), ssl(ssl)
 {
     p = new uv_poll_t;
     uv_poll_init_socket(server->loop, p, fd);
@@ -60,10 +60,10 @@ HTTPSocket::HTTPSocket(uv_os_fd_t fd, Server *server, void *ssl) : server(server
     t->data = this;
 }
 
-uv_os_fd_t HTTPSocket::stop()
+uv_os_sock_t HTTPSocket::stop()
 {
-    uv_os_fd_t fd;
-    uv_fileno((uv_handle_t *) p, &fd);
+    uv_os_sock_t fd;
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 
     uv_poll_stop(p);
     uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
@@ -78,7 +78,7 @@ uv_os_fd_t HTTPSocket::stop()
     return fd;
 }
 
-void HTTPSocket::close(uv_os_fd_t fd)
+void HTTPSocket::close(uv_os_sock_t fd)
 {
     if (ssl) {
         SSL_free((SSL *) ssl);
@@ -103,8 +103,8 @@ void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
         return;
     }
 
-    uv_os_fd_t fd;
-    uv_fileno((uv_handle_t *) p, &fd);
+    uv_os_sock_t fd;
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 
     int length;
     if (httpData->ssl) {
@@ -131,7 +131,7 @@ void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
     if (httpData->headerBuffer.find("\r\n\r\n") != std::string::npos) {
 
         // stop poll and timer
-        uv_os_fd_t fd = httpData->stop();
+        uv_os_sock_t fd = httpData->stop();
 
         // parse secKey, extensions
         Request h = (char *) httpData->headerBuffer.data();

@@ -63,7 +63,7 @@ private:
                      SHORT_BUFFER_SIZE = 4096;
 
     struct UpgradeRequest {
-        uv_os_fd_t fd;
+        uv_os_sock_t fd;
         std::string sslKey;
         void *ssl;
         std::string extensions;
@@ -72,7 +72,7 @@ private:
     std::queue<UpgradeRequest> upgradeQueue;
     std::mutex upgradeQueueMutex;
 
-    std::function<void(uv_os_fd_t, const char *, void *, const char *, size_t)> upgradeCallback;
+    std::function<void(uv_os_sock_t, const char *, void *, const char *, size_t)> upgradeCallback;
     std::function<void(WebSocket)> connectionCallback;
     std::function<void(WebSocket, int code, char *message, size_t length)> disconnectionCallback;
     std::function<void(WebSocket, char *, size_t, OpCode)> messageCallback;
@@ -83,14 +83,14 @@ public:
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
-    void onUpgrade(std::function<void(uv_os_fd_t, const char *, void *, const char *, size_t)> upgradeCallback);
+    void onUpgrade(std::function<void(uv_os_sock_t, const char *, void *, const char *, size_t)> upgradeCallback);
     void onConnection(std::function<void(WebSocket)> connectionCallback);
     void onDisconnection(std::function<void(WebSocket, int code, char *message, size_t length)> disconnectionCallback);
     void onMessage(std::function<void(WebSocket, char *, size_t, OpCode)> messageCallback);
     void onPing(std::function<void(WebSocket, char *, size_t)> pingCallback);
     void onPong(std::function<void(WebSocket, char *, size_t)> pongCallback);
     void close(bool force = false);
-    void upgrade(uv_os_fd_t fd, const char *secKey, void *ssl = nullptr, const char *extensions = nullptr, size_t extensionsLength = 0);
+    void upgrade(uv_os_sock_t fd, const char *secKey, void *ssl = nullptr, const char *extensions = nullptr, size_t extensionsLength = 0);
     void run();
     size_t compress(char *src, size_t srcLength, char *dst);
     void broadcast(char *data, size_t length, OpCode opCode);

@@ -34,9 +34,9 @@ void Server::acceptHandler(uv_poll_t *p, int status, int events)
     Server *server = (Server *) p->data;
 
     socklen_t listenAddrLength = sizeof(sockaddr_in);
-    uv_os_fd_t serverFd;
-    uv_fileno((uv_handle_t *) p, &serverFd);
-    uv_os_fd_t clientFd = accept(serverFd, (sockaddr *) &server->listenAddr, &listenAddrLength);
+    uv_os_sock_t serverFd;
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &serverFd);
+    uv_os_sock_t clientFd = accept(serverFd, (sockaddr *) &server->listenAddr, &listenAddrLength);
     if (clientFd == -1) {
         return;
     }
@@ -110,8 +110,8 @@ void Server::closeHandler(Server *server)
     }
 
     if (server->listenPoll) {
-        uv_os_fd_t listenFd;
-        uv_fileno((uv_handle_t *) server->listenPoll, &listenFd);
+        uv_os_sock_t listenFd;
+        uv_fileno((uv_handle_t *) server->listenPoll, (uv_os_fd_t *) &listenFd);
         ::close(listenFd);
         uv_poll_stop(server->listenPoll);
         uv_close((uv_handle_t *) server->listenPoll, [](uv_handle_t *handle) {
@@ -138,12 +138,12 @@ Server::Server(int port, bool master, int options, int maxPayload, SSLContext ss
     onMessage([](WebSocket webSocket, char *message, size_t length, OpCode opCode) {});
     onPing([](WebSocket webSocket, char *message, size_t length) {});
     onPong([](WebSocket webSocket, char *message, size_t length) {});
-    onUpgrade([this](uv_os_fd_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
+    onUpgrade([this](uv_os_sock_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
         upgrade(fd, secKey, ssl, extensions, extensionsLength);
     });
 
     if (port) {
-        uv_os_fd_t listenFd = socket(AF_INET, SOCK_STREAM, 0);
+        uv_os_sock_t listenFd = socket(AF_INET, SOCK_STREAM, 0);
         listenAddr.sin_family = AF_INET;
         listenAddr.sin_addr.s_addr = INADDR_ANY;
         listenAddr.sin_port = htons(port);
@@ -197,7 +197,7 @@ Server::~Server()
     deflateEnd(&writeStream);
 }
 
-void Server::onUpgrade(std::function<void (uv_os_fd_t, const char *, void *, const char *, size_t)> upgradeCallback)
+void Server::onUpgrade(std::function<void (uv_os_sock_t, const char *, void *, const char *, size_t)> upgradeCallback)
 {
     this->upgradeCallback = upgradeCallback;
 }
@@ -237,7 +237,7 @@ void Server::close(bool force)
     }
 }
 
-void Server::upgrade(uv_os_fd_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength)
+void Server::upgrade(uv_os_sock_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength)
 {
     upgradeQueueMutex.lock();
     upgradeQueue.push({fd, std::string(secKey, 24), ssl, std::string(extensions, extensionsLength)});

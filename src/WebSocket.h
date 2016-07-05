@@ -23,7 +23,7 @@ class WebSocket
     friend struct std::hash<uWS::WebSocket>;
 private:
     static void onReadable(uv_poll_t *p, int status, int events);
-    void initPoll(Server *server, uv_os_fd_t fd, void *ssl, void *perMessageDeflate);
+    void initPoll(Server *server, uv_os_sock_t fd, void *ssl, void *perMessageDeflate);
     void link(uv_poll_t *next);
     uv_poll_t *next();
     operator bool();

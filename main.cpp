@@ -20,7 +20,7 @@ int main()
 
         // our listening server
         Server server(3000, false, 0, 0, sslContext);
-        server.onUpgrade([](uv_os_fd_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
+        server.onUpgrade([](uv_os_sock_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
             // transfer connection to one of our worker servers
             ::worker->upgrade(fd, secKey, ssl, extensions, extensionsLength);
         });

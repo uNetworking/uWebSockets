@@ -188,8 +188,8 @@ void WebSocket::handleFragment(const char *fragment, size_t length, OpCode opCod
 
 WebSocket::Address WebSocket::getAddress()
 {
-    uv_os_fd_t fd;
-    uv_fileno((uv_handle_t *) p, &fd);
+    uv_os_sock_t fd;
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 
     sockaddr_storage addr;
     socklen_t addrLength = sizeof(addr);
@@ -220,8 +220,8 @@ void WebSocket::onReadable(uv_poll_t *p, int status, int events)
 
     char *src = socketData->server->recvBuffer;
     memcpy(src, socketData->spill, socketData->spillLength);
-    uv_os_fd_t fd;
-    uv_fileno((uv_handle_t *) p, &fd);
+    uv_os_sock_t fd;
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 
     // this whole SSL part should be shared with HTTPSocket
     ssize_t received;
@@ -273,7 +273,7 @@ void WebSocket::onReadable(uv_poll_t *p, int status, int events)
 #endif
 }
 
-void WebSocket::initPoll(Server *server, uv_os_fd_t fd, void *ssl, void *perMessageDeflate)
+void WebSocket::initPoll(Server *server, uv_os_sock_t fd, void *ssl, void *perMessageDeflate)
 {
     uv_poll_init_socket(server->loop, p, fd);
     SocketData *socketData = new SocketData;
@@ -325,8 +325,8 @@ void WebSocket::setData(void *data)
 
 void WebSocket::close(bool force, unsigned short code, char *data, size_t length)
 {
-    uv_os_fd_t fd;
-    uv_fileno((uv_handle_t *) p, &fd);
+    uv_os_sock_t fd;
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
     SocketData *socketData = (SocketData *) p->data;
 
     if (socketData->state != CLOSING) {
@@ -400,8 +400,8 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
         }
         write(sendBuffer, formatMessage(sendBuffer, &sendBuffer[length + 2], length, CLOSE, length, false), false, [](WebSocket webSocket, void *data, bool cancelled) {
             if (!cancelled) {
-                uv_os_fd_t fd;
-                uv_fileno((uv_handle_t *) webSocket.p, &fd);
+                uv_os_sock_t fd;
+                uv_fileno((uv_handle_t *) webSocket.p, (uv_os_fd_t *) &fd);
                 SocketData *socketData = (SocketData *) webSocket.p->data;
                 if (socketData->ssl) {
                     SSL_shutdown(socketData->ssl);
@@ -415,8 +415,8 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
 // async Unix send (has a Message struct in the start if transferOwnership OR preparedMessage)
 void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData, bool preparedMessage)
 {
-    uv_os_fd_t fd;
-    uv_fileno((uv_handle_t *) p, &fd);
+    uv_os_sock_t fd;
+    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 
     ssize_t sent = 0;
     SocketData *socketData = (SocketData *) p->data;
@@ -528,8 +528,8 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
                     }
                 }
 
-                uv_os_fd_t fd;
-                uv_fileno((uv_handle_t *) handle, &fd);
+                uv_os_sock_t fd;
+                uv_fileno((uv_handle_t *) handle, (uv_os_fd_t *) &fd);
 
                 do {
                     SocketData::Queue::Message *messagePtr = socketData->messageQueue.front();
