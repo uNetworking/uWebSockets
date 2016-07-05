@@ -292,7 +292,7 @@ size_t Server::compress(char *src, size_t srcLength, char *dst)
     }
 }
 
-SSLContext::SSLContext(std::string certFileName, std::string keyFileName)
+SSLContext::SSLContext(std::string certChainFileName, std::string keyFileName)
 {
     static bool first = true;
     if (first) {
@@ -310,7 +310,7 @@ SSLContext::SSLContext(std::string certFileName, std::string keyFileName)
 
     SSL_CTX_set_options(sslContext, SSL_OP_NO_SSLv3);
 
-    if (SSL_CTX_use_certificate_file(sslContext, certFileName.c_str(), SSL_FILETYPE_PEM) != 1) {
+    if (SSL_CTX_use_certificate_chain_file(sslContext, certChainFileName.c_str()) != 1) {
         throw ERR_SSL;
     } else if (SSL_CTX_use_PrivateKey_file(sslContext, keyFileName.c_str(), SSL_FILETYPE_PEM) != 1) {
         throw ERR_SSL;
@@ -335,6 +335,7 @@ void *SSLContext::newSSL(int fd)
     SSL *ssl = SSL_new(sslContext);
     SSL_set_fd(ssl, fd);
     SSL_set_mode(ssl, SSL_MODE_ENABLE_PARTIAL_WRITE);
+    SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
     return ssl;
 }
 
