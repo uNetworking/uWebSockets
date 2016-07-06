@@ -124,11 +124,14 @@ class Socket {
     removeAllListeners(eventName) {
         if (!eventName || eventName === 'message') {
             this.onmessage = noop;
-        } else if (!eventName || eventName === 'close') {
+        }
+        if (!eventName || eventName === 'close') {
             this.onclose = noop;
-        } else if (!eventName || eventName === 'ping') {
+        }
+        if (!eventName || eventName === 'ping') {
             this.onping = noop;
-        } else if (!eventName || eventName === 'pong') {
+        }
+        if (!eventName || eventName === 'pong') {
             this.onpong = noop;
         }
         return this;
@@ -144,14 +147,11 @@ class Socket {
     removeListener(eventName, cb) {
         if (eventName === 'message' && this.onmessage === cb) {
             this.onmessage = noop;
-        }
-        if (eventName === 'close' && this.onclose === cb) {
+        } else if (eventName === 'close' && this.onclose === cb) {
             this.onclose = noop;
-        }
-        if (eventName === 'ping' && this.onping === cb) {
+        } else if (eventName === 'ping' && this.onping === cb) {
             this.onping = noop;
-        }
-        if (eventName === 'pong' && this.onpong === cb) {
+        } else if (eventName === 'pong' && this.onpong === cb) {
             this.onpong = noop;
         }
         return this;
