@@ -345,7 +345,7 @@ class Server extends EventEmitter {
                                 });
                             } else {
                                 // todo: send code & message
-                                if (this.__lastUpgradeListener) {
+                                if (this._lastUpgradeListener) {
                                     socket.end();
                                 }
                             }
