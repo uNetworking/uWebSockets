@@ -1,5 +1,38 @@
 #include "Extensions.h"
 
+#ifdef NODEJS_WINDOWS
+extern "C" {
+int inflateInit2_(z_streamp strm, int windowBits, const char *version, int stream_size) {
+    return Z_OK;
+}
+
+int deflate(z_streamp strm, int flush) {
+    return Z_OK;
+}
+
+int deflateInit2_(z_streamp strm, int level, int method, int windowBits, int memLevel, int strategy, const char *version, int stream_size) {
+    return Z_OK;
+}
+
+int inflate(z_streamp strm, int flush) {
+    return Z_OK;
+}
+
+int inflateEnd(z_streamp strm) {
+    return Z_OK;
+}
+
+int deflateEnd(z_streamp strm) {
+    return Z_OK;
+}
+
+int deflateReset(z_streamp strm) {
+    return Z_OK;
+}
+
+}
+#endif
+
 int ExtensionsParser::getToken(const char **in)
 {
     while (!isalnum(**in) && **in != '\0') {
@@ -49,4 +82,8 @@ ExtensionsParser::ExtensionsParser(const char *in)
             break;
         }
     }
+
+#ifdef NODEJS_WINDOWS
+    perMessageDeflate = false;
+#endif
 }

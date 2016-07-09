@@ -34,7 +34,10 @@
         }],
         ['OS=="win"', {
           'cflags_cc': [],
-          'cflags_cc!': []
+          'cflags_cc!': [],
+          'defines': [
+            'NODEJS_WINDOWS'
+          ]
         }]
        ]
     },

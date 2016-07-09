@@ -282,7 +282,9 @@ void WebSocket::initPoll(Server *server, uv_os_sock_t fd, void *ssl, void *perMe
 
     socketData->ssl = (SSL *) ssl;
     if (socketData->ssl) {
+#ifndef NODEJS_WINDOWS
         SSL_set_fd(socketData->ssl, fd);
+#endif
         SSL_set_mode(socketData->ssl, SSL_MODE_ENABLE_PARTIAL_WRITE);
     }
 
