@@ -225,10 +225,28 @@ void upgrade(const FunctionCallbackInfo<Value> &args)
     delete fd;
 }
 
+bool isTcpHandle(volatile char *memory)
+{
+    volatile uv_handle_t *uvHandle = (uv_handle_t *) memory;
+    return uvHandle->loop == uv_default_loop() && uvHandle->type == UV_TCP;
+}
+
 void transfer(const FunctionCallbackInfo<Value> &args)
 {
     /* fd, SSL */
-    uv_os_sock_t *fd = new uv_os_sock_t(dup(args[0]->IntegerValue()));
+    uv_os_sock_t *fd = new uv_os_sock_t;
+    if (args[0]->IsObject()) {
+        Local<Object> netSocketHandle = args[0]->ToObject();
+        volatile char *handleWrap = (volatile char *) netSocketHandle->GetAlignedPointerFromInternalField(0);
+        while (!isTcpHandle(handleWrap)) {
+            handleWrap++;
+        }
+        uv_fileno((uv_handle_t *) handleWrap, (uv_os_fd_t *) fd);
+    } else {
+        *fd = args[0]->IntegerValue();
+    }
+
+    *fd = dup(*fd);
     SSL *ssl = nullptr;
     if (args[1]->IsExternal()) {
         ssl = (SSL *) args[1].As<External>()->Value();

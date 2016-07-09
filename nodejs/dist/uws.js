@@ -422,7 +422,7 @@ class Server extends EventEmitter {
         const secKey = request.headers['sec-websocket-key'];
         if (secKey && secKey.length == 24) {
             socket.setNoDelay(this._noDelay);
-            const ticket = this.nativeServer.transfer(socket._handle.fd, socket.ssl ? socket.ssl._external : null);
+            const ticket = this.nativeServer.transfer(socket._handle.fd === -1 ? socket._handle : socket._handle.fd, socket.ssl ? socket.ssl._external : null);
             socket.on('close', (error) => {
                 this._upgradeReq = request;
                 this._upgradeCallback = callback ? callback : noop;
