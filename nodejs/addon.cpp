@@ -225,23 +225,22 @@ void upgrade(const FunctionCallbackInfo<Value> &args)
     delete fd;
 }
 
-bool isTcpHandle(volatile char *memory)
+uv_handle_t *getTcpHandle(void *handleWrap)
 {
-    volatile uv_handle_t *uvHandle = (uv_handle_t *) memory;
-    return uvHandle->loop == uv_default_loop() && uvHandle->type == UV_TCP;
+    volatile char *memory = (volatile char *) handleWrap;
+    for (volatile uv_handle_t *tcpHandle = (volatile uv_handle_t *) memory; tcpHandle->type != UV_TCP
+         || tcpHandle->data != handleWrap || tcpHandle->loop != uv_default_loop(); tcpHandle = (volatile uv_handle_t *) memory) {
+        memory++;
+    }
+    return (uv_handle_t *) memory;
 }
 
 void transfer(const FunctionCallbackInfo<Value> &args)
 {
-    /* fd, SSL */
+    /* (_handle.fd OR _handle), SSL */
     uv_os_sock_t *fd = new uv_os_sock_t;
     if (args[0]->IsObject()) {
-        Local<Object> netSocketHandle = args[0]->ToObject();
-        volatile char *handleWrap = (volatile char *) netSocketHandle->GetAlignedPointerFromInternalField(0);
-        while (!isTcpHandle(handleWrap)) {
-            handleWrap++;
-        }
-        uv_fileno((uv_handle_t *) handleWrap, (uv_os_fd_t *) fd);
+        uv_fileno(getTcpHandle(args[0]->ToObject()->GetAlignedPointerFromInternalField(0)), (uv_os_fd_t *) fd);
     } else {
         *fd = args[0]->IntegerValue();
     }
