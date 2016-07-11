@@ -23,8 +23,19 @@ Kaazing Gateway Community 5.0.0 | µWS is **62x** as lightweight | µWS is **15x
 
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. These results were achieved with the native C++ server, not the Node.js addon. Expect worse performance and scalability when using Node.js (don't worry, the Node.js addon will run circles around `ws`).*
 
-## What others are saying
-**“***With changing one letter in the code from "ws" to "uws" I've been able to serve twice as many players for the same cost.***”** - Rezoner / [wilds.io](http://wilds.io)
+## Built with µWS
+<table>
+<tr>
+<td><img src="https://avatars3.githubusercontent.com/u/9024218?v=3&s=200" height="128" /></td>
+<td><img src="https://camo.githubusercontent.com/1e6a52dbf401b60f5979aec6416967a42aab8e53/68747470733a2f2f7261772e6769746875622e636f6d2f536f636b6574436c75737465722f736f636b6574636c75737465722f6d61737465722f6173736574732f6c6f676f2e706e67" height="128" /></td>
+<td><img src="https://scontent-ams3-1.xx.fbcdn.net/v/t1.0-1/c43.0.160.160/p160x160/13237648_988335957953290_8996720199169630743_n.png?oh=3a190760956a38db5216efdee1b42646&oe=58363BF4" height="128" /></td>
+</tr>
+<tr>
+<td align="center"><a href="https://deepstream.io/">deepstream.io</a></td>
+<td align="center"><a href="http://socketcluster.io/#!/">SocketCluster</a></td>
+<td align="center"><a href="http://wilds.io/">wilds.io</a></td>
+</tr>
+</table>
 
 ## Usage
 
