@@ -1,7 +1,6 @@
 'use strict';
 
 const http = require('http');
-//const https = require('https'); // should we ever create an https server?
 const EventEmitter = require('events');
 const EE_ERROR = "Registering more than one listener to a WebSocket is not supported.";
 function noop() {}
@@ -13,13 +12,6 @@ const uws = (() => {
         'available for your system. Please install a supported C++11 compiler and reinstall the module \'uws\'.');
     }
 })();
-
-exports.PERMESSAGE_DEFLATE = 1;
-exports.SERVER_NO_CONTEXT_TAKEOVER = 2;
-exports.CLIENT_NO_CONTEXT_TAKEOVER = 4;
-exports.OPCODE_TEXT = 1;
-exports.OPCODE_BINARY = 2;
-exports.OPCODE_PING = 9;
 
 class Socket {
     /**
@@ -176,7 +168,7 @@ class Socket {
         }
 
         const binary = options && options.binary || typeof message !== 'string';
-        this.nativeServer.send(this.nativeSocket, message, binary ? exports.OPCODE_BINARY : exports.OPCODE_TEXT, cb);
+        this.nativeServer.send(this.nativeSocket, message, binary ? Socket.OPCODE_BINARY : Socket.OPCODE_TEXT, cb);
     }
 
     /**
@@ -208,7 +200,7 @@ class Socket {
             return;
         }
 
-        this.nativeServer.send(this.nativeSocket, message, exports.OPCODE_PING);
+        this.nativeServer.send(this.nativeSocket, message, Socket.OPCODE_PING);
     }
 
     /**
@@ -226,18 +218,10 @@ class Socket {
     }
 
     /**
-     * Static and per-instance readyState constants
+     * Per-instance readyState constants.
      *
      * @public
      */
-    static get OPEN() {
-        return 1;
-    }
-
-    static get CLOSED() {
-        return 0;
-    }
-
     get OPEN() {
         return Socket.OPEN;
     }
@@ -247,7 +231,7 @@ class Socket {
     }
 
     /**
-     * Returns the state of the socket (OPEN or CLOSED)
+     * Returns the state of the socket (OPEN or CLOSED).
      *
      * @public
      */
@@ -283,16 +267,16 @@ class Server extends EventEmitter {
     constructor(options, callback) {
         super();
 
-        var nativeOptions = exports.PERMESSAGE_DEFLATE;
+        var nativeOptions = Socket.PERMESSAGE_DEFLATE;
         if (options.perMessageDeflate !== undefined) {
             if (options.perMessageDeflate === false) {
                 nativeOptions = 0;
             } else {
                 if (options.perMessageDeflate.serverNoContextTakeover === true) {
-                    nativeOptions |= exports.SERVER_NO_CONTEXT_TAKEOVER;
+                    nativeOptions |= Socket.SERVER_NO_CONTEXT_TAKEOVER;
                 }
                 if (options.perMessageDeflate.clientNoContextTakeover === true) {
-                    nativeOptions |= exports.CLIENT_NO_CONTEXT_TAKEOVER;
+                    nativeOptions |= Socket.CLIENT_NO_CONTEXT_TAKEOVER;
                 }
             }
         }
@@ -440,7 +424,7 @@ class Server extends EventEmitter {
      * @public
      */
     prepareMessage(message, binary) {
-        return this.nativeServer.prepareMessage(message, binary ? exports.OPCODE_BINARY : exports.OPCODE_TEXT);
+        return this.nativeServer.prepareMessage(message, binary ? Socket.OPCODE_BINARY : Socket.OPCODE_TEXT);
     }
 
     /**
@@ -476,8 +460,16 @@ class Server extends EventEmitter {
 
         this.nativeServer.close();
     }
-
 }
 
-exports.Server = Server;
-exports.uws = uws;
+Socket.PERMESSAGE_DEFLATE = 1;
+Socket.SERVER_NO_CONTEXT_TAKEOVER = 2;
+Socket.CLIENT_NO_CONTEXT_TAKEOVER = 4;
+Socket.OPCODE_TEXT = 1;
+Socket.OPCODE_BINARY = 2;
+Socket.OPCODE_PING = 9;
+Socket.OPEN = 1;
+Socket.CLOSED = 0;
+Socket.Server = Server;
+Socket.uws = uws;
+module.exports = Socket;
