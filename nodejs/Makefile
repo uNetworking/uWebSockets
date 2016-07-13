@@ -10,6 +10,7 @@ default:
 	cp ../LICENSE dist/LICENSE
 	cp -r ../src dist/
 	cp addon.cpp dist/src/addon.cpp
+	for f in dist/*.node; do chmod +x $$f; done
 targets:
 	mkdir targets
 	curl https://nodejs.org/dist/v4.4.3/node-v4.4.3-headers.tar.gz | tar xz -C targets
