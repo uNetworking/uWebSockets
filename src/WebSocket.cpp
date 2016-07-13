@@ -150,7 +150,7 @@ void WebSocket::handleFragment(const char *fragment, size_t length, OpCode opCod
                 return;
             }
 
-            socketData->server->messageCallback(p, (char *) fragment, length, opCode);
+            socketData->server->messageCallback(p, (char *) fragment, socketData->server->maxPayload ? std::min<size_t>(length, socketData->server->maxPayload) : length, opCode);
         } else {
             socketData->buffer.append(fragment, socketData->server->maxPayload ? std::min(length, socketData->server->maxPayload - socketData->buffer.length()) : length);
             if (!remainingBytes && fin) {
