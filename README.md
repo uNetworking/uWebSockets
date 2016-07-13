@@ -116,7 +116,7 @@ int main()
 * Small & efficient code base.
 
 ## Installation
-### Node.js
+### Node.js developers
 [![](https://nodei.co/npm/uws.png)](https://www.npmjs.com/package/uws)
 ```
 npm install --save uws
@@ -125,17 +125,15 @@ npm install --save uws
 * Node.js 4.x, 5.x & 6.x supported
 * Linux, Mac OS X & Windows supported
 
-You will probably need the build tools on Windows prior to installing uws:
-```
-npm install windows-build-tools
-```
+*Currently the Windows version only runs on Node.js 6.3.0+. SSL support will come to the Windows version with Node.js 6.4.0+*
 
-### Native developers
+### C++ developers
 #### Dependencies
 First of all you need to install the required dependencies. On Unix systems this is typically done via package managers, like [homebrew](http://brew.sh) in the case of OS X or `dnf` in the case of Fedora Linux. On Windows you need to search the web for pre-compiled binaries or simply compile the dependencies yourself.
 
 * libuv 1.x
 * OpenSSL 1.0.x
+* zlib 1.x
 * CMake 3.x
 
 #### Compilation
