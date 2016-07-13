@@ -4,6 +4,9 @@ const http = require('http');
 const EventEmitter = require('events');
 const EE_ERROR = "Registering more than one listener to a WebSocket is not supported.";
 function noop() {}
+function abortConnection(socket, code, name) {
+    socket.end('HTTP/1.1 ' + code + ' ' + name + '\r\n\r\n');
+}
 const uws = (() => {
     try {
         return require(`./uws_${process.platform}_${process.versions.modules}`);
@@ -316,10 +319,7 @@ class Server extends EventEmitter {
                                         this.emit('connection', ws);
                                     });
                                 } else {
-                                    // todo: send code & message
-                                    if (this._lastUpgradeListener) {
-                                        socket.end();
-                                    }
+                                    abortConnection(socket, code, name);
                                 }
                             });
                         } else {
@@ -328,10 +328,7 @@ class Server extends EventEmitter {
                                     this.emit('connection', ws);
                                 });
                             } else {
-                                // todo: send code & message
-                                if (this._lastUpgradeListener) {
-                                    socket.end();
-                                }
+                                abortConnection(socket, 400, 'Client verification failed');
                             }
                         }
                     } else {
@@ -341,7 +338,7 @@ class Server extends EventEmitter {
                     }
                 } else {
                     if (this._lastUpgradeListener) {
-                        socket.end();
+                        abortConnection(socket, 400, 'URL not supported');
                     }
                 }
             }));
