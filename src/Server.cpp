@@ -74,18 +74,22 @@ void Server::upgradeHandler(Server *server)
         memcpy(server->upgradeBuffer + 125, "\r\n", 2);
         size_t upgradeResponseLength = 127;
 
+        // Latin-1 µ = \xB5 but Autobahn crashes on this char
+        static char stamp[] = "Server: uWebSockets\r\n\r\n";
+
         // Note: This could be moved into Extensions.cpp as a "decorator" if we get more complex extension support
         PerMessageDeflate *perMessageDeflate = nullptr;
         ExtensionsParser extensionsParser(upgradeRequest.extensions.c_str());
         if ((server->options & PERMESSAGE_DEFLATE) && extensionsParser.perMessageDeflate) {
             std::string response;
             perMessageDeflate = new PerMessageDeflate(extensionsParser, server->options, response);
-            response.append("\r\n\r\n");
+            response.append("\r\n");
+            response.append(stamp);
             memcpy(server->upgradeBuffer + 127, response.data(), response.length());
             upgradeResponseLength += response.length();
         } else {
-            memcpy(server->upgradeBuffer + 127, "\r\n", 2);
-            upgradeResponseLength += 2;
+            memcpy(server->upgradeBuffer + 127, stamp, sizeof(stamp) - 1);
+            upgradeResponseLength += sizeof(stamp) - 1;
         }
 
         uv_poll_t *clientPoll = new uv_poll_t;
