@@ -6,7 +6,7 @@
 #include "Network.h"
 #include <uv.h>
 
-#define STRICT
+#define STRICT_WS
 
 namespace uWS {
 
@@ -160,7 +160,7 @@ public:
                     socketData->pmd->compressedFrame = rsv1(frame);
                 }
 
-    #ifdef STRICT
+    #ifdef STRICT_WS
                 // invalid reserved bits
                 if ((rsv1(frame) && !socketData->pmd) || rsv2(frame) || rsv3(frame)) {
                     WebSocket(p).close(true, 1006);
@@ -182,7 +182,7 @@ public:
                         socketData->opCode[(unsigned char) ++socketData->opStack] = (OpCode) opCode(frame);
                     }
 
-    #ifdef STRICT
+    #ifdef STRICT_WS
                     // Case 5.18
                     if (socketData->opStack == 0 && !lastFin && fin(frame)) {
                         WebSocket(p).close(true, 1006);
