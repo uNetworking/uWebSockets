@@ -131,6 +131,10 @@ void Server::closeHandler(Server *server)
 
 Server::Server(int port, bool master, int options, int maxPayload, SSLContext sslContext) : master(master), options(options), maxPayload(maxPayload), sslContext(sslContext)
 {
+#ifdef NODEJS_WINDOWS
+    options &= ~PERMESSAGE_DEFLATE;
+#endif
+
     loop = master ? uv_default_loop() : uv_loop_new();
 
     recvBuffer = new char[LARGE_BUFFER_SIZE + Parser::CONSUME_POST_PADDING];
@@ -258,7 +262,7 @@ void Server::upgrade(uv_os_sock_t fd, const char *secKey, void *ssl, const char 
 void Server::broadcast(char *data, size_t length, OpCode opCode)
 {
     WebSocket::PreparedMessage *preparedMessage = WebSocket::prepareMessage(data, length, opCode, false);
-    if (options & (PERMESSAGE_DEFLATE | SERVER_NO_CONTEXT_TAKEOVER)) {
+    if (options & PERMESSAGE_DEFLATE && options & SERVER_NO_CONTEXT_TAKEOVER) {
         size_t compressedLength = compress(data, length, inflateBuffer);
         WebSocket::PreparedMessage *preparedCompressedMessage = WebSocket::prepareMessage(inflateBuffer, compressedLength, opCode, true);
 
