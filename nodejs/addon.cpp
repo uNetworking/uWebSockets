@@ -177,8 +177,13 @@ public:
             data = node::Buffer::Data(value);
             length = node::Buffer::Length(value);
         } else if (value->IsTypedArray()) {
-            Local<ArrayBufferView> arrayBuffer = Local<ArrayBufferView>::Cast(value);
-            ArrayBuffer::Contents contents = arrayBuffer->Buffer()->GetContents();
+            Local<ArrayBufferView> arrayBufferView = Local<ArrayBufferView>::Cast(value);
+            ArrayBuffer::Contents contents = arrayBufferView->Buffer()->GetContents();
+            length = contents.ByteLength();
+            data = (char *) contents.Data();
+        } else if (value->IsArrayBuffer()) {
+            Local<ArrayBuffer> arrayBuffer = Local<ArrayBuffer>::Cast(value);
+            ArrayBuffer::Contents contents = arrayBuffer->GetContents();
             length = contents.ByteLength();
             data = (char *) contents.Data();
         } else {
