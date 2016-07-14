@@ -50,6 +50,19 @@ class Socket {
         }
     }
 
+    emit(eventName, arg1, arg2) {
+        if (eventName === 'message') {
+            this.internalOnMessage(arg1);
+        } else if (eventName === 'close') {
+            this.internalOnClose(arg1, arg2);
+        } else if (eventName === 'ping') {
+            this.onping(arg1);
+        } else if (eventName === 'pong') {
+            this.onpong(arg1);
+        }
+        return this;
+    }
+
     /**
      * Registers a callback for given eventName.
      *
