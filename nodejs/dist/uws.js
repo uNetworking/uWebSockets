@@ -23,11 +23,31 @@ class Socket {
     constructor(nativeSocket, nativeServer) {
         this.nativeSocket = nativeSocket;
         this.nativeServer = nativeServer;
-        this.onmessage = noop;
-        this.onclose = noop;
+        this.internalOnMessage = noop;
+        this.internalOnClose = noop;
         this.onping = noop;
         this.onpong = noop;
         this.upgradeReq = null;
+    }
+
+    set onmessage(f) {
+        if (f) {
+            this.internalOnMessage = (message) => {
+                f({data: Buffer.isBuffer(message) ? new Uint8Array(message).buffer : message});
+            };
+        } else {
+            this.internalOnMessage = noop;
+        }
+    }
+
+    set onclose(f) {
+        if (f) {
+            this.internalOnClose = () => {
+                f();
+            };
+        } else {
+            this.internalOnClose = noop;
+        }
     }
 
     /**
@@ -39,15 +59,15 @@ class Socket {
      */
     on(eventName, f) {
         if (eventName === 'message') {
-            if (this.onmessage !== noop) {
+            if (this.internalOnMessage !== noop) {
                 throw Error(EE_ERROR);
             }
-            this.onmessage = f;
+            this.internalOnMessage = f;
         } else if (eventName === 'close') {
-            if (this.onclose !== noop) {
+            if (this.internalOnClose !== noop) {
                 throw Error(EE_ERROR);
             }
-            this.onclose = f;
+            this.internalOnClose = f;
         } else if (eventName === 'ping') {
             if (this.onping !== noop) {
                 throw Error(EE_ERROR);
@@ -71,20 +91,20 @@ class Socket {
      */
     once(eventName, f) {
         if (eventName === 'message') {
-            if (this.onmessage !== noop) {
+            if (this.internalOnMessage !== noop) {
                 throw Error(EE_ERROR);
             }
-            this.onmessage = () => {
+            this.internalOnMessage = () => {
                 f();
-                this.onmessage = noop;
+                this.internalOnMessage = noop;
             };
         } else if (eventName === 'close') {
-            if (this.onclose !== noop) {
+            if (this.internalOnClose !== noop) {
                 throw Error(EE_ERROR);
             }
-            this.onclose = () => {
+            this.internalOnClose = () => {
                 f();
-                this.onclose = noop;
+                this.internalOnClose = noop;
             };
         } else if (eventName === 'ping') {
             if (this.onping !== noop) {
@@ -115,10 +135,10 @@ class Socket {
      */
     removeAllListeners(eventName) {
         if (!eventName || eventName === 'message') {
-            this.onmessage = noop;
+            this.internalOnMessage = noop;
         }
         if (!eventName || eventName === 'close') {
-            this.onclose = noop;
+            this.internalOnClose = noop;
         }
         if (!eventName || eventName === 'ping') {
             this.onping = noop;
@@ -137,10 +157,10 @@ class Socket {
      * @public
      */
     removeListener(eventName, cb) {
-        if (eventName === 'message' && this.onmessage === cb) {
-            this.onmessage = noop;
-        } else if (eventName === 'close' && this.onclose === cb) {
-            this.onclose = noop;
+        if (eventName === 'message' && this.internalOnMessage === cb) {
+            this.internalOnMessage = noop;
+        } else if (eventName === 'close' && this.internalOnClose === cb) {
+            this.internalOnClose = noop;
         } else if (eventName === 'ping' && this.onping === cb) {
             this.onping = noop;
         } else if (eventName === 'pong' && this.onpong === cb) {
@@ -355,12 +375,12 @@ class Server extends EventEmitter {
 
         this.nativeServer.onDisconnection((nativeSocket, code, message, socket) => {
             socket.nativeServer = socket.nativeSocket = null;
-            socket.onclose(code, message);
+            socket.internalOnClose(code, message);
             this.nativeServer.setData(nativeSocket);
         });
 
         this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
-            socket.onmessage(binary ? message : message.toString());
+            socket.internalOnMessage(binary ? message : message.toString());
         });
 
         this.nativeServer.onPing((nativeSocket, message, socket) => {
