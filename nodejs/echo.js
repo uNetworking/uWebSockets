@@ -17,9 +17,16 @@ wss.on('connection', function connection(ws) {
     console.log('Got a pong!');
   });
 
-  ws.on('message', function incoming(message) {
+  // EventEmitter interface
+  /*ws.on('message', function incoming(message) {
     ws.send(message, { binary: Buffer.isBuffer(message) }, sent);
-  });
+  });*/
+
+  // Web interface
+  ws.onmessage = function(e) {
+    ws.send(e.data);
+  };
+
 });
 
 wss.on('error', function error(e) {
