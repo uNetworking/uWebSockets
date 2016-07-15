@@ -226,7 +226,14 @@ void upgrade(const FunctionCallbackInfo<Value> &args)
     uv_os_sock_t *fd = (uv_os_sock_t *) ticket->GetAlignedPointerFromInternalField(0);
     SSL *ssl = (SSL *) ticket->GetAlignedPointerFromInternalField(1);
 
-    server->upgrade(*fd, secKey.getData(), ssl, extensions.getData(), extensions.getLength());
+    // dup can fail by returning -1 (todo: Windows support)
+    if (*fd != -1) {
+        server->upgrade(*fd, secKey.getData(), ssl, extensions.getData(), extensions.getLength());
+    } else {
+        if (ssl) {
+            SSL_free(ssl);
+        }
+    }
     delete fd;
 }
 
