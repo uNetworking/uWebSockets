@@ -201,7 +201,9 @@ class Socket {
         }
 
         const binary = options && options.binary || typeof message !== 'string';
-        this.nativeServer.send(this.nativeSocket, message, binary ? Socket.OPCODE_BINARY : Socket.OPCODE_TEXT, cb);
+        this.nativeServer.send(this.nativeSocket, message, binary ? Socket.OPCODE_BINARY : Socket.OPCODE_TEXT, cb ? (() => {
+            process.nextTick(cb);
+        }) : undefined);
     }
 
     /**
