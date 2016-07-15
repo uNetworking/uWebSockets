@@ -24,6 +24,7 @@ class HTTPSocket {
     uv_os_sock_t stop();
     void close(uv_os_sock_t fd);
     static void onReadable(uv_poll_t *p, int status, int events);
+    static void onHandshakeReadable(uv_poll_t *p, int status, int events);
     static void onTimeout(uv_timer_t *t);
 };
 

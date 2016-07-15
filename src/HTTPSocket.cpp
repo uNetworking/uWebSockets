@@ -8,6 +8,10 @@
 #include <uv.h>
 #include <openssl/ssl.h>
 
+#ifndef _WIN32
+#include <sys/ioctl.h>
+#endif
+
 struct Request {
     char *cursor;
     std::pair<char *, size_t> key, value;
@@ -51,8 +55,21 @@ HTTPSocket::HTTPSocket(uv_os_sock_t fd, Server *server, void *ssl) : server(serv
 {
     p = new uv_poll_t;
     uv_poll_init_socket(server->loop, p, fd);
-    uv_poll_start(p, UV_READABLE, onReadable);
     p->data = this;
+
+    if(ssl){
+#ifndef _WIN32
+        int on = true;
+        ioctl(fd, FIONBIO, &on);
+#else
+        u_long iMode=1;
+        ioctlsocket(fd,FIONBIO,&iMode);
+#endif
+        uv_poll_start(p, UV_READABLE, onHandshakeReadable);
+    }else{
+        uv_poll_start(p, UV_READABLE, onReadable);
+    }
+
 
     t = new uv_timer_t;
     uv_timer_init(server->loop, t);
@@ -91,6 +108,33 @@ void HTTPSocket::onTimeout(uv_timer_t *t)
     HTTPSocket *httpData = (HTTPSocket *) t->data;
     httpData->close(httpData->stop());
     delete httpData;
+}
+
+void HTTPSocket::onHandshakeReadable(uv_poll_t *p, int status, int events) {
+    HTTPSocket *httpData = (HTTPSocket *) p->data;
+
+    if (status < 0) {
+        httpData->close(httpData->stop());
+        delete httpData;
+        return;
+    }
+    int ret = SSL_accept((SSL *) httpData->ssl);
+    if (ret != 1) {
+        switch (SSL_get_error((SSL *) httpData->ssl, ret)) {
+            case SSL_ERROR_WANT_WRITE:
+            case SSL_ERROR_WANT_READ:
+                return;
+            default:
+                int fd = httpData->stop();
+                httpData->close(fd);
+                delete httpData;
+                return;
+        }
+    } else{
+        uv_poll_stop(p);
+        uv_poll_start(p, UV_READABLE, onReadable);
+    }
+
 }
 
 void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
