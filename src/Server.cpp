@@ -51,7 +51,7 @@ void Server::acceptHandler(uv_poll_t *p, int status, int events)
     void *ssl = nullptr;
     if (server->sslContext) {
         ssl = server->sslContext.newSSL(clientFd);
-        SSL_accept((SSL *) ssl);
+        SSL_set_accept_state((SSL *) ssl);
     }
 
     new HTTPSocket(clientPoll, server, ssl);
