@@ -37,8 +37,9 @@ void Server::acceptHandler(uv_poll_t *p, int status, int events)
     socklen_t listenAddrLength = sizeof(sockaddr_in);
     uv_os_sock_t serverFd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &serverFd);
+    uv_poll_t *clientPoll = new uv_poll_t;
     uv_os_sock_t clientFd = accept(serverFd, (sockaddr *) &server->listenAddr, &listenAddrLength);
-    if (clientFd == -1) {
+    if (uv_poll_init_socket(server->loop, clientPoll, clientFd)) {
         return;
     }
 
@@ -53,7 +54,7 @@ void Server::acceptHandler(uv_poll_t *p, int status, int events)
         SSL_accept((SSL *) ssl);
     }
 
-    new HTTPSocket(clientFd, server, ssl);
+    new HTTPSocket(clientPoll, server, ssl);
 }
 
 void Server::upgradeHandler(Server *server)

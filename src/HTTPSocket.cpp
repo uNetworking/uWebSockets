@@ -47,10 +47,8 @@ struct Request {
 
 namespace uWS {
 
-HTTPSocket::HTTPSocket(uv_os_sock_t fd, Server *server, void *ssl) : server(server), ssl(ssl)
+HTTPSocket::HTTPSocket(uv_poll_t *p, Server *server, void *ssl) : p(p), server(server), ssl(ssl)
 {
-    p = new uv_poll_t;
-    uv_poll_init_socket(server->loop, p, fd);
     uv_poll_start(p, UV_READABLE, onReadable);
     p->data = this;
 

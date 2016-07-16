@@ -20,7 +20,7 @@ class HTTPSocket {
     Server *server;
     void *ssl;
 
-    HTTPSocket(uv_os_sock_t fd, Server *server, void *ssl);
+    HTTPSocket(uv_poll_t *p, Server *server, void *ssl);
     uv_os_sock_t stop();
     void close(uv_os_sock_t fd);
     static void onReadable(uv_poll_t *p, int status, int events);
