@@ -62,6 +62,26 @@ private:
     static const int LARGE_BUFFER_SIZE = 307200,
                      SHORT_BUFFER_SIZE = 4096;
 
+    struct WebSocketIterator {
+        WebSocket webSocket;
+        WebSocketIterator(WebSocket webSocket) : webSocket(webSocket) {
+
+        }
+
+        WebSocket &operator*() {
+            return webSocket;
+        }
+
+        bool operator!=(const WebSocketIterator &other) {
+            return !(webSocket == other.webSocket);
+        }
+
+        WebSocketIterator &operator++() {
+            webSocket = webSocket.next();
+            return *this;
+        }
+    };
+
     struct UpgradeRequest {
         uv_os_sock_t fd;
         std::string sslKey;
@@ -94,6 +114,14 @@ public:
     void run();
     size_t compress(char *src, size_t srcLength, char *dst);
     void broadcast(char *data, size_t length, OpCode opCode);
+
+    WebSocketIterator begin() {
+        return WebSocketIterator(clients);
+    }
+
+    WebSocketIterator end() {
+        return WebSocketIterator(nullptr);
+    }
 };
 
 }
