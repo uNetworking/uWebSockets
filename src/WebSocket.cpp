@@ -145,14 +145,19 @@ void WebSocket::handleFragment(const char *fragment, size_t length, OpCode opCod
         }
 
         if (!remainingBytes && fin && !socketData->buffer.length()) {
-            if (opCode == 1 && !isValidUtf8((unsigned char *) fragment, length)) {
+            if ((socketData->server->maxPayload && length > socketData->server->maxPayload) || (opCode == 1 && !isValidUtf8((unsigned char *) fragment, length))) {
                 close(true, 1006);
                 return;
             }
 
-            socketData->server->messageCallback(p, (char *) fragment, socketData->server->maxPayload ? std::min<size_t>(length, socketData->server->maxPayload) : length, opCode);
+            socketData->server->messageCallback(p, (char *) fragment, length, opCode);
         } else {
-            socketData->buffer.append(fragment, socketData->server->maxPayload ? std::min(length, socketData->server->maxPayload - socketData->buffer.length()) : length);
+            if (socketData->server->maxPayload && length + socketData->buffer.length() > socketData->server->maxPayload) {
+                close(true, 1006);
+                return;
+            }
+
+            socketData->buffer.append(fragment, length);
             if (!remainingBytes && fin) {
 
                 // Chapter 6
