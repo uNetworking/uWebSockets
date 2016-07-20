@@ -8,7 +8,7 @@
 * SSL/TLS support & integrates with foreign HTTPS servers.
 * Permessage-deflate built-in.
 * Node.js binding exposed as the well-known `ws` interface.
-* 10-30x faster than `ws` (if they are "fastest", we are "fastester").
+* 10-300x faster than `ws` (if they are "fastest", we are "fastester").
 * Optional engine in projects like Socket.IO, Primus & SocketCluster.
 
 [![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/alexhultman/uWebSockets.svg?branch=master)](https://travis-ci.org/alexhultman/uWebSockets) [![](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/alexhultman/uWebSockets)
