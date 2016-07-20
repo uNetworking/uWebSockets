@@ -247,7 +247,7 @@ class Socket {
      * @public
      */
     get _socket() {
-        const address = this.nativeServer.getAddress(this.nativeSocket);
+        const address = this.nativeServer ? this.nativeServer.getAddress(this.nativeSocket) : new Array(3);
         return {
             remotePort: address[0],
             remoteAddress: address[1],
