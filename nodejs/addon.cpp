@@ -18,7 +18,7 @@ using namespace v8;
 using namespace uWS;
 
 enum {
-    CONNECTION_CALLBACK = 1,
+    CONNECTION_CALLBACK = 2,
     DISCONNECTION_CALLBACK,
     MESSAGE_CALLBACK,
     PING_CALLBACK,
@@ -30,7 +30,9 @@ Persistent<Object> persistentTicket;
 void Server(const FunctionCallbackInfo<Value> &args) {
     if (args.IsConstructCall()) {
         try {
-            args.This()->SetAlignedPointerInInternalField(0, new uWS::Server(args[0]->IntegerValue(), true, args[1]->IntegerValue(), args[2]->IntegerValue()));
+            EventSystem *es = new EventSystem(MASTER);
+            args.This()->SetAlignedPointerInInternalField(0, new uWS::Server(*es, args[0]->IntegerValue(), args[1]->IntegerValue(), args[2]->IntegerValue()));
+            args.This()->SetAlignedPointerInInternalField(1, es);
 
             // todo: these needs to be removed on destruction
             args.This()->SetAlignedPointerInInternalField(CONNECTION_CALLBACK, new Persistent<Function>);
@@ -347,7 +349,7 @@ void finalizeMessage(const FunctionCallbackInfo<Value> &args)
 void Main(Local<Object> exports) {
     Isolate *isolate = exports->GetIsolate();
     Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, ::Server);
-    tpl->InstanceTemplate()->SetInternalFieldCount(6);
+    tpl->InstanceTemplate()->SetInternalFieldCount(7);
 
     NODE_SET_PROTOTYPE_METHOD(tpl, "onConnection", onConnection);
     NODE_SET_PROTOTYPE_METHOD(tpl, "onMessage", onMessage);

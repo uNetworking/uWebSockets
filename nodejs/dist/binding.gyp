@@ -9,6 +9,7 @@
         'src/Server.cpp',
         'src/UTF8.cpp',
         'src/WebSocket.cpp',
+        'src/EventSystem.cpp',
         'src/addon.cpp'
       ],
       'conditions': [

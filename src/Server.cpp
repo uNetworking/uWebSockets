@@ -130,13 +130,14 @@ void Server::closeHandler(Server *server)
     }
 }
 
-Server::Server(int port, bool master, unsigned int options, unsigned int maxPayload, SSLContext sslContext) : master(master), options(options), maxPayload(maxPayload), sslContext(sslContext)
+Server::Server(EventSystem &es, int port, unsigned int options, unsigned int maxPayload, SSLContext sslContext) : options(options), maxPayload(maxPayload), sslContext(sslContext)
 {
 #ifdef NODEJS_WINDOWS
     options &= ~PERMESSAGE_DEFLATE;
 #endif
 
-    loop = master ? uv_default_loop() : uv_loop_new();
+    loop = es.loop;
+    master = es.loopType == MASTER;
 
     recvBuffer = new char[LARGE_BUFFER_SIZE + Parser::CONSUME_POST_PADDING];
     upgradeBuffer = new char[LARGE_BUFFER_SIZE];
@@ -198,10 +199,6 @@ Server::~Server()
     delete [] upgradeBuffer;
     delete [] sendBuffer;
     delete [] inflateBuffer;
-
-    if (!master) {
-        uv_loop_delete(loop);
-    }
 
     // todo: move this into PerMessageDeflate class
     deflateEnd(&writeStream);
@@ -279,11 +276,6 @@ void Server::broadcast(char *data, size_t length, OpCode opCode)
         }
     }
     WebSocket::finalizeMessage(preparedMessage);
-}
-
-void Server::run()
-{
-    uv_run(loop, UV_RUN_DEFAULT);
 }
 
 // todo: move this into PerMessageDeflate class

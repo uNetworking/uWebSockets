@@ -10,6 +10,7 @@
 #include <zlib.h>
 
 #include "WebSocket.h"
+#include "EventSystem.h"
 
 namespace uWS {
 
@@ -99,7 +100,7 @@ private:
     std::function<void(WebSocket, char *, size_t)> pingCallback;
     std::function<void(WebSocket, char *, size_t)> pongCallback;
 public:
-    Server(int port = 0, bool master = true, unsigned int options = 0, unsigned int maxPayload = 1048576, SSLContext sslContext = SSLContext());
+    Server(EventSystem &es, int port = 0, unsigned int options = 0, unsigned int maxPayload = 1048576, SSLContext sslContext = SSLContext());
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
@@ -111,7 +112,6 @@ public:
     void onPong(std::function<void(WebSocket, char *, size_t)> pongCallback);
     void close(bool force = false);
     void upgrade(uv_os_sock_t fd, const char *secKey, void *ssl = nullptr, const char *extensions = nullptr, size_t extensionsLength = 0);
-    void run();
     size_t compress(char *src, size_t srcLength, char *dst);
     void broadcast(char *data, size_t length, OpCode opCode);
 

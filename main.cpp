@@ -9,7 +9,6 @@ using namespace std;
 using namespace uWS;
 
 int connections = 0;
-Server *worker, *server;
 
 int main()
 {
@@ -19,16 +18,18 @@ int main()
                               "/home/alexhultman/uws-connections-dropped/secrets/key.pem");
 
         // our listening server
-        Server server(3000, false, 0, 0, sslContext);
-        server.onUpgrade([](uv_os_sock_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
+        EventSystem es(MASTER);
+        Server server(es, 3000, 0, 0, sslContext);
+
+        EventSystem wes(WORKER);
+        Server worker(wes, 0, PERMESSAGE_DEFLATE | SERVER_NO_CONTEXT_TAKEOVER | CLIENT_NO_CONTEXT_TAKEOVER, 0);
+
+        server.onUpgrade([&worker](uv_os_sock_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
             // transfer connection to one of our worker servers
-            ::worker->upgrade(fd, secKey, ssl, extensions, extensionsLength);
+            worker.upgrade(fd, secKey, ssl, extensions, extensionsLength);
         });
 
         // our working server, does not listen
-        Server worker(0, false, PERMESSAGE_DEFLATE | SERVER_NO_CONTEXT_TAKEOVER | CLIENT_NO_CONTEXT_TAKEOVER, 0);
-        ::worker = &worker;
-        ::server = &server;
         worker.onConnection([](WebSocket socket) {
             cout << "[Connection] clients: " << ++connections << endl;
 
@@ -69,7 +70,7 @@ int main()
             }, (void *) "Some callback data here"*/);
         });
 
-        worker.onDisconnection([](WebSocket socket, int code, char *message, size_t length) {
+        worker.onDisconnection([&worker, &server](WebSocket socket, int code, char *message, size_t length) {
             cout << "[Disconnection] clients: " << --connections << endl;
             cout << "Code: " << code << endl;
             cout << "Message: " << string(message, length) << endl;
@@ -79,18 +80,18 @@ int main()
             cout << numDisconnections << endl;
             if (numDisconnections == 519) {
                 cout << "Closing after Autobahn test" << endl;
-                ::worker->close();
-                ::server->close();
+                worker.close();
+                server.close();
             }
         });
 
         // work on other thread
-        thread *t = new thread([]() {
-            ::worker->run();
+        thread *t = new thread([&wes]() {
+            wes.run();
         });
 
         // listen on main thread
-        server.run();
+        es.run();
         t->join();
         delete t;
     } catch (...) {

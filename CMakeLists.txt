@@ -9,7 +9,7 @@ find_package(ZLIB REQUIRED)
 find_path(LIBUV_INCLUDE_DIR uv.h)
 find_library(LIBUV_LIBRARY NAMES uv uv1)
 
-add_library(uWS SHARED src/Extensions.cpp src/HTTPSocket.cpp src/Network.cpp src/Server.cpp src/UTF8.cpp src/WebSocket.cpp)
+add_library(uWS SHARED src/Extensions.cpp src/HTTPSocket.cpp src/Network.cpp src/Server.cpp src/UTF8.cpp src/WebSocket.cpp src/EventSystem.cpp)
 target_include_directories(uWS PUBLIC src)
 
 target_include_directories(uWS PUBLIC ${LIBUV_INCLUDE_DIR})
