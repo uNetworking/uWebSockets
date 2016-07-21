@@ -8,9 +8,12 @@ This project intends to soften the nodejs' integration of the whole thing. (and 
 # Differences with uws
 * Change in the file tree structure (helps the npm workflow, just `git clone & npm install`)
 * no pre-compiled binaries whatsoever
+* Expose local binding port & addr
+
 
 
 # TODO
+* Sync with uws source code
 * Switch to nan for multi-version abstraction
 
 
