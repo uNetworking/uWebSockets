@@ -10,7 +10,7 @@ using namespace uWS;
 int main()
 {
     try {
-        Server server(3000);
+        Server server(3000, true, PERMESSAGE_DEFLATE, 0);
         server.onConnection([](WebSocket socket) {
 
         });
