@@ -30,7 +30,7 @@ int main()
         });
 
         // our working server, does not listen
-        worker.onConnection([](WebSocket socket) {
+        worker.onConnection([](WebSocket<SERVER> socket) {
             cout << "[Connection] clients: " << ++connections << endl;
 
             //socket.ping();
@@ -38,7 +38,7 @@ int main()
             //socket.close();
             //socket.close(false, 1011, "abcd", 4);
 
-            WebSocket::Address a = socket.getAddress();
+            WebSocket<SERVER>::Address a = socket.getAddress();
             cout << a.address << endl;
             cout << a.family << endl;
             cout << a.port << endl;
@@ -56,21 +56,21 @@ int main()
             }*/
         });
 
-        worker.onPing([](WebSocket webSocket, char *message, size_t length) {
+        worker.onPing([](WebSocket<SERVER> webSocket, char *message, size_t length) {
             cout << "Got a ping!" << endl;
         });
 
-        worker.onPong([](WebSocket webSocket, char *message, size_t length) {
+        worker.onPong([](WebSocket<SERVER> webSocket, char *message, size_t length) {
             cout << "Got a pong!" << endl;
         });
 
-        worker.onMessage([](WebSocket socket, char *message, size_t length, OpCode opCode) {
+        worker.onMessage([](WebSocket<SERVER> socket, char *message, size_t length, OpCode opCode) {
             socket.send(message, length, opCode/*, [](WebSocket webSocket, void *data, bool cancelled) {
                 cout << "Sent: " << (char *) data << endl;
             }, (void *) "Some callback data here"*/);
         });
 
-        worker.onDisconnection([&worker, &server](WebSocket socket, int code, char *message, size_t length) {
+        worker.onDisconnection([&worker, &server](WebSocket<SERVER> socket, int code, char *message, size_t length) {
             cout << "[Disconnection] clients: " << --connections << endl;
             cout << "Code: " << code << endl;
             cout << "Message: " << string(message, length) << endl;

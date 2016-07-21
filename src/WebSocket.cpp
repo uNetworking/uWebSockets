@@ -11,6 +11,9 @@
 
 namespace uWS {
 
+template class WebSocket<SERVER>;
+//template class WebSocket<CLIENT>;
+
 inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed)
 {
     size_t messageLength;
@@ -38,7 +41,8 @@ inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, 
     return messageLength;
 }
 
-void WebSocket::send(char *message, size_t length, OpCode opCode, void (*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData, size_t fakedLength)
+template<int webSocketType>
+void WebSocket<webSocketType>::send(char *message, size_t length, OpCode opCode, void (*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData, size_t fakedLength)
 {
     size_t reportedLength = length;
     if (fakedLength) {
@@ -46,23 +50,25 @@ void WebSocket::send(char *message, size_t length, OpCode opCode, void (*callbac
     }
 
     if (length <= Server::SHORT_BUFFER_SIZE - 10) {
-        SocketData *socketData = (SocketData *) p->data;
+        SocketData<webSocketType> *socketData = (SocketData<webSocketType> *) p->data;
         char *sendBuffer = socketData->server->sendBuffer;
         write(sendBuffer, formatMessage(sendBuffer, message, length, opCode, reportedLength, false), false, callback, callbackData);
     } else {
-        char *buffer = new char[sizeof(SocketData::Queue::Message) + length + 10] + sizeof(SocketData::Queue::Message);
+        char *buffer = new char[sizeof(typename SocketData<webSocketType>::Queue::Message) + length + 10] + sizeof(typename SocketData<webSocketType>::Queue::Message);
         write(buffer, formatMessage(buffer, message, length, opCode, reportedLength, false), true, callback, callbackData);
     }
 }
 
-void WebSocket::ping(char *message, size_t length)
+template<int webSocketType>
+void WebSocket<webSocketType>::ping(char *message, size_t length)
 {
     send(message, length, OpCode::PING);
 }
 
-void WebSocket::sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes)
+template<int webSocketType>
+void WebSocket<webSocketType>::sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes)
 {
-    SocketData *socketData = (SocketData *) p->data;
+    SocketData<webSocketType> *socketData = (SocketData<webSocketType> *) p->data;
     if (remainingBytes) {
         if (socketData->sendState == FRAGMENT_START) {
             send(data, length, opCode, nullptr, nullptr, length + remainingBytes);
@@ -80,38 +86,42 @@ void WebSocket::sendFragment(char *data, size_t length, OpCode opCode, size_t re
     }
 }
 
-WebSocket::PreparedMessage *WebSocket::prepareMessage(char *data, size_t length, OpCode opCode, bool compressed)
+template<int webSocketType>
+typename WebSocket<webSocketType>::PreparedMessage *WebSocket<webSocketType>::prepareMessage(char *data, size_t length, OpCode opCode, bool compressed)
 {
     PreparedMessage *preparedMessage = new PreparedMessage;
-    preparedMessage->buffer = new char[sizeof(SocketData::Queue::Message) + length + 10] + sizeof(SocketData::Queue::Message);
+    preparedMessage->buffer = new char[sizeof(typename SocketData<webSocketType>::Queue::Message) + length + 10] + sizeof(typename SocketData<webSocketType>::Queue::Message);
     preparedMessage->length = formatMessage(preparedMessage->buffer, data, length, opCode, length, compressed);
     preparedMessage->references = 1;
     return preparedMessage;
 }
 
-void WebSocket::sendPrepared(WebSocket::PreparedMessage *preparedMessage)
+template<int webSocketType>
+void WebSocket<webSocketType>::sendPrepared(WebSocket::PreparedMessage *preparedMessage)
 {
     preparedMessage->references++;
     write(preparedMessage->buffer, preparedMessage->length, false, [](WebSocket webSocket, void *userData, bool cancelled) {
         PreparedMessage *preparedMessage = (PreparedMessage *) userData;
         if (!--preparedMessage->references) {
-            delete [] (preparedMessage->buffer - sizeof(SocketData::Queue::Message));
+            delete [] (preparedMessage->buffer - sizeof(typename SocketData<webSocketType>::Queue::Message));
             delete preparedMessage;
         }
     }, preparedMessage, true);
 }
 
-void WebSocket::finalizeMessage(WebSocket::PreparedMessage *preparedMessage)
+template<int webSocketType>
+void WebSocket<webSocketType>::finalizeMessage(WebSocket::PreparedMessage *preparedMessage)
 {
     if (!--preparedMessage->references) {
-        delete [] (preparedMessage->buffer - sizeof(SocketData::Queue::Message));
+        delete [] (preparedMessage->buffer - sizeof(typename SocketData<webSocketType>::Queue::Message));
         delete preparedMessage;
     }
 }
 
-void WebSocket::handleFragment(const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes, bool compressed)
+template<int webSocketType>
+void WebSocket<webSocketType>::handleFragment(const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes, bool compressed)
 {
-    SocketData *socketData = (SocketData *) p->data;
+    SocketData<webSocketType> *socketData = (SocketData<webSocketType> *) p->data;
 
     // Text or binary
     if (opCode < 3) {
@@ -174,7 +184,7 @@ void WebSocket::handleFragment(const char *fragment, size_t length, OpCode opCod
         socketData->controlBuffer.append(fragment, length);
         if (!remainingBytes && fin) {
             if (opCode == CLOSE) {
-                std::tuple<unsigned short, char *, size_t> closeFrame = Parser::parseCloseFrame(socketData->controlBuffer);
+                std::tuple<unsigned short, char *, size_t> closeFrame = Parser<webSocketType>::parseCloseFrame(socketData->controlBuffer);
                 close(false, std::get<0>(closeFrame), std::get<1>(closeFrame), std::get<2>(closeFrame));
                 // leave the controlBuffer with the close frame intact
                 return;
@@ -191,7 +201,8 @@ void WebSocket::handleFragment(const char *fragment, size_t length, OpCode opCod
     }
 }
 
-WebSocket::Address WebSocket::getAddress()
+template<int webSocketType>
+typename WebSocket<webSocketType>::Address WebSocket<webSocketType>::getAddress()
 {
     uv_os_sock_t fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
@@ -213,9 +224,10 @@ WebSocket::Address WebSocket::getAddress()
     }
 }
 
-void WebSocket::onReadable(uv_poll_t *p, int status, int events)
+template<int webSocketType>
+void WebSocket<webSocketType>::onReadable(uv_poll_t *p, int status, int events)
 {
-    SocketData *socketData = (SocketData *) p->data;
+    SocketData<webSocketType> *socketData = (SocketData<webSocketType> *) p->data;
 
     // this one is not needed, read will do this!
     if (status < 0) {
@@ -248,7 +260,7 @@ void WebSocket::onReadable(uv_poll_t *p, int status, int events)
     if (received == SOCKET_ERROR || received == 0) {
         // do we have a close frame in our buffer, and did we already set the state as CLOSING?
         if (socketData->state == CLOSING && socketData->controlBuffer.length()) {
-            std::tuple<unsigned short, char *, size_t> closeFrame = Parser::parseCloseFrame(socketData->controlBuffer);
+            std::tuple<unsigned short, char *, size_t> closeFrame = Parser<webSocketType>::parseCloseFrame(socketData->controlBuffer);
             if (!std::get<0>(closeFrame)) {
                 std::get<0>(closeFrame) = 1006;
             }
@@ -270,7 +282,7 @@ void WebSocket::onReadable(uv_poll_t *p, int status, int events)
     setsockopt(fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
 #endif
 
-    Parser::consume(socketData->spillLength + received, src, socketData, p);
+    Parser<webSocketType>::consume(socketData->spillLength + received, src, socketData, p);
 
 #ifdef __linux
     cork = 0;
@@ -278,10 +290,11 @@ void WebSocket::onReadable(uv_poll_t *p, int status, int events)
 #endif
 }
 
-void WebSocket::initPoll(Server *server, uv_os_sock_t fd, void *ssl, void *perMessageDeflate)
+template<int webSocketType>
+void WebSocket<webSocketType>::initPoll(Server *server, uv_os_sock_t fd, void *ssl, void *perMessageDeflate)
 {
     uv_poll_init_socket(server->loop, p, fd);
-    SocketData *socketData = new SocketData;
+    SocketData<webSocketType> *socketData = new SocketData<webSocketType>;
     socketData->pmd = (PerMessageDeflate *) perMessageDeflate;
     socketData->server = server;
 
@@ -297,44 +310,51 @@ void WebSocket::initPoll(Server *server, uv_os_sock_t fd, void *ssl, void *perMe
     uv_poll_start(p, UV_READABLE, onReadable);
 }
 
-WebSocket::WebSocket(uv_poll_t *p) : p(p)
+template<int webSocketType>
+WebSocket<webSocketType>::WebSocket(uv_poll_t *p) : p(p)
 {
 
 }
 
-void WebSocket::link(uv_poll_t *next)
+template<int webSocketType>
+void WebSocket<webSocketType>::link(uv_poll_t *next)
 {
-    SocketData *nextData = (SocketData *) next->data;
+    SocketData<webSocketType> *nextData = (SocketData<webSocketType> *) next->data;
     nextData->prev = p;
-    SocketData *data = (SocketData *) p->data;
+    SocketData<webSocketType> *data = (SocketData<webSocketType> *) p->data;
     data->next = next;
 }
 
-uv_poll_t *WebSocket::next()
+template<int webSocketType>
+uv_poll_t *WebSocket<webSocketType>::next()
 {
-    return ((SocketData *) p->data)->next;
+    return ((SocketData<webSocketType> *) p->data)->next;
 }
 
-WebSocket::operator bool()
+template<int webSocketType>
+WebSocket<webSocketType>::operator bool()
 {
     return p;
 }
 
-void *WebSocket::getData()
+template<int webSocketType>
+void *WebSocket<webSocketType>::getData()
 {
-    return ((SocketData *) p->data)->data;
+    return ((SocketData<webSocketType> *) p->data)->data;
 }
 
-void WebSocket::setData(void *data)
+template<int webSocketType>
+void WebSocket<webSocketType>::setData(void *data)
 {
-    ((SocketData *) p->data)->data = data;
+    ((SocketData<webSocketType> *) p->data)->data = data;
 }
 
-void WebSocket::close(bool force, unsigned short code, char *data, size_t length)
+template<int webSocketType>
+void WebSocket<webSocketType>::close(bool force, unsigned short code, char *data, size_t length)
 {
     uv_os_sock_t fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
-    SocketData *socketData = (SocketData *) p->data;
+    SocketData<webSocketType> *socketData = (SocketData<webSocketType> *) p->data;
 
     if (socketData->state != CLOSING) {
         socketData->state = CLOSING;
@@ -342,12 +362,12 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
             socketData->server->clients = nullptr;
         } else {
             if (socketData->prev) {
-                ((SocketData *) socketData->prev->data)->next = socketData->next;
+                ((SocketData<webSocketType> *) socketData->prev->data)->next = socketData->next;
             } else {
                 socketData->server->clients = socketData->next;
             }
             if (socketData->next) {
-                ((SocketData *) socketData->next->data)->prev = socketData->prev;
+                ((SocketData<webSocketType> *) socketData->next->data)->prev = socketData->prev;
             }
         }
 
@@ -364,7 +384,7 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
     if (force) {
         // delete all messages in queue
         while (!socketData->messageQueue.empty()) {
-            SocketData::Queue::Message *message = socketData->messageQueue.front();
+            typename SocketData<webSocketType>::Queue::Message *message = socketData->messageQueue.front();
             if (message->callback) {
                 message->callback(nullptr, message->callbackData, true);
             }
@@ -409,7 +429,7 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
             if (!cancelled) {
                 uv_os_sock_t fd;
                 uv_fileno((uv_handle_t *) webSocket.p, (uv_os_fd_t *) &fd);
-                SocketData *socketData = (SocketData *) webSocket.p->data;
+                SocketData<webSocketType> *socketData = (SocketData<webSocketType> *) webSocket.p->data;
                 if (socketData->ssl) {
                     SSL_shutdown(socketData->ssl);
                 }
@@ -420,13 +440,14 @@ void WebSocket::close(bool force, unsigned short code, char *data, size_t length
 }
 
 // async Unix send (has a Message struct in the start if transferOwnership OR preparedMessage)
-void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData, bool preparedMessage)
+template<int webSocketType>
+void WebSocket<webSocketType>::write(char *data, size_t length, bool transferOwnership, void(*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData, bool preparedMessage)
 {
     uv_os_sock_t fd;
     uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
 
     ssize_t sent = 0;
-    SocketData *socketData = (SocketData *) p->data;
+    SocketData<webSocketType> *socketData = (SocketData<webSocketType> *) p->data;
     if (!socketData->messageQueue.empty()) {
         goto queueIt;
     }
@@ -440,7 +461,7 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
     if (sent == (int) length) {
         // everything was sent in one go!
         if (transferOwnership) {
-            delete [] (data - sizeof(SocketData::Queue::Message));
+            delete [] (data - sizeof(typename SocketData<webSocketType>::Queue::Message));
         }
 
         if (callback) {
@@ -468,7 +489,7 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
 
             // error sending!
             if (transferOwnership) {
-                delete [] (data - sizeof(SocketData::Queue::Message));
+                delete [] (data - sizeof(typename SocketData<webSocketType>::Queue::Message));
             }
 
             if (callback) {
@@ -482,31 +503,31 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
             sent = std::max<ssize_t>(sent, 0);
 
             // queue the rest of the message!
-            SocketData::Queue::Message *messagePtr;
+            typename SocketData<webSocketType>::Queue::Message *messagePtr;
             if (transferOwnership) {
-                messagePtr = (SocketData::Queue::Message *) (data - sizeof(SocketData::Queue::Message));
+                messagePtr = (typename SocketData<webSocketType>::Queue::Message *) (data - sizeof(typename SocketData<webSocketType>::Queue::Message));
                 messagePtr->data = data + sent;
                 messagePtr->length = length - sent;
                 messagePtr->nextMessage = nullptr;
             } else if (preparedMessage) {
                 // these allocations are always small and could belong to the same memory block
                 // best would be to use a stack and delete the whole stack when the prepared message gets deleted
-                messagePtr = (SocketData::Queue::Message *) new char[sizeof(SocketData::Queue::Message)];
+                messagePtr = (typename SocketData<webSocketType>::Queue::Message *) new char[sizeof(typename SocketData<webSocketType>::Queue::Message)];
                 messagePtr->data = data + sent;
                 messagePtr->length = length - sent;
                 messagePtr->nextMessage = nullptr;
             } else {
                 // we need to copy the buffer
-                messagePtr = (SocketData::Queue::Message *) new char[sizeof(SocketData::Queue::Message) + length - sent];
+                messagePtr = (typename SocketData<webSocketType>::Queue::Message *) new char[sizeof(typename SocketData<webSocketType>::Queue::Message) + length - sent];
                 messagePtr->length = length - sent;
-                messagePtr->data = ((char *) messagePtr) + sizeof(SocketData::Queue::Message);
+                messagePtr->data = ((char *) messagePtr) + sizeof(typename SocketData<webSocketType>::Queue::Message);
                 messagePtr->nextMessage = nullptr;
                 memcpy(messagePtr->data, data + sent, messagePtr->length);
             }
 
             messagePtr->callback = callback;
             messagePtr->callbackData = callbackData;
-            ((SocketData *) p->data)->messageQueue.push(messagePtr);
+            ((SocketData<webSocketType> *) p->data)->messageQueue.push(messagePtr);
 
             // only start this if we just broke the 0 queue size!
             uv_poll_start(p, UV_WRITABLE | UV_READABLE, [](uv_poll_t *handle, int status, int events) {
@@ -525,7 +546,7 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
                     }
                 }
 
-                SocketData *socketData = (SocketData *) handle->data;
+                SocketData<webSocketType> *socketData = (SocketData<webSocketType> *) handle->data;
 
                 if (socketData->state == CLOSING) {
                     if (uv_is_closing((uv_handle_t *) handle)) {
@@ -539,7 +560,7 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
                 uv_fileno((uv_handle_t *) handle, (uv_os_fd_t *) &fd);
 
                 do {
-                    SocketData::Queue::Message *messagePtr = socketData->messageQueue.front();
+                    typename SocketData<webSocketType>::Queue::Message *messagePtr = socketData->messageQueue.front();
 
                     ssize_t sent;
                     if (socketData->ssl) {

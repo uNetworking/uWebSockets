@@ -94,7 +94,7 @@ void Server::upgradeHandler(Server *server)
         }
 
         uv_poll_t *clientPoll = new uv_poll_t;
-        WebSocket webSocket(clientPoll);
+        WebSocket<SERVER> webSocket(clientPoll);
         webSocket.initPoll(server, upgradeRequest.fd, upgradeRequest.ssl, perMessageDeflate);
         webSocket.write(server->upgradeBuffer, upgradeResponseLength, false);
 
@@ -125,7 +125,7 @@ void Server::closeHandler(Server *server)
         });
     }
 
-    for (WebSocket webSocket = server->clients; webSocket; webSocket = webSocket.next()) {
+    for (WebSocket<SERVER> webSocket = server->clients; webSocket; webSocket = webSocket.next()) {
         webSocket.close(server->forceClose);
     }
 }
@@ -139,11 +139,11 @@ Server::Server(EventSystem &es, int port, unsigned int options, unsigned int max
     loop = es.loop;
     master = es.loopType == MASTER;
 
-    onConnection([](WebSocket webSocket) {});
-    onDisconnection([](WebSocket webSocket, int code, char *message, size_t length) {});
-    onMessage([](WebSocket webSocket, char *message, size_t length, OpCode opCode) {});
-    onPing([](WebSocket webSocket, char *message, size_t length) {});
-    onPong([](WebSocket webSocket, char *message, size_t length) {});
+    onConnection([](WebSocket<SERVER> webSocket) {});
+    onDisconnection([](WebSocket<SERVER> webSocket, int code, char *message, size_t length) {});
+    onMessage([](WebSocket<SERVER> webSocket, char *message, size_t length, OpCode opCode) {});
+    onPing([](WebSocket<SERVER> webSocket, char *message, size_t length) {});
+    onPong([](WebSocket<SERVER> webSocket, char *message, size_t length) {});
     onUpgrade([this](uv_os_sock_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
         upgrade(fd, secKey, ssl, extensions, extensionsLength);
     });
@@ -187,7 +187,7 @@ Server::Server(EventSystem &es, int port, unsigned int options, unsigned int max
         });
     }
 
-    recvBuffer = new char[LARGE_BUFFER_SIZE + Parser::CONSUME_POST_PADDING];
+    recvBuffer = new char[LARGE_BUFFER_SIZE + Parser<SERVER>::CONSUME_POST_PADDING];
     upgradeBuffer = new char[LARGE_BUFFER_SIZE];
     inflateBuffer = new char[LARGE_BUFFER_SIZE];
     sendBuffer = new char[SHORT_BUFFER_SIZE];
@@ -207,31 +207,6 @@ Server::~Server()
 void Server::onUpgrade(std::function<void (uv_os_sock_t, const char *, void *, const char *, size_t)> upgradeCallback)
 {
     this->upgradeCallback = upgradeCallback;
-}
-
-void Server::onConnection(std::function<void (WebSocket)> connectionCallback)
-{
-    this->connectionCallback = connectionCallback;
-}
-
-void Server::onDisconnection(std::function<void (WebSocket, int, char *, size_t)> disconnectionCallback)
-{
-    this->disconnectionCallback = disconnectionCallback;
-}
-
-void Server::onMessage(std::function<void (WebSocket, char *, size_t, OpCode)> messageCallback)
-{
-    this->messageCallback = messageCallback;
-}
-
-void Server::onPing(std::function<void (WebSocket, char *, size_t)> pingCallback)
-{
-    this->pingCallback = pingCallback;
-}
-
-void Server::onPong(std::function<void (WebSocket, char *, size_t)> pongCallback)
-{
-    this->pongCallback = pongCallback;
 }
 
 void Server::close(bool force)
@@ -259,23 +234,23 @@ void Server::upgrade(uv_os_sock_t fd, const char *secKey, void *ssl, const char 
 
 void Server::broadcast(char *data, size_t length, OpCode opCode)
 {
-    WebSocket::PreparedMessage *preparedMessage = WebSocket::prepareMessage(data, length, opCode, false);
+    WebSocket<SERVER>::PreparedMessage *preparedMessage = WebSocket<SERVER>::prepareMessage(data, length, opCode, false);
     if (options & PERMESSAGE_DEFLATE && options & SERVER_NO_CONTEXT_TAKEOVER) {
         size_t compressedLength = compress(data, length, inflateBuffer);
-        WebSocket::PreparedMessage *preparedCompressedMessage = WebSocket::prepareMessage(inflateBuffer, compressedLength, opCode, true);
+        WebSocket<SERVER>::PreparedMessage *preparedCompressedMessage = WebSocket<SERVER>::prepareMessage(inflateBuffer, compressedLength, opCode, true);
 
-        for (WebSocket webSocket = clients; webSocket; webSocket = webSocket.next()) {
-            SocketData *socketData = (SocketData *) webSocket.p->data;
+        for (WebSocket<SERVER> webSocket = clients; webSocket; webSocket = webSocket.next()) {
+            SocketData<SERVER> *socketData = (SocketData<SERVER> *) webSocket.p->data;
             webSocket.sendPrepared(socketData->pmd ? preparedCompressedMessage : preparedMessage);
         }
 
-        WebSocket::finalizeMessage(preparedCompressedMessage);
+        WebSocket<SERVER>::finalizeMessage(preparedCompressedMessage);
     } else {
-        for (WebSocket webSocket = clients; webSocket; webSocket = webSocket.next()) {
+        for (WebSocket<SERVER> webSocket = clients; webSocket; webSocket = webSocket.next()) {
             webSocket.sendPrepared(preparedMessage);
         }
     }
-    WebSocket::finalizeMessage(preparedMessage);
+    WebSocket<SERVER>::finalizeMessage(preparedMessage);
 }
 
 // todo: move this into PerMessageDeflate class
