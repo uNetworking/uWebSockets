@@ -8,8 +8,6 @@ This project intends to soften the nodejs' integration of the whole thing. (and 
 # Differences with uws
 * Change in the file tree structure (helps the npm workflow, just `git clone & npm install`)
 * no pre-compiled binaries whatsoever
-* align to ws options."path" policy (do NOT close sockets on unhandled links)
-* Exposes a functionnal socket.send callback (not a dummy instant/sync call)
 
 
 # TODO
