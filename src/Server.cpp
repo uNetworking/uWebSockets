@@ -66,7 +66,7 @@ void Server::upgradeHandler(Server *server)
         server->upgradeQueue.pop();
 
         unsigned char shaInput[] = "XXXXXXXXXXXXXXXXXXXXXXXX258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-        memcpy(shaInput, upgradeRequest.sslKey.c_str(), 24);
+        memcpy(shaInput, upgradeRequest.secKey.data(), 24);
         unsigned char shaDigest[SHA_DIGEST_LENGTH];
         SHA1(shaInput, sizeof(shaInput) - 1, shaDigest);
 
@@ -130,7 +130,7 @@ void Server::closeHandler(Server *server)
     }
 }
 
-Server::Server(int port, bool master, int options, int maxPayload, SSLContext sslContext) : master(master), options(options), maxPayload(maxPayload), sslContext(sslContext)
+Server::Server(int port, bool master, unsigned int options, unsigned int maxPayload, SSLContext sslContext) : master(master), options(options), maxPayload(maxPayload), sslContext(sslContext)
 {
 #ifdef NODEJS_WINDOWS
     options &= ~PERMESSAGE_DEFLATE;

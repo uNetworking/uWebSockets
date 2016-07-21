@@ -19,7 +19,7 @@ enum Error {
     ERR_ZLIB
 };
 
-enum Options : int {
+enum Options : unsigned int {
     NO_OPTIONS = 0,
     PERMESSAGE_DEFLATE = 1,
     SERVER_NO_CONTEXT_TAKEOVER = 2,
@@ -52,7 +52,7 @@ private:
     sockaddr_in listenAddr;
     z_stream writeStream;
     bool master, forceClose;
-    int options, maxPayload;
+    unsigned int options, maxPayload;
     SSLContext sslContext;
     static void acceptHandler(uv_poll_t *p, int status, int events);
     static void upgradeHandler(Server *server);
@@ -84,7 +84,7 @@ private:
 
     struct UpgradeRequest {
         uv_os_sock_t fd;
-        std::string sslKey;
+        std::string secKey;
         void *ssl;
         std::string extensions;
     };
@@ -99,7 +99,7 @@ private:
     std::function<void(WebSocket, char *, size_t)> pingCallback;
     std::function<void(WebSocket, char *, size_t)> pongCallback;
 public:
-    Server(int port = 0, bool master = true, int options = 0, int maxPayload = 1048576, SSLContext sslContext = SSLContext());
+    Server(int port = 0, bool master = true, unsigned int options = 0, unsigned int maxPayload = 1048576, SSLContext sslContext = SSLContext());
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
