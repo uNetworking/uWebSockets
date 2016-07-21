@@ -139,11 +139,6 @@ Server::Server(EventSystem &es, int port, unsigned int options, unsigned int max
     loop = es.loop;
     master = es.loopType == MASTER;
 
-    recvBuffer = new char[LARGE_BUFFER_SIZE + Parser::CONSUME_POST_PADDING];
-    upgradeBuffer = new char[LARGE_BUFFER_SIZE];
-    inflateBuffer = new char[LARGE_BUFFER_SIZE];
-    sendBuffer = new char[SHORT_BUFFER_SIZE];
-
     onConnection([](WebSocket webSocket) {});
     onDisconnection([](WebSocket webSocket, int code, char *message, size_t length) {});
     onMessage([](WebSocket webSocket, char *message, size_t length, OpCode opCode) {});
@@ -153,22 +148,28 @@ Server::Server(EventSystem &es, int port, unsigned int options, unsigned int max
         upgrade(fd, secKey, ssl, extensions, extensionsLength);
     });
 
+    // todo: move this into PerMessageDeflate class
+    writeStream = {};
+    if (deflateInit2(&writeStream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -15, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK) {
+        throw ERR_ZLIB;
+    }
+
     if (port) {
         uv_os_sock_t listenFd = socket(AF_INET, SOCK_STREAM, 0);
         listenAddr.sin_family = AF_INET;
         listenAddr.sin_addr.s_addr = INADDR_ANY;
         listenAddr.sin_port = htons(port);
 
-        listenPoll = new uv_poll_t;
-        listenPoll->data = this;
-
         int on = 1;
         setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 
         if (bind(listenFd, (sockaddr *) &listenAddr, sizeof(sockaddr_in)) || listen(listenFd, 10)) {
+            deflateEnd(&writeStream);
             throw ERR_LISTEN;
         }
 
+        listenPoll = new uv_poll_t;
+        listenPoll->data = this;
         uv_poll_init_socket(loop, listenPoll, listenFd);
         uv_poll_start(listenPoll, UV_READABLE, acceptHandler);
     }
@@ -186,11 +187,10 @@ Server::Server(EventSystem &es, int port, unsigned int options, unsigned int max
         });
     }
 
-    // todo: move this into PerMessageDeflate class
-    writeStream = {};
-    if (deflateInit2(&writeStream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -15, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK) {
-        throw ERR_ZLIB;
-    }
+    recvBuffer = new char[LARGE_BUFFER_SIZE + Parser::CONSUME_POST_PADDING];
+    upgradeBuffer = new char[LARGE_BUFFER_SIZE];
+    inflateBuffer = new char[LARGE_BUFFER_SIZE];
+    sendBuffer = new char[SHORT_BUFFER_SIZE];
 }
 
 Server::~Server()
