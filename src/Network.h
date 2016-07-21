@@ -27,9 +27,11 @@ inline int setsockopt(SOCKET fd, int level, int optname, const void *optval, soc
 }
 
 inline SOCKET dup(SOCKET socket) {
-    WSAPROTOCOL_INFO pi;
-    WSADuplicateSocket(socket, GetCurrentProcessId(), &pi);
-    return WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, &pi, 0, WSA_FLAG_OVERLAPPED);
+    WSAPROTOCOL_INFOW pi;
+    if (WSADuplicateSocketW(socket, GetCurrentProcessId(), &pi) == SOCKET_ERROR) {
+        return INVALID_SOCKET;
+    }
+    return WSASocketW(pi.iAddressFamily, pi.iSocketType, pi.iProtocol, &pi, 0, WSA_FLAG_OVERLAPPED);
 }
 #else
 #include <sys/socket.h>
@@ -37,6 +39,7 @@ inline SOCKET dup(SOCKET socket) {
 #include <unistd.h>
 #include <cstring>
 #define SOCKET_ERROR -1
+#define INVALID_SOCKET -1
 #endif
 
 #endif // NETWORK_H
