@@ -36,6 +36,7 @@ inline SOCKET dup(SOCKET socket) {
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
+#define SOCKET_ERROR -1
 #endif
 
 #endif // NETWORK_H

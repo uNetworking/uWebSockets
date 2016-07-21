@@ -245,7 +245,7 @@ void WebSocket::onReadable(uv_poll_t *p, int status, int events)
         received = recv(fd, src + socketData->spillLength, Server::LARGE_BUFFER_SIZE - socketData->spillLength, 0);
     }
 
-    if (received == -1 || received == 0) {
+    if (received == SOCKET_ERROR || received == 0) {
         // do we have a close frame in our buffer, and did we already set the state as CLOSING?
         if (socketData->state == CLOSING && socketData->controlBuffer.length()) {
             std::tuple<unsigned short, char *, size_t> closeFrame = Parser::parseCloseFrame(socketData->controlBuffer);
@@ -449,7 +449,7 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
 
     } else {
         // not everything was sent
-        if (sent == -1) {
+        if (sent == SOCKET_ERROR) {
             // check to see if any error occurred
             if (socketData->ssl) {
                 int error = SSL_get_error(socketData->ssl, sent);
@@ -556,7 +556,7 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
 
                         socketData->messageQueue.pop();
                     } else {
-                        if (sent == -1) {
+                        if (sent == SOCKET_ERROR) {
                             // check to see if any error occurred
                             if (socketData->ssl) {
                                 int error = SSL_get_error(socketData->ssl, sent);

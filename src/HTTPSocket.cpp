@@ -118,7 +118,7 @@ void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
         length = recv(fd, httpData->server->recvBuffer, Server::LARGE_BUFFER_SIZE, 0);
     }
 
-    if (length == -1 || length == 0 || httpData->headerBuffer.length() + length > MAX_HEADER_BUFFER_LENGTH) {
+    if (length == SOCKET_ERROR || length == 0 || httpData->headerBuffer.length() + length > MAX_HEADER_BUFFER_LENGTH) {
         int fd = httpData->stop();
         httpData->close(fd);
         delete httpData;
