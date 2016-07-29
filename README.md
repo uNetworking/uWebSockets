@@ -9,7 +9,7 @@
 * Permessage-deflate built-in.
 * Node.js binding exposed as the well-known `ws` interface.
 * 10-300x faster than `ws` (if they are "fastest", we are "fastester").
-* Optional engine in projects like Socket.IO, Primus & SocketCluster.
+* Default engine in SocketCluster & deepstream.io, optional in Socket.IO & Primus.
 
 [![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/alexhultman/uWebSockets.svg?branch=master)](https://travis-ci.org/alexhultman/uWebSockets) [![](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/alexhultman/uWebSockets)
 
@@ -40,17 +40,16 @@ Kaazing Gateway Community 5.0.0 | µWS is **62x** as lightweight | µWS is **15x
 ## Usage
 
 ### Node.js
-We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the widespread `ws` interface, allowing us to seamlessly integrate with projects like SocketCluster, Socket.IO & Primus.
+We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the widespread `ws` interface, allowing us to seamlessly integrate with projects like SocketCluster, deepstream.io, Socket.IO & Primus.
 
 * Read the [ws documentation](https://github.com/websockets/ws/blob/master/doc/ws.md)
 * Read the [Primus transformer documentation](https://github.com/primus/primus#uws)
 
 ##### SocketCluster
-Use the new `wsEngine: 'uws'` option like so:
-```javascript
-var socketCluster = new SocketCluster({ wsEngine: 'uws' });
-```
-We've worked closely together with the [SocketCluster](http://socketcluster.io) team and aim to bring you `µWS` as the default WebSocket engine in SocketCluster 5.
+`µWS` is the default engine in [SocketCluster](http://socketcluster.io) as of 5.0.0.
+
+##### deepstream.io
+`µWS` is the default engine in [deepstream.io](http://deepstream.io/) as of 1.0.0.
 
 ##### Socket.IO
 Use the new `wsEngine: 'uws'` option like so:
@@ -62,7 +61,6 @@ This option has not yet been released, one alternative way of enabling `uws` in 
 var io = require('socket.io')(80);
 io.engine.ws = new (require('uws').Server)({
     noServer: true,
-    clientTracking: false,
     perMessageDeflate: false
 });
 ```
@@ -74,7 +72,7 @@ var primus = new Primus(server, { transformer: 'uws' });
 ##### ws
 If your code directly relies on `ws` you can simply swap `require('ws')` with `require('uws')`:
 ```javascript
-var WebSocketServer = require('uws').Server; /* you replace 'ws' with 'uws' */
+var WebSocketServer = require('uws').Server;
 var wss = new WebSocketServer({ port: 8080 });
 
 wss.on('connection', function (ws) {
