@@ -11,6 +11,7 @@
 
 #include "WebSocket.h"
 #include "EventSystem.h"
+#include "Agent.h"
 
 namespace uWS {
 
@@ -42,10 +43,11 @@ public:
     void *newSSL(int fd);
 };
 
-class Server
+class Server : public Agent<WebSocket<SERVER>>
 {
     friend class HTTPSocket;
-    friend class WebSocket;
+    friend class WebSocket<SERVER>;
+    //friend class WebSocket<CLIENT>;
 private:
     uv_loop_t *loop;
     uv_poll_t *listenPoll = nullptr, *clients = nullptr;
@@ -64,12 +66,12 @@ private:
                      SHORT_BUFFER_SIZE = 4096;
 
     struct WebSocketIterator {
-        WebSocket webSocket;
-        WebSocketIterator(WebSocket webSocket) : webSocket(webSocket) {
+        WebSocket<SERVER> webSocket;
+        WebSocketIterator(WebSocket<SERVER> webSocket) : webSocket(webSocket) {
 
         }
 
-        WebSocket &operator*() {
+        WebSocket<SERVER> &operator*() {
             return webSocket;
         }
 
@@ -93,23 +95,12 @@ private:
     std::queue<UpgradeRequest> upgradeQueue;
     std::mutex upgradeQueueMutex;
 
-    std::function<void(uv_os_sock_t, const char *, void *, const char *, size_t)> upgradeCallback;
-    std::function<void(WebSocket)> connectionCallback;
-    std::function<void(WebSocket, int code, char *message, size_t length)> disconnectionCallback;
-    std::function<void(WebSocket, char *, size_t, OpCode)> messageCallback;
-    std::function<void(WebSocket, char *, size_t)> pingCallback;
-    std::function<void(WebSocket, char *, size_t)> pongCallback;
 public:
     Server(EventSystem &es, int port = 0, unsigned int options = 0, unsigned int maxPayload = 1048576, SSLContext sslContext = SSLContext());
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
     void onUpgrade(std::function<void(uv_os_sock_t, const char *, void *, const char *, size_t)> upgradeCallback);
-    void onConnection(std::function<void(WebSocket)> connectionCallback);
-    void onDisconnection(std::function<void(WebSocket, int code, char *message, size_t length)> disconnectionCallback);
-    void onMessage(std::function<void(WebSocket, char *, size_t, OpCode)> messageCallback);
-    void onPing(std::function<void(WebSocket, char *, size_t)> pingCallback);
-    void onPong(std::function<void(WebSocket, char *, size_t)> pongCallback);
     void close(bool force = false);
     void upgrade(uv_os_sock_t fd, const char *secKey, void *ssl = nullptr, const char *extensions = nullptr, size_t extensionsLength = 0);
     size_t compress(char *src, size_t srcLength, char *dst);

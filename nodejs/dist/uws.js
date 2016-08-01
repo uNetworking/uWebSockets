@@ -2,7 +2,6 @@
 
 const http = require('http');
 const EventEmitter = require('events');
-const EE_ERROR = "Registering more than one listener to a WebSocket is not supported.";
 function noop() {}
 function abortConnection(socket, code, name) {
     socket.end('HTTP/1.1 ' + code + ' ' + name + '\r\n\r\n');
@@ -26,42 +25,38 @@ class Socket {
     constructor(nativeSocket, nativeServer) {
         this.nativeSocket = nativeSocket;
         this.nativeServer = nativeServer;
-        this.internalOnMessage = noop;
-        this.internalOnClose = noop;
-        this.onping = noop;
-        this.onpong = noop;
+        this.onMessageListeners = [];
+        this.onCloseListeners = [];
+        this.onPingListeners = [];
+        this.onPongListeners = [];
         this.upgradeReq = null;
     }
 
     set onmessage(f) {
         if (f) {
-            this.internalOnMessage = (message) => {
+            this.onMessageListeners.push((message) => {
                 f({data: Buffer.isBuffer(message) ? new Uint8Array(message).buffer : message});
-            };
-        } else {
-            this.internalOnMessage = noop;
+            });
         }
     }
 
     set onclose(f) {
         if (f) {
-            this.internalOnClose = () => {
+            this.onCloseListeners.push(() => {
                 f();
-            };
-        } else {
-            this.internalOnClose = noop;
+            });
         }
     }
 
     emit(eventName, arg1, arg2) {
         if (eventName === 'message') {
-            this.internalOnMessage(arg1);
+            this.onMessageListeners.forEach(function(f) { f(arg1); });
         } else if (eventName === 'close') {
-            this.internalOnClose(arg1, arg2);
+            this.onCloseListeners.forEach(function(f) { f(arg1, arg2); });
         } else if (eventName === 'ping') {
-            this.onping(arg1);
+            this.onPingListeners.forEach(function(f) { f(arg1); });
         } else if (eventName === 'pong') {
-            this.onpong(arg1);
+            this.onPongListeners.forEach(function(f) { f(arg1); });
         }
         return this;
     }
@@ -75,25 +70,13 @@ class Socket {
      */
     on(eventName, f) {
         if (eventName === 'message') {
-            if (this.internalOnMessage !== noop) {
-                throw Error(EE_ERROR);
-            }
-            this.internalOnMessage = f;
+            this.onMessageListeners.push(f);
         } else if (eventName === 'close') {
-            if (this.internalOnClose !== noop) {
-                throw Error(EE_ERROR);
-            }
-            this.internalOnClose = f;
+            this.onCloseListeners.push(f);
         } else if (eventName === 'ping') {
-            if (this.onping !== noop) {
-                throw Error(EE_ERROR);
-            }
-            this.onping = f;
+            this.onPingListeners.push(f);
         } else if (eventName === 'pong') {
-            if (this.onpong !== noop) {
-                throw Error(EE_ERROR);
-            }
-            this.onpong = f;
+            this.onPongListeners.push(f);
         }
         return this;
     }
@@ -106,38 +89,19 @@ class Socket {
      * @public
      */
     once(eventName, f) {
+        var socket = this;
+        function once() {
+            f();
+            socket.removeListener(eventName, once);
+        }
         if (eventName === 'message') {
-            if (this.internalOnMessage !== noop) {
-                throw Error(EE_ERROR);
-            }
-            this.internalOnMessage = () => {
-                f();
-                this.internalOnMessage = noop;
-            };
+            this.onMessageListeners.push(once);
         } else if (eventName === 'close') {
-            if (this.internalOnClose !== noop) {
-                throw Error(EE_ERROR);
-            }
-            this.internalOnClose = () => {
-                f();
-                this.internalOnClose = noop;
-            };
+            this.onCloseListeners.push(once);
         } else if (eventName === 'ping') {
-            if (this.onping !== noop) {
-                throw Error(EE_ERROR);
-            }
-            this.onping = () => {
-                f();
-                this.onping = noop;
-            };
+            this.onPingListeners.push(once);
         } else if (eventName === 'pong') {
-            if (this.onpong !== noop) {
-                throw Error(EE_ERROR);
-            }
-            this.onpong = () => {
-                f();
-                this.onpong = noop;
-            };
+            this.onPongListeners.push(once);
         }
         return this;
     }
@@ -151,16 +115,16 @@ class Socket {
      */
     removeAllListeners(eventName) {
         if (!eventName || eventName === 'message') {
-            this.internalOnMessage = noop;
+            this.onMessageListeners = [];
         }
         if (!eventName || eventName === 'close') {
-            this.internalOnClose = noop;
+            this.onCloseListeners = [];
         }
         if (!eventName || eventName === 'ping') {
-            this.onping = noop;
+            this.onPingListeners = [];
         }
         if (!eventName || eventName === 'pong') {
-            this.onpong = noop;
+            this.onPongListeners = [];
         }
         return this;
     }
@@ -173,14 +137,19 @@ class Socket {
      * @public
      */
     removeListener(eventName, cb) {
-        if (eventName === 'message' && this.internalOnMessage === cb) {
-            this.internalOnMessage = noop;
-        } else if (eventName === 'close' && this.internalOnClose === cb) {
-            this.internalOnClose = noop;
-        } else if (eventName === 'ping' && this.onping === cb) {
-            this.onping = noop;
-        } else if (eventName === 'pong' && this.onpong === cb) {
-            this.onpong = noop;
+        var array;
+        if (eventName === 'message') {
+            array = this.onMessageListeners;
+        } else if (eventName === 'close') {
+            array = this.onCloseListeners;
+        } else if (eventName === 'ping') {
+            array = this.onPingListeners;
+        } else if (eventName === 'pong') {
+            array = this.onPongListeners;
+        }
+        if (array) {
+            var index = array.indexOf(cb);
+            if (index >= 0) { array.splice(index, 1); }
         }
         return this;
     }
@@ -387,20 +356,28 @@ class Server extends EventEmitter {
 
         this.nativeServer.onDisconnection((nativeSocket, code, message, socket) => {
             socket.nativeServer = socket.nativeSocket = null;
-            socket.internalOnClose(code, message);
+            socket.onCloseListeners.forEach(function(f) {
+                f(code, message);
+            });
             this.nativeServer.setData(nativeSocket);
         });
 
         this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
-            socket.internalOnMessage(binary ? message : message.toString());
+            socket.onMessageListeners.forEach(function(f) {
+                f(binary ? message : message.toString());
+            });
         });
 
         this.nativeServer.onPing((nativeSocket, message, socket) => {
-            socket.onping(message.toString());
+            socket.onPingListeners.forEach(function(f) {
+                f(message.toString());
+            });
         });
 
         this.nativeServer.onPong((nativeSocket, message, socket) => {
-            socket.onpong(message.toString());
+            socket.onPongListeners.forEach(function(f) {
+                f(message.toString());
+            });
         });
 
         this.nativeServer.onConnection((nativeSocket) => {

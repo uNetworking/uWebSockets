@@ -24,6 +24,7 @@ enum SocketSendState : int {
     FRAGMENT_MID
 };
 
+template<int webSocketType>
 struct SocketData {
     unsigned char state = READ_HEAD;
     unsigned char sendState = FRAGMENT_START;
@@ -40,7 +41,7 @@ struct SocketData {
             char *data;
             size_t length;
             Message *nextMessage = nullptr;
-            void (*callback)(WebSocket webSocket, void *data, bool cancelled) = nullptr;
+            void (*callback)(WebSocket<webSocketType> webSocket, void *data, bool cancelled) = nullptr;
             void *callbackData = nullptr;
         };
 

@@ -14,13 +14,20 @@ enum OpCode : unsigned char {
     PONG = 10
 };
 
-class Server;
+enum WebSocketType : int {
+    SERVER,
+    CLIENT
+};
 
+class Server;
+template<int> class Parser;
+
+template<int webSocketType>
 class WebSocket
 {
     friend class Server;
-    friend class Parser;
-    friend struct std::hash<uWS::WebSocket>;
+    friend class Parser<webSocketType>;
+    friend struct std::hash<uWS::WebSocket<webSocketType>>;
 private:
     static void onReadable(uv_poll_t *p, int status, int events);
     void initPoll(Server *server, uv_os_sock_t fd, void *ssl, void *perMessageDeflate);
@@ -64,9 +71,9 @@ public:
 
 namespace std {
 
-template <>
-struct hash<uWS::WebSocket> {
-    std::size_t operator()(const uWS::WebSocket &webSocket) const
+template <uWS::WebSocketType webSocketType>
+struct hash<uWS::WebSocket<webSocketType>> {
+    std::size_t operator()(const uWS::WebSocket<webSocketType> &webSocket) const
     {
         return std::hash<uv_poll_t *>()(webSocket.p);
     }

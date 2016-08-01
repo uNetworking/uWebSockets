@@ -10,6 +10,7 @@
 
 namespace uWS {
 
+template<int webSocketType>
 class Parser {
 private:
     typedef uint16_t frameFormat;
@@ -57,7 +58,7 @@ private:
     }
 
     template <typename T>
-    static inline void consumeIncompleteMessage(int length, const int headerLength, T fullPayloadLength, SocketData *socketData, char *src, uv_poll_t *p)
+    static inline void consumeIncompleteMessage(int length, const int headerLength, T fullPayloadLength, SocketData<webSocketType> *socketData, char *src, uv_poll_t *p)
     {
         socketData->spillLength = 0;
         socketData->state = READ_MESSAGE;
@@ -67,15 +68,15 @@ private:
         unmask_imprecise(src, src + headerLength, socketData->mask, length);
         rotate_mask(4 - (length - headerLength) % 4, socketData->mask);
 
-        WebSocket(p).handleFragment(src, length - headerLength,
+        WebSocket<SERVER>(p).handleFragment(src, length - headerLength,
                                     socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
     }
 
     template <typename T>
-    static inline int consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData *socketData, char **src, frameFormat &frame, uv_poll_t *p)
+    static inline int consumeCompleteMessage(int &length, const int headerLength, T fullPayloadLength, SocketData<webSocketType> *socketData, char **src, frameFormat &frame, uv_poll_t *p)
     {
         unmask_imprecise_copy_mask(*src, *src + headerLength, *src + headerLength - 4, fullPayloadLength);
-        WebSocket(p).handleFragment(*src, fullPayloadLength, socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
+        WebSocket<SERVER>(p).handleFragment(*src, fullPayloadLength, socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
 
         if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
             return 1;
@@ -91,13 +92,13 @@ private:
         return 0;
     }
 
-    static inline void consumeEntireBuffer(char *src, int length, SocketData *socketData, uv_poll_t *p)
+    static inline void consumeEntireBuffer(char *src, int length, SocketData<webSocketType> *socketData, uv_poll_t *p)
     {
         int n = (length >> 2) + bool(length % 4); // this should always overwrite!
 
         unmask_inplace(src, src + n * 4, socketData->mask);
         socketData->remainingBytes -= length;
-        WebSocket(p).handleFragment((const char *) src, length,
+        WebSocket<SERVER>(p).handleFragment((const char *) src, length,
                                     socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, socketData->remainingBytes, socketData->pmd && socketData->pmd->compressedFrame);
 
         if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
@@ -116,7 +117,7 @@ private:
         }
     }
 
-    static inline int consumeCompleteTail(char **src, int &length, SocketData *socketData, uv_poll_t *p)
+    static inline int consumeCompleteTail(char **src, int &length, SocketData<webSocketType> *socketData, uv_poll_t *p)
     {
         int n = (socketData->remainingBytes >> 2);
         unmask_inplace(*src, *src + n * 4, socketData->mask);
@@ -124,7 +125,7 @@ private:
             (*src)[n * 4 + i] ^= socketData->mask[i];
         }
 
-        WebSocket(p).handleFragment((const char *) *src, socketData->remainingBytes,
+        WebSocket<SERVER>(p).handleFragment((const char *) *src, socketData->remainingBytes,
                                     socketData->opCode[(unsigned char) socketData->opStack], socketData->fin, 0, socketData->pmd && socketData->pmd->compressedFrame);
 
         if (uv_is_closing((uv_handle_t *) p) || socketData->state == CLOSING) {
@@ -146,7 +147,7 @@ public:
     // LONG_MESSAGE_HEADER + 4 byte mask
     static const int CONSUME_POST_PADDING = 18;
 
-    static inline void consume(int length, char *src, SocketData *socketData, uv_poll_t *p)
+    static inline void consume(int length, char *src, SocketData<webSocketType> *socketData, uv_poll_t *p)
     {
         parseNext:
         if (socketData->state == READ_HEAD) {
@@ -163,13 +164,13 @@ public:
     #ifdef STRICT_WS
                 // invalid reserved bits
                 if ((rsv1(frame) && !socketData->pmd) || rsv2(frame) || rsv3(frame)) {
-                    WebSocket(p).close(true, 1006);
+                    WebSocket<SERVER>(p).close(true, 1006);
                     return;
                 }
 
                 // invalid opcodes
                 if ((opCode(frame) > 2 && opCode(frame) < 8) || opCode(frame) > 10) {
-                    WebSocket(p).close(true, 1006);
+                    WebSocket<SERVER>(p).close(true, 1006);
                     return;
                 }
     #endif
@@ -185,20 +186,20 @@ public:
     #ifdef STRICT_WS
                     // Case 5.18
                     if (socketData->opStack == 0 && !lastFin && fin(frame)) {
-                        WebSocket(p).close(true, 1006);
+                        WebSocket<SERVER>(p).close(true, 1006);
                         return;
                     }
 
                     // control frames cannot be fragmented or long
                     if (opCode(frame) > 2 && (!fin(frame) || payloadLength(frame) > 125)) {
-                        WebSocket(p).close(true, 1006);
+                        WebSocket<SERVER>(p).close(true, 1006);
                         return;
                     }
 
                 } else {
                     // continuation frame must have a opcode prior!
                     if (socketData->opStack == -1) {
-                        WebSocket(p).close(true, 1006);
+                        WebSocket<SERVER>(p).close(true, 1006);
                         return;
                     }
     #endif

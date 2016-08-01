@@ -10,7 +10,8 @@ SOURCES += main.cpp \
     src/WebSocket.cpp \
     src/Extensions.cpp \
     src/UTF8.cpp \
-    src/EventSystem.cpp
+    src/EventSystem.cpp \
+    src/Agent.cpp
 
 HEADERS += \
     src/Server.h \
@@ -22,7 +23,8 @@ HEADERS += \
     src/Parser.h \
     src/SocketData.h \
     src/UTF8.h \
-    src/EventSystem.h
+    src/EventSystem.h \
+    src/Agent.h
 
 LIBS += -lssl -lcrypto -lz -luv -lpthread
 
