@@ -278,6 +278,86 @@ void WebSocket::onReadable(uv_poll_t *p, int status, int events)
 #endif
 }
 
+void WebSocket::onWritableReadable(uv_poll_t *handle, int status, int events)
+{
+    // handle all poll errors with forced disconnection
+    if (status < 0) {
+        WebSocket(handle).close(true, 1006);
+        return;
+    }
+
+    // handle reads if available
+    if (events & UV_READABLE) {
+        onReadable(handle, status, events);
+        if (!(events & UV_WRITABLE)) {
+            return;
+        }
+    }
+
+    SocketData *socketData = (SocketData *) handle->data;
+
+    if (socketData->state == CLOSING) {
+        if (uv_is_closing((uv_handle_t *) handle)) {
+            return;
+        } else {
+            uv_poll_start(handle, UV_READABLE, onReadable);
+        }
+    }
+
+    uv_os_sock_t fd;
+    uv_fileno((uv_handle_t *) handle, (uv_os_fd_t *) &fd);
+
+    do {
+        SocketData::Queue::Message *messagePtr = socketData->messageQueue.front();
+
+        ssize_t sent;
+        if (socketData->ssl) {
+            sent = SSL_write(socketData->ssl, messagePtr->data, messagePtr->length);
+        } else {
+            sent = ::send(fd, messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
+        }
+
+        if (sent == (int) messagePtr->length) {
+
+            if (messagePtr->callback) {
+                messagePtr->callback(handle, messagePtr->callbackData, false);
+            }
+
+            socketData->messageQueue.pop();
+        } else {
+            if (sent == SOCKET_ERROR) {
+                // check to see if any error occurred
+                if (socketData->ssl) {
+                    int error = SSL_get_error(socketData->ssl, sent);
+                    if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE) {
+                        return;
+                    }
+                } else {
+    #ifdef _WIN32
+                    if (WSAGetLastError() == WSAENOBUFS || WSAGetLastError() == WSAEWOULDBLOCK) {
+    #else
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    #endif
+                        return;
+                    }
+                }
+
+                // error sending!
+                uv_poll_start(handle, UV_READABLE, onReadable);
+                return;
+            } else {
+                // update the Message
+                messagePtr->data += sent;
+                messagePtr->length -= sent;
+                return;
+            }
+        }
+    } while (!socketData->messageQueue.empty());
+
+    // only receive when we have fully sent everything
+    uv_poll_start(handle, UV_READABLE, onReadable);
+}
+
 void WebSocket::initPoll(Server *server, uv_os_sock_t fd, void *ssl, void *perMessageDeflate)
 {
     uv_poll_init_socket(server->loop, p, fd);
@@ -506,88 +586,16 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
 
             messagePtr->callback = callback;
             messagePtr->callbackData = callbackData;
-            ((SocketData *) p->data)->messageQueue.push(messagePtr);
+            bool wasEmpty = socketData->messageQueue.empty();
+            socketData->messageQueue.push(messagePtr);
 
-            // only start this if we just broke the 0 queue size!
-            uv_poll_start(p, UV_WRITABLE | UV_READABLE, [](uv_poll_t *handle, int status, int events) {
-
-                // handle all poll errors with forced disconnection
-                if (status < 0) {
-                    WebSocket(handle).close(true, 1006);
-                    return;
+            if (wasEmpty) {
+                if (pthread_self() == socketData->server->es.tid) {
+                    uv_poll_start(p, UV_WRITABLE | UV_READABLE, onWritableReadable);
+                } else {
+                    socketData->server->es.changePollAsync(p);
                 }
-
-                // handle reads if available
-                if (events & UV_READABLE) {
-                    onReadable(handle, status, events);
-                    if (!(events & UV_WRITABLE)) {
-                        return;
-                    }
-                }
-
-                SocketData *socketData = (SocketData *) handle->data;
-
-                if (socketData->state == CLOSING) {
-                    if (uv_is_closing((uv_handle_t *) handle)) {
-                        return;
-                    } else {
-                        uv_poll_start(handle, UV_READABLE, onReadable);
-                    }
-                }
-
-                uv_os_sock_t fd;
-                uv_fileno((uv_handle_t *) handle, (uv_os_fd_t *) &fd);
-
-                do {
-                    SocketData::Queue::Message *messagePtr = socketData->messageQueue.front();
-
-                    ssize_t sent;
-                    if (socketData->ssl) {
-                        sent = SSL_write(socketData->ssl, messagePtr->data, messagePtr->length);
-                    } else {
-                        sent = ::send(fd, messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
-                    }
-
-                    if (sent == (int) messagePtr->length) {
-
-                        if (messagePtr->callback) {
-                            messagePtr->callback(handle, messagePtr->callbackData, false);
-                        }
-
-                        socketData->messageQueue.pop();
-                    } else {
-                        if (sent == SOCKET_ERROR) {
-                            // check to see if any error occurred
-                            if (socketData->ssl) {
-                                int error = SSL_get_error(socketData->ssl, sent);
-                                if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE) {
-                                    return;
-                                }
-                            } else {
-                #ifdef _WIN32
-                                if (WSAGetLastError() == WSAENOBUFS || WSAGetLastError() == WSAEWOULDBLOCK) {
-                #else
-                                if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                #endif
-                                    return;
-                                }
-                            }
-
-                            // error sending!
-                            uv_poll_start(handle, UV_READABLE, onReadable);
-                            return;
-                        } else {
-                            // update the Message
-                            messagePtr->data += sent;
-                            messagePtr->length -= sent;
-                            return;
-                        }
-                    }
-                } while (!socketData->messageQueue.empty());
-
-                // only receive when we have fully sent everything
-                uv_poll_start(handle, UV_READABLE, onReadable);
-            });
+            }
         }
     }
 }

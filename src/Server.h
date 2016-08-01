@@ -28,7 +28,7 @@ enum Options : unsigned int {
     NO_DELAY = 8
 };
 
-class SSLContext {
+class WIN32_EXPORT SSLContext {
 private:
     SSL_CTX *sslContext = nullptr;
 public:
@@ -42,7 +42,7 @@ public:
     void *newSSL(int fd);
 };
 
-class Server
+class WIN32_EXPORT Server
 {
     friend class HTTPSocket;
     friend class WebSocket;
@@ -55,6 +55,7 @@ private:
     bool master, forceClose;
     unsigned int options, maxPayload;
     SSLContext sslContext;
+    EventSystem &es;
     static void acceptHandler(uv_poll_t *p, int status, int events);
     static void upgradeHandler(Server *server);
     static void closeHandler(Server *server);

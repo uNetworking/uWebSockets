@@ -20,6 +20,9 @@
 #define htobe64(x) htonll(x)
 #define be64toh(x) ntohll(x)
 #define __thread __declspec(thread)
+#define pthread_t DWORD
+#define pthread_self GetCurrentThreadId
+#define WIN32_EXPORT __declspec(dllexport)
 
 inline void close(SOCKET fd) {closesocket(fd);}
 inline int setsockopt(SOCKET fd, int level, int optname, const void *optval, socklen_t optlen) {
@@ -40,6 +43,7 @@ inline SOCKET dup(SOCKET socket) {
 #include <cstring>
 #define SOCKET_ERROR -1
 #define INVALID_SOCKET -1
+#define WIN32_EXPORT
 #endif
 
 #endif // NETWORK_H

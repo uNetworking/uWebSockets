@@ -131,7 +131,7 @@ void Server::closeHandler(Server *server)
     }
 }
 
-Server::Server(EventSystem &es, int port, unsigned int options, unsigned int maxPayload, SSLContext sslContext) : options(options), maxPayload(maxPayload), sslContext(sslContext)
+Server::Server(EventSystem &es, int port, unsigned int options, unsigned int maxPayload, SSLContext sslContext) : options(options), maxPayload(maxPayload), sslContext(sslContext), es(es)
 {
 #ifdef NODEJS_WINDOWS
     options &= ~PERMESSAGE_DEFLATE;

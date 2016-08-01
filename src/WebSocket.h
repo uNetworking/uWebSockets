@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <uv.h>
+#include "Network.h"
 
 namespace uWS {
 
@@ -16,13 +17,15 @@ enum OpCode : unsigned char {
 
 class Server;
 
-class WebSocket
+class WIN32_EXPORT WebSocket
 {
     friend class Server;
     friend class Parser;
+    friend class EventSystem;
     friend struct std::hash<uWS::WebSocket>;
 private:
     static void onReadable(uv_poll_t *p, int status, int events);
+    static void onWritableReadable(uv_poll_t *handle, int status, int events);
     void initPoll(Server *server, uv_os_sock_t fd, void *ssl, void *perMessageDeflate);
     void link(uv_poll_t *next);
     uv_poll_t *next();
