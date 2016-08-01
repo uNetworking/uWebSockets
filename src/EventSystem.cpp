@@ -11,11 +11,11 @@ void EventSystem::changePollAsync(uv_poll_t *p)
     uv_async_send(asyncPollChange);
 }
 
-EventSystem::EventSystem(LoopType loopType, bool threadSafe) : loopType(loopType), threadSafe(threadSafe)
+EventSystem::EventSystem(LoopType loopType) : loopType(loopType)
 {
     loop = loopType == MASTER ? uv_default_loop() : uv_loop_new();
 
-    if (threadSafe) {
+    if (loopType == WORKER) {
         asyncPollChange = new uv_async_t;
         asyncPollChange->data = this;
         uv_async_init(loop, asyncPollChange, [](uv_async_t *a) {

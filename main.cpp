@@ -18,10 +18,10 @@ int main()
                               "/home/alexhultman/uws-connections-dropped/secrets/key.pem");
 
         // our listening server
-        EventSystem es(MASTER, true);
+        EventSystem es(MASTER);
         Server server(es, 3000, 0, 0/*, sslContext*/);
 
-        EventSystem wes(WORKER, true);
+        EventSystem wes(WORKER);
         Server worker(wes, 0, PERMESSAGE_DEFLATE | SERVER_NO_CONTEXT_TAKEOVER | CLIENT_NO_CONTEXT_TAKEOVER, 0);
 
         server.onUpgrade([&worker](uv_os_sock_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {

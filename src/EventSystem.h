@@ -23,12 +23,11 @@ class WIN32_EXPORT EventSystem
     std::vector<uv_poll_t *> pollsToChange;
     std::mutex pollsToChangeMutex;
     pthread_t tid;
-    bool threadSafe;
 
     void changePollAsync(uv_poll_t *p);
 
 public:
-    EventSystem(LoopType loopType = MASTER, bool threadSafe = false);
+    EventSystem(LoopType loopType = MASTER);
     ~EventSystem();
     void run();
 };
