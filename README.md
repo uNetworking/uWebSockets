@@ -116,14 +116,11 @@ int main()
 ## Installation
 ### Node.js developers
 [![](https://nodei.co/npm/uws.png)](https://www.npmjs.com/package/uws)
-```
-npm install --save uws
-```
 
 * Node.js 4.x, 5.x & 6.x supported
 * Linux, Mac OS X & Windows supported
 
-*Currently the Windows version only runs on Node.js 6.3.0+. SSL support will come to the Windows version with Node.js 6.4.0+*
+*Windows version requires Node.js 6.4.0+*
 
 ### C++ developers
 #### Dependencies

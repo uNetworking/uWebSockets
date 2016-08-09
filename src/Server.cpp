@@ -133,10 +133,6 @@ void Server::closeHandler(Server *server)
 
 Server::Server(EventSystem &es, int port, unsigned int options, unsigned int maxPayload, SSLContext sslContext) : options(options), maxPayload(maxPayload), sslContext(sslContext), es(es)
 {
-#ifdef NODEJS_WINDOWS
-    options &= ~PERMESSAGE_DEFLATE;
-#endif
-
     loop = es.loop;
     master = es.loopType == MASTER;
 
@@ -313,13 +309,11 @@ SSLContext::SSLContext(std::string certChainFileName, std::string keyFileName)
 
     SSL_CTX_set_options(sslContext, SSL_OP_NO_SSLv3);
 
-#ifndef NODEJS_WINDOWS
     if (SSL_CTX_use_certificate_chain_file(sslContext, certChainFileName.c_str()) != 1) {
         throw ERR_SSL;
     } else if (SSL_CTX_use_PrivateKey_file(sslContext, keyFileName.c_str(), SSL_FILETYPE_PEM) != 1) {
         throw ERR_SSL;
     }
-#endif
 }
 
 SSLContext::SSLContext(const SSLContext &other)
@@ -338,9 +332,7 @@ SSLContext::~SSLContext()
 void *SSLContext::newSSL(int fd)
 {
     SSL *ssl = SSL_new(sslContext);
-#ifndef NODEJS_WINDOWS
     SSL_set_fd(ssl, fd);
-#endif
     SSL_set_mode(ssl, SSL_MODE_ENABLE_PARTIAL_WRITE);
     SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
     return ssl;
