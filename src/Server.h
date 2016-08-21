@@ -61,8 +61,8 @@ private:
     static void closeHandler(Server *server);
 
     char *recvBuffer, *sendBuffer, *inflateBuffer, *upgradeBuffer;
-    static const int LARGE_BUFFER_SIZE = 307200,
-                     SHORT_BUFFER_SIZE = 4096;
+    static const int LARGE_BUFFER_SIZE = 307200;
+    static const int SHORT_BUFFER_SIZE = 4096;
 
     struct WebSocketIterator {
         WebSocket webSocket;
