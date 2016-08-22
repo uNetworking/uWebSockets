@@ -10,7 +10,8 @@ using namespace uWS;
 int main()
 {
     try {
-        Server server(3000, true, PERMESSAGE_DEFLATE, 0);
+        EventSystem es(MASTER);
+        Server server(es, 3000, PERMESSAGE_DEFLATE, 0);
         server.onConnection([](WebSocket socket) {
 
         });
@@ -23,7 +24,7 @@ int main()
 
         });
 
-        server.run();
+        es.run();
     } catch (...) {
         cout << "ERR_LISTEN" << endl;
     }

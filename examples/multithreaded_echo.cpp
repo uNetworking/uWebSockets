@@ -17,7 +17,8 @@ int main()
 {
     try {
         // you need at least one server listening to a port
-        Server server(3000);
+        EventSystem es(MASTER);
+        Server server(es, 3000);
 
         server.onUpgrade([](uv_os_fd_t fd, const char *secKey, void *ssl, const char *extensions, size_t extensionsLength) {
             // we transfer the connection to one of the other servers
@@ -27,7 +28,8 @@ int main()
         // launch the threads with their servers
         for (int i = 0; i < THREADS; i++) {
             new thread([i]{
-                threadedServer[i] = new Server(0, false);
+                EventSystem tes(WORKER);
+                threadedServer[i] = new Server(tes, 0);
 
                 // register our events
                 threadedServer[i]->onConnection([i](WebSocket socket) {
@@ -43,12 +45,12 @@ int main()
                     socket.send(message, length, opCode);
                 });
 
-                threadedServer[i]->run();
+                tes.run();
             });
         }
 
         // run listener
-        server.run();
+        es.run();
     } catch (...) {
         cout << "ERR_LISTEN" << endl;
     }
