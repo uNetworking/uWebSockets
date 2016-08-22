@@ -588,7 +588,7 @@ void WebSocket::write(char *data, size_t length, bool transferOwnership, void(*c
             socketData->messageQueue.push(messagePtr);
 
             if (wasEmpty) {
-                if (pthread_self() == socketData->server->es.tid) {
+                if (socketData->server->es.loopType == MASTER || pthread_self() == socketData->server->es.tid) {
                     uv_poll_start(p, UV_WRITABLE | UV_READABLE, onWritableReadable);
                 } else {
                     socketData->server->es.changePollAsync(p);
