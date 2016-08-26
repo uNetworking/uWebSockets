@@ -1,4 +1,4 @@
-project('µWebSockets', 'cpp', default_options : ['cpp_std=c++11'])
+project('uWebSockets', 'cpp', default_options : ['cpp_std=c++11'])
 
 inc = include_directories('src')
 
