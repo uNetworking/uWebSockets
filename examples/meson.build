@@ -1,7 +1,7 @@
 echoexe = executable('echo', 'echo.cpp',
         include_directories : inc,
-        link_with : uWSlib)
+        link_with : uWS_lib)
 
 multiechoexe = executable('multithreaded_echo', 'multithreaded_echo.cpp',
 		include_directories : inc,
-		link_with : uWSlib, dependencies: [thread_dep])
+		link_with : uWS_lib, dependencies: [thread_dep])
