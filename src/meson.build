@@ -17,5 +17,5 @@ inst_headers = [
 
 install_headers(inst_headers, subdir: 'uWS')
 
-uWSlib = library('uWS', prog_sources, include_directories: inc,
+uWS_lib = library('uWS', prog_sources, include_directories: inc,
 		dependencies : [zlib_dep, ssl_dep, uv_dep, thread_dep])
