@@ -2,7 +2,7 @@
 
 const http = require('http');
 const EventEmitter = require('events');
-const EE_ERROR = "Registering more than one listener to a WebSocket is not supported.";
+const EE_ERROR = 'Registering more than one listener to a WebSocket is not supported.';
 function noop() {}
 function abortConnection(socket, code, name) {
     socket.end('HTTP/1.1 ' + code + ' ' + name + '\r\n\r\n');
@@ -11,8 +11,16 @@ const uws = (() => {
     try {
         return require(`./uws_${process.platform}_${process.versions.modules}`);
     } catch (e) {
-        throw new Error('Compilation of µWebSockets has failed and there is no pre-compiled binary ' +
-        'available for your system. Please install a supported C++11 compiler and reinstall the module \'uws\'.');
+        const version = process.version.substring(1).split('.').map(function(n) {
+            return parseInt(n);
+        });
+        const lessThanSixFour = version[0] < 6 || (version[0] === 6 && version[1] < 4);
+        if (process.platform === 'win32' & lessThanSixFour) {
+            throw new Error('µWebSockets requires Node.js 6.4.0 or greater on Windows. Please update!');
+        } else {
+            throw new Error('Compilation of µWebSockets has failed and there is no pre-compiled binary ' +
+            'available for your system. Please install a supported C++11 compiler and reinstall the module \'uws\'.');
+        }
     }
 })();
 
