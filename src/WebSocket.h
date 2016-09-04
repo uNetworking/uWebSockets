@@ -50,8 +50,8 @@ public:
 
     Address getAddress();
     void close(bool force = false, unsigned short code = 0, char *data = nullptr, size_t length = 0);
-    void send(char *message, size_t length, OpCode opCode, void(*callback)(WebSocket webSocket, void *data, bool cancelled) = nullptr, void *callbackData = nullptr, size_t fakedLength = 0);
-    void ping(char *message = nullptr, size_t length = 0);
+    void send(const char *message, size_t length, OpCode opCode, void(*callback)(WebSocket webSocket, void *data, bool cancelled) = nullptr, void *callbackData = nullptr, size_t fakedLength = 0);
+    void ping(const char *message = nullptr, size_t length = 0);
     void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
     static PreparedMessage *prepareMessage(char *data, size_t length, OpCode opCode, bool compressed);
     void sendPrepared(PreparedMessage *preparedMessage);
