@@ -273,7 +273,7 @@ public:
 
     static std::tuple<unsigned short, char *, size_t> parseCloseFrame(std::string &payload)
     {
-        unsigned short code = 0;
+        unsigned short code = 1000;
         char *message = nullptr;
         size_t length = 0;
 
