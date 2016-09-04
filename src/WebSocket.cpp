@@ -11,7 +11,7 @@
 
 namespace uWS {
 
-inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed)
+inline size_t formatMessage(char *dst, const char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed)
 {
     size_t messageLength;
     if (reportedLength < 126) {
@@ -38,7 +38,7 @@ inline size_t formatMessage(char *dst, char *src, size_t length, OpCode opCode, 
     return messageLength;
 }
 
-void WebSocket::send(char *message, size_t length, OpCode opCode, void (*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData, size_t fakedLength)
+void WebSocket::send(const char *message, size_t length, OpCode opCode, void (*callback)(WebSocket webSocket, void *data, bool cancelled), void *callbackData, size_t fakedLength)
 {
     size_t reportedLength = length;
     if (fakedLength) {
@@ -55,7 +55,7 @@ void WebSocket::send(char *message, size_t length, OpCode opCode, void (*callbac
     }
 }
 
-void WebSocket::ping(char *message, size_t length)
+void WebSocket::ping(const char *message, size_t length)
 {
     send(message, length, OpCode::PING);
 }
