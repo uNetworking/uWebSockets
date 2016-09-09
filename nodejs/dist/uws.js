@@ -498,6 +498,7 @@ class Server extends EventEmitter {
     close() {
         if (this._upgradeListener && this.httpServer) {
             this.httpServer.removeListener('upgrade', this._upgradeListener);
+            this.httpServer.close();
         }
 
         this.nativeServer.close();
