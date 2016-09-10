@@ -198,7 +198,9 @@ WebSocket::Address WebSocket::getAddress()
 
     sockaddr_storage addr;
     socklen_t addrLength = sizeof(addr);
-    getpeername(fd, (sockaddr *) &addr, &addrLength);
+    if (getpeername(fd, (sockaddr *) &addr, &addrLength) == -1) {
+        return {0, "", ""};
+    }
 
     static __thread char buf[INET6_ADDRSTRLEN];
 
