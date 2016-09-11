@@ -38,7 +38,7 @@ protected:
 public:
     struct Address {
         unsigned int port;
-        char *address;
+        const char *address;
         const char *family;
     };
 
