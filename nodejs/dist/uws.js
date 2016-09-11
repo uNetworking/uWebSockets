@@ -44,7 +44,7 @@ class Socket {
     set onmessage(f) {
         if (f) {
             this.internalOnMessage = (message) => {
-                f({data: Buffer.isBuffer(message) ? new Uint8Array(message).buffer : message});
+                f({data: message});
             };
         } else {
             this.internalOnMessage = noop;
@@ -53,8 +53,8 @@ class Socket {
 
     set onclose(f) {
         if (f) {
-            this.internalOnClose = () => {
-                f();
+            this.internalOnClose = (code, message) => {
+                f({code: code, reason: message});
             };
         } else {
             this.internalOnClose = noop;
@@ -118,16 +118,16 @@ class Socket {
             if (this.internalOnMessage !== noop) {
                 throw Error(EE_ERROR);
             }
-            this.internalOnMessage = () => {
-                f();
+            this.internalOnMessage = (message) => {
+                f(message);
                 this.internalOnMessage = noop;
             };
         } else if (eventName === 'close') {
             if (this.internalOnClose !== noop) {
                 throw Error(EE_ERROR);
             }
-            this.internalOnClose = () => {
-                f();
+            this.internalOnClose = (code, message) => {
+                f(code, message);
                 this.internalOnClose = noop;
             };
         } else if (eventName === 'ping') {
@@ -196,7 +196,7 @@ class Socket {
     /**
      * Sends a message.
      *
-     * @param {String|Buffer} message The message to send
+     * @param {String|ArrayBuffer} message The message to send
      * @param {Object} options Send options
      * @param {Function} cb optional callback
      * @public
@@ -235,7 +235,7 @@ class Socket {
     /**
      * Sends a ping.
      *
-     * @param {String|Buffer} message The message to send
+     * @param {String|ArrayBuffer} message The message to send
      * @param {Object} options Send options
      * @param {Boolean} dontFailWhenClosed optional boolean
      * @public
@@ -393,35 +393,36 @@ class Server extends EventEmitter {
             });
         }
 
-        this.nativeServer.onDisconnection((nativeSocket, code, message, socket) => {
-            socket.nativeServer = socket.nativeSocket = null;
-            socket.internalOnClose(code, message);
+        this.nativeServer.onDisconnection((code, message, socketData) => {
+            let nativeSocket = socketData.nativeSocket;
+            socketData.nativeServer = socketData.nativeSocket = null;
+            socketData.internalOnClose(code, message);
             this.nativeServer.setData(nativeSocket);
         });
 
-        this.nativeServer.onMessage((nativeSocket, message, binary, socket) => {
-            socket.internalOnMessage(binary ? message : message.toString());
+        this.nativeServer.onMessage((message, socketData) => {
+            socketData.internalOnMessage(message);
         });
 
-        this.nativeServer.onPing((nativeSocket, message, socket) => {
-            socket.onping(message.toString());
+        this.nativeServer.onPing((message, socketData) => {
+            socketData.onping(message);
         });
 
-        this.nativeServer.onPong((nativeSocket, message, socket) => {
-            socket.onpong(message.toString());
+        this.nativeServer.onPong((message, socketData) => {
+            socketData.onpong(message);
         });
 
         this.nativeServer.onConnection((nativeSocket) => {
-            const socket = new Socket(nativeSocket, this.nativeServer);
-            this.nativeServer.setData(nativeSocket, socket);
+            const socketData = new Socket(nativeSocket, this.nativeServer);
+            this.nativeServer.setData(nativeSocket, socketData);
 
-            socket.upgradeReq = {
+            socketData.upgradeReq = {
                 url: this._upgradeReq.url,
                 headers: this._upgradeReq.headers,
-                connection: socket._socket
+                connection: socketData._socket
             };
 
-            this._upgradeCallback(socket);
+            this._upgradeCallback(socketData);
         });
 
         if (options.port) {
@@ -461,7 +462,7 @@ class Server extends EventEmitter {
     /**
      * Prepare a message for bulk sending.
      *
-     * @param {String|Buffer} message The message to prepare
+     * @param {String|ArrayBuffer} message The message to prepare
      * @param {Boolean} binary Binary (or text) OpCode
      * @public
      */
@@ -482,7 +483,7 @@ class Server extends EventEmitter {
     /**
      * Broadcast a message to all sockets.
      *
-     * @param {String|Buffer} message The message to broadcast
+     * @param {String|ArrayBuffer} message The message to broadcast
      * @param {Object} options Broadcast options
      * @public
      */

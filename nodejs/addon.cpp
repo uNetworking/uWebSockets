@@ -81,6 +81,10 @@ inline Local<Value> getDataV8(uWS::WebSocket socket, Isolate *isolate) {
     return socket.getData() ? Local<Value>::New(isolate, *(Persistent<Value> *) socket.getData()) : Local<Value>::Cast(Undefined(isolate));
 }
 
+inline Local<Value> wrapMessage(const char *message, size_t length, uWS::OpCode opCode, Isolate *isolate) {
+    return opCode == BINARY ? (Local<Value>) ArrayBuffer::New(isolate, (char *) message, length) : (Local<Value>) String::NewFromUtf8(isolate, message, String::kNormalString, length);
+}
+
 void onMessage(const FunctionCallbackInfo<Value> &args) {
     uWS::Server *server = (uWS::Server *) args.Holder()->GetAlignedPointerFromInternalField(0);
     Isolate *isolate = args.GetIsolate();
@@ -88,11 +92,9 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
     messageCallback->Reset(isolate, Local<Function>::Cast(args[0]));
     server->onMessage([isolate, messageCallback](uWS::WebSocket socket, const char *message, size_t length, uWS::OpCode opCode) {
         HandleScope hs(isolate);
-        Local<Value> argv[] = {wrapSocket(socket, isolate),
-                               node::Buffer::New(isolate, (char *) message, length, [](char *data, void *hint) {}, nullptr).ToLocalChecked(),
-                               Boolean::New(isolate, opCode == BINARY),
+        Local<Value> argv[] = {wrapMessage(message, length, opCode, isolate),
                                getDataV8(socket, isolate)};
-        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *messageCallback), 4, argv);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *messageCallback), 2, argv);
     });
 }
 
@@ -103,10 +105,9 @@ void onPing(const FunctionCallbackInfo<Value> &args) {
   pingCallback->Reset(isolate, Local<Function>::Cast(args[0]));
   server->onPing([isolate, pingCallback](uWS::WebSocket socket, const char *message, size_t length) {
       HandleScope hs(isolate);
-      Local<Value> argv[] = {wrapSocket(socket, isolate),
-                             node::Buffer::New(isolate, (char *) message, length, [](char *data, void *hint) {}, nullptr).ToLocalChecked(),
+      Local<Value> argv[] = {wrapMessage(message, length, PING, isolate),
                              getDataV8(socket, isolate)};
-      node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *pingCallback), 3, argv);
+      node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *pingCallback), 2, argv);
   });
 }
 
@@ -117,10 +118,9 @@ void onPong(const FunctionCallbackInfo<Value> &args) {
     pongCallback->Reset(isolate, Local<Function>::Cast(args[0]));
     server->onPong([isolate, pongCallback](uWS::WebSocket socket, const char *message, size_t length) {
         HandleScope hs(isolate);
-        Local<Value> argv[] = {wrapSocket(socket, isolate),
-                               node::Buffer::New(isolate, (char *) message, length, [](char *data, void *hint) {}, nullptr).ToLocalChecked(),
+        Local<Value> argv[] = {wrapMessage(message, length, PONG, isolate),
                                getDataV8(socket, isolate)};
-        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *pongCallback), 3, argv);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *pongCallback), 2, argv);
     });
 }
 
@@ -131,11 +131,10 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     disconnectionCallback->Reset(isolate, Local<Function>::Cast(args[0]));
     server->onDisconnection([isolate, disconnectionCallback](uWS::WebSocket socket, int code, char *message, size_t length) {
         HandleScope hs(isolate);
-        Local<Value> argv[] = {wrapSocket(socket, isolate),
-                               Integer::New(isolate, code),
-                               node::Buffer::New(isolate, (char *) message, length, [](char *data, void *hint) {}, nullptr).ToLocalChecked(),
+        Local<Value> argv[] = {Integer::New(isolate, code),
+                               wrapMessage(message, length, CLOSE, isolate),
                                getDataV8(socket, isolate)};
-        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *disconnectionCallback), 4, argv);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *disconnectionCallback), 3, argv);
     });
 }
 
