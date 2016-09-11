@@ -393,8 +393,7 @@ class Server extends EventEmitter {
             });
         }
 
-        this.nativeServer.onDisconnection((code, message, socketData) => {
-            let nativeSocket = socketData.nativeSocket;
+        this.nativeServer.onDisconnection((nativeSocket, code, message, socketData) => {
             socketData.nativeServer = socketData.nativeSocket = null;
             socketData.internalOnClose(code, message);
             this.nativeServer.setData(nativeSocket);

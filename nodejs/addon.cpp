@@ -131,10 +131,11 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     disconnectionCallback->Reset(isolate, Local<Function>::Cast(args[0]));
     server->onDisconnection([isolate, disconnectionCallback](uWS::WebSocket socket, int code, char *message, size_t length) {
         HandleScope hs(isolate);
-        Local<Value> argv[] = {Integer::New(isolate, code),
+        Local<Value> argv[] = {wrapSocket(socket, isolate),
+                               Integer::New(isolate, code),
                                wrapMessage(message, length, CLOSE, isolate),
                                getDataV8(socket, isolate)};
-        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *disconnectionCallback), 3, argv);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *disconnectionCallback), 4, argv);
     });
 }
 
