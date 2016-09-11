@@ -54,7 +54,7 @@ There are some important incompatibilities with `ws` though, we aim to be ~90% c
 * Binary data is passed zero-copy as an `ArrayBuffer`. This means you need to copy it to keep it past the callback. It also means you need to convert it with `Buffer.from(message)` if you expect a `Node.js Buffer`.
 * `webSocket._socket` is not a `net.Socket`, it is just a getter function with very basic functionalities.
 * `webSocket._socket.remote...` might fail, you need to cache it at connection.
-* `webSocket` is an `EventEmitter` with max one listener per event, not ten.
+* `webSocket` acts like an `EventEmitter` with one listener per event maximum.
 * `webSocket.upgradeReq` is very limited and only holds commonly accessed data.
 
 ##### SocketCluster
