@@ -131,8 +131,7 @@ void Server::closeHandler(Server *server)
     }
 }
 
-Server::Server(EventSystem &es, int port, unsigned int options, unsigned int maxPayload, SSLContext sslContext) : options(options), maxPayload(maxPayload), sslContext(sslContext), es(es)
-{
+void Server::Initialize(EventSystem &es) {
     loop = es.loop;
     master = es.loopType == MASTER;
 
@@ -149,26 +148,6 @@ Server::Server(EventSystem &es, int port, unsigned int options, unsigned int max
     writeStream = {};
     if (deflateInit2(&writeStream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -15, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK) {
         throw ERR_ZLIB;
-    }
-
-    if (port) {
-        uv_os_sock_t listenFd = socket(AF_INET, SOCK_STREAM, 0);
-        listenAddr.sin_family = AF_INET;
-        listenAddr.sin_addr.s_addr = INADDR_ANY;
-        listenAddr.sin_port = htons(port);
-
-        int on = 1;
-        setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-
-        if (bind(listenFd, (sockaddr *) &listenAddr, sizeof(sockaddr_in)) || listen(listenFd, 10)) {
-            deflateEnd(&writeStream);
-            throw ERR_LISTEN;
-        }
-
-        listenPoll = new uv_poll_t;
-        listenPoll->data = this;
-        uv_poll_init_socket(loop, listenPoll, listenFd);
-        uv_poll_start(listenPoll, UV_READABLE, acceptHandler);
     }
 
     if (!master) {
@@ -188,6 +167,48 @@ Server::Server(EventSystem &es, int port, unsigned int options, unsigned int max
     upgradeBuffer = new char[LARGE_BUFFER_SIZE];
     inflateBuffer = new char[LARGE_BUFFER_SIZE];
     sendBuffer = new char[SHORT_BUFFER_SIZE];
+}
+
+Server::Server(EventSystem &es, int port, unsigned int options, unsigned int maxPayload, SSLContext sslContext) : options(options), maxPayload(maxPayload), sslContext(sslContext), es(es)
+{
+    Initialize(es);
+    if (port) {
+        uv_os_sock_t listenFd = socket(AF_INET, SOCK_STREAM, 0);
+        listenAddr.sin_family = AF_INET;
+        listenAddr.sin_addr.s_addr = INADDR_ANY;
+        listenAddr.sin_port = htons(port);
+
+        int on = 1;
+        setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+
+        if (bind(listenFd, (sockaddr *) &listenAddr, sizeof(sockaddr_in)) || listen(listenFd, 10)) {
+            deflateEnd(&writeStream);
+            throw ERR_LISTEN;
+        }
+
+        listenPoll = new uv_poll_t;
+        listenPoll->data = this;
+        uv_poll_init_socket(loop, listenPoll, listenFd);
+        uv_poll_start(listenPoll, UV_READABLE, acceptHandler);
+    }
+}
+
+Server::Server(EventSystem &es, const char* unixSocketPath, unsigned int options, unsigned int maxPayload, SSLContext sslContext) : options(options), maxPayload(maxPayload), sslContext(sslContext), es(es) {
+  Initialize(es);
+  uv_os_sock_t listenFd = socket(AF_UNIX, SOCK_STREAM, 0);
+  listenAddrUnix.sun_family = AF_UNIX;
+  strncpy(listenAddrUnix.sun_path, unixSocketPath, sizeof(listenAddrUnix.sun_path)-1);
+  unlink(unixSocketPath); // to bind to a new socket, old one needs to be removed
+  
+  if (bind(listenFd, (sockaddr *) &listenAddrUnix, sizeof(sockaddr_un)) || listen(listenFd, 10)) {
+      deflateEnd(&writeStream);
+      throw ERR_LISTEN;
+  }
+
+  listenPoll = new uv_poll_t;
+  listenPoll->data = this;
+  uv_poll_init_socket(loop, listenPoll, listenFd);
+  uv_poll_start(listenPoll, UV_READABLE, acceptHandler);
 }
 
 Server::~Server()

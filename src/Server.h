@@ -7,6 +7,7 @@
 #include <functional>
 #include <uv.h>
 #include <openssl/ossl_typ.h>
+#include <sys/un.h>
 #include <zlib.h>
 
 #include "WebSocket.h"
@@ -50,7 +51,10 @@ private:
     uv_loop_t *loop;
     uv_poll_t *listenPoll = nullptr, *clients = nullptr;
     uv_async_t upgradeAsync, closeAsync;
-    sockaddr_in listenAddr;
+    union {
+      sockaddr_in listenAddr;
+      sockaddr_un listenAddrUnix;
+    };
     z_stream writeStream;
     bool master, forceClose;
     unsigned int options, maxPayload;
@@ -100,8 +104,11 @@ private:
     std::function<void(WebSocket, char *, size_t, OpCode)> messageCallback;
     std::function<void(WebSocket, char *, size_t)> pingCallback;
     std::function<void(WebSocket, char *, size_t)> pongCallback;
+    
+    void Initialize(EventSystem &es);
 public:
     Server(EventSystem &es, int port = 0, unsigned int options = 0, unsigned int maxPayload = 1048576, SSLContext sslContext = SSLContext());
+    Server(EventSystem &es, const char* unixSocketPath, unsigned int options = 0, unsigned int maxPayload = 1048576, SSLContext sslContext = SSLContext());
     ~Server();
     Server(const Server &server) = delete;
     Server &operator=(const Server &server) = delete;
