@@ -153,3 +153,4 @@ As for Unix systems, it should work by simply running `make`. Run [sudo] `make i
 
 ##### Windows, in all its glory
 If you are running Windows you should now have a bunch of Visual Studio project files and one solution file. Open the solution file, now you need to make sure the header include paths and library paths are all set according to where you installed the dependencies. You might also need to change the names of the libraries being linked against, all according to the names of the installed library files. You know the drill.
+
