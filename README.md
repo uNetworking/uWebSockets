@@ -96,7 +96,7 @@ wss.on('connection', function (ws) {
 });
 ```
 ### C++
-The native interface is reccommended for maximum performance and memory scaling. Reference the examples folder for threading and load balancing examples. Documentation has not been written yet, but it is soon to come. For now, please reference the header file.
+The native interface is recommended for maximum performance and memory scaling. Reference the examples folder for threading and load balancing examples. Documentation has not been written yet, but it is soon to come. For now, please reference the header file.
 ```c++
 int main()
 {
