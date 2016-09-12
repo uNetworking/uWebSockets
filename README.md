@@ -98,7 +98,6 @@ wss.on('connection', function (ws) {
 ### C++
 For maximum performance and memory scaling the native interface is recommended. Look in the examples folder for threading and load balancing examples. There is no documentation written yet but a bright person like you will have no problem just reading the header file.
 ```c++
-
 int main()
 {
     /* this is an echo server that properly passes every supported Autobahn test */
