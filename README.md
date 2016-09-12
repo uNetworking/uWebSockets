@@ -99,13 +99,11 @@ wss.on('connection', function (ws) {
 For maximum performance and memory scaling the native interface is recommended. Look in the examples folder for threading and load balancing examples. There is no documentation written yet but a bright person like you will have no problem just reading the header file.
 ```c++
 
-using namespace uWS;
-
 int main()
 {
     /* this is an echo server that properly passes every supported Autobahn test */
     int connections = 0;
-    uWS::EventSystem es(MASTER);
+    uWS::EventSystem es(uWS::MASTER);
     uWS::Server server(es, 3000);
     server.onConnection([&](uWS::WebSocket socket) {
         std::cout << "[Connection] clients: " << ++connections << std::endl;
