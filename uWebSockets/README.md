@@ -1,15 +1,15 @@
 <div align="center"><img src="logo.png"/></div>
-`µWS` is one of the most lightweight, efficient and scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
+`µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
-* Passes all [Autobahn tests](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
-* Linux, OS X and Windows support
-* [Valgrind] (http://valgrind.org/) clean
-* Built-in load balancing and multi-core scalability
-* SSL/TLS support and integrates with foreign HTTPS servers
-* Permessage-deflate built-in
-* Node.js binding exposed as the well-known `ws` interface
-* 10-300x faster than `ws` (if they are "fastest", we are "fastester")
-* Default engine in SocketCluster & deepstream.io, optional in Socket.IO and Primus
+* Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
+* Linux, OS X & Windows support.
+* Valgrind clean.
+* Built-in load balancing and multi-core scalability.
+* SSL/TLS support & integrates with foreign HTTPS servers.
+* Permessage-deflate built-in.
+* Node.js binding exposed as the well-known `ws` interface.
+* 10-300x faster than `ws` (if they are "fastest", we are "fastester").
+* Default engine in SocketCluster & deepstream.io, optional in Socket.IO & Primus.
 
 [![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/alexhultman/uWebSockets.svg?branch=master)](https://travis-ci.org/alexhultman/uWebSockets) [![](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/alexhultman/uWebSockets)
 
@@ -44,7 +44,7 @@ Kaazing Gateway Community 5.0.0 | µWS is **62x** as lightweight | µWS is **15x
 ## Usage
 
 ### Node.js
-We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the widespread `ws` interface, allowing us to seamlessly integrate with projects like SocketCluster, deepstream.io, Socket.IO and Primus.
+We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the widespread `ws` interface, allowing us to seamlessly integrate with projects like SocketCluster, deepstream.io, Socket.IO & Primus.
 
 * Read the [ws documentation](https://github.com/websockets/ws/blob/master/doc/ws.md)
 * Read the [Primus transformer documentation](https://github.com/primus/primus#uws)
@@ -68,7 +68,7 @@ Use the new `wsEngine: 'uws'` option like so:
 ```javascript
 var io = require('socket.io')(80, { wsEngine: 'uws' });
 ```
-This option has not yet been released. An alternative way of enabling `uws` in current versions of Socket.IO is:
+This option has not yet been released, one alternative way of enabling `uws` in current versions of Socket.IO is:
 ```javascript
 var io = require('socket.io')(80);
 io.engine.ws = new (require('uws').Server)({
@@ -82,7 +82,7 @@ Set 'uws' as transformer:
 var primus = new Primus(server, { transformer: 'uws' });
 ```
 ##### ws
-If your code directly relies on `ws`, you can simply swap `require('ws')` with `require('uws')`:
+If your code directly relies on `ws` you can simply swap `require('ws')` with `require('uws')`:
 ```javascript
 var WebSocketServer = require('uws').Server;
 var wss = new WebSocketServer({ port: 8080 });
@@ -96,7 +96,7 @@ wss.on('connection', function (ws) {
 });
 ```
 ### C++
-The native interface is reccommended for maximum performance and memory scaling. Reference the examples folder for threading and load balancing examples. Documentation has not been written yet, but it is soon to come. For now, please reference the header file.
+For maximum performance and memory scaling the native interface is recommended. Look in the examples folder for threading and load balancing examples. There is no documentation written yet but a bright person like you will have no problem just reading the header file.
 ```c++
 int main()
 {
@@ -120,10 +120,10 @@ int main()
 
 ## Quality control
 * Valgrind clean.
-* Passes all [Autobahn tests](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
-* Passes all Primus transformer integration tests
-* Passes all Engine.IO server tests
-* Small and efficient code base
+* Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
+* All Primus transformer integration tests pass.
+* All Engine.IO server tests pass.
+* Small & efficient code base.
 
 ## Installation
 ### Node.js developers
@@ -136,7 +136,7 @@ int main()
 
 ### C++ developers
 #### Dependencies
-You will need to install the required dependencies. On Unix systems, this is typically done via package managers. For example, [homebrew](http://brew.sh) is used for OS X and `dnf` is used for Fedora Linux. Windows users will need to search the web for pre-compiled binaries or you can compile the dependencies yourself.
+First of all you need to install the required dependencies. On Unix systems this is typically done via package managers, like [homebrew](http://brew.sh) in the case of OS X or `dnf` in the case of Fedora Linux. On Windows you need to search the web for pre-compiled binaries or simply compile the dependencies yourself.
 
 * libuv 1.x
 * OpenSSL 1.0.x
@@ -144,12 +144,12 @@ You will need to install the required dependencies. On Unix systems, this is typ
 * CMake 3.x
 
 #### Compilation
-You will need to clone this repo to get the sources. We use CMake as our build system.
+Obviously you will need to clone this repo to get the sources. We use CMake as build system.
 
 * `git clone https://github.com/alexhultman/uWebSockets.git && cd uWebSockets`
 * `cmake .`
 
-As for Unix systems, it should work by simply running `make`. Run [sudo] `make install` as you wish.
+Now, on Unix systems it should work by simply running `make`. Run [sudo] `make install` as you wish.
 
 ##### Windows, in all its glory
 If you are running Windows you should now have a bunch of Visual Studio project files and one solution file. Open the solution file, now you need to make sure the header include paths and library paths are all set according to where you installed the dependencies. You might also need to change the names of the libraries being linked against, all according to the names of the installed library files. You know the drill.

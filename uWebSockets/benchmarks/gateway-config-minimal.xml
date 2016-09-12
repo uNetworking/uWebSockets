@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<gateway-config xmlns="http://xmlns.kaazing.org/2014/09/gateway">
+  <service>
+    <name>echo</name>
+    <description>Simple echo service</description>
+
+    <accept>ws://127.0.0.1:3000/</accept>
+    <accept>ws://127.0.0.2:3000/</accept>
+    <accept>ws://127.0.0.3:3000/</accept>
+    <accept>ws://127.0.0.4:3000/</accept>
+    <accept>ws://127.0.0.5:3000/</accept>
+    <accept>ws://127.0.0.6:3000/</accept>
+    <accept>ws://127.0.0.7:3000/</accept>
+    <accept>ws://127.0.0.8:3000/</accept>
+    <accept>ws://127.0.0.9:3000/</accept>
+    <accept>ws://127.0.0.10:3000/</accept>
+    <accept>ws://127.0.0.11:3000/</accept>
+    <accept>ws://127.0.0.12:3000/</accept>
+    <accept>ws://127.0.0.13:3000/</accept>
+    <accept>ws://127.0.0.14:3000/</accept>
+    <accept>ws://127.0.0.15:3000/</accept>
+    <accept>ws://127.0.0.16:3000/</accept>
+    <accept>ws://127.0.0.17:3000/</accept>
+    <accept>ws://127.0.0.18:3000/</accept>
+    <accept>ws://127.0.0.19:3000/</accept>
+    <accept>ws://127.0.0.20:3000/</accept>
+    <accept>ws://127.0.0.21:3000/</accept>
+    <accept>ws://127.0.0.22:3000/</accept>
+    <accept>ws://127.0.0.23:3000/</accept>
+    <accept>ws://127.0.0.24:3000/</accept>
+    <accept>ws://127.0.0.25:3000/</accept>
+    <accept>ws://127.0.0.26:3000/</accept>
+    <accept>ws://127.0.0.27:3000/</accept>
+    <accept>ws://127.0.0.28:3000/</accept>
+    <accept>ws://127.0.0.29:3000/</accept>
+    <accept>ws://127.0.0.30:3000/</accept>
+
+    <type>echo</type>
+
+    <cross-site-constraint>
+      <allow-origin>*</allow-origin>
+    </cross-site-constraint>
+  </service>
+</gateway-config>
