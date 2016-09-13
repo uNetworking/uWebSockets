@@ -262,7 +262,7 @@ void transfer(const FunctionCallbackInfo<Value> &args)
     SSL *ssl = nullptr;
     if (args[1]->IsExternal()) {
         ssl = (SSL *) args[1].As<External>()->Value();
-        ssl->references++;
+        SSL_up_ref(ssl);
     }
 
     Local<Object> ticket = Local<Object>::New(args.GetIsolate(), persistentTicket)->Clone();

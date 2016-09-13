@@ -320,7 +320,7 @@ SSLContext::SSLContext(const SSLContext &other)
 {
     if (other.sslContext) {
         sslContext = other.sslContext;
-        sslContext->references++;
+        SSL_CTX_up_ref(sslContext);
     }
 }
 
