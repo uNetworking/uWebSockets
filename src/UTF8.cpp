@@ -20,18 +20,18 @@ bool isValidUtf8(unsigned char *s, size_t length)
             }
 
             if ((s[0] & 0x60) == 0x40) {
-                if ((s[1] & 0xc0) != 0x80 || (s[0] & 0xfe) == 0xc0) {
+                if (s + 1 > e || (s[1] & 0xc0) != 0x80 || (s[0] & 0xfe) == 0xc0) {
                     return false;
                 }
                 s += 2;
             } else if ((s[0] & 0xf0) == 0xe0) {
-                if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 ||
+                if (s + 2 > e || (s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 ||
                         (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || (s[0] == 0xed && (s[1] & 0xe0) == 0xa0)) {
                     return false;
                 }
                 s += 3;
             } else if ((s[0] & 0xf8) == 0xf0) {
-                if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 || (s[3] & 0xc0) != 0x80 ||
+                if (s + 3 > e || (s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 || (s[3] & 0xc0) != 0x80 ||
                         (s[0] == 0xf0 && (s[1] & 0xf0) == 0x80) || (s[0] == 0xf4 && s[1] > 0x8f) || s[0] > 0xf4) {
                     return false;
                 }
