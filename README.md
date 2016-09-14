@@ -1,7 +1,7 @@
 <div align="center"><img src="logo.png"/></div>
 `µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
-* Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
+* Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/autobahn/index.html).
 * Linux, OS X & Windows support.
 * Valgrind clean.
 * Built-in load balancing and multi-core scalability.
@@ -11,7 +11,7 @@
 * 10-300x faster than `ws` (if they are "fastest", we are "fastester").
 * Default engine in SocketCluster & deepstream.io, optional in Socket.IO & Primus.
 
-[![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/alexhultman/uWebSockets.svg?branch=master)](https://travis-ci.org/alexhultman/uWebSockets) [![](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/alexhultman/uWebSockets)
+[![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/uWebSockets/uWebSockets)
 
 ## Benchmarks table - [validate](https://github.com/alexhultman/uWebSockets/tree/master/benchmarks#websocket-echo-server-benchmarks)
 Implementation | User space memory scaling | Connection performance | Short message throughput | Huge message throughput
@@ -150,7 +150,7 @@ First of all you need to install the required dependencies. On Unix systems this
 #### Compilation
 Obviously you will need to clone this repo to get the sources. We use CMake as build system.
 
-* `git clone https://github.com/alexhultman/uWebSockets.git && cd uWebSockets`
+* `git clone https://github.com/uWebSockets/uWebSockets.git && cd uWebSockets`
 * `cmake .`
 
 Now, on Unix systems it should work by simply running `make`. Run [sudo] `make install` as you wish.
