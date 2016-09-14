@@ -1,0 +1,14 @@
+{
+   "options": {"failByDrop": false},
+   "outdir": "./autobahn",
+
+   "servers": [
+                {"agent": "&#181;WebSockets",
+                 "url": "ws://localhost:3000",
+                 "options": {"version": 18}}
+              ],
+
+   "cases": ["1.*", "2.*", "3.*", "4.*", "5.*", "6.*", "7.*", "9.*", "10.*", "12.*", "13.*"],
+   "exclude-cases": [],
+   "exclude-agent-cases": {}
+}
