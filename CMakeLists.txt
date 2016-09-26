@@ -9,7 +9,7 @@ find_package(ZLIB REQUIRED)
 find_path(LIBUV_INCLUDE_DIR uv.h)
 find_library(LIBUV_LIBRARY NAMES uv uv1)
 
-add_library(uWS SHARED src/Extensions.cpp src/HTTPSocket.cpp src/Network.cpp src/Server.cpp src/UTF8.cpp src/WebSocket.cpp src/EventSystem.cpp)
+add_library(uWS SHARED src/Extensions.cpp src/Group.cpp src/WebSocketImpl.cpp src/Networking.cpp src/Hub.cpp src/Node.cpp src/WebSocket.cpp src/HTTPSocket.cpp src/Socket.cpp)
 target_include_directories(uWS PUBLIC src)
 
 target_include_directories(uWS PUBLIC ${LIBUV_INCLUDE_DIR})
@@ -23,7 +23,7 @@ target_link_libraries (uWS LINK_PUBLIC ${ZLIB_LIBRARY})
 if (UNIX)
 target_link_libraries (uWS LINK_PUBLIC pthread)
 install (TARGETS uWS DESTINATION /usr/lib64)
-install (FILES src/EventSystem.h src/Server.h src/WebSocket.h src/uWS.h DESTINATION /usr/include/uWS)
+install (FILES src/Extensions.h src/WebSocketProtocol.h src/Networking.h src/WebSocket.h src/Hub.h src/Group.h src/Node.h src/Socket.h src/HTTPSocket.h src/uWS.h DESTINATION /usr/include/uWS)
 endif (UNIX)
 
 add_subdirectory(examples)

@@ -3,26 +3,27 @@ CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
 
-SOURCES += main.cpp \
-    src/Server.cpp \
-    src/Network.cpp \
-    src/HTTPSocket.cpp \
+SOURCES += tests/main.cpp \
+    src/WebSocketImpl.cpp \
+    src/Networking.cpp \
+    src/Hub.cpp \
+    src/Node.cpp \
     src/WebSocket.cpp \
-    src/Extensions.cpp \
-    src/UTF8.cpp \
-    src/EventSystem.cpp
+    src/HTTPSocket.cpp \
+    src/Socket.cpp \
+    src/Group.cpp \
+    src/Extensions.cpp
 
 HEADERS += \
-    src/Server.h \
-    src/Network.h \
-    src/HTTPSocket.h \
+    src/WebSocketProtocol.h \
+    src/Networking.h \
     src/WebSocket.h \
-    src/Extensions.h \
-    src/uWS.h \
-    src/Parser.h \
-    src/SocketData.h \
-    src/UTF8.h \
-    src/EventSystem.h
+    src/Hub.h \
+    src/Group.h \
+    src/Node.h \
+    src/Socket.h \
+    src/HTTPSocket.h \
+    src/uWS.h
 
 LIBS += -lssl -lcrypto -lz -luv -lpthread
 
