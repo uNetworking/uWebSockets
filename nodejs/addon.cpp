@@ -31,7 +31,15 @@ void Server(const FunctionCallbackInfo<Value> &args) {
     if (args.IsConstructCall()) {
         try {
             EventSystem *es = new EventSystem(MASTER);
-            args.This()->SetAlignedPointerInInternalField(0, new uWS::Server(*es, args[0]->IntegerValue(), args[1]->IntegerValue(), args[2]->IntegerValue()));
+            uWS::Server* server;
+            if(args[0]->IsString()) {
+                const char* unixSocket = *static_cast<String::Utf8Value>(args[0]);
+                server = new uWS::Server(*es, unixSocket, args[1]->IntegerValue(), args[2]->IntegerValue());
+            } else {
+                server = new uWS::Server(*es, args[0]->IntegerValue(), args[1]->IntegerValue(), args[2]->IntegerValue());
+            }
+            
+            args.This()->SetAlignedPointerInInternalField(0, server);
             args.This()->SetAlignedPointerInInternalField(1, es);
 
             // todo: these needs to be removed on destruction
