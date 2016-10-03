@@ -1,17 +1,13 @@
 #include "HTTPSocket.h"
-#include "Server.h"
-#include "Network.h"
+#include "Group.h"
+#include "Extensions.h"
 
-#include <iostream>
-#include <utility>
-#include <cstring>
-#include <uv.h>
-#include <openssl/ssl.h>
+namespace uWS {
 
-struct Request {
+struct HTTPParser {
     char *cursor;
     std::pair<char *, size_t> key, value;
-    Request(char *cursor) : cursor(cursor)
+    HTTPParser(char *cursor) : cursor(cursor)
     {
         size_t length;
         for (; isspace(*cursor); cursor++);
@@ -21,7 +17,7 @@ struct Request {
         for (length = 0; !isspace(cursor[length]) && cursor[length] != '\r'; length++);
         value = {cursor, length};
     }
-    Request &operator++(int)
+    HTTPParser &operator++(int)
     {
         size_t length = 0;
         for (; !(cursor[0] == '\r' && cursor[1] == '\n'); cursor++);
@@ -45,122 +41,211 @@ struct Request {
     }
 };
 
-namespace uWS {
-
-HTTPSocket::HTTPSocket(uv_poll_t *p, Server *server, void *ssl) : p(p), server(server), ssl(ssl)
+static void base64(unsigned char *src, char *dst)
 {
-    uv_poll_start(p, UV_READABLE, onReadable);
-    p->data = this;
-
-    t = new uv_timer_t;
-    uv_timer_init(server->loop, t);
-    uv_timer_start(t, onTimeout, 15000, 0);
-    t->data = this;
-}
-
-uv_os_sock_t HTTPSocket::stop()
-{
-    uv_os_sock_t fd;
-    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
-
-    uv_poll_stop(p);
-    uv_close((uv_handle_t *) p, [](uv_handle_t *handle) {
-        delete (uv_poll_t *) handle;
-    });
-
-    uv_timer_stop(t);
-    uv_close((uv_handle_t *) t, [](uv_handle_t *handle) {
-        delete (uv_timer_t *) handle;
-    });
-
-    return fd;
-}
-
-void HTTPSocket::close(uv_os_sock_t fd)
-{
-    if (ssl) {
-        SSL_free((SSL *) ssl);
+    static const char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for (int i = 0; i < 18; i += 3) {
+        *dst++ = b64[(src[i] >> 2) & 63];
+        *dst++ = b64[((src[i] & 3) << 4) | ((src[i + 1] & 240) >> 4)];
+        *dst++ = b64[((src[i + 1] & 15) << 2) | ((src[i + 2] & 192) >> 6)];
+        *dst++ = b64[src[i + 2] & 63];
     }
-    ::close(fd);
+    *dst++ = b64[(src[18] >> 2) & 63];
+    *dst++ = b64[((src[18] & 3) << 4) | ((src[19] & 240) >> 4)];
+    *dst++ = b64[((src[19] & 15) << 2)];
+    *dst++ = '=';
 }
 
-void HTTPSocket::onTimeout(uv_timer_t *t)
-{
-    HTTPSocket *httpData = (HTTPSocket *) t->data;
-    httpData->close(httpData->stop());
-    delete httpData;
-}
+template <bool isServer>
+void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
+    HTTPSocket httpSocket(s);
+    HTTPSocket::Data *httpData = httpSocket.getData();
 
-void HTTPSocket::onReadable(uv_poll_t *p, int status, int events)
-{
-    HTTPSocket *httpData = (HTTPSocket *) p->data;
-
-    if (status < 0) {
-        httpData->close(httpData->stop());
-        delete httpData;
+    // 5k = force close!
+    if (httpData->httpBuffer.length() + length > 1024 * 5) {
+        httpSocket.onEnd(s);
         return;
     }
 
-    uv_os_sock_t fd;
-    uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
+    httpData->httpBuffer.append(data, length);
 
-    int length;
-    if (httpData->ssl) {
-        length = SSL_read((SSL *) httpData->ssl, httpData->server->recvBuffer, Server::LARGE_BUFFER_SIZE);
-        if (length < 1) {
-            switch (SSL_get_error((SSL *) httpData->ssl, length)) {
-            case SSL_ERROR_WANT_WRITE:
-            case SSL_ERROR_WANT_READ:
-                return;
-            }
-        }
-    } else {
-        length = recv(fd, httpData->server->recvBuffer, Server::LARGE_BUFFER_SIZE, 0);
-    }
+    size_t endOfHTTPBuffer = httpData->httpBuffer.find("\r\n\r\n");
+    if (endOfHTTPBuffer != std::string::npos) {
+        if (isServer) {
 
-    if (length == SOCKET_ERROR || length == 0 || httpData->headerBuffer.length() + length > MAX_HEADER_BUFFER_LENGTH) {
-        int fd = httpData->stop();
-        httpData->close(fd);
-        delete httpData;
-        return;
-    }
-
-    httpData->headerBuffer.append(httpData->server->recvBuffer, length);
-    if (httpData->headerBuffer.find("\r\n\r\n") != std::string::npos) {
-
-        // stop poll and timer
-        uv_os_sock_t fd = httpData->stop();
-
-        // parse secKey, extensions
-        Request h = (char *) httpData->headerBuffer.data();
-        std::pair<char *, size_t> secKey = {}, extensions = {};
-        for (h++; h.key.second; h++) {
-            if (h.key.second == 17 || h.key.second == 24) {
-                // lowercase the key
-                for (size_t i = 0; i < h.key.second; i++) {
-                    h.key.first[i] = tolower(h.key.first[i]);
-                }
-                if (!strncmp(h.key.first, "sec-websocket-key", h.key.second)) {
-                    secKey = h.value;
-                } else if (!strncmp(h.key.first, "sec-websocket-extensions", h.key.second)) {
-                    extensions = h.value;
+            HTTPParser httpParser = (char *) httpData->httpBuffer.data();
+            std::pair<char *, size_t> secKey = {}, extensions = {}, subprotocol = {}, path = httpParser.value;
+            for (httpParser++; httpParser.key.second; httpParser++) {
+                if (httpParser.key.second == 17 || httpParser.key.second == 24 || httpParser.key.second == 22) {
+                    // lowercase the key
+                    for (size_t i = 0; i < httpParser.key.second; i++) {
+                        httpParser.key.first[i] = tolower(httpParser.key.first[i]);
+                    }
+                    if (!strncmp(httpParser.key.first, "sec-websocket-key", httpParser.key.second)) {
+                        secKey = httpParser.value;
+                    } else if (!strncmp(httpParser.key.first, "sec-websocket-extensions", httpParser.key.second)) {
+                        extensions = httpParser.value;
+                    } else if (!strncmp(httpParser.key.first, "sec-websocket-protocol", httpParser.key.second)) {
+                        subprotocol = httpParser.value;
+                    }
                 }
             }
-        }
 
-        // this is an upgrade
-        if (secKey.first && secKey.second == 24) {
-            if (httpData->server->upgradeCallback) {
-                httpData->server->upgradeCallback(fd, secKey.first, httpData->ssl, extensions.first, extensions.second);
+            if (secKey.first && secKey.second == 24) {
+
+                // this needs to be part of upgrade itself, and shared with Hub::upgrade!
+                bool perMessageDeflate = false;
+                std::string extensionsResponse;
+                if (extensions.first) {
+                    Group<isServer> *group = (Group<isServer> *) s.getNodeData(s.getSocketData());
+                    ExtensionsNegotiator<uWS::SERVER> extensionsNegotiator(group->extensionOptions);
+                    extensionsNegotiator.readOffer(std::string(extensions.first, extensions.second));
+                    extensionsResponse = extensionsNegotiator.generateOffer();
+                    if (extensionsNegotiator.getNegotiatedOptions() & PERMESSAGE_DEFLATE) {
+                        perMessageDeflate = true;
+                    }
+                }
+
+                if (httpSocket.upgrade(secKey.first, extensionsResponse.data(), extensionsResponse.length(), subprotocol.first, subprotocol.second)) {
+                    s.cancelTimeout();
+                    s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
+
+                    ((Group<SERVER> *) s.getSocketData()->nodeData)->addWebSocket(s);
+                    //s.cork(true);
+                    ((Group<SERVER> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<SERVER>(s), {path.first, subprotocol.first,
+                                                                                                              path.second, subprotocol.second});
+                    //s.cork(false);
+                    delete httpData;
+                }
             } else {
-                httpData->server->upgrade(fd, secKey.first, httpData->ssl, extensions.first, extensions.second);
+                httpSocket.onEnd(s);
             }
         } else {
-            // we do not handle any HTTP-only requests
-            httpData->close(fd);
+            bool isUpgrade = false;
+            HTTPParser httpParser = (char *) httpData->httpBuffer.data();
+            //std::pair<char *, size_t> secKey = {}, extensions = {};
+            for (httpParser++; httpParser.key.second; httpParser++) {
+                if (httpParser.key.second == 7) {
+                    // lowercase the key
+                    for (size_t i = 0; i < httpParser.key.second; i++) {
+                        httpParser.key.first[i] = tolower(httpParser.key.first[i]);
+                    }
+                    // lowercase the value
+                    for (size_t i = 0; i < httpParser.value.second; i++) {
+                        httpParser.value.first[i] = tolower(httpParser.value.first[i]);
+                    }
+                    if (!strncmp(httpParser.key.first, "upgrade", httpParser.key.second)) {
+                        if (!strncmp(httpParser.value.first, "websocket", 9)) {
+                            isUpgrade = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (isUpgrade) {
+                s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
+
+                //s.cork(true);
+                httpSocket.cancelTimeout();
+                httpSocket.setUserData(httpData->httpUser);
+                ((Group<CLIENT> *) s.getSocketData()->nodeData)->addWebSocket(s);
+                ((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), {nullptr, nullptr, 0, 0});
+                //s.cork(false);
+
+                if (!(s.isClosed() || s.isShuttingDown())) {
+                    WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
+                    kws->consume((char *) httpData->httpBuffer.data() + endOfHTTPBuffer + 4, length - endOfHTTPBuffer - 4, s);
+                }
+
+                delete httpData;
+            } else {
+                httpSocket.onEnd(s);
+            }
         }
-        delete httpData;
     }
 }
+
+template <bool isServer>
+bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength) {
+    if (isServer) {
+        unsigned char shaInput[] = "XXXXXXXXXXXXXXXXXXXXXXXX258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+        memcpy(shaInput, secKey, 24);
+        unsigned char shaDigest[SHA_DIGEST_LENGTH];
+        SHA1(shaInput, sizeof(shaInput) - 1, shaDigest);
+
+        char upgradeBuffer[1024];
+        memcpy(upgradeBuffer, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ", 97);
+        base64(shaDigest, upgradeBuffer + 97);
+        memcpy(upgradeBuffer + 125, "\r\n", 2);
+        size_t upgradeResponseLength = 127;
+        if (extensionsLength) {
+            memcpy(upgradeBuffer + upgradeResponseLength, "Sec-WebSocket-Extensions: ", 26);
+            memcpy(upgradeBuffer + upgradeResponseLength + 26, extensions, extensionsLength);
+            memcpy(upgradeBuffer + upgradeResponseLength + 26 + extensionsLength, "\r\n", 2);
+            upgradeResponseLength += 26 + extensionsLength + 2;
+        }
+        if (subprotocolLength) {
+            memcpy(upgradeBuffer + upgradeResponseLength, "Sec-WebSocket-Protocol: ", 24);
+            memcpy(upgradeBuffer + upgradeResponseLength + 24, subprotocol, subprotocolLength);
+            memcpy(upgradeBuffer + upgradeResponseLength + 24 + subprotocolLength, "\r\n", 2);
+            upgradeResponseLength += 24 + subprotocolLength + 2;
+        }
+        static char stamp[] = "Sec-WebSocket-Version: 13\r\nServer: uWebSockets\r\n\r\n";
+        memcpy(upgradeBuffer + upgradeResponseLength, stamp, sizeof(stamp) - 1);
+        upgradeResponseLength += sizeof(stamp) - 1;
+
+        uS::SocketData::Queue::Message *messagePtr = allocMessage(upgradeResponseLength, upgradeBuffer);
+        bool wasTransferred;
+        if (write(messagePtr, wasTransferred)) {
+            if (!wasTransferred) {
+                freeMessage(messagePtr);
+            } else {
+                messagePtr->callback = nullptr;
+            }
+        } else {
+            onEnd(*this);
+            return false;
+        }
+    } else {
+        std::string upgradeHeaderBuffer = std::string("GET /") + getData()->path + " HTTP/1.1\r\n"
+                                                                                   "Upgrade: websocket\r\n"
+                                                                                   "Connection: Upgrade\r\n"
+                                                                                   "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"
+                                                                                   "Host: " + getData()->host + "\r\n"
+                                                                                   "Sec-WebSocket-Version: 13\r\n\r\n";
+
+        uS::SocketData::Queue::Message *messagePtr = allocMessage(upgradeHeaderBuffer.length(), upgradeHeaderBuffer.data());
+        bool wasTransferred;
+        if (write(messagePtr, wasTransferred)) {
+            if (!wasTransferred) {
+                freeMessage(messagePtr);
+            } else {
+                messagePtr->callback = nullptr;
+            }
+        } else {
+            onEnd(*this);
+            return false;
+        }
+    }
+    return true;
+}
+
+template <bool isServer>
+void HTTPSocket<isServer>::onEnd(uS::Socket s) {
+    s.cancelTimeout();
+
+    Data *httpSocketData = (Data *) s.getSocketData();
+    s.close();
+
+    if (!isServer) {
+        ((Group<CLIENT> *) httpSocketData->nodeData)->errorHandler(httpSocketData->httpUser);
+    }
+
+    delete httpSocketData;
+}
+
+template class HTTPSocket<SERVER>;
+template class HTTPSocket<CLIENT>;
 
 }

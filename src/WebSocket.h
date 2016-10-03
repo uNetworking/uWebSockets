@@ -1,46 +1,32 @@
 #ifndef WEBSOCKET_H
 #define WEBSOCKET_H
 
-#include <functional>
-#include <uv.h>
-#include "Network.h"
+#include "WebSocketProtocol.h"
+#include "Socket.h"
 
 namespace uWS {
 
-enum OpCode : unsigned char {
-    TEXT = 1,
-    BINARY = 2,
-    CLOSE = 8,
-    PING = 9,
-    PONG = 10
-};
+template <bool isServer>
+class Group;
 
-class Server;
+template <const bool isServer>
+struct WIN32_EXPORT WebSocket : protected uS::Socket {
+    struct Data : uS::SocketData, WebSocketProtocol<isServer> {
+        std::string fragmentBuffer, controlBuffer;
+        enum CompressionStatus : char {
+            DISABLED,
+            ENABLED,
+            COMPRESSED_FRAME
+        } compressionStatus;
 
-class WIN32_EXPORT WebSocket
-{
-    friend class Server;
-    friend class Parser;
-    friend class EventSystem;
-    friend struct std::hash<uWS::WebSocket>;
-private:
-    static void onReadable(uv_poll_t *p, int status, int events);
-    static void onWritableReadable(uv_poll_t *handle, int status, int events);
-    void initPoll(Server *server, uv_os_sock_t fd, void *ssl, void *perMessageDeflate);
-    void link(uv_poll_t *next);
-    uv_poll_t *next();
-    operator bool();
-    void write(char *data, size_t length, bool transferOwnership, void(*callback)(WebSocket webSocket, void *data, bool cancelled) = nullptr, void *callbackData = nullptr, bool preparedMessage = false);
-    void handleFragment(const char *fragment, size_t length, OpCode opCode, bool fin, size_t remainingBytes, bool compressed);
-protected:
-    uv_poll_t *p;
-    WebSocket(uv_poll_t *p);
-public:
-    struct Address {
-        unsigned int port;
-        const char *address;
-        const char *family;
+        Data(bool perMessageDeflate, uS::SocketData *socketData) : uS::SocketData(*socketData) {
+            compressionStatus = perMessageDeflate ? CompressionStatus::ENABLED : CompressionStatus::DISABLED;
+        }
     };
+
+    WebSocket(uS::Socket s = nullptr) : uS::Socket(s) {
+
+    }
 
     struct PreparedMessage {
         char *buffer;
@@ -48,28 +34,44 @@ public:
         int references;
     };
 
-    Address getAddress();
-    void close(bool force = false, unsigned short code = 0, char *data = nullptr, size_t length = 0);
-    void send(const char *message, size_t length, OpCode opCode, void(*callback)(WebSocket webSocket, void *data, bool cancelled) = nullptr, void *callbackData = nullptr, size_t fakedLength = 0);
-    void ping(const char *message = nullptr, size_t length = 0);
-    void sendFragment(char *data, size_t length, OpCode opCode, size_t remainingBytes);
+    using uS::Socket::getUserData;
+    using uS::Socket::setUserData;
+    using uS::Socket::getAddress;
+    using uS::Socket::Address;
+
+    void transfer(Group<isServer> *group) {
+        ((Group<isServer> *) getSocketData()->nodeData)->removeWebSocket(p);
+        uS::Socket::transfer((uS::NodeData *) group, [](uv_poll_t *p) {
+            uS::Socket s(p);
+            ((Group<isServer> *) s.getSocketData()->nodeData)->addWebSocket(s);
+        });
+    }
+
+    uv_poll_t *getPollHandle() {return p;}
+    void terminate();
+    void close(int code = 1000, char *message = nullptr, size_t length = 0);
+    void ping(const char *message) {send(message, OpCode::PING);}
+    void send(const char *message, OpCode opCode = OpCode::TEXT) {send(message, strlen(message), opCode);}
+    void send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled) = nullptr, void *callbackData = nullptr);
     static PreparedMessage *prepareMessage(char *data, size_t length, OpCode opCode, bool compressed);
     void sendPrepared(PreparedMessage *preparedMessage);
     static void finalizeMessage(PreparedMessage *preparedMessage);
-    void *getData();
-    void setData(void *data);
-    WebSocket() : p(nullptr) {}
     bool operator==(const WebSocket &other) const {return p == other.p;}
     bool operator<(const WebSocket &other) const {return p < other.p;}
+
+private:
+    friend class uS::Socket;
+    static void onData(uS::Socket s, char *data, int length);
+    static void onEnd(uS::Socket s);
 };
 
 }
 
 namespace std {
 
-template <>
-struct hash<uWS::WebSocket> {
-    std::size_t operator()(const uWS::WebSocket &webSocket) const
+template <bool isServer>
+struct hash<uWS::WebSocket<isServer>> {
+    std::size_t operator()(const uWS::WebSocket<isServer> &webSocket) const
     {
         return std::hash<uv_poll_t *>()(webSocket.p);
     }
