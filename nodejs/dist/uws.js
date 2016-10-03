@@ -225,6 +225,13 @@ class WebSocket {
         }
     }*/
 
+    terminate() {
+        if (this.external) {
+            native.server.terminate(this.external);
+            this.external = null;
+        }
+    }
+
     send(message, options, cb) {
         if (this.external) {
             if (typeof options === 'function') {
@@ -257,6 +264,13 @@ class WebSocketClient extends WebSocket {
         super(null, null);
         this.internalOnOpen = noop;
         native.connect(clientGroup, uri, this);
+    }
+
+    terminate() {
+        if (this.external) {
+            native.client.terminate(this.external);
+            this.external = null;
+        }
     }
 
     send(message, options, cb) {

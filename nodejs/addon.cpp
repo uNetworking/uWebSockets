@@ -332,7 +332,7 @@ void closeGroup(const FunctionCallbackInfo<Value> &args)
 {
     NativeString nativeString(args[2]);
     uWS::Group<isServer> *group = (uWS::Group<isServer> *) args[0].As<External>()->Value();
-    group->close(/*args[1]->IntegerValue(), nativeString.getData(), nativeString.getLength()*/);
+    group->close(args[1]->IntegerValue(), nativeString.getData(), nativeString.getLength());
 }
 
 template <bool isServer>
