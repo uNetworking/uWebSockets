@@ -121,6 +121,8 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                 httpSocket.onEnd(s);
             }
         } else {
+            httpData->httpBuffer.resize(httpData->httpBuffer.length() + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
+
             bool isUpgrade = false;
             HTTPParser httpParser = (char *) httpData->httpBuffer.data();
             //std::pair<char *, size_t> secKey = {}, extensions = {};
@@ -155,7 +157,7 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
                 if (!(s.isClosed() || s.isShuttingDown())) {
                     WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
-                    kws->consume((char *) httpData->httpBuffer.data() + endOfHTTPBuffer + 4, length - endOfHTTPBuffer - 4, s);
+                    kws->consume((char *) httpData->httpBuffer.data() + endOfHTTPBuffer + 4, httpData->httpBuffer.length() - endOfHTTPBuffer - 4 - WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING, s);
                 }
 
                 delete httpData;
