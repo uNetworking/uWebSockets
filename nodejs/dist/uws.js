@@ -439,14 +439,6 @@ class Server extends EventEmitter {
         socket.destroy();
     }
 
-    /*prepareMessage(message, binary) {
-        return this.nativeServer.prepareMessage(message, binary ? WebSocketClient.OPCODE_BINARY : WebSocketClient.OPCODE_TEXT);
-    }
-
-    finalizeMessage(preparedMessage) {
-        return this.nativeServer.finalizeMessage(preparedMessage);
-    }*/
-
     broadcast(message, options) {
         native.server.group.broadcast(this.serverGroup, message, options && options.binary || false);
     }
