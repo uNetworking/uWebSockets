@@ -350,27 +350,26 @@ void broadcast(const FunctionCallbackInfo<Value> &args)
     group->broadcast(nativeString.getData(), nativeString.getLength(), opCode);
 }
 
-/*
-
+template <bool isServer>
 void prepareMessage(const FunctionCallbackInfo<Value> &args)
 {
-    OpCode opCode = (uWS::OpCode) args[1]->IntegerValue();
+    uWS::OpCode opCode = (uWS::OpCode) args[1]->IntegerValue();
     NativeString nativeString(args[0]);
-    Local<Object> preparedMessage = Local<Object>::New(args.GetIsolate(), persistentTicket)->Clone();
-    preparedMessage->SetAlignedPointerInInternalField(0, WebSocket::prepareMessage(nativeString.getData(), nativeString.getLength(), opCode, false));
-    args.GetReturnValue().Set(preparedMessage);
+    args.GetReturnValue().Set(External::New(args.GetIsolate(), uWS::WebSocket<isServer>::prepareMessage(nativeString.getData(), nativeString.getLength(), opCode, false)));
 }
 
+template <bool isServer>
 void sendPrepared(const FunctionCallbackInfo<Value> &args)
 {
-    unwrapSocket(args[0]->ToNumber())
-                 .sendPrepared((WebSocket::PreparedMessage *) args[1]->ToObject()->GetAlignedPointerFromInternalField(0));
+    unwrapSocket<isServer>(args[0].As<External>())
+        .sendPrepared((typename uWS::WebSocket<isServer>::PreparedMessage *) args[1].As<External>()->Value());
 }
 
+template <bool isServer>
 void finalizeMessage(const FunctionCallbackInfo<Value> &args)
 {
-    WebSocket::finalizeMessage((WebSocket::PreparedMessage *) args[0]->ToObject()->GetAlignedPointerFromInternalField(0));
-}*/
+    uWS::WebSocket<isServer>::finalizeMessage((typename uWS::WebSocket<isServer>::PreparedMessage *) args[0].As<External>()->Value());
+}
 
 template <bool isServer>
 struct Namespace {
@@ -380,6 +379,9 @@ struct Namespace {
         NODE_SET_METHOD(object, "send", send<isServer>);
         NODE_SET_METHOD(object, "close", closeSocket<isServer>);
         NODE_SET_METHOD(object, "terminate", terminateSocket<isServer>);
+        NODE_SET_METHOD(object, "prepareMessage", prepareMessage<isServer>);
+        NODE_SET_METHOD(object, "sendPrepared", sendPrepared<isServer>);
+        NODE_SET_METHOD(object, "finalizeMessage", finalizeMessage<isServer>);
 
         Local<Object> group = Object::New(isolate);
         NODE_SET_METHOD(group, "onConnection", onConnection<isServer>);
