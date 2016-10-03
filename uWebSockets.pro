@@ -23,7 +23,8 @@ HEADERS += \
     src/Node.h \
     src/Socket.h \
     src/HTTPSocket.h \
-    src/uWS.h
+    src/uWS.h \
+    src/Extensions.h
 
 LIBS += -lssl -lcrypto -lz -luv -lpthread
 

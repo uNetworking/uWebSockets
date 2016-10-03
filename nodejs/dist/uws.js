@@ -315,12 +315,14 @@ class Server extends EventEmitter {
             if (options.perMessageDeflate === false) {
                 nativeOptions = 0;
             } else {
-                if (options.perMessageDeflate.serverNoContextTakeover === true) {
+                /*if (options.perMessageDeflate.serverNoContextTakeover === true) {
                     nativeOptions |= WebSocketClient.SERVER_NO_CONTEXT_TAKEOVER;
                 }
                 if (options.perMessageDeflate.clientNoContextTakeover === true) {
                     nativeOptions |= WebSocketClient.CLIENT_NO_CONTEXT_TAKEOVER;
-                }
+                }*/
+                // permessage-deflate is 1
+                nativeOptions = 1;
             }
         }
 
