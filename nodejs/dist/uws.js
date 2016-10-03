@@ -51,7 +51,9 @@ native.client.group.onPong(clientGroup, (message, webSocket) => {
 });
 
 native.client.group.onError(clientGroup, (webSocket) => {
-    webSocket.internalOnError();
+    process.nextTick(() => {
+        webSocket.internalOnError();
+    });
 });
 
 class WebSocket {
