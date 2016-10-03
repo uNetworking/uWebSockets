@@ -55,7 +55,7 @@ void serveAutobahn() {
     }
 
     std::thread t([]() {
-        system("cd /home/alexhultman/uWebSockets && wstest -m fuzzingclient -s Autobahn.json");
+        system("wstest -m fuzzingclient -s Autobahn.json");
     });
 
     h.run();
@@ -531,15 +531,15 @@ void testMultithreading() {
 
 int main(int argc, char *argv[])
 {
-    testMultithreading();
+    /*testMultithreading();
     testReusePort();
     testRouting();
     testClosing();
     testConnections();
     testListening();
     testBroadcast();
-    stressTest();
+    stressTest();*/
 
-    //serveAutobahn();
+    serveAutobahn();
     //serveBenchmark();
 }
