@@ -57,7 +57,8 @@ public:
 
 struct GroupData {
     Persistent<Function> *connectionHandler, *messageHandler,
-                         *disconnectionHandler, *pingHandler, *pongHandler;
+                         *disconnectionHandler, *pingHandler,
+                         *pongHandler, *errorHandler;
 
     GroupData() {
         connectionHandler = new Persistent<Function>;
@@ -65,6 +66,7 @@ struct GroupData {
         disconnectionHandler = new Persistent<Function>;
         pingHandler = new Persistent<Function>;
         pongHandler = new Persistent<Function>;
+        errorHandler = new Persistent<Function>;
     }
 
     ~GroupData() {
@@ -73,6 +75,7 @@ struct GroupData {
         delete disconnectionHandler;
         delete pingHandler;
         delete pongHandler;
+        delete errorHandler;
     }
 };
 
@@ -316,6 +319,24 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     });
 }
 
+void onError(const FunctionCallbackInfo<Value> &args) {
+    uWS::Group<uWS::CLIENT> *group = (uWS::Group<uWS::CLIENT> *) args[0].As<External>()->Value();
+    GroupData *groupData = (GroupData *) group->getUserData();
+
+    Isolate *isolate = args.GetIsolate();
+    Persistent<Function> *errorCallback = groupData->errorHandler;
+    errorCallback->Reset(isolate, Local<Function>::Cast(args[1]));
+
+    group->onError([isolate, errorCallback](void *user) {
+        HandleScope hs(isolate);
+        Local<Value> argv[] = {Local<Value>::New(isolate, *(Persistent<Value> *) user)};
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *errorCallback), 1, argv);
+
+        ((Persistent<Value> *) user)->Reset();
+        delete (Persistent<Value> *) user;
+    });
+}
+
 template <bool isServer>
 void closeSocket(const FunctionCallbackInfo<Value> &args) {
     NativeString nativeString(args[2]);
@@ -387,6 +408,11 @@ struct Namespace {
         NODE_SET_METHOD(group, "onConnection", onConnection<isServer>);
         NODE_SET_METHOD(group, "onMessage", onMessage<isServer>);
         NODE_SET_METHOD(group, "onDisconnection", onDisconnection<isServer>);
+
+        if (!isServer) {
+            NODE_SET_METHOD(group, "onError", onError);
+        }
+
         NODE_SET_METHOD(group, "onPing", onPing<isServer>);
         NODE_SET_METHOD(group, "onPong", onPong<isServer>);
         NODE_SET_METHOD(group, "create", createGroup<isServer>);

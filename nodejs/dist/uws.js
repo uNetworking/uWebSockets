@@ -50,6 +50,10 @@ native.client.group.onPong(clientGroup, (message, webSocket) => {
     webSocket.onpong(message);
 });
 
+native.client.group.onError(clientGroup, (webSocket) => {
+    webSocket.internalOnError();
+});
+
 class WebSocket {
     constructor(external) {
         this.external = external;
@@ -122,6 +126,11 @@ class WebSocket {
                 throw Error(EE_ERROR);
             }
             this.internalOnOpen = f;
+        } else if (eventName === 'error') {
+            if (this.internalOnError !== noop) {
+                throw Error(EE_ERROR);
+            }
+            this.internalOnError = f;
         }
         return this;
     }
@@ -219,12 +228,6 @@ class WebSocket {
 
     // from here down, functions are not common between client and server
 
-    /*sendPrepared(preparedMessage) {
-        if (this.nativeSocket) {
-            uws.sendPrepared(this.nativeSocket, preparedMessage);
-        }
-    }*/
-
     terminate() {
         if (this.external) {
             native.server.terminate(this.external);
@@ -261,8 +264,9 @@ class WebSocket {
 
 class WebSocketClient extends WebSocket {
     constructor(uri) {
-        super(null, null);
+        super(null);
         this.internalOnOpen = noop;
+        this.internalOnError = noop;
         native.connect(clientGroup, uri, this);
     }
 
