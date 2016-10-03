@@ -5,6 +5,9 @@
 #include <arpa/inet.h>
 #include <cstdlib>
 
+// we do need to include this for htobe64, should be moved from networking!
+#include "Networking.h"
+
 namespace uWS {
 
 enum OpCode : unsigned char {

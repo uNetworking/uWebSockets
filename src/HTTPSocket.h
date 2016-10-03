@@ -29,6 +29,7 @@ struct HTTPSocket : private uS::Socket {
 
 private:
     friend class uS::Socket;
+    friend class Hub;
     static void onData(uS::Socket s, char *data, int length);
     static void onEnd(uS::Socket s);
 };
