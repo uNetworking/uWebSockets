@@ -7,7 +7,7 @@
 namespace uWS {
 
 template <bool isServer>
-class Group;
+struct Group;
 
 template <const bool isServer>
 struct WIN32_EXPORT WebSocket : protected uS::Socket {

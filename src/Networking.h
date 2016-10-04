@@ -57,6 +57,7 @@ inline SOCKET dup(SOCKET socket) {
 #include <vector>
 #include <string>
 #include <mutex>
+#include <algorithm>
 
 namespace uS {
 

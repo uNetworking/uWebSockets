@@ -19,7 +19,7 @@ struct HTTPSocket : private uS::Socket {
     };
 
     HTTPSocket(uS::Socket s) : uS::Socket(s) {}
-    HTTPSocket::Data *getData() {
+    typename HTTPSocket::Data *getData() {
         return (HTTPSocket::Data *) getSocketData();
     }
 
@@ -29,7 +29,7 @@ struct HTTPSocket : private uS::Socket {
 
 private:
     friend class uS::Socket;
-    friend class Hub;
+    friend struct Hub;
     static void onData(uS::Socket s, char *data, int length);
     static void onEnd(uS::Socket s);
 };

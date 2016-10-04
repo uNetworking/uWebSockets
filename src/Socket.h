@@ -50,7 +50,13 @@ public:
     }
 
     uv_os_sock_t getFd() {
+#ifdef _WIN32
+        uv_os_sock_t fd;
+        uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
+        return fd;
+#else
         return p->io_watcher.fd;
+#endif
     }
 
     SocketData *getSocketData() {

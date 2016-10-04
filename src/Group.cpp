@@ -94,7 +94,7 @@ void Group<isServer>::onPong(std::function<void (WebSocket<isServer>, char *, si
 }
 
 template <bool isServer>
-void Group<isServer>::onError(std::function<void (Group::errorType)> handler) {
+void Group<isServer>::onError(std::function<void (typename Group::errorType)> handler) {
     errorHandler = handler;
 }
 

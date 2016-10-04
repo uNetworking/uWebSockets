@@ -59,9 +59,11 @@ Context createContext(std::string certChainFileName, std::string keyFileName, st
 
 }
 
+#ifndef _WIN32
 struct Init {
     Init() {signal(SIGPIPE, SIG_IGN);}
 } init;
+#endif
 
 #ifdef _WIN32
 #pragma comment(lib, "Ws2_32.lib")

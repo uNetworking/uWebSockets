@@ -73,10 +73,10 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
 }
 
 template <bool isServer>
-void WebSocket<isServer>::sendPrepared(WebSocket<isServer>::PreparedMessage *preparedMessage)
+void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMessage *preparedMessage)
 {
     preparedMessage->references++;
-    auto callback = [](void *webSocket, void *userData, bool cancelled) {
+    void (*callback)(void *webSocket, void *userData, bool cancelled) = [](void *webSocket, void *userData, bool cancelled) {
         PreparedMessage *preparedMessage = (PreparedMessage *) userData;
         if (!--preparedMessage->references) {
             delete [] preparedMessage->buffer;
@@ -112,7 +112,7 @@ void WebSocket<isServer>::sendPrepared(WebSocket<isServer>::PreparedMessage *pre
 }
 
 template <bool isServer>
-void WebSocket<isServer>::finalizeMessage(WebSocket<isServer>::PreparedMessage *preparedMessage)
+void WebSocket<isServer>::finalizeMessage(typename WebSocket<isServer>::PreparedMessage *preparedMessage)
 {
     if (!--preparedMessage->references) {
         delete [] preparedMessage->buffer;

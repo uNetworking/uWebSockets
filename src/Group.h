@@ -7,7 +7,7 @@
 
 namespace uWS {
 
-class Hub;
+struct Hub;
 
 struct UpgradeInfo {
     char *path, *subprotocol;

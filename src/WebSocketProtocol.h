@@ -1,12 +1,11 @@
 #ifndef WEBSOCKETPROTOCOL_H
 #define WEBSOCKETPROTOCOL_H
 
-#include <cstring>
-#include <arpa/inet.h>
-#include <cstdlib>
-
 // we do need to include this for htobe64, should be moved from networking!
 #include "Networking.h"
+
+#include <cstring>
+#include <cstdlib>
 
 namespace uWS {
 
@@ -188,7 +187,7 @@ private:
     char lastFin = true; // hold in state!
     unsigned char spill[LONG_MESSAGE_HEADER - 1];
     unsigned int remainingBytes = 0; // denna kan hålla spillLength om state är READ_HEAD, och remainingBytes när state är annat?
-    char mask[isServer ? 4 : 0];
+    char mask[isServer ? 4 : 1];
     OpCode opCode[2];
 
 public:
@@ -358,7 +357,7 @@ public:
     }
 
     static const int CONSUME_POST_PADDING = 18;
-    static const int CONSUME_PRE_PADDING = sizeof(spill);
+    static const int CONSUME_PRE_PADDING = LONG_MESSAGE_HEADER - 1;
 
     // events to be implemented by application (can't be inline currently)
     bool refusePayloadLength(void *user, int length);
