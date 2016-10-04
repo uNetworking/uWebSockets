@@ -6,7 +6,7 @@
 namespace uWS {
 
 template <const bool isServer>
-struct HTTPSocket : private uS::Socket {
+struct WIN32_EXPORT HTTPSocket : private uS::Socket {
     struct Data : uS::SocketData {
         std::string httpBuffer;
 

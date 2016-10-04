@@ -11,7 +11,7 @@ static_assert (UV_VERSION_MINOR >= 3, "µWebSockets requires libuv >=1.3.0");
 
 namespace uWS {
 
-struct Hub : private uS::Node, public Group<SERVER>, public Group<CLIENT> {
+struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<CLIENT> {
 
     template <bool isServer>
     Group<isServer> *createGroup(int extensionOptions = 0) {

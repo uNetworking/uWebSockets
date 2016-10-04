@@ -5,7 +5,7 @@
 
 namespace uS {
 
-class Socket {
+class WIN32_EXPORT Socket {
 protected:
     uv_poll_t *p;
 

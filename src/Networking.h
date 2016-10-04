@@ -63,7 +63,7 @@ namespace uS {
 
 namespace TLS {
 
-class Context {
+class WIN32_EXPORT Context {
 private:
     SSL_CTX *context = nullptr;
 

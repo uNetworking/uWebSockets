@@ -12,7 +12,7 @@ enum ListenOptions : int {
     ONLY_IPV4 = 2
 };
 
-class Node {
+class WIN32_EXPORT Node {
 protected:
     uv_loop_t *loop;
     NodeData *nodeData;
