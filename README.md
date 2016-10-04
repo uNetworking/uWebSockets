@@ -1,8 +1,6 @@
 <div align="center"><img src="logo.png"/></div>
 `µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
-*Stay tuned for the biggest update yet, coming ~~1st~~ 5th October!*
-
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/autobahn/index.html).
 * Linux, OS X & Windows support.
 * Valgrind clean.
@@ -102,25 +100,18 @@ wss.on('connection', function (ws) {
 ### C++
 For maximum performance and memory scaling the native interface is recommended. Look in the examples folder for threading and load balancing examples. There is no documentation written yet but a bright person like you will have no problem just reading the header file.
 ```c++
+#include <uWS.h>
+
 int main()
 {
-    /* this is an echo server that properly passes every supported Autobahn test */
-    int connections = 0;
-    uWS::EventSystem es(uWS::MASTER);
-    uWS::Server server(es, 3000);
-    server.onConnection([&](uWS::WebSocket socket) {
-        std::cout << "[Connection] clients: " << ++connections << std::endl;
+    uWS::Hub h;
+
+    h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode) {
+        ws.send(message, length, opCode);
     });
 
-    server.onMessage([](uWS::WebSocket socket, char *message, size_t length, uWS::OpCode opCode) {
-        socket.send(message, length, opCode);
-    });
-
-    server.onDisconnection([&](uWS::WebSocket socket, int code, char *message, size_t length) {
-        std::cout << "[Disconnection] clients: " << --connections << std::endl;
-    });
-
-    es.run();
+    h.listen(3000);
+    h.run();
 }
 ```
 
@@ -144,7 +135,7 @@ int main()
 #### Dependencies
 First of all you need to install the required dependencies. On Unix systems this is typically done via package managers, like [homebrew](http://brew.sh) in the case of OS X or `dnf` in the case of Fedora Linux. On Windows you need to search the web for pre-compiled binaries or simply compile the dependencies yourself.
 
-* libuv 1.x
+* libuv 1.3+
 * OpenSSL 1.0.x
 * zlib 1.x
 * CMake 3.x
