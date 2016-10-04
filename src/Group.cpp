@@ -48,7 +48,7 @@ Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) :
     pingHandler = pongHandler = [](WebSocket<isServer>, char *, size_t) {};
     errorHandler = [](errorType) {};
 
-    extensionOptions |= CLIENT_NO_CONTEXT_TAKEOVER | SERVER_NO_CONTEXT_TAKEOVER;
+    this->extensionOptions |= CLIENT_NO_CONTEXT_TAKEOVER | SERVER_NO_CONTEXT_TAKEOVER;
 }
 
 template <bool isServer>
