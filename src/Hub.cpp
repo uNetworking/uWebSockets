@@ -114,7 +114,10 @@ bool Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
     }
 
     uS::Socket s = uS::Socket::init((uS::NodeData *) serverGroup, fd, ssl);
-    s.enterState<HTTPSocket<SERVER>>(new HTTPSocket<SERVER>::Data(s.getSocketData()));
+    uS::SocketData *socketData = s.getSocketData();
+    HTTPSocket<SERVER>::Data *temporaryHttpData = new HTTPSocket<SERVER>::Data(socketData);
+    delete socketData;
+    s.enterState<HTTPSocket<SERVER>>(temporaryHttpData);
 
     // todo: move this into upgrade call
     bool perMessageDeflate = false;
@@ -132,6 +135,7 @@ bool Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
         s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
         serverGroup->addWebSocket(s);
         serverGroup->connectionHandler(WebSocket<SERVER>(s), {nullptr, nullptr, 0, 0});
+        delete temporaryHttpData;
         return true;
     }
     return false;
