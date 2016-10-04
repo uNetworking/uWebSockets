@@ -3,10 +3,17 @@ const non_ssl = new WebSocketServer({ port: 3000 });
 const fs = require('fs');
 const https = require('https');
 
+var non_ssl_disconnections = 0;
 non_ssl.on('connection', function(ws) {
-  ws.on('message', function(message) {
-    ws.send(message);
-  });
+    ws.on('message', function(message) {
+        ws.send(message);
+    });
+
+    ws.on('close', function() {
+      if (++non_ssl_disconnections == 519) {
+          non_ssl.close();
+      }
+    });
 });
 
 const options = {
@@ -21,10 +28,17 @@ const httpsServer = https.createServer(options, (req, res) => {
 
 const ssl = new WebSocketServer({ server: httpsServer });
 
+var ssl_disconnections = 0;
 ssl.on('connection', function(ws) {
-  ws.on('message', function(message) {
-    ws.send(message);
-  });
+    ws.on('message', function(message) {
+      ws.send(message);
+    });
+
+    ws.on('close', function() {
+      if (++ssl_disconnections == 519) {
+          ssl.close();
+      }
+    });
 });
 
 httpsServer.listen(3001);
