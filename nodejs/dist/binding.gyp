@@ -4,12 +4,14 @@
       'target_name': 'uws',
       'sources': [
         'src/Extensions.cpp',
-        'src/HTTPSocket.cpp',
-        'src/Network.cpp',
-        'src/Server.cpp',
-        'src/UTF8.cpp',
+        'src/Group.cpp',
+        'src/WebSocketImpl.cpp',
+        'src/Networking.cpp',
+        'src/Hub.cpp',
+        'src/Node.cpp',
         'src/WebSocket.cpp',
-        'src/EventSystem.cpp',
+        'src/HTTPSocket.cpp',
+        'src/Socket.cpp',
         'src/addon.cpp'
       ],
       'conditions': [
