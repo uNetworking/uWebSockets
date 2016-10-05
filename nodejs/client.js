@@ -6,6 +6,10 @@ ws.on('open', function open() {
     ws.send('This will be sent!');
 });
 
+ws.on('error', function error() {
+    console.log('Error connecting!');
+});
+
 ws.on('message', function(data, flags) {
     console.log('Message: ' + data);
 });

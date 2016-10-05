@@ -128,7 +128,7 @@ class WebSocket {
                 throw Error(EE_ERROR);
             }
             this.internalOnOpen = f;
-        } else if (eventName === 'error') {
+        } else if (eventName === 'error' && this instanceof WebSocketClient) {
             if (this.internalOnError !== noop) {
                 throw Error(EE_ERROR);
             }
