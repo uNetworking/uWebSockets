@@ -224,11 +224,11 @@ class WebSocket {
         };
     }
 
-    ping(message, options, dontFailWhenClosed) {
-        send(message, WebSocketClient.OPCODE_PING);
-    }
-
     // from here down, functions are not common between client and server
+
+    ping(message, options, dontFailWhenClosed) {
+        native.server.send(this.external, message, WebSocketClient.OPCODE_PING);
+    }
 
     terminate() {
         if (this.external) {
@@ -270,6 +270,10 @@ class WebSocketClient extends WebSocket {
         this.internalOnOpen = noop;
         this.internalOnError = noop;
         native.connect(clientGroup, uri, this);
+    }
+
+    ping(message, options, dontFailWhenClosed) {
+        native.client.send(this.external, message, WebSocketClient.OPCODE_PING);
     }
 
     terminate() {
