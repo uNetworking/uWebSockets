@@ -225,7 +225,7 @@ class WebSocket {
     }
 
     ping(message, options, dontFailWhenClosed) {
-        send(message, WebSocketClient.OPCODE_PING);
+        this.send(message, WebSocketClient.OPCODE_PING);
     }
 
     // from here down, functions are not common between client and server
