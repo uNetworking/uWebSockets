@@ -529,8 +529,35 @@ void testMultithreading() {
     }
 }
 
+void testSendCallback() {
+    uWS::Hub h;
+
+    h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+        ws.send("1234", 4, uWS::OpCode::TEXT, [](void *webSocket, void *data, bool cancelled) {
+            if (data) {
+                if (data != (void *) 13) {
+                    std::cout << "FAILURE: invalid data passed to send callback!" << std::endl;
+                    exit(-1);
+                } else {
+                    std::cout << "Correct data was sent to send callback" << std::endl;
+                }
+            } else {
+                std::cout << "FAILURE: No data was passed along!" << std::endl;
+                exit(-1);
+            }
+        }, (void *) 13);
+        h.getDefaultGroup<uWS::SERVER>().close();
+    });
+
+    h.listen(3000);
+    h.connect("ws://localhost:3000", nullptr);
+    h.run();
+}
+
 int main(int argc, char *argv[])
 {
+    testSendCallback();
+
     /*testMultithreading();
     testReusePort();
     testRouting();
@@ -540,6 +567,6 @@ int main(int argc, char *argv[])
     testBroadcast();
     stressTest();*/
 
-    serveAutobahn();
+    //serveAutobahn();
     //serveBenchmark();
 }

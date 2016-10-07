@@ -21,7 +21,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
                 if (!wasTransferred) {
                     getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
                     if (callback) {
-                        callback(*this, messagePtr->callbackData, false);
+                        callback(*this, callbackData, false);
                     }
                 } else {
                     messagePtr->callback = callback;
@@ -29,7 +29,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
                 }
             } else {
                 if (callback) {
-                    callback(*this, messagePtr->callbackData, true);
+                    callback(*this, callbackData, true);
                 }
                 onEnd(*this);
             }
@@ -41,7 +41,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
                 if (!wasTransferred) {
                     freeMessage(messagePtr);
                     if (callback) {
-                        callback(*this, messagePtr->callbackData, false);
+                        callback(*this, callbackData, false);
                     }
                 } else {
                     messagePtr->callback = callback;
@@ -49,7 +49,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
                 }
             } else {
                 if (callback) {
-                    callback(*this, messagePtr->callbackData, true);
+                    callback(*this, callbackData, true);
                 }
                 onEnd(*this);
             }
