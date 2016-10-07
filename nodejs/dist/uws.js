@@ -432,16 +432,20 @@ class Server extends EventEmitter {
             socket.setNoDelay(this._noDelay);
             const ticket = native.transfer(socketHandle.fd === -1 ? socketHandle : socketHandle.fd, sslState);
             socket.on('close', (error) => {
-                _upgradeReq = request;
-                this._upgradeCallback = callback ? callback : noop;
-                native.upgrade(this.serverGroup, ticket, secKey, request.headers['sec-websocket-extensions']);
+                if (this.serverGroup) {
+                    _upgradeReq = request;
+                    this._upgradeCallback = callback ? callback : noop;
+                    native.upgrade(this.serverGroup, ticket, secKey, request.headers['sec-websocket-extensions']);
+                }
             });
         }
         socket.destroy();
     }
 
     broadcast(message, options) {
-        native.server.group.broadcast(this.serverGroup, message, options && options.binary || false);
+        if (this.serverGroup) {
+            native.server.group.broadcast(this.serverGroup, message, options && options.binary || false);
+        }
     }
 
     close() {
