@@ -59,6 +59,7 @@ struct GroupData {
     Persistent<Function> *connectionHandler, *messageHandler,
                          *disconnectionHandler, *pingHandler,
                          *pongHandler, *errorHandler;
+    int size = 0;
 
     GroupData() {
         connectionHandler = new Persistent<Function>;
@@ -245,7 +246,8 @@ void onConnection(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     Persistent<Function> *connectionCallback = groupData->connectionHandler;
     connectionCallback->Reset(isolate, Local<Function>::Cast(args[1]));
-    group->onConnection([isolate, connectionCallback](uWS::WebSocket<isServer> webSocket, uWS::UpgradeInfo ui) {
+    group->onConnection([isolate, connectionCallback, groupData](uWS::WebSocket<isServer> webSocket, uWS::UpgradeInfo ui) {
+        groupData->size++;
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(webSocket, isolate)};
         node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *connectionCallback), 1, argv);
@@ -309,7 +311,8 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     Persistent<Function> *disconnectionCallback = groupData->disconnectionHandler;
     disconnectionCallback->Reset(isolate, Local<Function>::Cast(args[1]));
 
-    group->onDisconnection([isolate, disconnectionCallback](uWS::WebSocket<isServer> webSocket, int code, char *message, size_t length) {
+    group->onDisconnection([isolate, disconnectionCallback, groupData](uWS::WebSocket<isServer> webSocket, int code, char *message, size_t length) {
+        groupData->size--;
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(webSocket, isolate),
                                Integer::New(isolate, code),
@@ -392,6 +395,27 @@ void finalizeMessage(const FunctionCallbackInfo<Value> &args)
     uWS::WebSocket<isServer>::finalizeMessage((typename uWS::WebSocket<isServer>::PreparedMessage *) args[0].As<External>()->Value());
 }
 
+void forEach(const FunctionCallbackInfo<Value> &args)
+{
+    Isolate *isolate = args.GetIsolate();
+    uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
+    Local<Function> cb = Local<Function>::Cast(args[1]);
+    for (uWS::WebSocket<uWS::SERVER> webSocket : *group) {
+        Local<Value> argv[] = {
+            getDataV8(webSocket, isolate)
+        };
+        cb->Call(Null(isolate), 1, argv);
+    }
+}
+
+void getSize(const FunctionCallbackInfo<Value> &args)
+{
+    Isolate *isolate = args.GetIsolate();
+    uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
+    GroupData *groupData = (GroupData *) group->getUserData();
+    args.GetReturnValue().Set(Integer::New(args.GetIsolate(), groupData->size));
+}
+
 template <bool isServer>
 struct Namespace {
     Local<Object> object;
@@ -411,6 +435,9 @@ struct Namespace {
 
         if (!isServer) {
             NODE_SET_METHOD(group, "onError", onError);
+        } else {
+            NODE_SET_METHOD(group, "forEach", forEach);
+            NODE_SET_METHOD(group, "getSize", getSize);
         }
 
         NODE_SET_METHOD(group, "onPing", onPing<isServer>);

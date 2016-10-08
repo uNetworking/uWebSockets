@@ -459,6 +459,13 @@ class Server extends EventEmitter {
             this.serverGroup = null;
         }
     }
+
+    get clients() {
+        return {
+            length: native.server.group.getSize(this.serverGroup),
+            forEach: ((cb) => {native.server.group.forEach(this.serverGroup, cb)})
+        };
+    }
 }
 
 WebSocketClient.PERMESSAGE_DEFLATE = 1;

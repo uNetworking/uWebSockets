@@ -13,6 +13,12 @@ function sent() {
 wss.on('connection', function connection(ws) {
   // console.log(ws._socket);
 
+  //console.log('Size: ' + wss.clients.length);
+
+  /*wss.clients.forEach((ws) => {
+    ws.send('Hello dude!');
+  });*/
+
   ws.on('pong', function pong(message) {
     console.log('Got a pong!');
   });
