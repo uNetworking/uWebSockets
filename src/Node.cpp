@@ -1,7 +1,5 @@
 #include "Node.h"
 
-#include <iostream>
-
 namespace uS {
 
 void NodeData::asyncCallback(uv_async_t *async)
