@@ -1,5 +1,5 @@
-#ifndef HTTPSOCKET_H
-#define HTTPSOCKET_H
+#ifndef HTTPSOCKET_UWS_H
+#define HTTPSOCKET_UWS_H
 
 #include "Socket.h"
 
@@ -36,4 +36,4 @@ private:
 
 }
 
-#endif // HTTPSOCKET_H
+#endif // HTTPSOCKET_UWS_H

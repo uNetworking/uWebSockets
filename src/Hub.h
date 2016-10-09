@@ -1,5 +1,5 @@
-#ifndef HUB_H
-#define HUB_H
+#ifndef HUB_UWS_H
+#define HUB_UWS_H
 
 #include "Group.h"
 #include "Node.h"
@@ -71,4 +71,4 @@ struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<C
 
 }
 
-#endif // HUB_H
+#endif // HUB_UWS_H

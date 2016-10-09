@@ -1,5 +1,5 @@
-#ifndef WEBSOCKET_H
-#define WEBSOCKET_H
+#ifndef WEBSOCKET_UWS_H
+#define WEBSOCKET_UWS_H
 
 #include "WebSocketProtocol.h"
 #include "Socket.h"
@@ -86,4 +86,4 @@ struct hash<uWS::WebSocket<isServer>> {
 
 }
 
-#endif // WEBSOCKET_H
+#endif // WEBSOCKET_UWS_H

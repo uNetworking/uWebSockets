@@ -1,5 +1,5 @@
-#ifndef GROUP_H
-#define GROUP_H
+#ifndef GROUP_UWS_H
+#define GROUP_UWS_H
 
 #include "WebSocket.h"
 #include "Extensions.h"
@@ -88,4 +88,4 @@ public:
 
 }
 
-#endif // GROUP_H
+#endif // GROUP_UWS_H
