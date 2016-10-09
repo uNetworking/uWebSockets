@@ -28,11 +28,15 @@ struct WIN32_EXPORT Group : protected uS::NodeData {
 
     Hub *hub;
     int extensionOptions;
+    uv_timer_t *timer = nullptr;
+    std::string userPingMessage;
 
     // todo: cannot be named user, collides with parent!
     void *userData = nullptr;
     void setUserData(void *user);
     void *getUserData();
+    void startAutoPing(int intervalMs, std::string userMessage = "");
+    static void timerCallback(uv_timer_t *timer);
 
     uv_poll_t *webSocketHead = nullptr, *httpSocketHead = nullptr;
     void addWebSocket(uv_poll_t *webSocket);

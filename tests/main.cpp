@@ -554,9 +554,33 @@ void testSendCallback() {
     h.run();
 }
 
+void testAutoPing() {
+    uWS::Hub h;
+
+    h.onPing([](uWS::WebSocket<uWS::CLIENT> ws, char *message, size_t length) {
+        std::cout << "PING" << std::endl;
+    });
+
+    h.onMessage([](uWS::WebSocket<uWS::CLIENT> ws, char *message, size_t length, uWS::OpCode opCode) {
+        std::cout << std::string(message, length) << std::endl;
+    });
+
+    h.onPong([](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length) {
+        std::cout << "PONG" << std::endl;
+        ws.registerPong();
+    });
+
+    h.getDefaultGroup<uWS::SERVER>().startAutoPing(1000);
+    h.listen(3000);
+    h.connect("ws://localhost:3000", nullptr);
+    h.run();
+}
+
 int main(int argc, char *argv[])
 {
-    testSendCallback();
+    testAutoPing();
+
+    //testSendCallback();
 
     /*testMultithreading();
     testReusePort();

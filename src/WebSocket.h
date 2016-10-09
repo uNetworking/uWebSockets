@@ -18,6 +18,7 @@ struct WIN32_EXPORT WebSocket : protected uS::Socket {
             ENABLED,
             COMPRESSED_FRAME
         } compressionStatus;
+        bool hasOutstandingPong = false;
 
         Data(bool perMessageDeflate, uS::SocketData *socketData) : uS::SocketData(*socketData) {
             compressionStatus = perMessageDeflate ? CompressionStatus::ENABLED : CompressionStatus::DISABLED;
@@ -47,6 +48,11 @@ struct WIN32_EXPORT WebSocket : protected uS::Socket {
         });
     }
 
+    void registerPong() {
+        Data *webSocketData = (Data *) getSocketData();
+        webSocketData->hasOutstandingPong = false;
+    }
+
     uv_poll_t *getPollHandle() {return p;}
     void terminate();
     void close(int code = 1000, char *message = nullptr, size_t length = 0);
@@ -61,6 +67,7 @@ struct WIN32_EXPORT WebSocket : protected uS::Socket {
 
 private:
     friend class uS::Socket;
+    template <bool> friend struct Group;
     static void onData(uS::Socket s, char *data, int length);
     static void onEnd(uS::Socket s);
 };

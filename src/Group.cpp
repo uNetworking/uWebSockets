@@ -13,6 +13,35 @@ void *Group<isServer>::getUserData() {
 }
 
 template <bool isServer>
+void Group<isServer>::timerCallback(uv_timer_t *timer) {
+    Group<isServer> *group = (Group<isServer> *) timer->data;
+
+    for (uWS::WebSocket<isServer> ws : *group) {
+        typename uWS::WebSocket<isServer>::Data *webSocketData = (typename uWS::WebSocket<isServer>::Data *) ws.getSocketData();
+        if (webSocketData->hasOutstandingPong) {
+            ws.terminate();
+        } else {
+            webSocketData->hasOutstandingPong = true;
+        }
+    }
+
+    if (group->userPingMessage.length()) {
+        group->broadcast(group->userPingMessage.data(), group->userPingMessage.length(), OpCode::TEXT);
+    } else {
+        group->broadcast(nullptr, 0, OpCode::PING);
+    }
+}
+
+template <bool isServer>
+void Group<isServer>::startAutoPing(int intervalMs, std::string userMessage) {
+    timer = new uv_timer_t;
+    uv_timer_init(loop, timer);
+    timer->data = this;
+    uv_timer_start(timer, timerCallback, intervalMs, intervalMs);
+    userPingMessage = userMessage;
+}
+
+template <bool isServer>
 void Group<isServer>::addWebSocket(uv_poll_t *webSocket) {
     if (webSocketHead) {
         uS::SocketData *nextData = (uS::SocketData *) webSocketHead->data;
