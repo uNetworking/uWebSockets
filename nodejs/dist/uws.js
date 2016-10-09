@@ -264,6 +264,12 @@ class WebSocket {
             this.external = null;
         }
     }
+
+    registerPong() {
+        if (this.external) {
+            native.server.registerPong(this.external);
+        }
+    }
 }
 
 class WebSocketClient extends WebSocket {
@@ -445,6 +451,12 @@ class Server extends EventEmitter {
     broadcast(message, options) {
         if (this.serverGroup) {
             native.server.group.broadcast(this.serverGroup, message, options && options.binary || false);
+        }
+    }
+
+    startAutoPing(interval, userMessage) {
+        if (this.serverGroup) {
+            native.server.group.startAutoPing(this.serverGroup, interval, userMessage);
         }
     }
 

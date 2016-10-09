@@ -352,22 +352,19 @@ void terminateSocket(const FunctionCallbackInfo<Value> &args) {
 }
 
 template <bool isServer>
-void closeGroup(const FunctionCallbackInfo<Value> &args)
-{
+void closeGroup(const FunctionCallbackInfo<Value> &args) {
     NativeString nativeString(args[2]);
     uWS::Group<isServer> *group = (uWS::Group<isServer> *) args[0].As<External>()->Value();
     group->close(args[1]->IntegerValue(), nativeString.getData(), nativeString.getLength());
 }
 
 template <bool isServer>
-void terminateGroup(const FunctionCallbackInfo<Value> &args)
-{
+void terminateGroup(const FunctionCallbackInfo<Value> &args) {
     ((uWS::Group<isServer> *) args[0].As<External>()->Value())->terminate();
 }
 
 template <bool isServer>
-void broadcast(const FunctionCallbackInfo<Value> &args)
-{
+void broadcast(const FunctionCallbackInfo<Value> &args) {
     uWS::Group<isServer> *group = (uWS::Group<isServer> *) args[0].As<External>()->Value();
     uWS::OpCode opCode = args[2]->BooleanValue() ? uWS::OpCode::BINARY : uWS::OpCode::TEXT;
     NativeString nativeString(args[1]);
@@ -375,28 +372,24 @@ void broadcast(const FunctionCallbackInfo<Value> &args)
 }
 
 template <bool isServer>
-void prepareMessage(const FunctionCallbackInfo<Value> &args)
-{
+void prepareMessage(const FunctionCallbackInfo<Value> &args) {
     uWS::OpCode opCode = (uWS::OpCode) args[1]->IntegerValue();
     NativeString nativeString(args[0]);
     args.GetReturnValue().Set(External::New(args.GetIsolate(), uWS::WebSocket<isServer>::prepareMessage(nativeString.getData(), nativeString.getLength(), opCode, false)));
 }
 
 template <bool isServer>
-void sendPrepared(const FunctionCallbackInfo<Value> &args)
-{
+void sendPrepared(const FunctionCallbackInfo<Value> &args) {
     unwrapSocket<isServer>(args[0].As<External>())
         .sendPrepared((typename uWS::WebSocket<isServer>::PreparedMessage *) args[1].As<External>()->Value());
 }
 
 template <bool isServer>
-void finalizeMessage(const FunctionCallbackInfo<Value> &args)
-{
+void finalizeMessage(const FunctionCallbackInfo<Value> &args) {
     uWS::WebSocket<isServer>::finalizeMessage((typename uWS::WebSocket<isServer>::PreparedMessage *) args[0].As<External>()->Value());
 }
 
-void forEach(const FunctionCallbackInfo<Value> &args)
-{
+void forEach(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
     Local<Function> cb = Local<Function>::Cast(args[1]);
@@ -408,12 +401,22 @@ void forEach(const FunctionCallbackInfo<Value> &args)
     }
 }
 
-void getSize(const FunctionCallbackInfo<Value> &args)
-{
+void getSize(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
     GroupData *groupData = (GroupData *) group->getUserData();
     args.GetReturnValue().Set(Integer::New(args.GetIsolate(), groupData->size));
+}
+
+template <bool isServer>
+void registerPong(const FunctionCallbackInfo<Value> &args) {
+    unwrapSocket<isServer>(args[0].As<External>()).registerPong();
+}
+
+void startAutoPing(const FunctionCallbackInfo<Value> &args) {
+    uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
+    NativeString nativeString(args[2]);
+    group->startAutoPing(args[1]->IntegerValue(), std::string(nativeString.getData(), nativeString.getLength()));
 }
 
 template <bool isServer>
@@ -427,6 +430,7 @@ struct Namespace {
         NODE_SET_METHOD(object, "prepareMessage", prepareMessage<isServer>);
         NODE_SET_METHOD(object, "sendPrepared", sendPrepared<isServer>);
         NODE_SET_METHOD(object, "finalizeMessage", finalizeMessage<isServer>);
+        NODE_SET_METHOD(object, "registerPong", registerPong<isServer>);
 
         Local<Object> group = Object::New(isolate);
         NODE_SET_METHOD(group, "onConnection", onConnection<isServer>);
@@ -438,6 +442,7 @@ struct Namespace {
         } else {
             NODE_SET_METHOD(group, "forEach", forEach);
             NODE_SET_METHOD(group, "getSize", getSize);
+            NODE_SET_METHOD(group, "startAutoPing", startAutoPing);
         }
 
         NODE_SET_METHOD(group, "onPing", onPing<isServer>);

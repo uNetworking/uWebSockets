@@ -10,6 +10,8 @@ function sent() {
   }
 }
 
+wss.startAutoPing(1000);
+
 wss.on('connection', function connection(ws) {
   // console.log(ws._socket);
 
@@ -21,6 +23,7 @@ wss.on('connection', function connection(ws) {
 
   ws.on('pong', function pong(message) {
     console.log('Got a pong!');
+    ws.registerPong();
   });
 
   // EventEmitter interface
