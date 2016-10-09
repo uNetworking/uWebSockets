@@ -1,5 +1,5 @@
-#ifndef WEBSOCKETPROTOCOL_H
-#define WEBSOCKETPROTOCOL_H
+#ifndef WEBSOCKETPROTOCOL_UWS_H
+#define WEBSOCKETPROTOCOL_UWS_H
 
 // we do need to include this for htobe64, should be moved from networking!
 #include "Networking.h"
@@ -368,4 +368,4 @@ public:
 
 }
 
-#endif // WEBSOCKETPROTOCOL_H
+#endif // WEBSOCKETPROTOCOL_UWS_H

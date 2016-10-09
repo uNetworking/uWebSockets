@@ -1,6 +1,6 @@
-#ifndef UWS_H
-#define UWS_H
+#ifndef UWS_UWS_H
+#define UWS_UWS_H
 
 #include "Hub.h"
 
-#endif // UWS_H
+#endif // UWS_UWS_H

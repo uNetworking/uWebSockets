@@ -1,5 +1,5 @@
-#ifndef SOCKET_H
-#define SOCKET_H
+#ifndef SOCKET_UWS_H
+#define SOCKET_UWS_H
 
 #include "Networking.h"
 
@@ -398,4 +398,4 @@ public:
 
 }
 
-#endif // SOCKET_H
+#endif // SOCKET_UWS_H
