@@ -48,11 +48,6 @@ struct WIN32_EXPORT WebSocket : protected uS::Socket {
         });
     }
 
-    void registerPong() {
-        Data *webSocketData = (Data *) getSocketData();
-        webSocketData->hasOutstandingPong = false;
-    }
-
     uv_poll_t *getPollHandle() {return p;}
     void terminate();
     void close(int code = 1000, char *message = nullptr, size_t length = 0);

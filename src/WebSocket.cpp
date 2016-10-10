@@ -122,9 +122,11 @@ void WebSocket<isServer>::finalizeMessage(typename WebSocket<isServer>::Prepared
 
 template <bool isServer>
 void WebSocket<isServer>::onData(uS::Socket s, char *data, int length) {
+    Data *webSocketData = (Data *) s.getSocketData();
+    webSocketData->hasOutstandingPong = false;
     if (!s.isShuttingDown()) {
         s.cork(true);
-        ((WebSocketProtocol<isServer> *) ((Data *) s.getSocketData()))->consume(data, length, s);
+        ((WebSocketProtocol<isServer> *) webSocketData)->consume(data, length, s);
         if (!s.isClosed()) {
             s.cork(false);
         }

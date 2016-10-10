@@ -87,6 +87,7 @@ void serveBenchmark() {
         ws.send(message, length, opCode);
     });
 
+    h.getDefaultGroup<uWS::SERVER>().startAutoPing(1000);
     h.listen(3000);
     h.run();
 }
@@ -563,11 +564,11 @@ void testAutoPing() {
 
     h.onMessage([](uWS::WebSocket<uWS::CLIENT> ws, char *message, size_t length, uWS::OpCode opCode) {
         std::cout << std::string(message, length) << std::endl;
+        ws.send(message, length, opCode);
     });
 
     h.onPong([](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length) {
         std::cout << "PONG" << std::endl;
-        ws.registerPong();
     });
 
     h.getDefaultGroup<uWS::SERVER>().startAutoPing(1000);
@@ -578,7 +579,7 @@ void testAutoPing() {
 
 int main(int argc, char *argv[])
 {
-    testAutoPing();
+    //testAutoPing();
 
     //testSendCallback();
 
@@ -592,5 +593,7 @@ int main(int argc, char *argv[])
     stressTest();*/
 
     //serveAutobahn();
-    //serveBenchmark();
+
+
+    serveBenchmark();
 }

@@ -408,11 +408,6 @@ void getSize(const FunctionCallbackInfo<Value> &args) {
     args.GetReturnValue().Set(Integer::New(args.GetIsolate(), groupData->size));
 }
 
-template <bool isServer>
-void registerPong(const FunctionCallbackInfo<Value> &args) {
-    unwrapSocket<isServer>(args[0].As<External>()).registerPong();
-}
-
 void startAutoPing(const FunctionCallbackInfo<Value> &args) {
     uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
     NativeString nativeString(args[2]);
@@ -430,7 +425,6 @@ struct Namespace {
         NODE_SET_METHOD(object, "prepareMessage", prepareMessage<isServer>);
         NODE_SET_METHOD(object, "sendPrepared", sendPrepared<isServer>);
         NODE_SET_METHOD(object, "finalizeMessage", finalizeMessage<isServer>);
-        NODE_SET_METHOD(object, "registerPong", registerPong<isServer>);
 
         Local<Object> group = Object::New(isolate);
         NODE_SET_METHOD(group, "onConnection", onConnection<isServer>);

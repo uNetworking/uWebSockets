@@ -264,12 +264,6 @@ class WebSocket {
             this.external = null;
         }
     }
-
-    registerPong() {
-        if (this.external) {
-            native.server.registerPong(this.external);
-        }
-    }
 }
 
 class WebSocketClient extends WebSocket {
@@ -473,10 +467,12 @@ class Server extends EventEmitter {
     }
 
     get clients() {
-        return {
-            length: native.server.group.getSize(this.serverGroup),
-            forEach: ((cb) => {native.server.group.forEach(this.serverGroup, cb)})
-        };
+        if (this.serverGroup) {
+            return {
+                length: native.server.group.getSize(this.serverGroup),
+                forEach: ((cb) => {native.server.group.forEach(this.serverGroup, cb)})
+            };
+        }
     }
 }
 

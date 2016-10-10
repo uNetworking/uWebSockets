@@ -23,7 +23,6 @@ wss.on('connection', function connection(ws) {
 
   ws.on('pong', function pong(message) {
     console.log('Got a pong!');
-    ws.registerPong();
   });
 
   // EventEmitter interface
