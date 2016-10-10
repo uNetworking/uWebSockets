@@ -58,6 +58,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
         uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
         messagePtr->length = WebSocketProtocol<isServer>::formatMessage((char *) messagePtr->data, message, length, opCode, length, false);
         messagePtr->callback = callback;
+        messagePtr->callbackData = callbackData;
         enqueue(messagePtr);
     }
 }
