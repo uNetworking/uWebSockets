@@ -1,5 +1,5 @@
-#ifndef EXTENSIONS_H
-#define EXTENSIONS_H
+#ifndef EXTENSIONS_UWS_H
+#define EXTENSIONS_UWS_H
 
 #include <string>
 
@@ -26,4 +26,4 @@ public:
 
 }
 
-#endif // EXTENSIONS_H
+#endif // EXTENSIONS_UWS_H

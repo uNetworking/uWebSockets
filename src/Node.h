@@ -1,5 +1,5 @@
-#ifndef NODE_H
-#define NODE_H
+#ifndef NODE_UWS_H
+#define NODE_UWS_H
 
 #include "Socket.h"
 #include <vector>
@@ -179,4 +179,4 @@ public:
 
 }
 
-#endif // NODE_H
+#endif // NODE_UWS_H

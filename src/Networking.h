@@ -1,5 +1,5 @@
-#ifndef NETWORKING_H
-#define NETWORKING_H
+#ifndef NETWORKING_UWS_H
+#define NETWORKING_UWS_H
 
 #include <openssl/opensslv.h>
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
@@ -228,4 +228,4 @@ enum SocketState : unsigned char {
 
 }
 
-#endif // NETWORKING_H
+#endif // NETWORKING_UWS_H
