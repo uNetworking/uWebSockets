@@ -150,6 +150,12 @@ void Group<isServer>::close(int code, char *message, size_t length) {
         ws.close(code, message, length);
     }
     stopListening();
+    if (timer) {
+        uv_timer_stop(timer);
+        uv_close((uv_handle_t *) timer, [](uv_handle_t *handle) {
+            delete (uv_timer_t *) handle;
+        });
+    }
 }
 
 template class Group<true>;
