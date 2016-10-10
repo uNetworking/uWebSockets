@@ -196,6 +196,7 @@ struct SocketData {
 
         void push(Message *message)
         {
+            message->nextMessage = nullptr;
             if (tail) {
                 tail->nextMessage = message;
                 tail = message;
