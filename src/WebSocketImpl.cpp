@@ -36,6 +36,10 @@ bool WebSocketProtocol<isServer>::handleFragment(char *data, size_t length, unsi
                 webSocketData->compressionStatus = WebSocket<isServer>::Data::CompressionStatus::ENABLED;
                 Hub *hub = ((Group<isServer> *) s.getSocketData()->nodeData)->hub;
                 data = hub->inflate(data, length);
+                if (!data) {
+                    forceClose(user);
+                    return true;
+                }
             }
 
             if (opCode == 1 && !isValidUtf8((unsigned char *) data, length)) {
@@ -56,6 +60,10 @@ bool WebSocketProtocol<isServer>::handleFragment(char *data, size_t length, unsi
                     Hub *hub = ((Group<isServer> *) s.getSocketData()->nodeData)->hub;
                     webSocketData->fragmentBuffer.append("....");
                     data = hub->inflate((char *) webSocketData->fragmentBuffer.data(), length);
+                    if (!data) {
+                        forceClose(user);
+                        return true;
+                    }
                 } else {
                     data = (char *) webSocketData->fragmentBuffer.data();
                 }

@@ -2,6 +2,8 @@
 #include "HTTPSocket.h"
 #include <openssl/sha.h>
 
+static const int INFLATE_LESS_THAN_ROUGHLY = 16777216;
+
 namespace uWS {
 
 char *Hub::inflate(char *data, size_t &length) {
@@ -18,12 +20,13 @@ char *Hub::inflate(char *data, size_t &length) {
         if (!inflationStream.avail_in) {
             break;
         }
+
         dynamicInflationBuffer.append(inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
-    } while (err == Z_BUF_ERROR);
+    } while (err == Z_BUF_ERROR && dynamicInflationBuffer.length() <= INFLATE_LESS_THAN_ROUGHLY);
 
     inflateReset(&inflationStream);
 
-    if (err != Z_BUF_ERROR && err != Z_OK) {
+    if ((err != Z_BUF_ERROR && err != Z_OK) || dynamicInflationBuffer.length() > INFLATE_LESS_THAN_ROUGHLY) {
         length = 0;
         return nullptr;
     }
