@@ -43,7 +43,7 @@ Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop)
     nodeData->loop = loop;
     nodeData->asyncMutex = &asyncMutex;
 
-    int indices = NodeData::getMemoryBlockIndex(NodeData::preAllocMaxSize);
+    int indices = NodeData::getMemoryBlockIndex(NodeData::preAllocMaxSize) + 1;
     nodeData->preAlloc = new char*[indices];
     for (int i = 0; i < indices; i++) {
         nodeData->preAlloc[i] = nullptr;
@@ -63,7 +63,7 @@ Node::~Node() {
     delete [] nodeData->recvBufferMemoryBlock;
     SSL_CTX_free(nodeData->clientContext);
 
-    int indices = NodeData::getMemoryBlockIndex(NodeData::preAllocMaxSize);
+    int indices = NodeData::getMemoryBlockIndex(NodeData::preAllocMaxSize) + 1;
     for (int i = 0; i < indices; i++) {
         if (nodeData->preAlloc[i]) {
             delete [] nodeData->preAlloc[i];

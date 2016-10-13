@@ -577,23 +577,42 @@ void testAutoPing() {
     h.run();
 }
 
+void testSmallSends() {
+    uWS::Hub h;
+
+    int length = 0;
+    h.onConnection([&h, &length](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+        while (length < 2048) {
+            char *message = new char[length];
+            ws.send(message, length, uWS::OpCode::TEXT);
+            delete [] message;
+            length++;
+        }
+        h.getDefaultGroup<uWS::SERVER>().close();
+    });
+
+    h.listen(3000);
+    h.connect("ws://localhost:3000", nullptr);
+
+    h.run();
+}
+
 int main(int argc, char *argv[])
 {
-    //testAutoPing();
-
-    //testSendCallback();
-
-    /*testMultithreading();
+    testSmallSends();
+    testSendCallback();
+    testMultithreading();
     testReusePort();
     testRouting();
     testClosing();
     testConnections();
     testListening();
     testBroadcast();
-    stressTest();*/
+    stressTest();
 
     //serveAutobahn();
 
 
-    serveBenchmark();
+    //testAutoPing();
+    //serveBenchmark();
 }
