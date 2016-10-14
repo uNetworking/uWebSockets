@@ -126,10 +126,12 @@ int main()
 ### Node.js developers
 [![](https://nodei.co/npm/uws.png)](https://www.npmjs.com/package/uws)
 
-* Node.js 4.x, 5.x & 6.x supported
+* Node.js 4.x, 5.x & 6.x supported (Windows version requires Node.js 6.4.0+)
 * Linux, Mac OS X & Windows supported
 
-*Windows version requires Node.js 6.4.0+*
+Prebuilt native modules are provided for most modern platforms. If the prebuilt
+module fails to load, `gcc` > 4.8.0 (or compatible) and `make` are required to
+build the native module from source.
 
 ### C++ developers
 #### Dependencies
