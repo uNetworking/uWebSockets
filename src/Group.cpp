@@ -16,14 +16,14 @@ template <bool isServer>
 void Group<isServer>::timerCallback(uv_timer_t *timer) {
     Group<isServer> *group = (Group<isServer> *) timer->data;
 
-    for (uWS::WebSocket<isServer> ws : *group) {
+    group->forEach([](uWS::WebSocket<isServer> ws) {
         typename uWS::WebSocket<isServer>::Data *webSocketData = (typename uWS::WebSocket<isServer>::Data *) ws.getSocketData();
         if (webSocketData->hasOutstandingPong) {
             ws.terminate();
         } else {
             webSocketData->hasOutstandingPong = true;
         }
-    }
+    });
 
     if (group->userPingMessage.length()) {
         group->broadcast(group->userPingMessage.data(), group->userPingMessage.length(), OpCode::TEXT);
@@ -55,6 +55,9 @@ void Group<isServer>::addWebSocket(uv_poll_t *webSocket) {
 template <bool isServer>
 void Group<isServer>::removeWebSocket(uv_poll_t *webSocket) {
     uS::SocketData *socketData = (uS::SocketData *) webSocket->data;
+    if (iterators.size()) {
+        iterators.top() = socketData->next;
+    }
     if (socketData->prev == socketData->next) {
         webSocketHead = (uv_poll_t *) nullptr;
     } else {
@@ -130,25 +133,25 @@ void Group<isServer>::onError(std::function<void (typename Group::errorType)> ha
 template <bool isServer>
 void Group<isServer>::broadcast(const char *message, size_t length, OpCode opCode) {
     typename WebSocket<isServer>::PreparedMessage *preparedMessage = WebSocket<isServer>::prepareMessage((char *) message, length, opCode, false);
-    for (WebSocket<isServer> ws : *this) {
+    forEach([preparedMessage](uWS::WebSocket<isServer> ws) {
         ws.sendPrepared(preparedMessage);
-    }
+    });
     WebSocket<isServer>::finalizeMessage(preparedMessage);
 }
 
 template <bool isServer>
 void Group<isServer>::terminate() {
-    for (WebSocket<isServer> ws : *this) {
+    forEach([](uWS::WebSocket<isServer> ws) {
         ws.terminate();
-    }
+    });
     stopListening();
 }
 
 template <bool isServer>
 void Group<isServer>::close(int code, char *message, size_t length) {
-    for (WebSocket<isServer> ws : *this) {
+    forEach([code, message, length](uWS::WebSocket<isServer> ws) {
         ws.close(code, message, length);
-    }
+    });
     stopListening();
     if (timer) {
         uv_timer_stop(timer);

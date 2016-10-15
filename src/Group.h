@@ -4,6 +4,7 @@
 #include "WebSocket.h"
 #include "Extensions.h"
 #include <functional>
+#include <stack>
 
 namespace uWS {
 
@@ -42,23 +43,7 @@ struct WIN32_EXPORT Group : protected uS::NodeData {
     void addWebSocket(uv_poll_t *webSocket);
     void removeWebSocket(uv_poll_t *webSocket);
 
-    struct WebSocketIterator {
-        uv_poll_t *webSocket;
-        WebSocketIterator(uv_poll_t *webSocket) : webSocket(webSocket) {}
-        WebSocket<isServer> operator*() {
-            return WebSocket<isServer>(webSocket);
-        }
-
-        bool operator!=(const WebSocketIterator &other) {
-            return !(webSocket == other.webSocket);
-        }
-
-        WebSocketIterator &operator++() {
-            uS::SocketData *socketData = (uS::SocketData *) webSocket->data;
-            webSocket = socketData->next;
-            return *this;
-        }
-    };
+    std::stack<uv_poll_t *> iterators;
 
 protected:
     Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData);
@@ -77,12 +62,21 @@ public:
     void close(int code = 1000, char *message = nullptr, size_t length = 0);
     using NodeData::addAsync;
 
-    WebSocketIterator begin() {
-        return WebSocketIterator(webSocketHead);
-    }
-
-    WebSocketIterator end() {
-        return WebSocketIterator(nullptr);
+    // todo: handle nested forEachs with removeWebSocket
+    template <class F>
+    void forEach(const F &cb) {
+        uv_poll_t *iterator = webSocketHead;
+        iterators.push(iterator);
+        while (iterator) {
+            uv_poll_t *lastIterator = iterator;
+            cb(WebSocket<isServer>(iterator));
+            iterator = iterators.top();
+            if (lastIterator == iterator) {
+                iterator = ((uS::SocketData *) iterator->data)->next;
+                iterators.top() = iterator;
+            }
+        }
+        iterators.pop();
     }
 };
 
