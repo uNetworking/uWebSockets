@@ -393,12 +393,12 @@ void forEach(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
     Local<Function> cb = Local<Function>::Cast(args[1]);
-    for (uWS::WebSocket<uWS::SERVER> webSocket : *group) {
+    group->forEach([isolate, &cb](uWS::WebSocket<uWS::SERVER> webSocket) {
         Local<Value> argv[] = {
             getDataV8(webSocket, isolate)
         };
         cb->Call(Null(isolate), 1, argv);
-    }
+    });
 }
 
 void getSize(const FunctionCallbackInfo<Value> &args) {
