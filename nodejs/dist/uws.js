@@ -38,7 +38,9 @@ native.client.group.onMessage(clientGroup, (message, webSocket) => {
 
 native.client.group.onDisconnection(clientGroup, (external, code, message, webSocket) => {
     webSocket.external = null;
-    webSocket.internalOnClose(code, message);
+    process.nextTick(() => {
+        webSocket.internalOnClose(code, message);
+    });
     native.clearUserData(external);
 });
 
@@ -392,7 +394,9 @@ class Server extends EventEmitter {
 
         native.server.group.onDisconnection(this.serverGroup, (external, code, message, webSocket) => {
             webSocket.external = null;
-            webSocket.internalOnClose(code, message);
+            process.nextTick(() => {
+                webSocket.internalOnClose(code, message);
+            });
             native.clearUserData(external);
         });
 
