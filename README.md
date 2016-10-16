@@ -26,6 +26,7 @@ Kaazing Gateway Community 5.0.0 | µWS is **62x** as lightweight | µWS is **15x
 ## Built with µWS
 <table>
 <tr>
+<td align="center"><a href="https://webtorrent.io/"><img src="https://camo.githubusercontent.com/357343e823b1c8d37418edce5ac401832eda2d27/68747470733a2f2f776562746f7272656e742e696f2f696d672f576562546f7272656e742e706e67" height="64" /></a></td>
 <td align="center"><a href="https://deepstream.io/"><img src="https://avatars3.githubusercontent.com/u/9024218?v=3&s=200" height="64" /></a></td>
 <td align="center"><a href="http://socketcluster.io/#!/"><img src="https://camo.githubusercontent.com/1e6a52dbf401b60f5979aec6416967a42aab8e53/68747470733a2f2f7261772e6769746875622e636f6d2f536f636b6574436c75737465722f736f636b6574636c75737465722f6d61737465722f6173736574732f6c6f676f2e706e67" height="64" /></a></td>
 <td align="center"><a href="https://github.com/fortunejs/fortune"><img src="https://avatars0.githubusercontent.com/u/10836409?v=3&s=200" height="64" /></a></td>
@@ -34,6 +35,7 @@ Kaazing Gateway Community 5.0.0 | µWS is **62x** as lightweight | µWS is **15x
 <td align="center"><a href="https://github.com/silverwind/droppy"><img src="https://camo.githubusercontent.com/abce96075e1d9ffb897a243c09f320d99d0309d7/68747470733a2f2f63646e2e7261776769742e636f6d2f73696c76657277696e642f64726f7070792f6d61737465722f636c69656e742f696d616765732f726561646d652d6c6f676f2e737667" height="64" /></a></td>
 </tr>
 <tr>
+<td align="center">WebTorrent</td>
 <td align="center">deepstream.io</td>
 <td align="center">SocketCluster</td>
 <td align="center">Fortune.js</td>
