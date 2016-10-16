@@ -59,13 +59,13 @@ There are some important incompatibilities with `ws` though, we aim to be ~90% c
 * `webSocket._socket` is not a `net.Socket`, it is just a getter function with very basic functionalities.
 * `webSocket._socket.remote...` might fail, you need to cache it at connection.
 * `webSocket` acts like an `EventEmitter` with one listener per event maximum.
-* `webSocket.upgradeReq` is very limited and only holds commonly accessed data.
+* `webSocket.upgradeReq` is only valid during execution of the connection handler. If you want to keep properties of the upgradeReq for the entire lifetime of the webSocket you better attach that specific property to the webSocket at connection.
 
 ##### SocketCluster
 `µWS` is the default engine in [SocketCluster](http://socketcluster.io) as of 5.0.0.
 
 ##### deepstream.io
-`µWS` is the default engine in [deepstream.io](http://deepstream.io/) as of 1.0.0.
+`µWS` is the default engine in [deepstream.io](http://deepstream.io/) as of 1.0.0. It is also deeply integrated into the server as of 1.2.0.
 
 ##### Socket.IO
 Use the new `wsEngine: 'uws'` option like so:
