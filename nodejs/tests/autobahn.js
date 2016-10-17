@@ -1,4 +1,4 @@
-const WebSocketServer = require('../dist/uws').Server;
+const WebSocketServer = require('../lib/uws').Server;
 const non_ssl = new WebSocketServer({ port: 3000 });
 const fs = require('fs');
 const https = require('https');
