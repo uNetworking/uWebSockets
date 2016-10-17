@@ -10,6 +10,13 @@ build/
 nodejs/build/
 node_modules/
 
-# .gitignore specific
+# .npmignore specific
 
-nodejs/lib/*.node
+nodejs/tests/
+nodejs/misc/
+
+autobahn/
+benchmarks/
+examples/
+ssl/
+tests/

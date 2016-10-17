@@ -1,0 +1,47 @@
+{
+  "name": "uws",
+  "version": "0.10.11",
+  "scripts": {
+    "test": "semistandard",
+    "build": "node nodejs/scripts/build.js",
+    "build:all": "node nodejs/scripts/build.js all",
+    "build:gyp": "node-gyp -C nodejs/ --target=$BUILD_NODE_VERSION rebuild && node nodejs/scripts/postbuild.js",
+    "install": "node nodejs/scripts/install.js",
+    "package": "npm run build:all",
+    "prepublish": "(in-publish && npm run package) || in-install",
+    "clean": "node-gyp -C nodejs/ clean && rimraf nodejs/lib/*.node"
+  },
+  "main": "nodejs/lib/uws.js",
+  "description": "Highly scalable WebSocket server & client library",
+  "engines": {
+    "node": ">=4"
+  },
+  "keywords": [
+    "websockets",
+    "µWS",
+    "µWebSockets",
+    "uws",
+    "microWS",
+    "lightweight",
+    "fast"
+  ],
+  "homepage": "https://github.com/uWebSockets/uWebSockets",
+  "license": "Zlib",
+  "author": "Alex Hultman <alexhultman@gmail.com> (https://github.com/alexhultman)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uWebSockets/uWebSockets.git"
+  },
+  "devDependencies": {
+    "in-publish": "^2.0.0",
+    "rimraf": "^2.5.4",
+    "semistandard": "^9.1.0"
+  },
+  "semistandard": {
+    "ignore": [
+      "benchmarks/",
+      "nodejs/tests/",
+      "nodejs/misc/"
+    ]
+  }
+}

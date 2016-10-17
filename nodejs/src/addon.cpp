@@ -1,4 +1,4 @@
-#include "../src/uWS.h"
+#include "../../src/uWS.h"
 
 #include <node.h>
 #include <node_buffer.h>

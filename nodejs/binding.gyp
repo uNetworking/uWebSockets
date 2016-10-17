@@ -3,15 +3,15 @@
     {
       'target_name': 'uws',
       'sources': [
-        'src/Extensions.cpp',
-        'src/Group.cpp',
-        'src/WebSocketImpl.cpp',
-        'src/Networking.cpp',
-        'src/Hub.cpp',
-        'src/Node.cpp',
-        'src/WebSocket.cpp',
-        'src/HTTPSocket.cpp',
-        'src/Socket.cpp',
+        '../src/Extensions.cpp',
+        '../src/Group.cpp',
+        '../src/WebSocketImpl.cpp',
+        '../src/Networking.cpp',
+        '../src/Hub.cpp',
+        '../src/Node.cpp',
+        '../src/WebSocket.cpp',
+        '../src/HTTPSocket.cpp',
+        '../src/Socket.cpp',
         'src/addon.cpp'
       ],
       'conditions': [
@@ -29,7 +29,7 @@
             'CLANG_CXX_LIBRARY': 'libc++',
             'GCC_GENERATE_DEBUGGING_SYMBOLS': 'NO',
             'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
-            'GCC_THREADSAFE_STATICS': 'YES',
+            'GCC_THREADSAFE_STATICnoS': 'YES',
             'GCC_OPTIMIZATION_LEVEL': '3',
             'GCC_ENABLE_CPP_RTTI': 'YES',
             'OTHER_CFLAGS!': [ '-fno-strict-aliasing' ]
@@ -39,23 +39,6 @@
           'cflags_cc': [],
           'cflags_cc!': []
         }]
-       ]
-    },
-    {
-      'target_name': 'action_after_build',
-      'type': 'none',
-      'dependencies': [ 'uws' ],
-      'actions': [
-        {
-          'action_name': 'move_lib',
-          'inputs': [
-            '<@(PRODUCT_DIR)/uws.node'
-          ],
-          'outputs': [
-            'uws'
-          ],
-          'action': ['cp', '<@(PRODUCT_DIR)/uws.node', 'uws_<!@(node -p process.platform)_<!@(node -p process.versions.modules).node']
-        }
       ]
     }
   ]
