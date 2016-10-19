@@ -10,6 +10,7 @@ default:
 	cp ../LICENSE dist/LICENSE
 	cp -r ../src dist/
 	cp addon.cpp dist/src/addon.cpp
+	cp addon.h dist/src/addon.h
 	for f in dist/*.node; do chmod +x $$f; done
 targets:
 	mkdir targets
