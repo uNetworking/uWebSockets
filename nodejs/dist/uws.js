@@ -9,7 +9,11 @@ function abortConnection(socket, code, name) {
 }
 const native = (() => {
     try {
-        return require(`./uws_${process.platform}_${process.versions.modules}`);
+        try {
+            return process.binding('uws');
+        } catch (e) {
+            return require(`./uws_${process.platform}_${process.versions.modules}`);
+        }
     } catch (e) {
         const version = process.version.substring(1).split('.').map(function(n) {
             return parseInt(n);
