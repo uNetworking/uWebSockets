@@ -10,7 +10,7 @@ function abortConnection(socket, code, name) {
 const native = (() => {
     try {
         try {
-            return process.binding('uws');
+            return process.binding('uws_builtin');
         } catch (e) {
             return require(`./uws_${process.platform}_${process.versions.modules}`);
         }

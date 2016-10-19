@@ -24,4 +24,4 @@ void Main(Local<Object> exports, Local<Value> unused, Local<Context> context) {
 
 }
 
-NODE_MODULE_CONTEXT_AWARE_BUILTIN(uws-builtin, node::Main)
+NODE_MODULE_CONTEXT_AWARE_BUILTIN(uws_builtin, node::Main)
