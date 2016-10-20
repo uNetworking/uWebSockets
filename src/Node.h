@@ -142,10 +142,12 @@ public:
         }
 
 #ifdef __linux
+#ifdef SO_REUSEPORT
         if (options & REUSE_PORT) {
             int optval = 1;
             setsockopt(listenFd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
         }
+#endif
 #endif
 
         int enabled = true;
