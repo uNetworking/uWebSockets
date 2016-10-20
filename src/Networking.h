@@ -99,7 +99,7 @@ Context createContext(std::string certChainFileName, std::string keyFileName, st
 
 }
 
-class SocketData;
+struct SocketData;
 
 struct NodeData {
     char *recvBufferMemoryBlock;

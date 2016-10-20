@@ -161,7 +161,7 @@ void Group<isServer>::close(int code, char *message, size_t length) {
     }
 }
 
-template class Group<true>;
-template class Group<false>;
+template struct Group<true>;
+template struct Group<false>;
 
 }

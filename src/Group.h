@@ -17,7 +17,7 @@ struct UpgradeInfo {
 
 template <bool isServer>
 struct WIN32_EXPORT Group : protected uS::NodeData {
-    friend class Hub;
+    friend struct Hub;
     std::function<void(WebSocket<isServer>, UpgradeInfo)> connectionHandler;
     std::function<void(WebSocket<isServer>, char *message, size_t length, OpCode opCode)> messageHandler;
     std::function<void(WebSocket<isServer>, int code, char *message, size_t length)> disconnectionHandler;

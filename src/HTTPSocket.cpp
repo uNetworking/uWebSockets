@@ -247,7 +247,7 @@ void HTTPSocket<isServer>::onEnd(uS::Socket s) {
     delete httpSocketData;
 }
 
-template class HTTPSocket<SERVER>;
-template class HTTPSocket<CLIENT>;
+template struct HTTPSocket<SERVER>;
+template struct HTTPSocket<CLIENT>;
 
 }

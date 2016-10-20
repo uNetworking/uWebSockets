@@ -182,7 +182,7 @@ void WebSocket<isServer>::onEnd(uS::Socket s) {
     delete webSocketData;
 }
 
-template class WebSocket<SERVER>;
-template class WebSocket<CLIENT>;
+template struct WebSocket<SERVER>;
+template struct WebSocket<CLIENT>;
 
 }

@@ -78,7 +78,7 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh)
         eh = (Group<CLIENT> *) this;
     }
 
-    int offset = 0;
+    size_t offset = 0;
     std::string protocol = uri.substr(offset, uri.find("://")), hostname, portStr, path;
     if ((offset += protocol.length() + 3) < uri.length()) {
         hostname = uri.substr(offset, uri.find_first_of(":/", offset) - offset);
