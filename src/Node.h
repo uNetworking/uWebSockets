@@ -48,7 +48,7 @@ public:
         }
 
         uv_os_sock_t fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-        fcntl(fd, F_SETFD, FD_CLOEXEC);
+        set_cloexec_flag(fd);
         if (fd == -1) {
             C(p, true);
             delete p;
@@ -78,7 +78,7 @@ public:
         ListenData *listenData = (ListenData *) p->data;
         uv_os_sock_t serverFd = Socket(p).getFd();
         uv_os_sock_t clientFd = accept(serverFd, nullptr, nullptr);
-        fcntl(clientFd, F_SETFD, FD_CLOEXEC);
+        set_cloexec_flag(clientFd);
         if (clientFd == INVALID_SOCKET) {
             return;
         }
@@ -130,7 +130,7 @@ public:
             for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
                 if (a->ai_family == AF_INET6) {
                     listenFd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
-                    fcntl(listenFd, F_SETFD, FD_CLOEXEC);
+                    set_cloexec_flag(listenFd);
                     listenAddr = a;
                 }
             }
@@ -139,7 +139,7 @@ public:
         for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
             if (a->ai_family == AF_INET) {
                 listenFd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
-                fcntl(listenFd, F_SETFD, FD_CLOEXEC);
+                set_cloexec_flag(listenFd);
                 listenAddr = a;
             }
         }

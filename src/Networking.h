@@ -50,6 +50,15 @@ inline SOCKET dup(SOCKET socket) {
 #define SOCKET_ERROR -1
 #define INVALID_SOCKET -1
 #define WIN32_EXPORT
+
+inline bool set_cloexec_flag(int desc) {
+    int oldflags = fcntl(desc, F_GETFD, nullptr);
+    /* If reading the flags failed, just return false with errno set */
+    if (oldflags < 0)
+        return false;
+    return fcntl(desc, F_SETFD, oldflags | FD_CLOEXEC) == 0;
+}
+
 #endif
 
 #ifdef USE_MICRO_UV
