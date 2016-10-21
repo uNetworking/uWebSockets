@@ -52,7 +52,12 @@ inline SOCKET dup(SOCKET socket) {
 #define WIN32_EXPORT
 #endif
 
+#ifdef USE_MICRO_UV
+#include "uUV.h"
+#else
 #include <uv.h>
+#endif
+
 #include <openssl/ssl.h>
 #include <vector>
 #include <string>

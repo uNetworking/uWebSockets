@@ -98,7 +98,11 @@ public:
         socketData->ssl = ssl;
 
         uv_poll_t *clientPoll = new uv_poll_t;
+#ifdef USE_MICRO_UV
+        uv_poll_init_socket(listenData->listenPoll->get_loop(), clientPoll, clientFd);
+#else
         uv_poll_init_socket(listenData->listenPoll->loop, clientPoll, clientFd);
+#endif
         clientPoll->data = socketData;
 
         socketData->poll = UV_READABLE;
