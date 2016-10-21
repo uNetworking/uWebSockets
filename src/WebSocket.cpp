@@ -145,6 +145,8 @@ void WebSocket<isServer>::close(int code, char *message, size_t length) {
     length = std::min<size_t>(MAX_CLOSE_PAYLOAD, length);
     ((Group<isServer> *) getSocketData()->nodeData)->removeWebSocket(*this);
     ((Group<isServer> *) getSocketData()->nodeData)->disconnectionHandler(*this, code, message, length);
+    getSocketData()->shuttingDown = true;
+    startTimeout<WebSocket<isServer>::onEnd>();
 
     char closePayload[MAX_CLOSE_PAYLOAD + 2];
     int closePayloadLength = WebSocketProtocol<isServer>::formatClosePayload(closePayload, code, message, length);
@@ -153,9 +155,6 @@ void WebSocket<isServer>::close(int code, char *message, size_t length) {
             Socket((uv_poll_t *) p).shutdown();
         }
     });
-
-    getSocketData()->shuttingDown = true;
-    startTimeout<WebSocket<isServer>::onEnd>();
 }
 
 template <bool isServer>
