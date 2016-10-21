@@ -42,11 +42,16 @@ inline SOCKET dup(SOCKET socket) {
     }
     return WSASocketW(pi.iAddressFamily, pi.iSocketType, pi.iProtocol, &pi, 0, WSA_FLAG_OVERLAPPED);
 }
+
+/*just ignore it*/
+inline bool set_cloexec_flag(int desc) { return true; }
+
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
+#include <fcntl.h>
 #define SOCKET_ERROR -1
 #define INVALID_SOCKET -1
 #define WIN32_EXPORT
