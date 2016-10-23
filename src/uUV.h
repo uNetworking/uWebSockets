@@ -27,8 +27,11 @@ struct uv_async_t : uv_handle_t {
     void *data;
 };
 
+struct uv_loop_t;
+
 struct uv_timer_t : uv_handle_t {
     void *data;
+    uv_loop_t *loop;
 };
 
 static void uv_async_send(uv_async_t *async) {
@@ -47,23 +50,60 @@ typedef void (*uv_handle_cb)(uv_handle_t *handle);
 typedef void (*uv_async_cb)(uv_async_t *handle);
 typedef void (*uv_timer_cb)(uv_timer_t *handle);
 
+#include <chrono>
+
+struct Timepoint {
+    uv_timer_cb cb;
+    uv_timer_t *timer;
+    std::chrono::system_clock::time_point timepoint;
+    int nextDelay;
+};
+
 struct uv_loop_t {
     int efd;
     int index;
     std::vector<std::pair<uv_handle_t *, uv_handle_cb>> closing;
     int polls;
+
+    std::vector<Timepoint> timers;
 };
 
 static void uv_timer_init(uv_loop_t *loop, uv_timer_t *timer) {
     timer->type = 1;
+    timer->loop = loop;
 }
 
+#include <algorithm>
+
 static void uv_timer_start(uv_timer_t *timer, uv_timer_cb cb, int timeout, int repeat) {
+
+    std::chrono::system_clock::time_point timepoint = std::chrono::system_clock::now();
+
+    timepoint += std::chrono::milliseconds(timeout);
+
+    // sortera!
+    timer->loop->timers.push_back({cb, timer, timepoint, repeat});
+
+    std::sort(timer->loop->timers.begin(), timer->loop->timers.end(), [](const Timepoint &a, const Timepoint &b) {
+        return a.timepoint < b.timepoint;
+    });
+
+//    if (timer->loop->timers[0].timepoint > timer->loop->timers[timer->loop->timers.size() - 1].timepoint) {
+//        exit(-1);
+//    }
 
 }
 
 static void uv_timer_stop(uv_timer_t *timer) {
+    auto pos = timer->loop->timers.begin();
+    for (Timepoint &t : timer->loop->timers) {
 
+        if (t.timer == timer) {
+            timer->loop->timers.erase(pos);
+            break;
+        }
+        pos++;
+    }
 }
 
 static void uv_async_init(uv_loop_t *loop, uv_async_t *async, uv_async_cb cb) {
@@ -177,16 +217,35 @@ inline void uv_run(uv_loop_t *loop, int mode) {
         loop->closing.clear();
 
         epoll_event readyEvents[64];
-        int numFdReady = epoll_wait(loop->efd, readyEvents, 64, -1);
-
-        // check timers here
 
 
+        std::chrono::system_clock::time_point timepoint = std::chrono::system_clock::now();
+        int delay = -1;
+
+        if (loop->timers.size()) {
+            delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(loop->timers[0].timepoint - timepoint).count(), 0);
+            //std::cout << "Timeout: " << delay << "ms" << std::endl;
+        }
+
+        int numFdReady = epoll_wait(loop->efd, readyEvents, 64, delay);
         for (int i = 0; i < numFdReady; i++) {
             uv_poll_t *poll = (uv_poll_t *) readyEvents[i].data.ptr;
             int status = -bool(readyEvents[i].events & EPOLLERR);
             callbacks[poll->cbIndex](poll, status, readyEvents[i].events);
         }
+
+
+
+        // check timers here
+
+        timepoint = std::chrono::system_clock::now();
+
+        while (loop->timers.size() && loop->timers[0].timepoint < timepoint) {
+            std::cout << "TIMEOUT!" << std::endl;
+            loop->timers[0].cb(loop->timers[0].timer);
+            loop->timers.erase(loop->timers.begin());
+        }
+
     }
 }
 

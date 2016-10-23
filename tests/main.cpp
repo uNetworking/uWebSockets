@@ -606,7 +606,7 @@ int main(int argc, char *argv[])
     testReusePort();
     testRouting();
     testClosing();
-    //testConnections(); // FAILS IN µUV
+    testConnections();
     testListening();
     testBroadcast();
     stressTest();
