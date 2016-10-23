@@ -16,8 +16,9 @@
 
 #define UV_VERSION_MINOR 3
 
-#include <iostream>
 #include <vector>
+#include <chrono>
+#include <algorithm>
 
 struct uv_handle_t {
     unsigned char type = 0;
@@ -35,7 +36,7 @@ struct uv_timer_t : uv_handle_t {
 };
 
 static void uv_async_send(uv_async_t *async) {
-
+    // todo
 }
 
 struct uv_poll_t;
@@ -50,8 +51,6 @@ typedef void (*uv_handle_cb)(uv_handle_t *handle);
 typedef void (*uv_async_cb)(uv_async_t *handle);
 typedef void (*uv_timer_cb)(uv_timer_t *handle);
 
-#include <chrono>
-
 struct Timepoint {
     uv_timer_cb cb;
     uv_timer_t *timer;
@@ -64,22 +63,19 @@ struct uv_loop_t {
     int index;
     std::vector<std::pair<uv_handle_t *, uv_handle_cb>> closing;
     int polls;
-
     std::vector<Timepoint> timers;
+    std::chrono::system_clock::time_point timepoint;
 };
 
 static void uv_timer_init(uv_loop_t *loop, uv_timer_t *timer) {
     timer->type = 1;
     timer->loop = loop;
+    loop->timepoint = std::chrono::system_clock::now();
 }
 
-#include <algorithm>
-
+// optimera
 static void uv_timer_start(uv_timer_t *timer, uv_timer_cb cb, int timeout, int repeat) {
-
-    std::chrono::system_clock::time_point timepoint = std::chrono::system_clock::now();
-
-    timepoint += std::chrono::milliseconds(timeout);
+    std::chrono::system_clock::time_point timepoint = timer->loop->timepoint + std::chrono::milliseconds(timeout);
 
     // sortera!
     timer->loop->timers.push_back({cb, timer, timepoint, repeat});
@@ -87,17 +83,11 @@ static void uv_timer_start(uv_timer_t *timer, uv_timer_cb cb, int timeout, int r
     std::sort(timer->loop->timers.begin(), timer->loop->timers.end(), [](const Timepoint &a, const Timepoint &b) {
         return a.timepoint < b.timepoint;
     });
-
-//    if (timer->loop->timers[0].timepoint > timer->loop->timers[timer->loop->timers.size() - 1].timepoint) {
-//        exit(-1);
-//    }
-
 }
 
 static void uv_timer_stop(uv_timer_t *timer) {
     auto pos = timer->loop->timers.begin();
     for (Timepoint &t : timer->loop->timers) {
-
         if (t.timer == timer) {
             timer->loop->timers.erase(pos);
             break;
@@ -114,14 +104,13 @@ static uv_loop_t *uv_default_loop() {
     return nullptr;
 }
 
-// support 128 loops maximum
+// remove these when done with them!
 extern uv_loop_t *loops[128];
 extern int loopHead;
 
 extern uv_poll_cb callbacks[128];
 extern int cbHead;
 
-// 24 byte poll
 struct uv_poll_t : uv_handle_t {
     epoll_event event;
     void *data;
@@ -203,7 +192,7 @@ inline bool uv_is_closing(uv_handle_t *handle) {
 }
 
 inline void uv_run(uv_loop_t *loop, int mode) {
-    //std::cout << "Size: " << sizeof(uv_poll_t) << std::endl;
+    loop->timepoint = std::chrono::system_clock::now();
     while (loop->polls) {
         for (std::pair<uv_handle_t *, uv_handle_cb> c : loop->closing) {
             loop->polls--;
@@ -216,17 +205,12 @@ inline void uv_run(uv_loop_t *loop, int mode) {
         }
         loop->closing.clear();
 
-        epoll_event readyEvents[64];
-
-
-        std::chrono::system_clock::time_point timepoint = std::chrono::system_clock::now();
         int delay = -1;
-
         if (loop->timers.size()) {
-            delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(loop->timers[0].timepoint - timepoint).count(), 0);
-            //std::cout << "Timeout: " << delay << "ms" << std::endl;
+            delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(loop->timers[0].timepoint - loop->timepoint).count(), 0);
         }
 
+        epoll_event readyEvents[64];
         int numFdReady = epoll_wait(loop->efd, readyEvents, 64, delay);
         for (int i = 0; i < numFdReady; i++) {
             uv_poll_t *poll = (uv_poll_t *) readyEvents[i].data.ptr;
@@ -234,18 +218,17 @@ inline void uv_run(uv_loop_t *loop, int mode) {
             callbacks[poll->cbIndex](poll, status, readyEvents[i].events);
         }
 
-
-
-        // check timers here
-
-        timepoint = std::chrono::system_clock::now();
-
-        while (loop->timers.size() && loop->timers[0].timepoint < timepoint) {
-            std::cout << "TIMEOUT!" << std::endl;
+        loop->timepoint = std::chrono::system_clock::now();
+        while (loop->timers.size() && loop->timers[0].timepoint < loop->timepoint) {
             loop->timers[0].cb(loop->timers[0].timer);
+            uv_timer_t *timer = loop->timers[0].timer;
+            int repeat = loop->timers[0].nextDelay;
+            uv_timer_cb cb = loop->timers[0].cb;
             loop->timers.erase(loop->timers.begin());
+            if (repeat) {
+                uv_timer_start(timer, cb, repeat, repeat);
+            }
         }
-
     }
 }
 
