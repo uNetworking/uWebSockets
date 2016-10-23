@@ -43,9 +43,6 @@ inline SOCKET dup(SOCKET socket) {
     return WSASocketW(pi.iAddressFamily, pi.iSocketType, pi.iProtocol, &pi, 0, WSA_FLAG_OVERLAPPED);
 }
 
-/*just ignore it*/
-inline bool set_cloexec_flag(int desc) { return true; }
-
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -56,15 +53,27 @@ inline bool set_cloexec_flag(int desc) { return true; }
 #define INVALID_SOCKET -1
 #define WIN32_EXPORT
 
-inline bool set_cloexec_flag(int desc) {
+#endif
+
+#ifdef FD_CLOEXEC
+inline int set_cloexec_flag(int desc) {
     int oldflags = fcntl(desc, F_GETFD, nullptr);
-    /* If reading the flags failed, just return false with errno set */
-    if (oldflags < 0)
-        return false;
-    return fcntl(desc, F_SETFD, oldflags | FD_CLOEXEC) == 0;
+    if (oldflags >= 0)
+        fcntl(desc, F_SETFD, oldflags | FD_CLOEXEC);
+    return desc;
+}
+#else
+/*just ignore it*/
+inline int set_cloexec_flag(int desc) { return desc; }
+#endif
+
+inline int privateAccept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
+    return set_cloexec_flag(accept(sockfd, addr, addrlen));
 }
 
-#endif
+inline int privateSocket(int domain, int type, int protocol) {
+    return set_cloexec_flag(socket(domain, type, protocol));
+}
 
 #ifdef USE_MICRO_UV
 #include "uUV.h"

@@ -47,8 +47,7 @@ public:
             return nullptr;
         }
 
-        uv_os_sock_t fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-        set_cloexec_flag(fd);
+        uv_os_sock_t fd = privateSocket(result->ai_family, result->ai_socktype, result->ai_protocol);
         if (fd == -1) {
             C(p, true);
             delete p;
@@ -77,8 +76,7 @@ public:
     static void accept_cb(uv_poll_t *p, int status, int events) {
         ListenData *listenData = (ListenData *) p->data;
         uv_os_sock_t serverFd = Socket(p).getFd();
-        uv_os_sock_t clientFd = accept(serverFd, nullptr, nullptr);
-        set_cloexec_flag(clientFd);
+        uv_os_sock_t clientFd = privateAccept(serverFd, nullptr, nullptr);
         if (clientFd == INVALID_SOCKET) {
             return;
         }
@@ -129,8 +127,7 @@ public:
         if ((options & uS::ONLY_IPV4) == 0) {
             for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
                 if (a->ai_family == AF_INET6) {
-                    listenFd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
-                    set_cloexec_flag(listenFd);
+                    listenFd = privateSocket(a->ai_family, a->ai_socktype, a->ai_protocol);
                     listenAddr = a;
                 }
             }
@@ -138,8 +135,7 @@ public:
 
         for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
             if (a->ai_family == AF_INET) {
-                listenFd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
-                set_cloexec_flag(listenFd);
+                listenFd = privateSocket(a->ai_family, a->ai_socktype, a->ai_protocol);
                 listenAddr = a;
             }
         }
