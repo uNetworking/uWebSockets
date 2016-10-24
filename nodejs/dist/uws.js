@@ -332,6 +332,7 @@ class Server extends EventEmitter {
         this._upgradeListener = null;
         this._noDelay = options.noDelay === undefined ? true : options.noDelay;
         this._lastUpgradeListener = true;
+        this._passedHttpServer = options.server;
 
         if (!options.noServer) {
             this.httpServer = options.server ? options.server : http.createServer((request, response) => {
@@ -459,7 +460,9 @@ class Server extends EventEmitter {
     close() {
         if (this._upgradeListener && this.httpServer) {
             this.httpServer.removeListener('upgrade', this._upgradeListener);
-            this.httpServer.close();
+            if (!this._passedHttpServer) {
+                this.httpServer.close();
+            }
         }
 
         if (this.serverGroup) {
