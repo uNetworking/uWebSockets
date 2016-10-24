@@ -1,4 +1,4 @@
-<div align="center"><img src="logo.png"/></div>
+<div align="center"><img src="images/logo.png"/></div>
 `µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/autobahn/index.html).
@@ -33,7 +33,7 @@ Kaazing Gateway Community 5.0.0 | µWS is **62x** as lightweight | µWS is **15x
 <td align="center"><a href="http://wilds.io/"><img src="https://scontent-ams3-1.xx.fbcdn.net/v/t1.0-1/c43.0.160.160/p160x160/13237648_988335957953290_8996720199169630743_n.png?oh=3a190760956a38db5216efdee1b42646&oe=58363BF4" height="64" /></a></td>
 <td align="center"><a href="http://crisp.im/"><img src="https://avatars0.githubusercontent.com/u/16270189?v=3&s=200" height="64" /></a></td>
 <td align="center"><a href="https://github.com/silverwind/droppy"><img src="https://camo.githubusercontent.com/abce96075e1d9ffb897a243c09f320d99d0309d7/68747470733a2f2f63646e2e7261776769742e636f6d2f73696c76657277696e642f64726f7070792f6d61737465722f636c69656e742f696d616765732f726561646d652d6c6f676f2e737667" height="64" /></a></td>
-<td align="center"><a href="https://discordapp.com"><img src="https://discordapp.com/assets/f8389ca1a741a115313bede9ac02e2c0.svg" height="64" /></a></td>
+<td align="center"><a href="https://discordapp.com"><img src="images/discord.png" height="64" /></a></td>
 </tr>
 <tr>
 <td align="center">WebTorrent</td>
