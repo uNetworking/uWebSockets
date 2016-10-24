@@ -1,6 +1,6 @@
 {
   "name": "uws",
-  "version": "0.10.12",
+  "version": "0.10.13",
   "scripts": {
     "install": "node-gyp rebuild > build_log.txt 2>&1 || exit 0"
   },
