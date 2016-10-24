@@ -67,7 +67,7 @@ There are some important incompatibilities with `ws` though, we aim to be ~90% c
 ##### deepstream.io
 `µWS` is the default engine in [deepstream.io](http://deepstream.io/) as of 1.0.0. It is also deeply integrated into the server as of 1.2.0.
 
-##### Socket.IO
+##### Socket.IO (Warning: Socket.IO is *extremely* inefficient and should never be used!)
 Use the new `wsEngine: 'uws'` option like so:
 ```javascript
 var io = require('socket.io')(80, { wsEngine: 'uws' });
