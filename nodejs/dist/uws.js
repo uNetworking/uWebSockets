@@ -263,10 +263,7 @@ class WebSocket {
 
     close(code, data) {
         if (this.external) {
-            const external = this.external;
-            process.nextTick(() => {
-                native.server.close(external, code, data);
-            });
+            native.server.close(this.external, code, data);
             this.external = null;
         }
     }
@@ -311,10 +308,7 @@ class WebSocketClient extends WebSocket {
 
     close(code, data) {
         if (this.external) {
-            const external = this.external;
-            process.nextTick(() => {
-                native.client.close(external, code, data);
-            });
+            native.client.close(this.external, code, data);
             this.external = null;
         }
     }
