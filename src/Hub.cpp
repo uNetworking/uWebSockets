@@ -125,7 +125,7 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh)
     }
 }
 
-bool Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, Group<SERVER> *serverGroup) {
+bool Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup) {
     if (!serverGroup) {
         serverGroup = &getDefaultGroup<SERVER>();
     }
@@ -148,7 +148,7 @@ bool Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
         }
     }
 
-    if (HTTPSocket<SERVER>(s).upgrade(secKey, extensionsResponse.data(), extensionsResponse.length())) {
+    if (HTTPSocket<SERVER>(s).upgrade(secKey, extensionsResponse.data(), extensionsResponse.length(), subprotocol, subprotocolLength)) {
         s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
         serverGroup->addWebSocket(s);
         serverGroup->connectionHandler(WebSocket<SERVER>(s), {nullptr, nullptr, 0, 0});
