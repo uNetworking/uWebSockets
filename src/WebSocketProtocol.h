@@ -246,8 +246,8 @@ public:
         if (length >= 2) {
             memcpy(&cf.code, src, 2);
             cf = {ntohs(cf.code), src + 2, length - 2};
-            if (cf.code < 1000 || cf.code > 1011 || (cf.code >= 1004 && cf.code <= 1006) ||
-                !isValidUtf8((unsigned char *) cf.message, cf.length)) {
+            if (cf.code < 1000 || cf.code > 4999 || (cf.code > 1011 && cf.code < 4000) ||
+                (cf.code >= 1004 && cf.code <= 1006) || !isValidUtf8((unsigned char *) cf.message, cf.length)) {
                 return {};
             }
         }
