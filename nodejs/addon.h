@@ -205,10 +205,11 @@ void upgrade(const FunctionCallbackInfo<Value> &args) {
     Ticket *ticket = (Ticket *) args[1].As<External>()->Value();
     NativeString secKey(args[2]);
     NativeString extensions(args[3]);
+    NativeString subprotocol(args[4]);
 
     // todo: move this check into core!
     if (ticket->fd != INVALID_SOCKET) {
-        hub.upgrade(ticket->fd, secKey.getData(), ticket->ssl, extensions.getData(), extensions.getLength(), serverGroup);
+        hub.upgrade(ticket->fd, secKey.getData(), ticket->ssl, extensions.getData(), extensions.getLength(), subprotocol.getData(), subprotocol.getLength(), serverGroup);
     } else {
         if (ticket->ssl) {
             SSL_free(ticket->ssl);

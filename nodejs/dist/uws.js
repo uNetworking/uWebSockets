@@ -438,7 +438,7 @@ class Server extends EventEmitter {
                 if (this.serverGroup) {
                     _upgradeReq = request;
                     this._upgradeCallback = callback ? callback : noop;
-                    native.upgrade(this.serverGroup, ticket, secKey, request.headers['sec-websocket-extensions']);
+                    native.upgrade(this.serverGroup, ticket, secKey, request.headers['sec-websocket-extensions'], request.headers['sec-websocket-protocol']);
                 }
             });
         }
