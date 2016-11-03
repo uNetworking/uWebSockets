@@ -46,6 +46,7 @@ inline SOCKET dup(SOCKET socket) {
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <unistd.h>
 #include <cstring>
 #include <fcntl.h>
@@ -55,24 +56,35 @@ inline SOCKET dup(SOCKET socket) {
 
 #endif
 
+#ifndef DEFAULT_FD_FLAG
 #ifdef FD_CLOEXEC
-inline int set_cloexec_flag(int desc) {
-    int oldflags = fcntl(desc, F_GETFD, nullptr);
-    if (oldflags >= 0)
-        fcntl(desc, F_SETFD, oldflags | FD_CLOEXEC);
-    return desc;
-}
+#define DEFAULT_FD_FLAG FD_CLOEXEC
 #else
-/*just ignore it*/
-inline int set_cloexec_flag(int desc) { return desc; }
+#define DEFAULT_FD_FLAG 0
+#endif
 #endif
 
+#ifndef DEFAULT_SOCKET_OPT
+#define DEFAULT_SOCKET_OPT TCP_NODELAY
+#endif
+
+inline int setDefaultFlag(int desc) {
+    int opt;
+    if (DEFAULT_FD_FLAG) {
+        int oldflags = fcntl(desc, F_GETFD, nullptr);
+        if (oldflags >= 0)
+            fcntl(desc, F_SETFD, oldflags | DEFAULT_FD_FLAG);
+    }
+    setsockopt(desc, IPPROTO_TCP, DEFAULT_SOCKET_OPT, &opt, sizeof(int));
+    return desc;
+}
+
 inline int privateAccept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
-    return set_cloexec_flag(accept(sockfd, addr, addrlen));
+    return setDefaultFlag(accept(sockfd, addr, addrlen));
 }
 
 inline int privateSocket(int domain, int type, int protocol) {
-    return set_cloexec_flag(socket(domain, type, protocol));
+    return setDefaultFlag(socket(domain, type, protocol));
 }
 
 #ifdef USE_MICRO_UV
