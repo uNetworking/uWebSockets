@@ -137,10 +137,9 @@ int main()
 
 * Node.js 4.x, 5.x & 6.x supported (Windows version requires Node.js 6.4.0+)
 * Linux, Mac OS X & Windows supported
+* `gcc` >= 4.8.0 and `make` (or compatible) are required to build from source. This translates to Visual Studio >= 2015 on Windows and Clang >= 3.3 on macOS.
 
-Prebuilt native modules are provided for most modern platforms. If the prebuilt
-module fails to load, `gcc` > 4.8.0 (or compatible) and `make` are required to
-build the native module from source.
+On installation, the module will be attempted to be build from source. If that fails, it will attempt to fall back to prebuilt modules which are provided for most platforms. If that fails too, `uws` will throw on `require`.
 
 ### C++ developers
 #### Dependencies
