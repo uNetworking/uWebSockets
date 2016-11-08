@@ -29,6 +29,25 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight :-1: | µWS is **4x** as per
 
 ## Usage
 
+### C++
+`µWebSockets` is a high performance C++ library with optional bindings to Node.js. It is greatly recommended investing in a proper C++ implementation if performance and memory scalability is considered critical for the solution in whole. The C++ interface has been designed for simplicity and only requires you to write a few lines of code to get a working server:
+
+```c++
+#include <uWS.h>
+
+int main()
+{
+    uWS::Hub h;
+
+    h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode) {
+        ws.send(message, length, opCode);
+    });
+
+    h.listen(3000);
+    h.run();
+}
+```
+
 ### Node.js
 We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the widespread `ws` interface, allowing us to seamlessly integrate with projects like SocketCluster, deepstream.io, Socket.IO & Primus.
 
@@ -80,23 +99,6 @@ wss.on('connection', function (ws) {
 
     ws.send('something');
 });
-```
-### C++
-For maximum performance and memory scaling the native interface is recommended. Look in the examples folder for threading and load balancing examples. There is no documentation written yet but a bright person like you will have no problem just reading the header file.
-```c++
-#include <uWS.h>
-
-int main()
-{
-    uWS::Hub h;
-
-    h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode) {
-        ws.send(message, length, opCode);
-    });
-
-    h.listen(3000);
-    h.run();
-}
 ```
 
 ## Quality control
