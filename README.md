@@ -25,32 +25,7 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight :-1: | µWS is **4x** as per
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. These results were achieved with the native C++ server, not the Node.js addon. Expect worse performance and scalability when using Node.js (don't worry, the Node.js addon will run circles around `ws`).*
 
 ## Built with µWS
-<table>
-<tr>
-<td align="center"><a href="https://webtorrent.io/"><img src="images/webtorrent.png" height="64" /></a></td>
-<td align="center"><a href="https://deepstream.io/"><img src="images/deepstream.png" height="64" /></a></td>
-<td align="center"><a href="http://socketcluster.io/#!/"><img src="images/socketcluster.png" height="64" /></a></td>
-<td align="center"><a href="https://discordapp.com"><img src="images/discord.png" height="64" /></a></td>
-</tr>
-<tr>
-<td align="center">WebTorrent</td>
-<td align="center">deepstream.io</td>
-<td align="center">SocketCluster</td>
-<td align="center">Discord</td>
-</tr>
-<tr>
-<td align="center"><a href="http://wilds.io/"><img src="images/wildsio.png" height="64" /></a></td>
-<td align="center"><a href="http://crisp.im/"><img src="images/crispim.png" height="64" /></a></td>
-<td align="center"><a href="https://github.com/silverwind/droppy"><img src="images/droppy.png" height="64" /></a></td>
-<td align="center"><a href="https://github.com/fortunejs/fortune"><img src="images/fortunejs.png" height="64" /></a></td>
-</tr>
-<tr>
-<td align="center">wilds.io</td>
-<td align="center">Crisp.im</td>
-<td align="center">droppy</td>
-<td align="center">Fortune.js</td>
-</tr>
-</table>
+<div align="center"><img src="images/builtwithuws.png"/></div>
 
 ## Usage
 
