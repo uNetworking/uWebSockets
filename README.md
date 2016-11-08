@@ -17,8 +17,8 @@
 Implementation | User space memory scaling | Connection performance | Short message throughput | Huge message throughput
 --- | --- | --- | --- | ---
 Beast 1.0.0 b17 | µWS is **7x** as lightweight | µWS is **4x** as performant | µWS is **22x** as performant | µWS is **3x** as performant
-Crow [Sep 21] | µWS is **13x** as lightweight | µWS is **2x** as performant | µWS is **12x** as performant | unable to measure
 libwebsockets 2.0 | µWS is **11x** as lightweight | µWS is **equal** in performance | µWS is **6x** as performant | µWS is **4x** in performance
+Crow [Sep 21] | µWS is **13x** as lightweight | µWS is **2x** as performant | µWS is **12x** as performant | unable to measure
 ws v1.1.0 + binary addons | µWS is **47x** as lightweight | µWS is **18x** as performant | µWS is **33x** as performant | µWS is **2x** as performant
 Kaazing Gateway Community 5.0.0 | µWS is **62x** as lightweight | µWS is **15x** as performant | µWS is **18x** as performant | unable to measure
 WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **4x** as performant | µWS is **3x** as performant | µWS is **2x** as performant
