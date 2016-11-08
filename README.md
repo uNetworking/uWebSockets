@@ -2,14 +2,13 @@
 `µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/autobahn/index.html).
+* Significantly outperforms `WebSocket++`, `libwebsockets`, `Beast`, `Crow`, `Kaazing Gateway` and `ws` in every tested dimension.
 * Linux, OS X & Windows support.
-* Valgrind clean.
+* Valgrind / AddressSanitizer clean.
 * Built-in load balancing and multi-core scalability.
 * SSL/TLS support & integrates with foreign HTTPS servers.
 * Permessage-deflate built-in.
-* Node.js binding exposed as the well-known `ws` interface.
-* 10-300x faster than `ws` (if they are "fastest", we are "fastester").
-* Default engine in SocketCluster & deepstream.io, optional in Socket.IO & Primus.
+* Node.js binding exposed as the well-known `ws` interface (`uws` is at least 10x faster).
 
 [![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/uWebSockets/uWebSockets)
 
