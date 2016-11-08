@@ -49,45 +49,8 @@ int main()
 ```
 
 ### Node.js
-We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the widespread `ws` interface, allowing us to seamlessly integrate with projects like SocketCluster, deepstream.io, Socket.IO & Primus.
+We built `µWS` with the existing Node.js infrastructure in mind. That's why we target the widespread `ws` interface, allowing us to seamlessly integrate with already existing projects. You simply swap `require('ws')` with `require('uws')`:
 
-* Read the [ws documentation](https://github.com/websockets/ws/blob/master/doc/ws.md)
-* Read the [Primus transformer documentation](https://github.com/primus/primus#uws)
-
-There are some important incompatibilities with `ws` though, we aim to be ~90% compatible but will never implement behavior that is deemed too inefficient:
-
-* Binary data is passed zero-copy as an `ArrayBuffer`. This means you need to copy it to keep it past the callback. It also means you need to convert it with `Buffer.from(message)` if you expect a `Node.js Buffer`.
-* `webSocket._socket` is not a `net.Socket`, it is just a getter function with very basic functionalities.
-* `webSocket._socket.remote...` might fail, you need to cache it at connection.
-* `webSocket` acts like an `EventEmitter` with one listener per event maximum.
-* `webSocket.upgradeReq` is only valid during execution of the connection handler. If you want to keep properties of the upgradeReq for the entire lifetime of the webSocket you better attach that specific property to the webSocket at connection.
-
-##### SocketCluster
-`µWS` is the default engine in [SocketCluster](http://socketcluster.io) as of 5.0.0.
-
-##### deepstream.io
-`µWS` is the default engine in [deepstream.io](http://deepstream.io/) as of 1.0.0. It is also deeply integrated into the server as of 1.2.0.
-
-##### Socket.IO (Warning: Socket.IO is *extremely* inefficient and should never be used!)
-Use the new `wsEngine: 'uws'` option like so:
-```javascript
-var io = require('socket.io')(80, { wsEngine: 'uws' });
-```
-This option has not yet been released, one alternative way of enabling `uws` in current versions of Socket.IO is:
-```javascript
-var io = require('socket.io')(80);
-io.engine.ws = new (require('uws').Server)({
-    noServer: true,
-    perMessageDeflate: false
-});
-```
-##### Primus
-Set 'uws' as transformer:
-```javascript
-var primus = new Primus(server, { transformer: 'uws' });
-```
-##### ws
-If your code directly relies on `ws` you can simply swap `require('ws')` with `require('uws')`:
 ```javascript
 var WebSocketServer = require('uws').Server;
 var wss = new WebSocketServer({ port: 8080 });
@@ -101,12 +64,33 @@ wss.on('connection', function (ws) {
 });
 ```
 
-## Quality control
-* Valgrind clean.
-* Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/alexhultman/uWebSockets/blob/master/autobahn/index.html).
-* All Primus transformer integration tests pass.
-* All Engine.IO server tests pass.
-* Small & efficient code base.
+##### Deviations from ws
+There are some important incompatibilities with `ws` though, we aim to be ~90% compatible but will never implement behavior that is deemed too inefficient:
+
+* Binary data is passed zero-copy as an `ArrayBuffer`. This means you need to copy it to keep it past the callback. It also means you need to convert it with `Buffer.from(message)` if you expect a `Node.js Buffer`.
+* `webSocket._socket` is not a `net.Socket`, it is just a getter function with very basic functionalities.
+* `webSocket._socket.remote...` might fail, you need to cache it at connection.
+* `webSocket` acts like an `EventEmitter` with one listener per event maximum.
+* `webSocket.upgradeReq` is only valid during execution of the connection handler. If you want to keep properties of the upgradeReq for the entire lifetime of the webSocket you better attach that specific property to the webSocket at connection.
+
+##### Consider these projects
+`µWS` is already the default engine in recent versions of [deepstream.io](http://deepstream.io/) and [SocketCluster](http://socketcluster.io).
+
+##### I would stay away from these projects
+
+You can enable `uws` in **Socket.IO** using something like this:
+```javascript
+var io = require('socket.io')(80);
+io.engine.ws = new (require('uws').Server)({
+    noServer: true,
+    perMessageDeflate: false
+});
+```
+
+You can set 'uws' as transformer in **Primus**:
+```javascript
+var primus = new Primus(server, { transformer: 'uws' });
+```
 
 ## Installation
 ### Node.js developers
