@@ -6,6 +6,11 @@
 #include <cmath>
 #include <thread>
 #include <fstream>
+#include <vector>
+#include <set>
+#include <unordered_set>
+#include <unordered_map>
+#include <map>
 
 int countOccurrences(std::string word, std::string &document) {
     int count = 0;
@@ -598,8 +603,23 @@ void testSmallSends() {
     h.run();
 }
 
+void testSTL() {
+    std::vector<uWS::WebSocket<uWS::SERVER>> v;
+    std::set<uWS::WebSocket<uWS::SERVER>> s;
+    std::unordered_set<uWS::WebSocket<uWS::SERVER>> us;
+    std::map<uWS::WebSocket<uWS::SERVER>, uWS::WebSocket<uWS::SERVER>> m;
+    std::unordered_map<uWS::WebSocket<uWS::SERVER>, uWS::WebSocket<uWS::SERVER>> um;
+
+    v.push_back(uWS::WebSocket<uWS::SERVER>());
+    s.insert(uWS::WebSocket<uWS::SERVER>());
+    us.insert(uWS::WebSocket<uWS::SERVER>());
+    m[uWS::WebSocket<uWS::SERVER>()] = uWS::WebSocket<uWS::SERVER>();
+    um[uWS::WebSocket<uWS::SERVER>()] = uWS::WebSocket<uWS::SERVER>();
+}
+
 int main(int argc, char *argv[])
 {
+    testSTL();
     testSmallSends();
     testSendCallback();
     //testMultithreading(); // FAILS IN µUV
