@@ -193,7 +193,7 @@ bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
             memcpy(upgradeBuffer + upgradeResponseLength + 24 + subprotocolLength, "\r\n", 2);
             upgradeResponseLength += 24 + subprotocolLength + 2;
         }
-        static char stamp[] = "Sec-WebSocket-Version: 13\r\nServer: uWebSockets\r\n\r\n";
+        static char stamp[] = "Sec-WebSocket-Version: 13\r\nWebSocket-Server: uWebSockets\r\n\r\n";
         memcpy(upgradeBuffer + upgradeResponseLength, stamp, sizeof(stamp) - 1);
         upgradeResponseLength += sizeof(stamp) - 1;
 
