@@ -71,6 +71,10 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
     size_t endOfHTTPBuffer = httpData->httpBuffer.find("\r\n\r\n");
     if (endOfHTTPBuffer != std::string::npos) {
+
+        int enable = 1;
+        setsockopt(httpSocket.getFd(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
+
         if (isServer) {
 
             HTTPParser httpParser = (char *) httpData->httpBuffer.data();
