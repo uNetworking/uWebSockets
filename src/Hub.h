@@ -7,7 +7,7 @@
 #include <zlib.h>
 #include <mutex>
 
-static_assert (UV_VERSION_MINOR >= 3, "µWebSockets requires libuv >=1.3.0");
+static_assert (UV_VERSION_MAJOR >= 2 || (UV_VERSION_MAJOR >= 1 && UV_VERSION_MINOR >= 3), "µWebSockets requires libuv >=1.3.0");
 
 namespace uWS {
 
