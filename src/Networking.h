@@ -179,8 +179,8 @@ struct SocketData {
             const char *data;
             size_t length;
             Message *nextMessage = nullptr;
-            void (*callback)(void *socket, void *data, bool cancelled) = nullptr;
-            void *callbackData = nullptr;
+            void (*callback)(void *socket, void *data, bool cancelled, void *reserved) = nullptr;
+            void *callbackData = nullptr, *reserved = nullptr;
         };
 
         Message *head = nullptr, *tail = nullptr;

@@ -539,7 +539,7 @@ void testSendCallback() {
     uWS::Hub h;
 
     h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
-        ws.send("1234", 4, uWS::OpCode::TEXT, [](void *webSocket, void *data, bool cancelled) {
+        ws.send("1234", 4, uWS::OpCode::TEXT, [](void *webSocket, void *data, bool cancelled, void *reserved) {
             if (data) {
                 if (data != (void *) 13) {
                     std::cout << "FAILURE: invalid data passed to send callback!" << std::endl;

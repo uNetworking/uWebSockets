@@ -4,7 +4,7 @@
 namespace uWS {
 
 template <bool isServer>
-void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled), void *callbackData) {
+void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
     const int HEADER_LENGTH = WebSocketProtocol<!isServer>::LONG_MESSAGE_HEADER;
 
     if (hasEmptyQueue()) {
@@ -21,7 +21,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
                 if (!wasTransferred) {
                     getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
                     if (callback) {
-                        callback(*this, callbackData, false);
+                        callback(*this, callbackData, false, nullptr);
                     }
                 } else {
                     messagePtr->callback = callback;
@@ -29,7 +29,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
                 }
             } else {
                 if (callback) {
-                    callback(*this, callbackData, true);
+                    callback(*this, callbackData, true, nullptr);
                 }
                 onEnd(*this);
             }
@@ -41,7 +41,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
                 if (!wasTransferred) {
                     freeMessage(messagePtr);
                     if (callback) {
-                        callback(*this, callbackData, false);
+                        callback(*this, callbackData, false, nullptr);
                     }
                 } else {
                     messagePtr->callback = callback;
@@ -49,7 +49,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
                 }
             } else {
                 if (callback) {
-                    callback(*this, callbackData, true);
+                    callback(*this, callbackData, true, nullptr);
                 }
                 onEnd(*this);
             }
@@ -64,22 +64,27 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
 }
 
 template <bool isServer>
-typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessage(char *data, size_t length, OpCode opCode, bool compressed)
-{
+typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved)) {
     PreparedMessage *preparedMessage = new PreparedMessage;
     preparedMessage->buffer = new char[length + 10];
     preparedMessage->length = WebSocketProtocol<isServer>::formatMessage(preparedMessage->buffer, data, length, opCode, length, compressed);
     preparedMessage->references = 1;
+    preparedMessage->callback = callback;
     return preparedMessage;
 }
 
 template <bool isServer>
-void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMessage *preparedMessage)
-{
+void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMessage *preparedMessage, void *callbackData) {
     preparedMessage->references++;
-    void (*callback)(void *webSocket, void *userData, bool cancelled) = [](void *webSocket, void *userData, bool cancelled) {
+    void (*callback)(void *webSocket, void *userData, bool cancelled, void *reserved) = [](void *webSocket, void *userData, bool cancelled, void *reserved) {
         PreparedMessage *preparedMessage = (PreparedMessage *) userData;
-        if (!--preparedMessage->references) {
+        bool lastReference = !--preparedMessage->references;
+
+        if (preparedMessage->callback) {
+            preparedMessage->callback(webSocket, reserved, cancelled, (void *) lastReference);
+        }
+
+        if (lastReference) {
             delete [] preparedMessage->buffer;
             delete preparedMessage;
         }
@@ -98,23 +103,23 @@ void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMes
         if (!wasTransferred) {
             getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
             if (callback) {
-                callback(*this, preparedMessage, false);
+                callback(*this, preparedMessage, false, callbackData);
             }
         } else {
             messagePtr->callback = callback;
             messagePtr->callbackData = preparedMessage;
+            messagePtr->reserved = callbackData;
         }
     } else {
         if (callback) {
-            callback(*this, preparedMessage, true);
+            callback(*this, preparedMessage, true, callbackData);
         }
         onEnd(*this);
     }
 }
 
 template <bool isServer>
-void WebSocket<isServer>::finalizeMessage(typename WebSocket<isServer>::PreparedMessage *preparedMessage)
-{
+void WebSocket<isServer>::finalizeMessage(typename WebSocket<isServer>::PreparedMessage *preparedMessage) {
     if (!--preparedMessage->references) {
         delete [] preparedMessage->buffer;
         delete preparedMessage;
@@ -150,7 +155,7 @@ void WebSocket<isServer>::close(int code, char *message, size_t length) {
 
     char closePayload[MAX_CLOSE_PAYLOAD + 2];
     int closePayloadLength = WebSocketProtocol<isServer>::formatClosePayload(closePayload, code, message, length);
-    send(closePayload, closePayloadLength, OpCode::CLOSE, [](void *p, void *data, bool cancelled) {
+    send(closePayload, closePayloadLength, OpCode::CLOSE, [](void *p, void *data, bool cancelled, void *reserved) {
         if (!cancelled) {
             Socket((uv_poll_t *) p).shutdown();
         }
@@ -173,7 +178,7 @@ void WebSocket<isServer>::onEnd(uS::Socket s) {
     while (!webSocketData->messageQueue.empty()) {
         uS::SocketData::Queue::Message *message = webSocketData->messageQueue.front();
         if (message->callback) {
-            message->callback(nullptr, message->callbackData, true);
+            message->callback(nullptr, message->callbackData, true, nullptr);
         }
         webSocketData->messageQueue.pop();
     }

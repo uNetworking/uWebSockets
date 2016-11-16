@@ -33,6 +33,7 @@ struct WIN32_EXPORT WebSocket : protected uS::Socket {
         char *buffer;
         size_t length;
         int references;
+        void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved);
     };
 
     using uS::Socket::getUserData;
@@ -53,9 +54,9 @@ struct WIN32_EXPORT WebSocket : protected uS::Socket {
     void close(int code = 1000, char *message = nullptr, size_t length = 0);
     void ping(const char *message) {send(message, OpCode::PING);}
     void send(const char *message, OpCode opCode = OpCode::TEXT) {send(message, strlen(message), opCode);}
-    void send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled) = nullptr, void *callbackData = nullptr);
-    static PreparedMessage *prepareMessage(char *data, size_t length, OpCode opCode, bool compressed);
-    void sendPrepared(PreparedMessage *preparedMessage);
+    void send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
+    static PreparedMessage *prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
+    void sendPrepared(PreparedMessage *preparedMessage, void *callbackData = nullptr);
     static void finalizeMessage(PreparedMessage *preparedMessage);
     bool operator==(const WebSocket &other) const {return p == other.p;}
     bool operator<(const WebSocket &other) const {return p < other.p;}

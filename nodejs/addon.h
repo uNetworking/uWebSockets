@@ -158,7 +158,7 @@ struct SendCallbackData {
     Isolate *isolate;
 };
 
-void sendCallback(void *webSocket, void *data, bool cancelled)
+void sendCallback(void *webSocket, void *data, bool cancelled, void *reserved)
 {
     SendCallbackData *sc = (SendCallbackData *) data;
     if (!cancelled) {
@@ -176,7 +176,7 @@ void send(const FunctionCallbackInfo<Value> &args)
     NativeString nativeString(args[1]);
 
     SendCallbackData *sc = nullptr;
-    void (*callback)(void *, void *, bool) = nullptr;
+    void (*callback)(void *, void *, bool, void *) = nullptr;
 
     if (args[3]->IsFunction()) {
         callback = sendCallback;

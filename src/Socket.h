@@ -170,7 +170,7 @@ public:
                 int sent = SSL_write(socketData->ssl, messagePtr->data, messagePtr->length);
                 if (sent == (ssize_t) messagePtr->length) {
                     if (messagePtr->callback) {
-                        messagePtr->callback(p, messagePtr->callbackData, false);
+                        messagePtr->callback(p, messagePtr->callbackData, false, messagePtr->reserved);
                     }
                     socketData->messageQueue.pop();
                     if (socketData->messageQueue.empty()) {
@@ -247,7 +247,7 @@ public:
                     ssize_t sent = ::send(Socket(p).getFd(), messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
                     if (sent == (ssize_t) messagePtr->length) {
                         if (messagePtr->callback) {
-                            messagePtr->callback(p, messagePtr->callbackData, false);
+                            messagePtr->callback(p, messagePtr->callbackData, false, messagePtr->reserved);
                         }
                         socketData->messageQueue.pop();
                         if (socketData->messageQueue.empty()) {
