@@ -9,9 +9,9 @@ Darwin:
 	g++ $(CPP_SHARED) $(CPP_OSX) -o libuWS.so
 .PHONY: install
 install:
-	if [ -d "/usr/lib64" ]; then cp libuWS.so /usr/lib64/; fi
+	if [ -d "/usr/lib64" ]; then cp libuWS.so /usr/lib64/; else cp libuWS.so /usr/lib/; fi
 	mkdir -p /usr/include/uWS
-	cp src/{Extensions.h,WebSocketProtocol.h,Networking.h,WebSocket.h,Hub.h,Group.h,Node.h,Socket.h,HTTPSocket.h,uWS.h} /usr/include/uWS/
+	cp src/*.h /usr/include/uWS/
 .PHONY: clean
 clean:
 	rm libuWS.so
