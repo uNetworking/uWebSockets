@@ -34,6 +34,42 @@ private:
     static void onEnd(uS::Socket s);
 };
 
+struct HTTPParser {
+	char* headerBegin;
+	char* cursor;
+	std::pair<char *, size_t> key, value;
+	HTTPParser(char *cursor) : cursor(cursor), headerBegin(cursor) {
+		size_t length;
+		for (; isspace(*cursor); cursor++);
+		for (length = 0; !isspace(cursor[length]) && cursor[length] != '\r'; length++);
+		key = { cursor, length };
+		cursor += length + 1;
+		for (length = 0; !isspace(cursor[length]) && cursor[length] != '\r'; length++);
+		value = { cursor, length };
+	}
+	HTTPParser &operator++(int) {
+		size_t length = 0;
+		for (; !(cursor[0] == '\r' && cursor[1] == '\n'); cursor++);
+		cursor += 2;
+		if (cursor[0] == '\r' && cursor[1] == '\n') {
+			key = value = { 0, 0 };
+		} else {
+			for (; cursor[length] != ':' && cursor[length] != '\r'; length++);
+			key = { cursor, length };
+			if (cursor[length] != '\r') {
+				cursor += length;
+				length = 0;
+				while (isspace(*(++cursor)));
+				for (; cursor[length] != '\r'; length++);
+				value = { cursor, length };
+			} else {
+				value = { 0, 0 };
+			}
+		}
+		return *this;
+	}
+};
+
 }
 
 #endif // HTTPSOCKET_UWS_H

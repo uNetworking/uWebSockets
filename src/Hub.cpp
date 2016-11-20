@@ -151,7 +151,7 @@ bool Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
     if (HTTPSocket<SERVER>(s).upgrade(secKey, extensionsResponse.data(), extensionsResponse.length(), subprotocol, subprotocolLength)) {
         s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
         serverGroup->addWebSocket(s);
-        serverGroup->connectionHandler(WebSocket<SERVER>(s), {nullptr, nullptr, 0, 0});
+        serverGroup->connectionHandler(WebSocket<SERVER>(s), {nullptr, nullptr, 0, 0, HTTPParser(nullptr)});
         delete temporaryHttpData;
         return true;
     }

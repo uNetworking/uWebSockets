@@ -4,43 +4,6 @@
 
 namespace uWS {
 
-struct HTTPParser {
-    char *cursor;
-    std::pair<char *, size_t> key, value;
-    HTTPParser(char *cursor) : cursor(cursor)
-    {
-        size_t length;
-        for (; isspace(*cursor); cursor++);
-        for (length = 0; !isspace(cursor[length]) && cursor[length] != '\r'; length++);
-        key = {cursor, length};
-        cursor += length + 1;
-        for (length = 0; !isspace(cursor[length]) && cursor[length] != '\r'; length++);
-        value = {cursor, length};
-    }
-    HTTPParser &operator++(int)
-    {
-        size_t length = 0;
-        for (; !(cursor[0] == '\r' && cursor[1] == '\n'); cursor++);
-        cursor += 2;
-        if (cursor[0] == '\r' && cursor[1] == '\n') {
-            key = value = {0, 0};
-        } else {
-            for (; cursor[length] != ':' && cursor[length] != '\r'; length++);
-            key = {cursor, length};
-            if (cursor[length] != '\r') {
-                cursor += length;
-                length = 0;
-                while (isspace(*(++cursor)));
-                for (; cursor[length] != '\r'; length++);
-                value = {cursor, length};
-            } else {
-                value = {0, 0};
-            }
-        }
-        return *this;
-    }
-};
-
 static void base64(unsigned char *src, char *dst)
 {
     static const char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -117,7 +80,8 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                     ((Group<SERVER> *) s.getSocketData()->nodeData)->addWebSocket(s);
                     //s.cork(true);
                     ((Group<SERVER> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<SERVER>(s), {path.first, subprotocol.first,
-                                                                                                              path.second, subprotocol.second});
+                                                                                                              path.second, subprotocol.second,
+																											  HTTPParser((char *)httpData->httpBuffer.data())});
                     //s.cork(false);
                     delete httpData;
                 }
@@ -156,7 +120,7 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                 httpSocket.cancelTimeout();
                 httpSocket.setUserData(httpData->httpUser);
                 ((Group<CLIENT> *) s.getSocketData()->nodeData)->addWebSocket(s);
-                ((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), {nullptr, nullptr, 0, 0});
+                ((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), {nullptr, nullptr, 0, 0, HTTPParser(nullptr)});
                 //s.cork(false);
 
                 if (!(s.isClosed() || s.isShuttingDown())) {
