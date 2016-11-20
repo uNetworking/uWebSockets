@@ -14,32 +14,32 @@ struct Hub;
 
 struct UpgradeInfo {
     char *path, *subprotocol;
-	size_t pathLength, subprotocolLength;
-	uWS::HTTPParser httpParser;
+    size_t pathLength, subprotocolLength;
+    uWS::HTTPParser httpParser;
 
-	std::map<std::string, std::string> getRequestHeaders() {
-		char* curCursor = httpParser.cursor;
-		httpParser.cursor = httpParser.headerBegin;
-		std::map<std::string, std::string> headers;
+    std::map<std::string, std::string> getRequestHeaders() {
+        char* curCursor = httpParser.cursor;
+        httpParser.cursor = httpParser.headerBegin;
+        std::map<std::string, std::string> headers;
 
-		for (httpParser++; httpParser.key.second; httpParser++) {
-			std::string key;
-			key.resize(httpParser.key.second);
+        for (httpParser++; httpParser.key.second; httpParser++) {
+            std::string key;
+            key.resize(httpParser.key.second);
 
-			size_t i = 0;
-			for (; i < httpParser.key.second; i++) {
-				key[i] = tolower(httpParser.key.first[i]);
-			}
-			key[i] = 0;
+            size_t i = 0;
+            for (; i < httpParser.key.second; i++) {
+                key[i] = tolower(httpParser.key.first[i]);
+            }
+            key[i] = 0;
 
-			headers[key] = std::string(httpParser.value.first, httpParser.value.second);
-		}
+            headers[key] = std::string(httpParser.value.first, httpParser.value.second);
+        }
 
-		// restore cursor back to its original position
-		httpParser.cursor = curCursor;
+        // restore cursor back to its original position
+        httpParser.cursor = curCursor;
 
-		return headers;
-	}
+        return headers;
+    }
 };
 
 template <bool isServer>
