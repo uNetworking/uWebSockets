@@ -23,12 +23,9 @@ struct UpgradeInfo {
         std::map<std::string, std::string> headers;
 
         for (httpParser++; httpParser.key.second; httpParser++) {
-            std::string key;
-            key.resize(httpParser.key.second);
-
-            for (size_t i = 0; i < httpParser.key.second; i++) {
-                key[i] = tolower(httpParser.key.first[i]);
-            }
+            // key lower cased
+            std::string key(httpParser.key.first, httpParser.key.second);
+            std::transform(key.begin(), key.end(), key.begin(), ::tolower);
 
             headers[key] = std::string(httpParser.value.first, httpParser.value.second);
         }
