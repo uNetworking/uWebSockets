@@ -35,8 +35,8 @@ private:
 };
 
 struct HTTPParser {
-    char* headerBegin;
-    char* cursor;
+    char *headerBegin;
+    char *cursor;
     std::pair<char *, size_t> key, value;
     HTTPParser(char *cursor) : cursor(cursor), headerBegin(cursor) {
         size_t length;

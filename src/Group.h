@@ -26,7 +26,6 @@ struct UpgradeInfo {
             std::string key;
             key.resize(httpParser.key.second);
 
-            // lowercase the header key
             size_t i = 0;
             for (; i < httpParser.key.second; i++) {
                 key[i] = tolower(httpParser.key.first[i]);
