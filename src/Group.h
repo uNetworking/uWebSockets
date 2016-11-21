@@ -15,10 +15,10 @@ struct Hub;
 struct UpgradeInfo {
     char *path, *subprotocol;
     size_t pathLength, subprotocolLength;
-    uWS::HTTPParser httpParser;
+    HTTPParser httpParser;
 
     std::map<std::string, std::string> getRequestHeaders() {
-        char* curCursor = httpParser.cursor;
+        char *curCursor = httpParser.cursor;
         httpParser.cursor = httpParser.headerBegin;
         std::map<std::string, std::string> headers;
 
