@@ -31,7 +31,6 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
                 if (callback) {
                     callback(*this, callbackData, true, nullptr);
                 }
-                onEnd(*this);
             }
         } else {
             uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
@@ -51,7 +50,6 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
                 if (callback) {
                     callback(*this, callbackData, true, nullptr);
                 }
-                onEnd(*this);
             }
         }
     } else {
@@ -114,7 +112,6 @@ void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMes
         if (callback) {
             callback(*this, preparedMessage, true, callbackData);
         }
-        onEnd(*this);
     }
 }
 
