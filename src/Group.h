@@ -26,8 +26,7 @@ struct UpgradeInfo {
             std::string key;
             key.resize(httpParser.key.second);
 
-            size_t i = 0;
-            for (; i < httpParser.key.second; i++) {
+            for (size_t i = 0; i < httpParser.key.second; i++) {
                 key[i] = tolower(httpParser.key.first[i]);
             }
 
