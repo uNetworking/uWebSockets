@@ -84,6 +84,14 @@ class WebSocket {
             this.internalOnMessage = noop;
         }
     }
+    
+    set onopen(f) {
+        if (f) {
+            this.internalOnOpen = f;
+        } else {
+            this.internalOnOpen = noop;
+        }
+    }   
 
     set onclose(f) {
         if (f) {
@@ -92,6 +100,14 @@ class WebSocket {
             };
         } else {
             this.internalOnClose = noop;
+        }
+    }
+    
+    set onerror(f) {
+        if (f) {
+            this.internalOnError = f;
+        } else {
+            this.internalOnError = noop;
         }
     }
 
