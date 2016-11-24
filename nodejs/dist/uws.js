@@ -84,7 +84,7 @@ class WebSocket {
             this.internalOnMessage = noop;
         }
     }
-    
+
     set onopen(f) {
         if (f) {
             this.internalOnOpen = f;
@@ -102,9 +102,9 @@ class WebSocket {
             this.internalOnClose = noop;
         }
     }
-    
+
     set onerror(f) {
-        if (f) {
+        if (f && this instanceof WebSocketClient) {
             this.internalOnError = f;
         } else {
             this.internalOnError = noop;
