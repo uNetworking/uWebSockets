@@ -1,42 +1,21 @@
-// echo server
+'use strict';
 
 const WebSocketServer = require('./dist/uws').Server;
-const wss = new WebSocketServer({ port: 3000, maxPayload: 0 });
+const wss = new WebSocketServer({ port: 3000 });
 
-var sentMessages = 0;
-function sent() {
-  if (++sentMessages % 10000 == 0) {
-    console.log('Messages sent: ' + sentMessages);
-  }
+function onMessage(message) {
+    this.send(message);
 }
 
-wss.startAutoPing(1000);
-
-wss.on('connection', function connection(ws) {
-  // console.log(ws._socket);
-
-  //console.log('Size: ' + wss.clients.length);
-
-  /*wss.clients.forEach((ws) => {
-    ws.send('Hello dude!');
-  });*/
-
-  ws.on('pong', function pong(message) {
-    console.log('Got a pong!');
-  });
-
-  // EventEmitter interface
-  /*ws.on('message', function incoming(message) {
-    ws.send(message, { binary: Buffer.isBuffer(message) }, sent);
-  });*/
-
-  // Web interface
-  ws.onmessage = function(e) {
-    ws.send(e.data);
-  };
-
+wss.on('connection', function(ws) {
+    // warning: never attach anonymous functions to the socket!
+    // that will majorly harm scalability since the scope of this
+    // context will be taken hostage and never released causing major
+    // memory usage increases compared to having the function created
+    // outside of this context (1.2 GB vs 781 MB for 1 million connections)
+    ws.on('message', onMessage);
 });
 
-wss.on('error', function error(e) {
-  console.log('Error: ' + e);
+wss.on('error', function(error) {
+    console.log('Cannot start server');
 });

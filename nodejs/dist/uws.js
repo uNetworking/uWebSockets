@@ -7,6 +7,12 @@ function noop() {}
 function abortConnection(socket, code, name) {
     socket.end('HTTP/1.1 ' + code + ' ' + name + '\r\n\r\n');
 }
+function emitConnection(ws) {
+    this.emit('connection', ws);
+}
+function onServerMessage(message, webSocket) {
+    webSocket.internalOnMessage(message);
+}
 const native = (() => {
     try {
         try {
@@ -372,26 +378,20 @@ class Server extends EventEmitter {
                         if (options.verifyClient.length === 2) {
                             options.verifyClient(info, (result, code, name) => {
                                 if (result) {
-                                    this.handleUpgrade(request, socket, head, (ws) => {
-                                        this.emit('connection', ws);
-                                    });
+                                    this.handleUpgrade(request, socket, head, emitConnection);
                                 } else {
                                     abortConnection(socket, code, name);
                                 }
                             });
                         } else {
                             if (options.verifyClient(info)) {
-                                this.handleUpgrade(request, socket, head, (ws) => {
-                                    this.emit('connection', ws);
-                                });
+                                this.handleUpgrade(request, socket, head, emitConnection);
                             } else {
                                 abortConnection(socket, 400, 'Client verification failed');
                             }
                         }
                     } else {
-                        this.handleUpgrade(request, socket, head, (ws) => {
-                            this.emit('connection', ws);
-                        });
+                        this.handleUpgrade(request, socket, head, emitConnection);
                     }
                 } else {
                     if (this._lastUpgradeListener) {
@@ -415,9 +415,7 @@ class Server extends EventEmitter {
             native.clearUserData(external);
         });
 
-        native.server.group.onMessage(this.serverGroup, (message, webSocket) => {
-            webSocket.internalOnMessage(message);
-        });
+        native.server.group.onMessage(this.serverGroup, onServerMessage);
 
         native.server.group.onPing(this.serverGroup, (message, webSocket) => {
             webSocket.onping(message);

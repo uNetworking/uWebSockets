@@ -54,13 +54,14 @@ We built `µWS` with the existing Node.js infrastructure in mind. That's why we 
 
 ```javascript
 var WebSocketServer = require('uws').Server;
-var wss = new WebSocketServer({ port: 8080 });
+var wss = new WebSocketServer({ port: 3000 });
 
-wss.on('connection', function (ws) {
-    ws.on('message', function (message) {
-        console.log('received: ' + message);
-    });
+function onMessage(message) {
+    console.log('received: ' + message);
+}
 
+wss.on('connection', function(ws) {
+    ws.on('message', onMessage);
     ws.send('something');
 });
 ```
