@@ -3,6 +3,8 @@
 #include "../env.h"
 #include "../env-inl.h"
 
+uv_prepare_t prepare;
+
 namespace node {
 
 void Main(Local<Object> exports, Local<Value> unused, Local<Context> context) {
@@ -20,6 +22,11 @@ void Main(Local<Object> exports, Local<Value> unused, Local<Context> context) {
     env->SetMethod(exports, "transfer", transfer);
     env->SetMethod(exports, "upgrade", upgrade);
     env->SetMethod(exports, "connect", connect);
+
+    uv_prepare_init(hub.getLoop(), &prepare);
+    uv_prepare_start(&prepare, [](uv_prepare_t *prepare) {
+        makeCallbackSkipCount = 0;
+    });
 }
 
 }
