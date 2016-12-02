@@ -9,7 +9,8 @@ using namespace std;
 using namespace v8;
 
 uWS::Hub hub(0, true);
-bool isNewIteration = true;
+const int MAKE_CALLBACK_SKIP_MAX = 100;
+int makeCallbackSkipCount = 0;
 
 class NativeString {
     char *data;
@@ -266,11 +267,12 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapMessage(message, length, opCode, isolate),
                                getDataV8(webSocket, isolate)};
-        if (isNewIteration) {
+        if (!makeCallbackSkipCount) {
             node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *messageCallback), 2, argv);
-            isNewIteration = false;
+            makeCallbackSkipCount = MAKE_CALLBACK_SKIP_MAX - 1;
         } else {
             Local<Function>::New(isolate, *messageCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
+            makeCallbackSkipCount--;
         }
     });
 }

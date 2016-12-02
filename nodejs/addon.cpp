@@ -20,7 +20,7 @@ void Main(Local<Object> exports) {
 
     uv_prepare_init(hub.getLoop(), &prepare);
     uv_prepare_start(&prepare, [](uv_prepare_t *prepare) {
-        isNewIteration = true;
+        makeCallbackSkipCount = 0;
     });
 }
 
