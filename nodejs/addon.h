@@ -9,6 +9,7 @@ using namespace std;
 using namespace v8;
 
 uWS::Hub hub(0, true);
+bool isNewIteration = true;
 
 class NativeString {
     char *data;
@@ -265,7 +266,12 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapMessage(message, length, opCode, isolate),
                                getDataV8(webSocket, isolate)};
-        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *messageCallback), 2, argv);
+        if (isNewIteration) {
+            node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *messageCallback), 2, argv);
+            isNewIteration = false;
+        } else {
+            Local<Function>::New(isolate, *messageCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
+        }
     });
 }
 
