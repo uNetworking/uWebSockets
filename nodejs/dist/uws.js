@@ -34,6 +34,8 @@ const native = (() => {
     }
 })();
 
+native.setNoop(noop);
+
 var _upgradeReq = null;
 const clientGroup = native.client.group.create();
 native.client.group.onConnection(clientGroup, (external) => {

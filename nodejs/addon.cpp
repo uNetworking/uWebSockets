@@ -1,8 +1,6 @@
 #include "../src/uWS.h"
 #include "addon.h"
 
-uv_prepare_t prepare;
-
 void Main(Local<Object> exports) {
     Isolate *isolate = exports->GetIsolate();
 
@@ -17,11 +15,8 @@ void Main(Local<Object> exports) {
     NODE_SET_METHOD(exports, "transfer", transfer);
     NODE_SET_METHOD(exports, "upgrade", upgrade);
     NODE_SET_METHOD(exports, "connect", connect);
-
-    uv_prepare_init(hub.getLoop(), &prepare);
-    uv_prepare_start(&prepare, [](uv_prepare_t *prepare) {
-        makeCallbackSkipCount = 0;
-    });
+    NODE_SET_METHOD(exports, "setNoop", setNoop);
+    registerCheck(isolate);
 }
 
 NODE_MODULE(uws, Main)

@@ -9,8 +9,19 @@ using namespace std;
 using namespace v8;
 
 uWS::Hub hub(0, true);
-const int MAKE_CALLBACK_SKIP_MAX = 100;
-int makeCallbackSkipCount = 0;
+uv_check_t check;
+Persistent<Function> noop;
+
+void registerCheck(Isolate *isolate) {
+    uv_check_init(hub.getLoop(), &check);
+    check.data = isolate;
+    uv_check_start(&check, [](uv_check_t *check) {
+        Isolate *isolate = (Isolate *) check->data;
+        HandleScope hs(isolate);
+        node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, noop), 0, nullptr);
+    });
+    uv_unref((uv_handle_t *) &check);
+}
 
 class NativeString {
     char *data;
@@ -267,13 +278,7 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapMessage(message, length, opCode, isolate),
                                getDataV8(webSocket, isolate)};
-        if (!makeCallbackSkipCount) {
-            node::MakeCallback(isolate, isolate->GetCurrentContext()->Global(), Local<Function>::New(isolate, *messageCallback), 2, argv);
-            makeCallbackSkipCount = MAKE_CALLBACK_SKIP_MAX - 1;
-        } else {
-            Local<Function>::New(isolate, *messageCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
-            makeCallbackSkipCount--;
-        }
+        Local<Function>::New(isolate, *messageCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
     });
 }
 
@@ -419,6 +424,10 @@ void startAutoPing(const FunctionCallbackInfo<Value> &args) {
     uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
     NativeString nativeString(args[2]);
     group->startAutoPing(args[1]->IntegerValue(), std::string(nativeString.getData(), nativeString.getLength()));
+}
+
+void setNoop(const FunctionCallbackInfo<Value> &args) {
+    noop.Reset(args.GetIsolate(), Local<Function>::Cast(args[0]));
 }
 
 template <bool isServer>
