@@ -617,8 +617,25 @@ void testSTL() {
     um[uWS::WebSocket<uWS::SERVER>()] = uWS::WebSocket<uWS::SERVER>();
 }
 
+void testMessageBatch() {
+    uWS::Hub h;
+
+    std::vector<std::string> messages = {"hello", "world"};
+    std::vector<int> excludes;
+
+    h.onConnection([&messages, &excludes](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+        uWS::WebSocket<uWS::SERVER>::PreparedMessage *prepared = ws.prepareMessageBatch(messages, excludes, uWS::OpCode::TEXT, false, nullptr);
+        ws.sendPrepared(prepared, nullptr);
+        ws.finalizeMessage(prepared);
+    });
+
+    h.listen(3000);
+    h.run();
+}
+
 int main(int argc, char *argv[])
 {
+    testMessageBatch();/*
     testSTL();
     testSmallSends();
     testSendCallback();
@@ -629,7 +646,7 @@ int main(int argc, char *argv[])
     testConnections();
     testListening();
     testBroadcast();
-    stressTest();
+    stressTest();*/
 
     //serveAutobahn();
 

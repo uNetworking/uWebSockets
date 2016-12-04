@@ -72,6 +72,28 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
 }
 
 template <bool isServer>
+typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages, OpCode opCode, bool compressed, void (*callback)(void *, void *, bool, void *))
+{
+    // should be sent in!
+    size_t batchLength = 0;
+    for (int i = 0; i < messages.size(); i++) {
+        batchLength += messages[i].length();
+    }
+
+    PreparedMessage *preparedMessage = new PreparedMessage;
+    preparedMessage->buffer = new char[batchLength + 10 * messages.size()];
+
+    int offset = 0;
+    for (int i = 0; i < messages.size(); i++) {
+        offset += WebSocketProtocol<isServer>::formatMessage(preparedMessage->buffer + offset, messages[i].data(), messages[i].length(), opCode, messages[i].length(), compressed);
+    }
+    preparedMessage->length = offset;
+    preparedMessage->references = 1;
+    preparedMessage->callback = callback;
+    return preparedMessage;
+}
+
+template <bool isServer>
 void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMessage *preparedMessage, void *callbackData) {
     preparedMessage->references++;
     void (*callback)(void *webSocket, void *userData, bool cancelled, void *reserved) = [](void *webSocket, void *userData, bool cancelled, void *reserved) {

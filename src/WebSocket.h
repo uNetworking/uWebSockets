@@ -56,6 +56,7 @@ struct WIN32_EXPORT WebSocket : protected uS::Socket {
     void send(const char *message, OpCode opCode = OpCode::TEXT) {send(message, strlen(message), opCode);}
     void send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
     static PreparedMessage *prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
+    static PreparedMessage *prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages, OpCode opCode, bool compressed, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
     void sendPrepared(PreparedMessage *preparedMessage, void *callbackData = nullptr);
     static void finalizeMessage(PreparedMessage *preparedMessage);
     bool operator==(const WebSocket &other) const {return p == other.p;}
