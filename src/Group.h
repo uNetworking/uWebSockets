@@ -2,6 +2,7 @@
 #define GROUP_UWS_H
 
 #include "WebSocket.h"
+#include "HTTPSocket.h"
 #include "Extensions.h"
 #include <functional>
 #include <stack>
@@ -23,6 +24,8 @@ struct WIN32_EXPORT Group : protected uS::NodeData {
     std::function<void(WebSocket<isServer>, int code, char *message, size_t length)> disconnectionHandler;
     std::function<void(WebSocket<isServer>, char *, size_t)> pingHandler;
     std::function<void(WebSocket<isServer>, char *, size_t)> pongHandler;
+
+    std::function<void(HTTPSocket<isServer>)> httpRequestHandler;
 
     using errorType = typename std::conditional<isServer, int, void *>::type;
     std::function<void(errorType)> errorHandler;
@@ -56,6 +59,8 @@ public:
     void onPing(std::function<void(WebSocket<isServer>, char *, size_t)> handler);
     void onPong(std::function<void(WebSocket<isServer>, char *, size_t)> handler);
     void onError(std::function<void(errorType)> handler);
+
+    void onHttpRequest(std::function<void(HTTPSocket<isServer>)> handler);
 
     void broadcast(const char *message, size_t length, OpCode opCode);
     void terminate();
