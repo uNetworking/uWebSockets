@@ -5,6 +5,10 @@
 
 namespace uWS {
 
+enum ContentType {
+    TEXT_HTML
+};
+
 template <const bool isServer>
 struct WIN32_EXPORT HTTPSocket : private uS::Socket {
     struct Data : uS::SocketData {
@@ -19,7 +23,7 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
     };
 
     // share code with websocket::send!
-    void respond(char *message, size_t length);
+    void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
 
     HTTPSocket(uS::Socket s) : uS::Socket(s) {}
     typename HTTPSocket::Data *getData() {
@@ -29,9 +33,6 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
     bool upgrade(const char *secKey = nullptr, const char *extensions = nullptr,
                  size_t extensionsLength = 0, const char *subprotocol = nullptr,
                  size_t subprotocolLength = 0);
-
-    using uS::Socket::shutdown;
-    using uS::Socket::getFd;
 
 private:
     friend class uS::Socket;

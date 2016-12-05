@@ -637,11 +637,9 @@ void testHTTP() {
     uWS::Hub h;
 
     h.onHttpRequest([](uWS::HTTPSocket<uWS::SERVER> s) {
-
-        std::cout << "Got traffic!" << clock() << std::endl;
-
+        std::cout << "Got traffic: " << clock() << std::endl;
         char response[] = "<html><body><div style=\"background-color: red; text-align: center; color: white; border-radius: 5em; margin-bottom: 1em\">µWebSockets v0.13.0</div><center><img src=\"https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRUCEoO6dkQsWZdvGqpJkDLdnkdEHCo-1a6Yf5k_HwjO1VrdbAiOg\" /><center></body></html>";
-        s.respond(response, sizeof(response) - 1);
+        s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
     });
 
     h.listen(3000);
