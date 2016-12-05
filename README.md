@@ -3,6 +3,7 @@
 
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/autobahn/index.html).
 * Significantly outperforms `WebSocket++`, `libwebsockets`, `Beast`, `Crow`, `Gorilla`, `Kaazing Gateway`, `ws` and `Socket.IO` in every tested dimension (see benchmark table below).
+* Outperforms Node.js itself by 5x in HTTP requests/second when run as a Node.js module.
 * Linux, OS X & Windows support.
 * Valgrind / AddressSanitizer clean.
 * Built-in load balancing and multi-core scalability.
