@@ -192,43 +192,76 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 }
 
 template <bool isServer>
-void HTTPSocket<isServer>::respond(char *message, size_t length)
+void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType contentType, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData)
 {
-    // only less than 1024 bytes!
+    // assume we always respond with less than 128 byte header
+    const int HEADER_LENGTH = 128;
 
-    if (length + 128 > 1024) {
-        //std::cout << "TOO LONG RESPONSE!" << std::endl;
-        printf("TOO LONG!\n");
-    }
+    if (hasEmptyQueue()) {
+        if (length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH <= uS::NodeData::preAllocMaxSize) {
+            int memoryLength = length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH;
+            int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
 
-    int memoryLength = length + sizeof(uS::SocketData::Queue::Message) + 128;
-    int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
+            uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
+            messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
 
-    uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
-    messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
+            // shared code!
+            int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
+            memcpy((char *) messagePtr->data + offset, message, length);
+            messagePtr->length = length + offset;
 
-    // every http socket should keep a shared memory to write the response into directly!
-
-    int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
-    memcpy((char *) messagePtr->data + offset, message, length);
-
-    messagePtr->length = length + offset;
-
-    bool wasTransferred;
-    if (write(messagePtr, wasTransferred)) {
-        if (!wasTransferred) {
-            getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
-            /*if (callback) {
-                callback(*this, callbackData, false, nullptr);
-            }*/
+            bool wasTransferred;
+            if (write(messagePtr, wasTransferred)) {
+                if (!wasTransferred) {
+                    getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
+                    if (callback) {
+                        callback(*this, callbackData, false, nullptr);
+                    }
+                } else {
+                    messagePtr->callback = callback;
+                    messagePtr->callbackData = callbackData;
+                }
+            } else {
+                if (callback) {
+                    callback(*this, callbackData, true, nullptr);
+                }
+            }
         } else {
-            messagePtr->callback = nullptr;//callback;
-            //messagePtr->callbackData = callbackData;
+            uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
+
+            // shared code!
+            int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
+            memcpy((char *) messagePtr->data + offset, message, length);
+            messagePtr->length = length + offset;
+
+            bool wasTransferred;
+            if (write(messagePtr, wasTransferred)) {
+                if (!wasTransferred) {
+                    freeMessage(messagePtr);
+                    if (callback) {
+                        callback(*this, callbackData, false, nullptr);
+                    }
+                } else {
+                    messagePtr->callback = callback;
+                    messagePtr->callbackData = callbackData;
+                }
+            } else {
+                if (callback) {
+                    callback(*this, callbackData, true, nullptr);
+                }
+            }
         }
     } else {
-        /*if (callback) {
-            callback(*this, callbackData, true, nullptr);
-        }*/
+        uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
+
+        // shared code!
+        int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
+        memcpy((char *) messagePtr->data + offset, message, length);
+        messagePtr->length = length + offset;
+
+        messagePtr->callback = callback;
+        messagePtr->callbackData = callbackData;
+        enqueue(messagePtr);
     }
 }
 
