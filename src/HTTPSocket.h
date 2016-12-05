@@ -22,6 +22,7 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
         Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
     };
 
+    uv_poll_t *getPollHandle() const {return p;}
     void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
     using uS::Socket::shutdown;
     using uS::Socket::close;
