@@ -1,6 +1,7 @@
 #include "HTTPSocket.h"
 #include "Group.h"
 #include "Extensions.h"
+#include <cstdio>
 
 //#define SKIP_HTTP
 
@@ -193,15 +194,25 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 template <bool isServer>
 void HTTPSocket<isServer>::respond(char *message, size_t length)
 {
-
     // only less than 1024 bytes!
 
-    int memoryLength = length + sizeof(uS::SocketData::Queue::Message);
+    if (length + 128 > 1024) {
+        //std::cout << "TOO LONG RESPONSE!" << std::endl;
+        printf("TOO LONG!\n");
+    }
+
+    int memoryLength = length + sizeof(uS::SocketData::Queue::Message) + 128;
     int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
 
     uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
     messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
-    messagePtr->length = length;
+
+    // every http socket should keep a shared memory to write the response into directly!
+
+    int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
+    memcpy((char *) messagePtr->data + offset, message, length);
+
+    messagePtr->length = length + offset;
 
     bool wasTransferred;
     if (write(messagePtr, wasTransferred)) {
