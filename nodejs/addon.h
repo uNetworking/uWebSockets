@@ -69,7 +69,7 @@ public:
 struct GroupData {
     Persistent<Function> *connectionHandler, *messageHandler,
                          *disconnectionHandler, *pingHandler,
-                         *pongHandler, *errorHandler;
+                         *pongHandler, *errorHandler, *httpRequestHandler;
     int size = 0;
 
     GroupData() {
@@ -79,6 +79,7 @@ struct GroupData {
         pingHandler = new Persistent<Function>;
         pongHandler = new Persistent<Function>;
         errorHandler = new Persistent<Function>;
+        httpRequestHandler = new Persistent<Function>;
     }
 
     ~GroupData() {
@@ -88,6 +89,7 @@ struct GroupData {
         delete pingHandler;
         delete pongHandler;
         delete errorHandler;
+        delete httpRequestHandler;
     }
 };
 
@@ -430,6 +432,30 @@ void setNoop(const FunctionCallbackInfo<Value> &args) {
     noop.Reset(args.GetIsolate(), Local<Function>::Cast(args[0]));
 }
 
+void listen(const FunctionCallbackInfo<Value> &args) {
+    uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
+    hub.listen(args[1]->IntegerValue(), nullptr, 0, group);
+}
+
+void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
+    uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
+    GroupData *groupData = (GroupData *) group->getUserData();
+
+    Isolate *isolate = args.GetIsolate();
+    Persistent<Function> *httpRequestCallback = groupData->httpRequestHandler;
+    httpRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
+    group->onHttpRequest([isolate, httpRequestCallback](uWS::HTTPSocket<uWS::SERVER> s) {
+        HandleScope hs(isolate);
+        Local<Value> argv[] = {External::New(isolate, s.getPollHandle())};
+        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+    });
+}
+
+void respond(const FunctionCallbackInfo<Value> &args) {
+    NativeString nativeString(args[1]);
+    uWS::HTTPSocket<uWS::SERVER>((uv_poll_t *) args[0].As<External>()->Value()).respond(nativeString.getData(), nativeString.getLength(), uWS::ContentType::TEXT_HTML);
+}
+
 template <bool isServer>
 struct Namespace {
     Local<Object> object;
@@ -453,6 +479,10 @@ struct Namespace {
             NODE_SET_METHOD(group, "forEach", forEach);
             NODE_SET_METHOD(group, "getSize", getSize);
             NODE_SET_METHOD(group, "startAutoPing", startAutoPing);
+
+            NODE_SET_METHOD(group, "listen", listen);
+            NODE_SET_METHOD(group, "onHttpRequest", onHttpRequest);
+            NODE_SET_METHOD(object, "respond", respond);
         }
 
         NODE_SET_METHOD(group, "onPing", onPing<isServer>);
