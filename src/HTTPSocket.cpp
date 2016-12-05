@@ -2,6 +2,8 @@
 #include "Group.h"
 #include "Extensions.h"
 
+//#define SKIP_HTTP
+
 namespace uWS {
 
 struct HTTPParser {
@@ -67,9 +69,18 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
         return;
     }
 
-    httpData->httpBuffer.append(data, length);
+    //httpData->httpBuffer.append(data, length);
 
+    char *httpBuffer = data;
+
+
+#ifdef SKIP_HTTP
     size_t endOfHTTPBuffer = httpData->httpBuffer.find("\r\n\r\n");
+#else
+    size_t endOfHTTPBuffer = 1;
+#endif
+
+
     if (endOfHTTPBuffer != std::string::npos) {
 
         int enable = 1;
@@ -77,7 +88,7 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
         if (isServer) {
 
-            HTTPParser httpParser = (char *) httpData->httpBuffer.data();
+            HTTPParser httpParser = httpBuffer;
             std::pair<char *, size_t> secKey = {}, extensions = {}, subprotocol = {}, path = httpParser.value;
             for (httpParser++; httpParser.key.second; httpParser++) {
                 if (httpParser.key.second == 17 || httpParser.key.second == 24 || httpParser.key.second == 22) {
@@ -122,7 +133,14 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                     delete httpData;
                 }
             } else {
+
+#ifndef SKIP_HTTP
+                // todo: make sure to leave the socket in correct state!
+                ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s);
+                return;
+#else
                 httpSocket.onEnd(s);
+#endif
             }
         } else {
             httpData->httpBuffer.resize(httpData->httpBuffer.length() + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
@@ -169,6 +187,37 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                 httpSocket.onEnd(s);
             }
         }
+    }
+}
+
+template <bool isServer>
+void HTTPSocket<isServer>::respond(char *message, size_t length)
+{
+
+    // only less than 1024 bytes!
+
+    int memoryLength = length + sizeof(uS::SocketData::Queue::Message);
+    int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
+
+    uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
+    messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
+    messagePtr->length = length;
+
+    bool wasTransferred;
+    if (write(messagePtr, wasTransferred)) {
+        if (!wasTransferred) {
+            getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
+            /*if (callback) {
+                callback(*this, callbackData, false, nullptr);
+            }*/
+        } else {
+            messagePtr->callback = nullptr;//callback;
+            //messagePtr->callbackData = callbackData;
+        }
+    } else {
+        /*if (callback) {
+            callback(*this, callbackData, true, nullptr);
+        }*/
     }
 }
 

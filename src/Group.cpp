@@ -131,6 +131,11 @@ void Group<isServer>::onError(std::function<void (typename Group::errorType)> ha
 }
 
 template <bool isServer>
+void Group<isServer>::onHttpRequest(std::function<void (HTTPSocket<isServer>)> handler) {
+    httpRequestHandler = handler;
+}
+
+template <bool isServer>
 void Group<isServer>::broadcast(const char *message, size_t length, OpCode opCode) {
     typename WebSocket<isServer>::PreparedMessage *preparedMessage = WebSocket<isServer>::prepareMessage((char *) message, length, opCode, false);
     forEach([preparedMessage](uWS::WebSocket<isServer> ws) {

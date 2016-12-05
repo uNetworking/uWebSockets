@@ -633,9 +633,36 @@ void testMessageBatch() {
     h.run();
 }
 
+void testHTTP() {
+    uWS::Hub h;
+
+    h.onHttpRequest([](uWS::HTTPSocket<uWS::SERVER> s) {
+        //std::cout << "Hello!" << std::endl;
+        char buf[] = "HTTP/1.1 200 OK\r\n"
+                "Date: Mon, 27 Jul 2009 12:28:53 GMT\r\n"
+                "Server: Apache/2.2.14 (Win32)\r\n"
+                "Last-Modified: Wed, 22 Jul 2009 19:15:56 GMT\r\n"
+                "Content-Length: 12\r\n"
+                "Content-Type: text/html\r\n"
+                "Connection: Closed\r\n\r\n"
+                "Hello World!";
+        //s.respond(buf, sizeof(buf) - 1);
+
+        send(s.getFd(), buf, sizeof(buf) - 1, MSG_NOSIGNAL);
+
+        //s.shutdown();
+
+        //std::cout << std::string(buf, sizeof(buf) - 1) << std::endl;
+    });
+
+    h.listen(3000);
+    h.run();
+}
+
 int main(int argc, char *argv[])
 {
-    testMessageBatch();/*
+    testHTTP();
+    /*testMessageBatch();/*
     testSTL();
     testSmallSends();
     testSendCallback();

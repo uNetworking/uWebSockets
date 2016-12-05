@@ -18,6 +18,9 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
         Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
     };
 
+    // share code with websocket::send!
+    void respond(char *message, size_t length);
+
     HTTPSocket(uS::Socket s) : uS::Socket(s) {}
     typename HTTPSocket::Data *getData() {
         return (HTTPSocket::Data *) getSocketData();
@@ -26,6 +29,9 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
     bool upgrade(const char *secKey = nullptr, const char *extensions = nullptr,
                  size_t extensionsLength = 0, const char *subprotocol = nullptr,
                  size_t subprotocolLength = 0);
+
+    using uS::Socket::shutdown;
+    using uS::Socket::getFd;
 
 private:
     friend class uS::Socket;
