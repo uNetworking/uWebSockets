@@ -134,14 +134,12 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                     delete httpData;
                 }
             } else {
-
-#ifndef SKIP_HTTP
-                // todo: make sure to leave the socket in correct state!
-                ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s);
-                return;
-#else
-                httpSocket.onEnd(s);
-#endif
+                if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler) {
+                    ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s);
+                    return;
+                } else {
+                    httpSocket.onEnd(s);
+                }
             }
         } else {
             httpData->httpBuffer.resize(httpData->httpBuffer.length() + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
