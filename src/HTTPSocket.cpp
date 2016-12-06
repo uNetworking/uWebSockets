@@ -64,80 +64,41 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
         httpData->httpBuffer.append(data, length);
         httpBuffer = (char *) httpData->httpBuffer.data();
         httpLength = httpData->httpBuffer.length();
+
+
+        // 5k = force close!
+        /*if (httpData->httpBuffer.length() + length > 1024 * 5) {
+            httpSocket.onEnd(s);
+            return;
+        }*/
     } else {
         // fast path
     }
 
+    //std::cout << "Data: " << std::string(data, length) << std::endl;
+
     // parsing
-    Header headers[100];
-    if (getHeaders(httpBuffer, httpLength, headers, 100)) {
+    Header headers[30];
+    if (getHeaders(httpBuffer, httpLength, headers, 30)) {
         headers->valueLength = std::max(0, headers->valueLength - 9);
-        /*for (Header *h = headers; *h; h++) {
-            std::cout << "<" << std::string(h->key, h->keyLength) << "> = <" << std::string(h->value, h->valueLength) << ">" << std::endl;
-        }*/
-
-
-
-        // call into http handler
-        if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler) {
-            ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, headers);
-            return;
-        } else {
-            httpSocket.onEnd(s);
-        }
-
-
-
-    } else {
-        std::cout << "INCOMPLETE HEADER, ENTERING SLOW PATH!" << std::endl;
-        httpData->httpBuffer.append(data, length);
-        return;
-    }
-
-
-
-    // 5k = force close!
-    /*if (httpData->httpBuffer.length() + length > 1024 * 5) {
-        httpSocket.onEnd(s);
-        return;
-    }*/
-
-    //httpData->httpBuffer.append(data, length);
-
-    //char *httpBuffer = data;
-
-
-#ifdef SKIP_HTTP
-    size_t endOfHTTPBuffer = httpData->httpBuffer.find("\r\n\r\n");
-#else
-    size_t endOfHTTPBuffer = 1;
-#endif
-
-
-    if (endOfHTTPBuffer != std::string::npos) {
-
-        int enable = 1;
-        setsockopt(httpSocket.getFd(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
 
         if (isServer) {
-
-            //HTTPParser httpParser = httpBuffer;
-            std::pair<char *, size_t> secKey = {}, extensions = {}, subprotocol = {}, path;// = httpParser.value;
-            /*for (httpParser++; httpParser.key.second; httpParser++) {
-                if (httpParser.key.second == 17 || httpParser.key.second == 24 || httpParser.key.second == 22) {
+            std::pair<char *, size_t> secKey = {}, extensions = {}, subprotocol = {}, path = {headers->value, headers->valueLength};
+            for (Header *h = headers; *++h; ) {
+                if (h->keyLength == 17 || h->keyLength == 24 || h->keyLength == 22) {
                     // lowercase the key
-                    for (size_t i = 0; i < httpParser.key.second; i++) {
-                        httpParser.key.first[i] = tolower(httpParser.key.first[i]);
+                    for (size_t i = 0; i < h->keyLength; i++) {
+                        h->key[i] = tolower(h->key[i]);
                     }
-                    if (!strncmp(httpParser.key.first, "sec-websocket-key", httpParser.key.second)) {
-                        secKey = httpParser.value;
-                    } else if (!strncmp(httpParser.key.first, "sec-websocket-extensions", httpParser.key.second)) {
-                        extensions = httpParser.value;
-                    } else if (!strncmp(httpParser.key.first, "sec-websocket-protocol", httpParser.key.second)) {
-                        subprotocol = httpParser.value;
+                    if (!strncmp(h->key, "sec-websocket-key", h->keyLength)) {
+                        secKey = {h->value, h->valueLength};
+                    } else if (!strncmp(h->key, "sec-websocket-extensions", h->keyLength)) {
+                        extensions = {h->value, h->valueLength};
+                    } else if (!strncmp(h->key, "sec-websocket-protocol", h->keyLength)) {
+                        subprotocol = {h->value, h->valueLength};
                     }
                 }
-            }*/
+            }
 
             if (secKey.first && secKey.second == 24) {
 
@@ -166,58 +127,56 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                     delete httpData;
                 }
             } else {
-//                if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler) {
-//                    ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s);
-//                    return;
-//                } else {
-//                    httpSocket.onEnd(s);
-//                }
+                if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler) {
+                    ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, headers);
+                    return;
+                } else {
+                    httpSocket.onEnd(s);
+                }
             }
         } else {
             httpData->httpBuffer.resize(httpData->httpBuffer.length() + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
 
-            bool isUpgrade = false;
-            /*HTTPParser httpParser = (char *) httpData->httpBuffer.data();
-            //std::pair<char *, size_t> secKey = {}, extensions = {};
-            for (httpParser++; httpParser.key.second; httpParser++) {
-                if (httpParser.key.second == 7) {
+            for (Header *h = headers; *++h; ) {
+                if (h->keyLength == 7) {
                     // lowercase the key
-                    for (size_t i = 0; i < httpParser.key.second; i++) {
-                        httpParser.key.first[i] = tolower(httpParser.key.first[i]);
+                    for (size_t i = 0; i < h->keyLength; i++) {
+                        h->key[i] = tolower(h->key[i]);
                     }
                     // lowercase the value
-                    for (size_t i = 0; i < httpParser.value.second; i++) {
-                        httpParser.value.first[i] = tolower(httpParser.value.first[i]);
+                    for (size_t i = 0; i < h->valueLength; i++) {
+                        h->value[i] = tolower(h->value[i]);
                     }
-                    if (!strncmp(httpParser.key.first, "upgrade", httpParser.key.second)) {
-                        if (!strncmp(httpParser.value.first, "websocket", 9)) {
-                            isUpgrade = true;
+                    if (!strncmp(h->key, "upgrade", h->keyLength)) {
+                        if (!strncmp(h->value, "websocket", 9)) {
+                            s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
+
+                            //s.cork(true);
+                            httpSocket.cancelTimeout();
+                            httpSocket.setUserData(httpData->httpUser);
+                            ((Group<CLIENT> *) s.getSocketData()->nodeData)->addWebSocket(s);
+                            ((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), {nullptr, nullptr, 0, 0});
+                            //s.cork(false);
+
+                            if (!(s.isClosed() || s.isShuttingDown())) {
+                                WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
+                                kws->consume((char *) httpData->httpBuffer.data() + httpLength, httpData->httpBuffer.length() - httpLength - WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING, s);
+                            }
+
+                            delete httpData;
+                            return;
                         }
                         break;
                     }
                 }
-            }*/
-
-            if (isUpgrade) {
-                s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
-
-                //s.cork(true);
-                httpSocket.cancelTimeout();
-                httpSocket.setUserData(httpData->httpUser);
-                ((Group<CLIENT> *) s.getSocketData()->nodeData)->addWebSocket(s);
-                ((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), {nullptr, nullptr, 0, 0});
-                //s.cork(false);
-
-                if (!(s.isClosed() || s.isShuttingDown())) {
-                    WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
-                    kws->consume((char *) httpData->httpBuffer.data() + endOfHTTPBuffer + 4, httpData->httpBuffer.length() - endOfHTTPBuffer - 4 - WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING, s);
-                }
-
-                delete httpData;
-            } else {
-                httpSocket.onEnd(s);
             }
+
+            httpSocket.onEnd(s);
         }
+    } else {
+        std::cout << "INCOMPLETE HEADER, ENTERING SLOW PATH!" << std::endl;
+        httpData->httpBuffer.append(data, length);
+        return;
     }
 }
 
