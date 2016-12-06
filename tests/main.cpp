@@ -637,11 +637,16 @@ void testHTTP() {
     uWS::Hub h;
     int online = 0;
 
-    h.onHttpRequest([](uWS::HTTPSocket<uWS::SERVER> s) {
-        std::cout << "Got traffic: " << clock() << std::endl;
-        char response[] = "<html><body><div style=\"background-color: red; text-align: center; color: white; border-radius: 5em; margin-bottom: 1em\">µWebSockets v0.13.0</div><center><img src=\"https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRUCEoO6dkQsWZdvGqpJkDLdnkdEHCo-1a6Yf5k_HwjO1VrdbAiOg\" /><center></body></html>";
-        s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
-        s.shutdown();
+    h.onHttpRequest([](uWS::HTTPSocket<uWS::SERVER> s, uWS::Header *headers) {
+        std::cout << clock() << " : " << std::string(headers->key, headers->keyLength) << ": " << std::string(headers->value, headers->valueLength) << std::endl;
+        if (headers->valueLength == 1) {
+            char response[] = "<html><body><div style=\"background-color: red; text-align: center; color: white; border-radius: 5em; margin-bottom: 1em\">µWebSockets v0.13.0</div><center><img src=\"https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRUCEoO6dkQsWZdvGqpJkDLdnkdEHCo-1a6Yf5k_HwjO1VrdbAiOg\" /><center></body></html>";
+            s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
+        } else {
+            char response[] = "Nope, nope";
+            s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
+            s.shutdown();
+        }
     });
 
     h.onConnection([&online](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {

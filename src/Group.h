@@ -25,7 +25,7 @@ struct WIN32_EXPORT Group : protected uS::NodeData {
     std::function<void(WebSocket<isServer>, char *, size_t)> pingHandler;
     std::function<void(WebSocket<isServer>, char *, size_t)> pongHandler;
 
-    std::function<void(HTTPSocket<isServer>)> httpRequestHandler;
+    std::function<void(HTTPSocket<isServer>, Header *)> httpRequestHandler;
 
     using errorType = typename std::conditional<isServer, int, void *>::type;
     std::function<void(errorType)> errorHandler;
@@ -60,7 +60,7 @@ public:
     void onPong(std::function<void(WebSocket<isServer>, char *, size_t)> handler);
     void onError(std::function<void(errorType)> handler);
 
-    void onHttpRequest(std::function<void(HTTPSocket<isServer>)> handler);
+    void onHttpRequest(std::function<void(HTTPSocket<isServer>, Header *)> handler);
 
     void broadcast(const char *message, size_t length, OpCode opCode);
     void terminate();
