@@ -113,6 +113,10 @@ public:
 #endif
     }
 
+    void setNoDelay(int enable) {
+        setsockopt(getFd(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int));
+    }
+
     void shutdown() {
         SSL *ssl = getSocketData()->ssl;
         if (ssl) {
