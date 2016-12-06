@@ -131,7 +131,7 @@ void Group<isServer>::onError(std::function<void (typename Group::errorType)> ha
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpRequest(std::function<void (HTTPSocket<isServer>)> handler) {
+void Group<isServer>::onHttpRequest(std::function<void (HTTPSocket<isServer>, Header *)> handler) {
     httpRequestHandler = handler;
 }
 
