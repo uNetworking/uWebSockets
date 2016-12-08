@@ -4,8 +4,6 @@
 #include <thread>
 using namespace std;
 
-using namespace uWS;
-
 #define THREADS 4
 uWS::Hub *threadedServer[THREADS];
 
@@ -14,7 +12,7 @@ int main()
 {
 	try {
 		// The main hub, used to listen for connections.
-		Hub h;
+		uWS::Hub h;
 		
 		h.onConnection([&](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo upgInfo){
 			int t = rand() % THREADS;
@@ -26,19 +24,19 @@ int main()
 		// launch the threads with their servers
 		for (int i = 0; i < THREADS; i++) {
 			new thread([i]{
-				threadedServer[i] = new Hub();
+				threadedServer[i] = new uWS::Hub();
 				
 				// register our events
-				threadedServer[i]->onDisconnection([&i](WebSocket<uWS::SERVER> ws, int code, char *message, size_t length){
+				threadedServer[i]->onDisconnection([i](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length){
 					cout << "Disconnection on thread " << i << endl;
 				});
 				
-				threadedServer[i]->onMessage([&i](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode code){
+				threadedServer[i]->onMessage([i](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode){
 					cout << "Message on thread " << i << ": " << string(message, length) << endl;
-					ws.send((char *) message, length, code);
+					ws.send((char *) message, length, opCode);
 				});
 				
-				// Tell the threaded hub to listen for transfers from other threads
+				// Tell each threaded hub to listen for transfers from other threads
 				threadedServer[i]->getDefaultGroup<uWS::SERVER>().addAsync();
 				threadedServer[i]->run();
 			});
