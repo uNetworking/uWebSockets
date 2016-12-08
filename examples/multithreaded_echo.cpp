@@ -13,12 +13,12 @@ uWS::Hub *threadedServer[THREADS];
 int main()
 {
 	try {
-		// you need at least one server listening to a port
+		// The main hub, used to listen for connections.
 		Hub h;
 		
 		h.onConnection([&](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo upgInfo){
 			int t = rand() % THREADS;
-			cout << "Transfering connection to thread " << t << endl;
+			cout << "Transferring connection to thread " << t << endl;
 			ws.transfer(&threadedServer[t]->getDefaultGroup<uWS::SERVER>());
 		});
 		
@@ -26,9 +26,9 @@ int main()
 		// launch the threads with their servers
 		for (int i = 0; i < THREADS; i++) {
 			new thread([i]{
-				// register our events
 				threadedServer[i] = new Hub();
 				
+				// register our events
 				threadedServer[i]->onDisconnection([&i](WebSocket<uWS::SERVER> ws, int code, char *message, size_t length){
 					cout << "Disconnection on thread " << i << endl;
 				});
@@ -38,6 +38,7 @@ int main()
 					ws.send((char *) message, length, code);
 				});
 				
+				// Tell the threaded hub to listen for transfers from other threads
 				threadedServer[i]->getDefaultGroup<uWS::SERVER>().addAsync();
 				threadedServer[i]->run();
 			});
