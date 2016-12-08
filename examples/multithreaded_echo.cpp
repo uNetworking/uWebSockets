@@ -44,7 +44,6 @@ int main()
 			
 		}
 		
-		h.getDefaultGroup<uWS::SERVER>().addAsync();
 		h.listen(3000);
 		h.run();
 		
