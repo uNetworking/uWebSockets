@@ -3,15 +3,14 @@
 #include "Extensions.h"
 #include <cstdio>
 
-//#include <iostream>
-//#include <map>
-//#include <experimental/string_view>
 #define MAX_HEADERS 100
+#define MAX_HEADER_BUFFER_SIZE 4096
+#define FORCE_SLOW_PATH false
 
 namespace uWS {
 
 // needs some more work and checking!
-bool getHeaders(char *buffer, size_t length, Header *headers, size_t maxHeaders) {
+char *getHeaders(char *buffer, size_t length, Header *headers, size_t maxHeaders) {
     char *end = buffer + length;
     for (int i = 0; i < maxHeaders; i++) {
         headers->key = buffer;
@@ -20,7 +19,7 @@ bool getHeaders(char *buffer, size_t length, Header *headers, size_t maxHeaders)
         }
         if (*buffer == '\r') {
             if (!(buffer + 1 < end && buffer[1] == '\n')) {
-                return false;
+                return nullptr;
             }
         } else {
             headers->keyLength = buffer - headers->key;
@@ -33,17 +32,16 @@ bool getHeaders(char *buffer, size_t length, Header *headers, size_t maxHeaders)
                 headers++;
                 continue;
             } else {
-                return false;
+                return nullptr;
             }
         }
         headers->key = nullptr;
-        return true;
+        return buffer + 2;
     }
-    return false;
+    return nullptr;
 }
 
-static void base64(unsigned char *src, char *dst)
-{
+static void base64(unsigned char *src, char *dst) {
     static const char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     for (int i = 0; i < 18; i += 3) {
         *dst++ = b64[(src[i] >> 2) & 63];
@@ -64,56 +62,42 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
     char *httpBuffer = data;
     int httpLength = length;
-    if (httpData->httpBuffer.length()) {
+    if (FORCE_SLOW_PATH || httpData->httpBuffer.length()) {
+        if (httpData->httpBuffer.length() + length > MAX_HEADER_BUFFER_SIZE) {
+            httpSocket.onEnd(s);
+            return;
+        }
 
-        // append check!
+        httpData->httpBuffer.reserve(httpData->httpBuffer.length() + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
         httpData->httpBuffer.append(data, length);
         httpBuffer = (char *) httpData->httpBuffer.data();
         httpLength = httpData->httpBuffer.length();
-
-        // 5k = force close!
-        /*if (httpData->httpBuffer.length() + length > 1024 * 5) {
-            httpSocket.onEnd(s);
-            return;
-        }*/
     }
 
     Header headers[MAX_HEADERS];
-    if (getHeaders(httpBuffer, httpLength, headers, MAX_HEADERS)) {
+    char *httpBody;
+    if ((httpBody = getHeaders(httpBuffer, httpLength, headers, MAX_HEADERS))) {
         headers->valueLength = std::max(0, headers->valueLength - 9);
-
-        bool isUpgrade = false;
         HTTPRequest req = {headers};
-        isUpgrade = req.getHeader("upgrade", 7);
 
         if (isServer) {
-            if (isUpgrade) {
+            if (req.getHeader("upgrade", 7)) {
                 Header secKey = req.getHeader("sec-websocket-key");
                 Header extensions = req.getHeader("sec-websocket-extensions");
                 Header subprotocol = req.getHeader("sec-websocket-protocol");
-
-                // this needs to be part of upgrade itself, and shared with Hub::upgrade!
-                bool perMessageDeflate = false;
-                std::string extensionsResponse;
-                if (extensions) {
-                    Group<isServer> *group = (Group<isServer> *) s.getNodeData(s.getSocketData());
-                    ExtensionsNegotiator<uWS::SERVER> extensionsNegotiator(group->extensionOptions);
-                    extensionsNegotiator.readOffer(std::string(extensions.toString()));
-                    extensionsResponse = extensionsNegotiator.generateOffer();
-                    if (extensionsNegotiator.getNegotiatedOptions() & PERMESSAGE_DEFLATE) {
-                        perMessageDeflate = true;
-                    }
-                }
-
-                if (httpSocket.upgrade(secKey.value, extensionsResponse.data(), extensionsResponse.length(), subprotocol.value, subprotocol.valueLength)) {
+                bool perMessageDeflate;
+                if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
+                                                                   subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
                     s.cancelTimeout();
                     s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
 
                     ((Group<SERVER> *) s.getSocketData()->nodeData)->addWebSocket(s);
-                    //s.cork(true);
+                    s.cork(true);
                     ((Group<SERVER> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<SERVER>(s), req);
-                    //s.cork(false);
+                    s.cork(false);
                     delete httpData;
+                } else {
+                    httpSocket.onEnd(s);
                 }
             } else {
                 if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler) {
@@ -124,58 +108,34 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                 }
             }
         } else {
+            if (req.getHeader("upgrade", 7)) {
+                s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
 
+                httpSocket.cancelTimeout();
+                httpSocket.setUserData(httpData->httpUser);
+                ((Group<CLIENT> *) s.getSocketData()->nodeData)->addWebSocket(s);
+                s.cork(true);
+                ((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), HTTPRequest({}));
+                s.cork(false);
 
-            // client path
-
-            httpData->httpBuffer.resize(httpData->httpBuffer.length() + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
-
-            for (Header *h = headers; *++h; ) {
-                if (h->keyLength == 7) {
-                    // lowercase the key
-                    for (size_t i = 0; i < h->keyLength; i++) {
-                        h->key[i] = tolower(h->key[i]);
-                    }
-                    // lowercase the value
-                    for (size_t i = 0; i < h->valueLength; i++) {
-                        h->value[i] = tolower(h->value[i]);
-                    }
-                    if (!strncmp(h->key, "upgrade", h->keyLength)) {
-                        if (!strncmp(h->value, "websocket", 9)) {
-                            s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
-
-                            //s.cork(true);
-                            httpSocket.cancelTimeout();
-                            httpSocket.setUserData(httpData->httpUser);
-                            ((Group<CLIENT> *) s.getSocketData()->nodeData)->addWebSocket(s);
-                            //((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), {nullptr, nullptr, 0, 0});
-                            //s.cork(false);
-
-                            if (!(s.isClosed() || s.isShuttingDown())) {
-                                WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
-                                kws->consume((char *) httpData->httpBuffer.data() + httpLength, httpData->httpBuffer.length() - httpLength - WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING, s);
-                            }
-
-                            delete httpData;
-                            return;
-                        }
-                        break;
-                    }
+                if (!(s.isClosed() || s.isShuttingDown())) {
+                    WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
+                    kws->consume(httpBody, (httpLength - (httpBody - httpBuffer)), s);
                 }
-            }
 
-            httpSocket.onEnd(s);
+                delete httpData;
+            } else {
+                httpSocket.onEnd(s);
+            }
         }
     } else {
-        std::cout << "INCOMPLETE HEADER, ENTERING SLOW PATH!" << std::endl;
         httpData->httpBuffer.append(data, length);
-        return;
     }
 }
 
 template <bool isServer>
-void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType contentType, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData)
-{
+void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType contentType,
+                                   void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
     // assume we always respond with less than 128 byte header
     const int HEADER_LENGTH = 128;
 
@@ -248,8 +208,21 @@ void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType con
 }
 
 template <bool isServer>
-bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength) {
+bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength,
+                                   const char *subprotocol, size_t subprotocolLength, bool *perMessageDeflate) {
     if (isServer) {
+        *perMessageDeflate = false;
+        std::string extensionsResponse;
+        if (extensionsLength) {
+            Group<isServer> *group = (Group<isServer> *) getNodeData(getSocketData());
+            ExtensionsNegotiator<uWS::SERVER> extensionsNegotiator(group->extensionOptions);
+            extensionsNegotiator.readOffer(std::string(extensions, extensionsLength));
+            extensionsResponse = extensionsNegotiator.generateOffer();
+            if (extensionsNegotiator.getNegotiatedOptions() & PERMESSAGE_DEFLATE) {
+                *perMessageDeflate = true;
+            }
+        }
+
         unsigned char shaInput[] = "XXXXXXXXXXXXXXXXXXXXXXXX258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
         memcpy(shaInput, secKey, 24);
         unsigned char shaDigest[SHA_DIGEST_LENGTH];
@@ -260,11 +233,11 @@ bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
         base64(shaDigest, upgradeBuffer + 97);
         memcpy(upgradeBuffer + 125, "\r\n", 2);
         size_t upgradeResponseLength = 127;
-        if (extensionsLength) {
+        if (extensionsResponse.length()) {
             memcpy(upgradeBuffer + upgradeResponseLength, "Sec-WebSocket-Extensions: ", 26);
-            memcpy(upgradeBuffer + upgradeResponseLength + 26, extensions, extensionsLength);
-            memcpy(upgradeBuffer + upgradeResponseLength + 26 + extensionsLength, "\r\n", 2);
-            upgradeResponseLength += 26 + extensionsLength + 2;
+            memcpy(upgradeBuffer + upgradeResponseLength + 26, extensionsResponse.data(), extensionsResponse.length());
+            memcpy(upgradeBuffer + upgradeResponseLength + 26 + extensionsResponse.length(), "\r\n", 2);
+            upgradeResponseLength += 26 + extensionsResponse.length() + 2;
         }
         if (subprotocolLength) {
             memcpy(upgradeBuffer + upgradeResponseLength, "Sec-WebSocket-Protocol: ", 24);

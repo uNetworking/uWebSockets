@@ -405,12 +405,12 @@ void testRouting() {
     uWS::Hub h;
 
     h.onConnection([](uWS::WebSocket<uWS::CLIENT> ws, uWS::HTTPRequest req) {
-        //std::cout << "[Client] Connection, path: " << std::string(ui.path, ui.pathLength) << ", subprotocol: " << std::string(ui.subprotocol, ui.subprotocolLength) << std::endl;
+        std::cout << "[Client] Connection, path: " << req.getUrl().toString() << ", subprotocol: " << req.getHeader("sec-websocket-subprotocol").toString() << std::endl;
         ws.close();
     });
 
     h.onConnection([](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
-        //std::cout << "[Server] Connection, path: " << std::string(ui.path, ui.pathLength) << ", subprotocol: " << std::string(ui.subprotocol, ui.subprotocolLength) << std::endl;
+        std::cout << "[Server] Connection, path: " << req.getUrl().toString() << ", subprotocol: " << req.getHeader("sec-websocket-subprotocol").toString() << std::endl;
     });
 
     h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
@@ -669,19 +669,19 @@ void testHTTP() {
 
 int main(int argc, char *argv[])
 {
-    testHTTP();
-    /*testMessageBatch();/*
+    //testHTTP();
+    //testMessageBatch();
     testSTL();
     testSmallSends();
     testSendCallback();
-    //testMultithreading(); // FAILS IN µUV
+    testMultithreading(); // FAILS IN µUV
     testReusePort();
     testRouting();
     testClosing();
     testConnections();
     testListening();
     testBroadcast();
-    stressTest();*/
+    stressTest();
 
     //serveAutobahn();
 

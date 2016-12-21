@@ -61,7 +61,7 @@ void Hub::onClientConnection(uS::Socket s, bool error) {
         delete httpSocketData;
     } else {
         s.enterState<HTTPSocket<CLIENT>>(s.getSocketData());
-        HTTPSocket<CLIENT>(s).upgrade();
+        HTTPSocket<CLIENT>(s).upgrade(nullptr, nullptr, 0, nullptr, 0, nullptr);
     }
 }
 
@@ -140,22 +140,11 @@ bool Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
     delete socketData;
     s.enterState<HTTPSocket<SERVER>>(temporaryHttpData);
 
-    // todo: move this into upgrade call
-    bool perMessageDeflate = false;
-    std::string extensionsResponse;
-    if (extensionsLength) {
-        ExtensionsNegotiator<uWS::SERVER> extensionsNegotiator(serverGroup->extensionOptions);
-        extensionsNegotiator.readOffer(std::string(extensions, extensionsLength));
-        extensionsResponse = extensionsNegotiator.generateOffer();
-        if (extensionsNegotiator.getNegotiatedOptions() & PERMESSAGE_DEFLATE) {
-            perMessageDeflate = true;
-        }
-    }
-
-    if (HTTPSocket<SERVER>(s).upgrade(secKey, extensionsResponse.data(), extensionsResponse.length(), subprotocol, subprotocolLength)) {
+    bool perMessageDeflate;
+    if (HTTPSocket<SERVER>(s).upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate)) {
         s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
         serverGroup->addWebSocket(s);
-        //serverGroup->connectionHandler(WebSocket<SERVER>(s), {nullptr, nullptr, 0, 0});
+        serverGroup->connectionHandler(WebSocket<SERVER>(s), HTTPRequest({}));
         delete temporaryHttpData;
         return true;
     }
