@@ -338,6 +338,16 @@ class WebSocketClient extends WebSocket {
     }
 }
 
+class HttpRes {
+    constructor(external) {
+        this.external = external;
+    }
+
+    end(data) {
+        native.server.respond(this.external, data);
+    }
+}
+
 class Server extends EventEmitter {
     constructor(options, callback) {
         super();
@@ -358,7 +368,7 @@ class Server extends EventEmitter {
         this._lastUpgradeListener = true;
         this._passedHttpServer = options.server;
 
-        if (!options.noServer) {
+        if (!options.noServer && !options.nativeHttp) {
             this.httpServer = options.server ? options.server : http.createServer((request, response) => {
                 // todo: default HTTP response
                 response.end();
@@ -435,12 +445,24 @@ class Server extends EventEmitter {
         });
 
         if (options.port) {
-            if (options.host) {
-                this.httpServer.listen(options.port, options.host, callback);
+            if (options.nativeHttp) {
+                this._upgradeCallback = emitConnection;
+                // todo: close any http connection by default
+                native.server.group.listen(this.serverGroup, options.port);
             } else {
-                this.httpServer.listen(options.port, callback);
+                if (options.host) {
+                    this.httpServer.listen(options.port, options.host, callback);
+                } else {
+                    this.httpServer.listen(options.port, callback);
+                }
             }
         }
+    }
+
+    onHttpRequest(reqCb) {
+        native.server.group.onHttpRequest(this.serverGroup, (external, url) => {
+            reqCb({url: url, getHeader: native.server.getHeader}, new HttpRes(external));
+        });
     }
 
     handleUpgrade(request, socket, upgradeHead, callback) {

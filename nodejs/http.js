@@ -1,41 +1,22 @@
 'use strict';
 
-const native = require('./dist/uws').native;
+const WebSocketServer = require('./dist/uws').Server;
+const wss = new WebSocketServer({ port: 3000, nativeHttp: true });
 
-class HttpRes {
-    constructor(external) {
-        this.external = external;
-    }
-
-    end(data) {
-        native.server.respond(this.external, data);
-    }
+function onMessage(message) {
+    this.send(message);
 }
 
-class uhttp {
-    constructor(reqCb) {
-        this.serverGroup = native.server.group.create();
-
-        native.server.group.onHttpRequest(this.serverGroup, (external, url) => {
-            reqCb({url: url, getHeader: native.server.getHeader}, new HttpRes(external));
-        });
-    }
-
-    static createServer(reqCb) {
-        return new uhttp(reqCb);
-    }
-
-    listen(port) {
-        native.server.group.listen(this.serverGroup, port);
-    }
-}
-
-// usage example
-
-var server = uhttp.createServer((req, res) => {
-    // console.log('Url: ' + req.url);
-    // console.log('User Agent: ' + req.getHeader('user-agent'));
-    res.end('Hello world!');
+wss.on('connection', function(ws) {
+    ws.on('message', onMessage);
 });
 
-server.listen(3000);
+wss.on('error', function(error) {
+    console.log('Cannot start server');
+});
+
+wss.onHttpRequest((req, res) => {
+    // console.log(req.url);
+    // console.log(req.getHeader('user-agent'));
+    res.end('Hello there! Welcome to the 90s');
+});
