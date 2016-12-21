@@ -2,6 +2,9 @@
 #define HTTPSOCKET_UWS_H
 
 #include "Socket.h"
+#include <experimental/string_view>
+#include <map>
+#include <iostream>
 
 namespace uWS {
 
@@ -12,10 +15,33 @@ struct Header {
     operator bool() {
         return key;
     }
+
+    std::experimental::string_view toString() {
+        return std::experimental::string_view(value, valueLength);
+    }
 };
 
 enum ContentType {
     TEXT_HTML
+};
+
+struct HTTPRequest {
+    Header *headers;
+    Header getHeader(char *key) {
+        return getHeader(key, strlen(key));
+    }
+
+    Header getHeader(char *key, size_t length) {
+        for (Header *h = headers; *++h; ) {
+            if (h->keyLength == length && !strncmp(h->key, key, length)) {
+                return *h;
+            }
+        }
+        return {nullptr, nullptr, 0, 0};
+    }
+    Header getUrl() {
+        return *headers;
+    }
 };
 
 template <const bool isServer>
