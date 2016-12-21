@@ -3,8 +3,6 @@
 
 #include "Socket.h"
 #include <experimental/string_view>
-#include <map>
-#include <iostream>
 
 namespace uWS {
 
@@ -31,16 +29,23 @@ struct HTTPRequest {
         return getHeader(key, strlen(key));
     }
 
+    HTTPRequest(Header *headers = nullptr) : headers(headers) {}
+
     Header getHeader(char *key, size_t length) {
-        for (Header *h = headers; *++h; ) {
-            if (h->keyLength == length && !strncmp(h->key, key, length)) {
-                return *h;
+        if (headers) {
+            for (Header *h = headers; *++h; ) {
+                if (h->keyLength == length && !strncmp(h->key, key, length)) {
+                    return *h;
+                }
             }
         }
         return {nullptr, nullptr, 0, 0};
     }
     Header getUrl() {
-        return *headers;
+        if (headers) {
+            return *headers;
+        }
+        return {nullptr, nullptr, 0, 0};
     }
 };
 
@@ -70,9 +75,9 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
         return (HTTPSocket::Data *) getSocketData();
     }
 
-    bool upgrade(const char *secKey = nullptr, const char *extensions = nullptr,
-                 size_t extensionsLength = 0, const char *subprotocol = nullptr,
-                 size_t subprotocolLength = 0);
+    bool upgrade(const char *secKey, const char *extensions,
+                 size_t extensionsLength, const char *subprotocol,
+                 size_t subprotocolLength, bool *perMessageDeflate);
 
 private:
     friend class uS::Socket;
