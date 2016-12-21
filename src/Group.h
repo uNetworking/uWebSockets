@@ -11,21 +11,16 @@ namespace uWS {
 
 struct Hub;
 
-struct UpgradeInfo {
-    char *path, *subprotocol;
-    size_t pathLength, subprotocolLength;
-};
-
 template <bool isServer>
 struct WIN32_EXPORT Group : protected uS::NodeData {
     friend struct Hub;
-    std::function<void(WebSocket<isServer>, UpgradeInfo)> connectionHandler;
+    std::function<void(WebSocket<isServer>, HTTPRequest)> connectionHandler;
     std::function<void(WebSocket<isServer>, char *message, size_t length, OpCode opCode)> messageHandler;
     std::function<void(WebSocket<isServer>, int code, char *message, size_t length)> disconnectionHandler;
     std::function<void(WebSocket<isServer>, char *, size_t)> pingHandler;
     std::function<void(WebSocket<isServer>, char *, size_t)> pongHandler;
 
-    std::function<void(HTTPSocket<isServer>, Header *)> httpRequestHandler;
+    std::function<void(HTTPSocket<isServer>, HTTPRequest)> httpRequestHandler;
 
     using errorType = typename std::conditional<isServer, int, void *>::type;
     std::function<void(errorType)> errorHandler;
@@ -53,14 +48,13 @@ protected:
     void stopListening();
 
 public:
-    void onConnection(std::function<void(WebSocket<isServer>, UpgradeInfo ui)> handler);
+    void onConnection(std::function<void(WebSocket<isServer>, HTTPRequest)> handler);
     void onMessage(std::function<void(WebSocket<isServer>, char *, size_t, OpCode)> handler);
     void onDisconnection(std::function<void(WebSocket<isServer>, int code, char *message, size_t length)> handler);
     void onPing(std::function<void(WebSocket<isServer>, char *, size_t)> handler);
     void onPong(std::function<void(WebSocket<isServer>, char *, size_t)> handler);
     void onError(std::function<void(errorType)> handler);
-
-    void onHttpRequest(std::function<void(HTTPSocket<isServer>, Header *)> handler);
+    void onHttpRequest(std::function<void(HTTPSocket<isServer>, HTTPRequest)> handler);
 
     void broadcast(const char *message, size_t length, OpCode opCode);
     void terminate();

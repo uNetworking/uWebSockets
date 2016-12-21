@@ -112,7 +112,7 @@ void measureInternalThroughput(int payloadLength, int echoes, bool ssl) {
                                                 "ssl/key.pem",
                                                 "1234");
 
-    h.onConnection([payload, payloadLength, echoes](uWS::WebSocket<uWS::CLIENT> ws, uWS::UpgradeInfo ui) {
+    h.onConnection([payload, payloadLength, echoes](uWS::WebSocket<uWS::CLIENT> ws, uWS::HTTPRequest req) {
         for (int i = 0; i < echoes; i++) {
             ws.send(payload, payloadLength, uWS::OpCode::BINARY);
         }
@@ -239,7 +239,7 @@ void testConnections() {
         }
     });
 
-    h.onConnection([](uWS::WebSocket<uWS::CLIENT> ws, uWS::UpgradeInfo ui) {
+    h.onConnection([](uWS::WebSocket<uWS::CLIENT> ws, uWS::HTTPRequest req) {
         switch ((long) ws.getUserData()) {
         case 4:
             std::cout << "Client established a remote connection over non-SSL" << std::endl;
@@ -302,9 +302,9 @@ void testClosing() {
     uWS::Hub h;
     char *closeMessage = "Closing you down!";
 
-    h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+    h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
         ws.terminate();
-        h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+        h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
             ws.close(1000, closeMessage, strlen(closeMessage));
         });
         h.connect("ws://localhost:3000", (void *) 2);
@@ -360,7 +360,7 @@ void testBroadcast() {
     size_t broadcastMessageLength = strlen(broadcastMessage);
 
     int connections = 14;
-    h.onConnection([&h, &connections, broadcastMessage, broadcastMessageLength](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+    h.onConnection([&h, &connections, broadcastMessage, broadcastMessageLength](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
         if (!--connections) {
             std::cout << "Broadcasting & closing now!" << std::endl;
             h.getDefaultGroup<uWS::SERVER>().broadcast(broadcastMessage, broadcastMessageLength, uWS::OpCode::TEXT);
@@ -404,13 +404,13 @@ void testBroadcast() {
 void testRouting() {
     uWS::Hub h;
 
-    h.onConnection([](uWS::WebSocket<uWS::CLIENT> ws, uWS::UpgradeInfo ui) {
-        std::cout << "[Client] Connection, path: " << std::string(ui.path, ui.pathLength) << ", subprotocol: " << std::string(ui.subprotocol, ui.subprotocolLength) << std::endl;
+    h.onConnection([](uWS::WebSocket<uWS::CLIENT> ws, uWS::HTTPRequest req) {
+        //std::cout << "[Client] Connection, path: " << std::string(ui.path, ui.pathLength) << ", subprotocol: " << std::string(ui.subprotocol, ui.subprotocolLength) << std::endl;
         ws.close();
     });
 
-    h.onConnection([](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
-        std::cout << "[Server] Connection, path: " << std::string(ui.path, ui.pathLength) << ", subprotocol: " << std::string(ui.subprotocol, ui.subprotocolLength) << std::endl;
+    h.onConnection([](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
+        //std::cout << "[Server] Connection, path: " << std::string(ui.path, ui.pathLength) << ", subprotocol: " << std::string(ui.subprotocol, ui.subprotocolLength) << std::endl;
     });
 
     h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
@@ -504,11 +504,11 @@ void testMultithreading() {
 
         clientGroup->addAsync();
 
-        h.onConnection([&tServerGroup](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+        h.onConnection([&tServerGroup](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
             ws.transfer(tServerGroup);
         });
 
-        h.onConnection([&client, &m](uWS::WebSocket<uWS::CLIENT> ws, uWS::UpgradeInfo ui) {
+        h.onConnection([&client, &m](uWS::WebSocket<uWS::CLIENT> ws, uWS::HTTPRequest req) {
             m.lock();
             client = ws;
             ws.send("first message here");
@@ -538,7 +538,7 @@ void testMultithreading() {
 void testSendCallback() {
     uWS::Hub h;
 
-    h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+    h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
         ws.send("1234", 4, uWS::OpCode::TEXT, [](void *webSocket, void *data, bool cancelled, void *reserved) {
             if (data) {
                 if (data != (void *) 13) {
@@ -586,7 +586,7 @@ void testSmallSends() {
     uWS::Hub h;
 
     int length = 0;
-    h.onConnection([&h, &length](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+    h.onConnection([&h, &length](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
         while (length < 2048) {
             char *message = new char[length];
             memset(message, 0, length);
@@ -623,7 +623,7 @@ void testMessageBatch() {
     std::vector<std::string> messages = {"hello", "world"};
     std::vector<int> excludes;
 
-    h.onConnection([&messages, &excludes](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+    h.onConnection([&messages, &excludes](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
         uWS::WebSocket<uWS::SERVER>::PreparedMessage *prepared = ws.prepareMessageBatch(messages, excludes, uWS::OpCode::TEXT, false, nullptr);
         ws.sendPrepared(prepared, nullptr);
         ws.finalizeMessage(prepared);
@@ -637,9 +637,10 @@ void testHTTP() {
     uWS::Hub h;
     int online = 0;
 
-    h.onHttpRequest([](uWS::HTTPSocket<uWS::SERVER> s, uWS::Header *headers) {
-        std::cout << clock() << " : " << std::string(headers->key, headers->keyLength) << ": " << std::string(headers->value, headers->valueLength) << std::endl;
-        if (headers->valueLength == 1) {
+    h.onHttpRequest([](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req) {
+        //std::cout << clock() << " : " << req.getUrl().toString() << std::endl << req.getHeader("user-agent").toString() << std::endl;
+
+        if (req.getUrl().toString() == "/") {
             char response[] = "<html><body><div style=\"background-color: red; text-align: center; color: white; border-radius: 5em; margin-bottom: 1em\">µWebSockets v0.13.0</div><center><img src=\"https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRUCEoO6dkQsWZdvGqpJkDLdnkdEHCo-1a6Yf5k_HwjO1VrdbAiOg\" /><center></body></html>";
             s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
         } else {
@@ -649,7 +650,7 @@ void testHTTP() {
         }
     });
 
-    h.onConnection([&online](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo ui) {
+    h.onConnection([&online](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
         std::cout << "WebSocket connected: " << clock() << " numbers online: " << ++online << std::endl;
     });
 
