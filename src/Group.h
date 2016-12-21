@@ -2,6 +2,7 @@
 #define GROUP_UWS_H
 
 #include "WebSocket.h"
+#include "HTTPSocket.h"
 #include "Extensions.h"
 #include <functional>
 #include <stack>
@@ -10,19 +11,17 @@ namespace uWS {
 
 struct Hub;
 
-struct UpgradeInfo {
-    char *path, *subprotocol;
-    size_t pathLength, subprotocolLength;
-};
-
 template <bool isServer>
 struct WIN32_EXPORT Group : protected uS::NodeData {
     friend struct Hub;
-    std::function<void(WebSocket<isServer>, UpgradeInfo)> connectionHandler;
+    std::function<void(WebSocket<isServer>, HTTPRequest)> connectionHandler;
     std::function<void(WebSocket<isServer>, char *message, size_t length, OpCode opCode)> messageHandler;
     std::function<void(WebSocket<isServer>, int code, char *message, size_t length)> disconnectionHandler;
     std::function<void(WebSocket<isServer>, char *, size_t)> pingHandler;
     std::function<void(WebSocket<isServer>, char *, size_t)> pongHandler;
+
+    std::function<void(HTTPSocket<isServer>, HTTPRequest)> httpRequestHandler;
+    std::function<void(HTTPSocket<isServer>, char *, size_t, size_t)> httpDataHandler;
 
     using errorType = typename std::conditional<isServer, int, void *>::type;
     std::function<void(errorType)> errorHandler;
@@ -50,12 +49,15 @@ protected:
     void stopListening();
 
 public:
-    void onConnection(std::function<void(WebSocket<isServer>, UpgradeInfo ui)> handler);
+    void onConnection(std::function<void(WebSocket<isServer>, HTTPRequest)> handler);
     void onMessage(std::function<void(WebSocket<isServer>, char *, size_t, OpCode)> handler);
     void onDisconnection(std::function<void(WebSocket<isServer>, int code, char *message, size_t length)> handler);
     void onPing(std::function<void(WebSocket<isServer>, char *, size_t)> handler);
     void onPong(std::function<void(WebSocket<isServer>, char *, size_t)> handler);
     void onError(std::function<void(errorType)> handler);
+
+    void onHttpRequest(std::function<void(HTTPSocket<isServer>, HTTPRequest)> handler);
+    void onHttpData(std::function<void(HTTPSocket<isServer>, char *data, size_t length, size_t remainingBytes)> handler);
 
     void broadcast(const char *message, size_t length, OpCode opCode);
     void terminate();

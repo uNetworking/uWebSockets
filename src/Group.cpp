@@ -74,11 +74,12 @@ void Group<isServer>::removeWebSocket(uv_poll_t *webSocket) {
 
 template <bool isServer>
 Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) : uS::NodeData(*nodeData), hub(hub), extensionOptions(extensionOptions) {
-    connectionHandler = [](WebSocket<isServer>, UpgradeInfo) {};
+    connectionHandler = [](WebSocket<isServer>, HTTPRequest) {};
     messageHandler = [](WebSocket<isServer>, char *, size_t, OpCode) {};
     disconnectionHandler = [](WebSocket<isServer>, int, char *, size_t) {};
     pingHandler = pongHandler = [](WebSocket<isServer>, char *, size_t) {};
     errorHandler = [](errorType) {};
+    httpRequestHandler = [](HTTPSocket<isServer>, HTTPRequest) {};
 
     this->extensionOptions |= CLIENT_NO_CONTEXT_TAKEOVER | SERVER_NO_CONTEXT_TAKEOVER;
 }
@@ -101,7 +102,7 @@ void Group<isServer>::stopListening() {
 }
 
 template <bool isServer>
-void Group<isServer>::onConnection(std::function<void (WebSocket<isServer>, UpgradeInfo)> handler) {
+void Group<isServer>::onConnection(std::function<void (WebSocket<isServer>, HTTPRequest)> handler) {
     connectionHandler = handler;
 }
 
@@ -128,6 +129,16 @@ void Group<isServer>::onPong(std::function<void (WebSocket<isServer>, char *, si
 template <bool isServer>
 void Group<isServer>::onError(std::function<void (typename Group::errorType)> handler) {
     errorHandler = handler;
+}
+
+template <bool isServer>
+void Group<isServer>::onHttpRequest(std::function<void (HTTPSocket<isServer>, HTTPRequest)> handler) {
+    httpRequestHandler = handler;
+}
+
+template <bool isServer>
+void Group<isServer>::onHttpData(std::function<void(HTTPSocket<isServer>, char *, size_t, size_t)> handler) {
+    httpDataHandler = handler;
 }
 
 template <bool isServer>
