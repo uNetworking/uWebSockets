@@ -23,6 +23,12 @@ enum ContentType {
     TEXT_HTML
 };
 
+enum HTTPVerb {
+    GET,
+    POST,
+    INVALID
+};
+
 struct HTTPRequest {
     Header *headers;
     Header getHeader(char *key) {
@@ -47,12 +53,22 @@ struct HTTPRequest {
         }
         return {nullptr, nullptr, 0, 0};
     }
+
+    HTTPVerb getVerb() {
+        if (headers->keyLength == 3 && !strncmp(headers->key, "get", 3)) {
+            return GET;
+        } else if (headers->keyLength == 4 && !strncmp(headers->key, "post", 4)) {
+            return POST;
+        }
+        return INVALID;
+    }
 };
 
 template <const bool isServer>
 struct WIN32_EXPORT HTTPSocket : private uS::Socket {
     struct Data : uS::SocketData {
         std::string httpBuffer;
+        size_t contentLength = 0;
 
         // todo: limit these to only client, but who cares for now?
         std::string path;

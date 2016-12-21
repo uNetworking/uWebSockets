@@ -7,6 +7,8 @@
 #define MAX_HEADER_BUFFER_SIZE 4096
 #define FORCE_SLOW_PATH false
 
+#include <iostream>
+
 namespace uWS {
 
 // needs some more work and checking!
@@ -77,10 +79,10 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
     Header headers[MAX_HEADERS];
     char *httpBody;
     if ((httpBody = getHeaders(httpBuffer, httpLength, headers, MAX_HEADERS))) {
-        headers->valueLength = std::max(0, headers->valueLength - 9);
-        HTTPRequest req = {headers};
+        HTTPRequest req(headers);
 
         if (isServer) {
+            headers->valueLength = std::max(0, headers->valueLength - 9);
             if (req.getHeader("upgrade", 7)) {
                 Header secKey = req.getHeader("sec-websocket-key");
                 Header extensions = req.getHeader("sec-websocket-extensions");
@@ -102,6 +104,19 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
             } else {
                 if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler) {
                     ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req);
+
+                    Header contentLength = req.getHeader("content-length");
+                    if (contentLength) {
+                        httpData->contentLength = atoi(contentLength.value);
+
+                        if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpDataHandler) {
+                            size_t availableBytes = (httpLength - (httpBody - httpBuffer));
+                            ((Group<SERVER> *) s.getSocketData()->nodeData)->httpDataHandler(s, httpBody, availableBytes, httpData->contentLength - availableBytes);
+                            httpData->contentLength -= availableBytes;
+                        }
+                    }
+
+                    // if finns mer available bytes, fortsätt parsning från start!
                     return;
                 } else {
                     httpSocket.onEnd(s);
@@ -115,7 +130,7 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                 httpSocket.setUserData(httpData->httpUser);
                 ((Group<CLIENT> *) s.getSocketData()->nodeData)->addWebSocket(s);
                 s.cork(true);
-                ((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), HTTPRequest({}));
+                ((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), req);
                 s.cork(false);
 
                 if (!(s.isClosed() || s.isShuttingDown())) {
