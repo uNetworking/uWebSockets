@@ -260,7 +260,7 @@ void onConnection(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     Persistent<Function> *connectionCallback = groupData->connectionHandler;
     connectionCallback->Reset(isolate, Local<Function>::Cast(args[1]));
-    group->onConnection([isolate, connectionCallback, groupData](uWS::WebSocket<isServer> webSocket, uWS::UpgradeInfo ui) {
+    group->onConnection([isolate, connectionCallback, groupData](uWS::WebSocket<isServer> webSocket, uWS::HTTPRequest req) {
         groupData->size++;
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(webSocket, isolate)};
@@ -437,6 +437,8 @@ void listen(const FunctionCallbackInfo<Value> &args) {
     hub.listen(args[1]->IntegerValue(), nullptr, 0, group);
 }
 
+uWS::HTTPRequest currentReq;
+
 void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
     GroupData *groupData = (GroupData *) group->getUserData();
@@ -444,16 +446,26 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     Persistent<Function> *httpRequestCallback = groupData->httpRequestHandler;
     httpRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
-    group->onHttpRequest([isolate, httpRequestCallback](uWS::HTTPSocket<uWS::SERVER> s) {
+    group->onHttpRequest([isolate, httpRequestCallback](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req) {
+        currentReq = req;
         HandleScope hs(isolate);
-        Local<Value> argv[] = {External::New(isolate, s.getPollHandle())};
-        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+        Local<Value> argv[] = {External::New(isolate, s.getPollHandle()),
+                               String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength)};
+        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
     });
 }
 
 void respond(const FunctionCallbackInfo<Value> &args) {
     NativeString nativeString(args[1]);
     uWS::HTTPSocket<uWS::SERVER>((uv_poll_t *) args[0].As<External>()->Value()).respond(nativeString.getData(), nativeString.getLength(), uWS::ContentType::TEXT_HTML);
+}
+
+void getHeader(const FunctionCallbackInfo<Value> &args) {
+    NativeString nativeString(args[0]);
+    uWS::Header header = currentReq.getHeader(nativeString.getData(), nativeString.getLength());
+    if (header) {
+        args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), header.value, String::kNormalString, header.valueLength));
+    }
 }
 
 template <bool isServer>
@@ -483,6 +495,7 @@ struct Namespace {
             NODE_SET_METHOD(group, "listen", listen);
             NODE_SET_METHOD(group, "onHttpRequest", onHttpRequest);
             NODE_SET_METHOD(object, "respond", respond);
+            NODE_SET_METHOD(object, "getHeader", getHeader);
         }
 
         NODE_SET_METHOD(group, "onPing", onPing<isServer>);

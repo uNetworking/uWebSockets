@@ -2,7 +2,8 @@
 #define HTTPSOCKET_UWS_H
 
 #include "Socket.h"
-#include <experimental/string_view>
+#include <string>
+// #include <experimental/string_view>
 
 namespace uWS {
 
@@ -14,8 +15,9 @@ struct Header {
         return key;
     }
 
-    std::experimental::string_view toString() {
-        return std::experimental::string_view(value, valueLength);
+    // slow without string_view!
+    std::string toString() {
+        return std::string(value, valueLength);
     }
 };
 
@@ -31,13 +33,13 @@ enum HTTPVerb {
 
 struct HTTPRequest {
     Header *headers;
-    Header getHeader(char *key) {
+    Header getHeader(const char *key) {
         return getHeader(key, strlen(key));
     }
 
     HTTPRequest(Header *headers = nullptr) : headers(headers) {}
 
-    Header getHeader(char *key, size_t length) {
+    Header getHeader(const char *key, size_t length) {
         if (headers) {
             for (Header *h = headers; *++h; ) {
                 if (h->keyLength == length && !strncmp(h->key, key, length)) {
