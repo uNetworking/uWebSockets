@@ -1,4 +1,4 @@
-<div align="center"><img src="images/logo.png"/></div>
+<div align="center"><img src="https://github.com/uWebSockets/uWebSockets/raw/master/images/logo.png"/></div>
 `µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/autobahn/index.html).
@@ -28,7 +28,7 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight :-1: | µWS is **4x** as per
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. These results were achieved with the native C++ server, not the Node.js addon. Expect worse performance and scalability when using Node.js (don't worry, the Node.js addon will run circles around `ws`).*
 
 ## Built with µWS
-<div align="center"><img src="images/builtwithuws.png"/></div>
+<div align="center"><img src="https://github.com/uWebSockets/uWebSockets/raw/master/images/builtwithuws.png"/></div>
 
 ## Usage
 
