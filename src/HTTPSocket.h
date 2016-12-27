@@ -9,7 +9,7 @@ namespace uWS {
 
 struct Header {
     char *key, *value;
-    int keyLength, valueLength;
+    unsigned int keyLength, valueLength;
 
     operator bool() {
         return key;

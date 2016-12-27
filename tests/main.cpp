@@ -97,15 +97,15 @@ void serveBenchmark() {
     h.run();
 }
 
-void measureInternalThroughput(int payloadLength, int echoes, bool ssl) {
+void measureInternalThroughput(unsigned int payloadLength, int echoes, bool ssl) {
     uWS::Hub h;
 
     char *payload = new char[payloadLength];
-    for (int i = 0; i < payloadLength; i++) {
+    for (unsigned int i = 0; i < payloadLength; i++) {
         payload[i] = rand();
     }
 
-    char *closeMessage = "I'm closing now";
+    const char *closeMessage = "I'm closing now";
     size_t closeMessageLength = strlen(closeMessage);
 
     uS::TLS::Context c = uS::TLS::createContext("ssl/cert.pem",
@@ -300,7 +300,7 @@ void testListening() {
 
 void testClosing() {
     uWS::Hub h;
-    char *closeMessage = "Closing you down!";
+    const char *closeMessage = "Closing you down!";
 
     h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> ws, uWS::HTTPRequest req) {
         ws.terminate();
@@ -356,7 +356,7 @@ void testClosing() {
 void testBroadcast() {
     uWS::Hub h;
 
-    char *broadcastMessage = "This will be broadcasted!";
+    const char *broadcastMessage = "This will be broadcasted!";
     size_t broadcastMessageLength = strlen(broadcastMessage);
 
     int connections = 14;
@@ -696,21 +696,23 @@ void testHTTP() {
 
 int main(int argc, char *argv[])
 {
-    testHTTP();
+    // blocking
+    //testHTTP();
     //testMessageBatch();
-//    testSTL();
-//    testSmallSends();
-//    testSendCallback();
-//    testMultithreading(); // FAILS IN µUV
-//    testReusePort();
-    testRouting();
-//    testClosing();
-//    testConnections();
-//    testListening();
-//    testBroadcast();
-//    stressTest();
 
-    //serveAutobahn();
+    // falls through
+    testSTL();
+    testSmallSends();
+    testSendCallback();
+    testMultithreading(); // FAILS IN µUV
+    testReusePort();
+    testRouting();
+    testClosing();
+    testConnections();
+    testListening();
+    testBroadcast();
+    stressTest();
+    serveAutobahn();
 
 
     //testAutoPing();
