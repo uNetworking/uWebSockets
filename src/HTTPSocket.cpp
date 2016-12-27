@@ -15,7 +15,7 @@ namespace uWS {
 
 // needs some more work and checking!
 char *getHeaders(char *buffer, char *end, Header *headers, size_t maxHeaders) {
-    for (int i = 0; i < maxHeaders; i++) {
+    for (unsigned int i = 0; i < maxHeaders; i++) {
         headers->key = buffer;
         for (; *buffer != ':' && !isspace(*buffer) && *buffer != '\r'; buffer++) {
             *buffer = tolower(*buffer);
@@ -77,13 +77,13 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
     char *end = data + length;
     char *cursor = data;
-    *end = '/r';
+    *end = '\r';
     Header headers[MAX_HEADERS];
     while (cursor != end && (cursor = getHeaders(cursor, end, headers, MAX_HEADERS))) {
         HTTPRequest req(headers);
 
         if (isServer) {
-            headers->valueLength = std::max(0, headers->valueLength - 9);
+            headers->valueLength = std::max<unsigned int>(0, headers->valueLength - 9);
             if (req.getHeader("upgrade", 7)) {
                 Header secKey = req.getHeader("sec-websocket-key", 17);
                 Header extensions = req.getHeader("sec-websocket-extensions", 24);
@@ -173,7 +173,7 @@ void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType con
             messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
 
             // shared code!
-            int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
+            int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
             memcpy((char *) messagePtr->data + offset, message, length);
             messagePtr->length = length + offset;
 
@@ -197,7 +197,7 @@ void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType con
             uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
 
             // shared code!
-            int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
+            int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
             memcpy((char *) messagePtr->data + offset, message, length);
             messagePtr->length = length + offset;
 
@@ -222,7 +222,7 @@ void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType con
         uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
 
         // shared code!
-        int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
+        int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
         memcpy((char *) messagePtr->data + offset, message, length);
         messagePtr->length = length + offset;
 

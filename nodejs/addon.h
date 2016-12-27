@@ -446,7 +446,7 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     Persistent<Function> *httpRequestCallback = groupData->httpRequestHandler;
     httpRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
-    group->onHttpRequest([isolate, httpRequestCallback](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req) {
+    group->onHttpRequest([isolate, httpRequestCallback](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req, char *data, size_t length, size_t bytesRemaining) {
         currentReq = req;
         HandleScope hs(isolate);
         Local<Value> argv[] = {External::New(isolate, s.getPollHandle()),

@@ -80,6 +80,8 @@ Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) :
     pingHandler = pongHandler = [](WebSocket<isServer>, char *, size_t) {};
     errorHandler = [](errorType) {};
     httpRequestHandler = [](HTTPSocket<isServer>, HTTPRequest, char *, size_t, size_t) {};
+    httpConnectionHandler = [](HTTPSocket<isServer>) {};
+    httpDisconnectionHandler = [](HTTPSocket<isServer>) {};
 
     this->extensionOptions |= CLIENT_NO_CONTEXT_TAKEOVER | SERVER_NO_CONTEXT_TAKEOVER;
 }
