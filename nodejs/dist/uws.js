@@ -338,13 +338,15 @@ class WebSocketClient extends WebSocket {
     }
 }
 
-class HttpRes {
+class HttpSocket {
     constructor(external) {
         this.external = external;
     }
 
     end(data) {
-        native.server.respond(this.external, data);
+        if (this.external) {
+            native.server.respond(this.external, data);
+        }
     }
 }
 
@@ -460,8 +462,8 @@ class Server extends EventEmitter {
     }
 
     onHttpRequest(reqCb) {
-        native.server.group.onHttpRequest(this.serverGroup, (external, url) => {
-            reqCb({url: url, getHeader: native.server.getHeader}, new HttpRes(external));
+        native.server.group.onHttpRequest(this.serverGroup, (external, verb, url, data, remainingBytes) => {
+            reqCb(new HttpSocket(external), {verb: verb, url: url, getHeader: native.server.getHeader, data: data, remainingBytes: remainingBytes});
         });
     }
 
@@ -529,4 +531,6 @@ WebSocketClient.OPEN = 1;
 WebSocketClient.CLOSED = 0;
 WebSocketClient.Server = Server;
 WebSocketClient.native = native;
+WebSocketClient.HTTP_GET = 0;
+WebSocketClient.HTTP_POST = 1;
 module.exports = WebSocketClient;

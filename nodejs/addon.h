@@ -11,6 +11,7 @@ using namespace v8;
 uWS::Hub hub(0, true);
 uv_check_t check;
 Persistent<Function> noop;
+uWS::HTTPRequest currentReq;
 
 void registerCheck(Isolate *isolate) {
     uv_check_init(hub.getLoop(), &check);
@@ -437,8 +438,6 @@ void listen(const FunctionCallbackInfo<Value> &args) {
     hub.listen(args[1]->IntegerValue(), nullptr, 0, group);
 }
 
-uWS::HTTPRequest currentReq;
-
 void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
     GroupData *groupData = (GroupData *) group->getUserData();
@@ -446,12 +445,15 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     Persistent<Function> *httpRequestCallback = groupData->httpRequestHandler;
     httpRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
-    group->onHttpRequest([isolate, httpRequestCallback](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req, char *data, size_t length, size_t bytesRemaining) {
+    group->onHttpRequest([isolate, httpRequestCallback](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req, char *data, size_t length, size_t remainingBytes) {
         currentReq = req;
         HandleScope hs(isolate);
         Local<Value> argv[] = {External::New(isolate, s.getPollHandle()),
-                               String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength)};
-        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
+                               Integer::New(isolate, req.getVerb()),
+                               String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength),
+                               ArrayBuffer::New(isolate, (char *) data, length),
+                               Integer::New(isolate, remainingBytes)};
+        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 4, argv);
     });
 }
 
