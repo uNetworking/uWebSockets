@@ -85,10 +85,8 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
     using uS::Socket::shutdown;
     using uS::Socket::close;
 
-    HTTPSocket(uS::Socket s) : uS::Socket(s) {
-        // question is if we want this on HTTP sockets?
-        setNoDelay(true);
-    }
+    HTTPSocket(uS::Socket s) : uS::Socket(s) {}
+
     typename HTTPSocket::Data *getData() {
         return (HTTPSocket::Data *) getSocketData();
     }

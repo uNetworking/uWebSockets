@@ -51,6 +51,8 @@ void Hub::onServerAccept(uS::Socket s) {
 
     ((Group<SERVER> *) socketData->nodeData)->httpConnectionHandler(s);
 
+    // question is if we want this on HTTP sockets?
+    s.setNoDelay(true);
 
     delete socketData;
 }
