@@ -9,6 +9,9 @@
 
 #include <iostream>
 
+// loop over all incoming data until consumed everything
+// remove old timeout feature and replace with autoPing-like passive timeout
+
 namespace uWS {
 
 // needs some more work and checking!
@@ -103,18 +106,16 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                 }
             } else {
                 if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler) {
-                    ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req);
 
                     Header contentLength = req.getHeader("content-length");
                     if (contentLength) {
                         httpData->contentLength = atoi(contentLength.value);
-
-                        if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpDataHandler) {
-                            size_t availableBytes = (httpLength - (httpBody - httpBuffer));
-                            ((Group<SERVER> *) s.getSocketData()->nodeData)->httpDataHandler(s, httpBody, availableBytes, httpData->contentLength - availableBytes);
-                            httpData->contentLength -= availableBytes;
-                        }
+                        size_t availableBytes = (httpLength - (httpBody - httpBuffer));
+                        ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req, httpBody, availableBytes, httpData->contentLength - availableBytes);
+                    } else {
+                        ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req, nullptr, 0, 0);
                     }
+
 
                     // if finns mer available bytes, fortsätt parsning från start!
                     return;
@@ -304,8 +305,35 @@ template <bool isServer>
 void HTTPSocket<isServer>::onEnd(uS::Socket s) {
     s.cancelTimeout();
 
+    //    Data *httpSocketData = (Data *) s.getSocketData();
+    //    s.close();
+
+    //    if (!isServer) {
+    //        ((Group<CLIENT> *) httpSocketData->nodeData)->errorHandler(httpSocketData->httpUser);
+    //    }
+
+    //    delete httpSocketData;
+
+    ((Group<isServer> *) s.getSocketData()->nodeData)->httpDisconnectionHandler(HTTPSocket<isServer>(s));
+
+    //    if (!s.isShuttingDown()) {
+    //        // ((Group<isServer> *) s.getSocketData()->nodeData)->removeWebSocket(s);
+    //        ((Group<isServer> *) s.getSocketData()->nodeData)->httpDisconnectionHandler(HTTPSocket<isServer>(s));
+    //    } else {
+    //        //s.cancelTimeout();
+    //    }
+
     Data *httpSocketData = (Data *) s.getSocketData();
     s.close();
+
+    // should not happen if shutting down!
+    while (!httpSocketData->messageQueue.empty()) {
+        uS::SocketData::Queue::Message *message = httpSocketData->messageQueue.front();
+        if (message->callback) {
+            message->callback(nullptr, message->callbackData, true, nullptr);
+        }
+        httpSocketData->messageQueue.pop();
+    }
 
     if (!isServer) {
         ((Group<CLIENT> *) httpSocketData->nodeData)->errorHandler(httpSocketData->httpUser);

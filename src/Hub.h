@@ -69,6 +69,8 @@ struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<C
     using Group<CLIENT>::onError;
     using Group<SERVER>::onHttpRequest;
     using Group<SERVER>::onHttpData;
+    using Group<SERVER>::onHttpConnection;
+    using Group<SERVER>::onHttpDisconnection;
 };
 
 }

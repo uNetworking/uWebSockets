@@ -79,7 +79,7 @@ Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) :
     disconnectionHandler = [](WebSocket<isServer>, int, char *, size_t) {};
     pingHandler = pongHandler = [](WebSocket<isServer>, char *, size_t) {};
     errorHandler = [](errorType) {};
-    httpRequestHandler = [](HTTPSocket<isServer>, HTTPRequest) {};
+    httpRequestHandler = [](HTTPSocket<isServer>, HTTPRequest, char *, size_t, size_t) {};
 
     this->extensionOptions |= CLIENT_NO_CONTEXT_TAKEOVER | SERVER_NO_CONTEXT_TAKEOVER;
 }
@@ -132,13 +132,23 @@ void Group<isServer>::onError(std::function<void (typename Group::errorType)> ha
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpRequest(std::function<void (HTTPSocket<isServer>, HTTPRequest)> handler) {
+void Group<isServer>::onHttpConnection(std::function<void (HTTPSocket<isServer>)> handler) {
+    httpConnectionHandler = handler;
+}
+
+template <bool isServer>
+void Group<isServer>::onHttpRequest(std::function<void (HTTPSocket<isServer>, HTTPRequest, char *, size_t, size_t)> handler) {
     httpRequestHandler = handler;
 }
 
 template <bool isServer>
 void Group<isServer>::onHttpData(std::function<void(HTTPSocket<isServer>, char *, size_t, size_t)> handler) {
     httpDataHandler = handler;
+}
+
+template <bool isServer>
+void Group<isServer>::onHttpDisconnection(std::function<void (HTTPSocket<isServer>)> handler) {
+    httpDisconnectionHandler = handler;
 }
 
 template <bool isServer>
