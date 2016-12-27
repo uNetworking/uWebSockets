@@ -9,14 +9,12 @@
 
 #include <iostream>
 
-// loop over all incoming data until consumed everything
 // remove old timeout feature and replace with autoPing-like passive timeout
 
 namespace uWS {
 
 // needs some more work and checking!
-char *getHeaders(char *buffer, size_t length, Header *headers, size_t maxHeaders) {
-    char *end = buffer + length;
+char *getHeaders(char *buffer, char *end, Header *headers, size_t maxHeaders) {
     for (int i = 0; i < maxHeaders; i++) {
         headers->key = buffer;
         for (; *buffer != ':' && !isspace(*buffer) && *buffer != '\r'; buffer++) {
@@ -65,8 +63,6 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
     HTTPSocket httpSocket(s);
     HTTPSocket::Data *httpData = httpSocket.getData();
 
-    char *httpBuffer = data;
-    int httpLength = length;
     if (FORCE_SLOW_PATH || httpData->httpBuffer.length()) {
         if (httpData->httpBuffer.length() + length > MAX_HEADER_BUFFER_SIZE) {
             httpSocket.onEnd(s);
@@ -75,21 +71,23 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
         httpData->httpBuffer.reserve(httpData->httpBuffer.length() + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
         httpData->httpBuffer.append(data, length);
-        httpBuffer = (char *) httpData->httpBuffer.data();
-        httpLength = httpData->httpBuffer.length();
+        data = (char *) httpData->httpBuffer.data();
+        length = httpData->httpBuffer.length();
     }
 
+    char *end = data + length;
+    char *cursor = data;
+    *end = '/r';
     Header headers[MAX_HEADERS];
-    char *httpBody;
-    if ((httpBody = getHeaders(httpBuffer, httpLength, headers, MAX_HEADERS))) {
+    while (cursor != end && (cursor = getHeaders(cursor, end, headers, MAX_HEADERS))) {
         HTTPRequest req(headers);
 
         if (isServer) {
             headers->valueLength = std::max(0, headers->valueLength - 9);
             if (req.getHeader("upgrade", 7)) {
-                Header secKey = req.getHeader("sec-websocket-key");
-                Header extensions = req.getHeader("sec-websocket-extensions");
-                Header subprotocol = req.getHeader("sec-websocket-protocol");
+                Header secKey = req.getHeader("sec-websocket-key", 17);
+                Header extensions = req.getHeader("sec-websocket-extensions", 24);
+                Header subprotocol = req.getHeader("sec-websocket-protocol", 22);
                 bool perMessageDeflate;
                 if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
                                                                    subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
@@ -104,23 +102,25 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                 } else {
                     httpSocket.onEnd(s);
                 }
+                return;
             } else {
                 if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler) {
-
-                    Header contentLength = req.getHeader("content-length");
-                    if (contentLength) {
-                        httpData->contentLength = atoi(contentLength.value);
-                        size_t availableBytes = (httpLength - (httpBody - httpBuffer));
-                        ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req, httpBody, availableBytes, httpData->contentLength - availableBytes);
-                    } else {
+                    if (cursor == end) {
                         ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req, nullptr, 0, 0);
+                    } else {
+                        Header contentLength = req.getHeader("content-length", 14);
+                        if (contentLength) {
+                            httpData->contentLength = atoi(contentLength.value);
+                            size_t bytesToRead = std::min<int>(httpData->contentLength, end - cursor);
+                            ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req, cursor, bytesToRead, httpData->contentLength - bytesToRead);
+                            cursor += bytesToRead;
+                        } else {
+                            ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req, nullptr, 0, 0);
+                        }
                     }
-
-
-                    // if finns mer available bytes, fortsätt parsning från start!
-                    return;
                 } else {
                     httpSocket.onEnd(s);
+                    return;
                 }
             }
         } else {
@@ -136,16 +136,25 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
                 if (!(s.isClosed() || s.isShuttingDown())) {
                     WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
-                    kws->consume(httpBody, (httpLength - (httpBody - httpBuffer)), s);
+                    kws->consume(cursor, end - cursor, s);
                 }
 
                 delete httpData;
             } else {
                 httpSocket.onEnd(s);
             }
+            return;
+        }
+    }
+
+    if (cursor != end) {
+        if (length > MAX_HEADER_BUFFER_SIZE) {
+            httpSocket.onEnd(s);
+        } else {
+            httpData->httpBuffer.append(data, length);
         }
     } else {
-        httpData->httpBuffer.append(data, length);
+        httpData->httpBuffer.clear();
     }
 }
 
