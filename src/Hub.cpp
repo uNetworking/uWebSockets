@@ -49,6 +49,8 @@ void Hub::onServerAccept(uS::Socket s) {
 
     // todo: add this httpsocket into group's list!
 
+    ((Group<SERVER> *) socketData->nodeData)->httpConnectionHandler(s);
+
 
     delete socketData;
 }

@@ -637,6 +637,14 @@ void testHTTP() {
     uWS::Hub h;
     int online = 0;
 
+    h.onHttpDisconnection([](uWS::HTTPSocket<uWS::SERVER> s) {
+        std::cout << "Http Disconnection" << std::endl;
+    });
+
+    h.onHttpConnection([](uWS::HTTPSocket<uWS::SERVER> s) {
+        std::cout << "Http Connection" << std::endl;
+    });
+
     h.onHttpData([](uWS::HTTPSocket<uWS::SERVER> s, char *data, size_t length, size_t remainingBytes) {
         std::cout << std::string(data, length) << std::endl;
         std::cout << "Remaining bytes: " << remainingBytes << std::endl;
@@ -647,18 +655,25 @@ void testHTTP() {
         }
     });
 
-    h.onHttpRequest([](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req) {
-        //std::cout << clock() << " : " << req.getUrl().toString() << std::endl << req.getHeader("user-agent").toString() << std::endl;
+    h.onHttpRequest([](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req, char *data, size_t length, size_t remainingBytes) {
+        std::cout << clock() << " : " << req.getUrl().toString() << std::endl << req.getHeader("user-agent").toString() << std::endl;
 
         if (req.getVerb() == uWS::GET && req.getUrl().toString() == "/") {
             char response[] = "<html><body><div style=\"background-color: red; text-align: center; color: white; border-radius: 5em; margin-bottom: 1em\">µWebSockets v0.13.0</div><center><img src=\"https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRUCEoO6dkQsWZdvGqpJkDLdnkdEHCo-1a6Yf5k_HwjO1VrdbAiOg\" /><center></body></html>";
             s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
         } else if (req.getVerb() == uWS::POST) {
             std::cout << "HTTP POST" << std::endl;
+            std::cout << std::string(data, length) << std::endl;
+            std::cout << "Remaining bytes: " << remainingBytes << std::endl;
+
+            if (!remainingBytes) {
+                char response[] = "Thanks for the post!";
+                s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
+            }
         } else {
             char response[] = "Nope, nope";
             s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
-            s.shutdown();
+            //s.shutdown();
         }
     });
 
