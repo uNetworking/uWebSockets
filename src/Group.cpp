@@ -154,6 +154,11 @@ void Group<isServer>::onHttpDisconnection(std::function<void (HTTPSocket<isServe
 }
 
 template <bool isServer>
+void Group<isServer>::onHttpUpgrade(std::function<void(HTTPSocket<isServer>, HTTPRequest)> handler) {
+    httpUpgradeHandler = handler;
+}
+
+template <bool isServer>
 void Group<isServer>::broadcast(const char *message, size_t length, OpCode opCode) {
     typename WebSocket<isServer>::PreparedMessage *preparedMessage = WebSocket<isServer>::prepareMessage((char *) message, length, opCode, false);
     forEach([preparedMessage](uWS::WebSocket<isServer> ws) {

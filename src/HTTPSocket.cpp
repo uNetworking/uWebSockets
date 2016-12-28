@@ -85,22 +85,26 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
         if (isServer) {
             headers->valueLength = std::max<unsigned int>(0, headers->valueLength - 9);
             if (req.getHeader("upgrade", 7)) {
-                Header secKey = req.getHeader("sec-websocket-key", 17);
-                Header extensions = req.getHeader("sec-websocket-extensions", 24);
-                Header subprotocol = req.getHeader("sec-websocket-protocol", 22);
-                bool perMessageDeflate;
-                if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
-                                                                   subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
-                    s.cancelTimeout();
-                    s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
-
-                    ((Group<SERVER> *) s.getSocketData()->nodeData)->addWebSocket(s);
-                    s.cork(true);
-                    ((Group<SERVER> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<SERVER>(s), req);
-                    s.cork(false);
-                    delete httpData;
+                if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpUpgradeHandler) {
+                    ((Group<SERVER> *) s.getSocketData()->nodeData)->httpUpgradeHandler(HTTPSocket<isServer>(s), req);
                 } else {
-                    httpSocket.onEnd(s);
+                    Header secKey = req.getHeader("sec-websocket-key", 17);
+                    Header extensions = req.getHeader("sec-websocket-extensions", 24);
+                    Header subprotocol = req.getHeader("sec-websocket-protocol", 22);
+                    bool perMessageDeflate;
+                    if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
+                                                                       subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
+                        s.cancelTimeout();
+                        s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
+
+                        ((Group<SERVER> *) s.getSocketData()->nodeData)->addWebSocket(s);
+                        s.cork(true);
+                        ((Group<SERVER> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<SERVER>(s), req);
+                        s.cork(false);
+                        delete httpData;
+                    } else {
+                        httpSocket.onEnd(s);
+                    }
                 }
                 return;
             } else {
