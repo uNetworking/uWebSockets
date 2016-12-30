@@ -68,30 +68,10 @@ public:
 };
 
 struct GroupData {
-    Persistent<Function> *connectionHandler, *messageHandler,
-                         *disconnectionHandler, *pingHandler,
-                         *pongHandler, *errorHandler, *httpRequestHandler;
+    Persistent<Function> connectionHandler, messageHandler,
+                         disconnectionHandler, pingHandler,
+                         pongHandler, errorHandler, httpRequestHandler;
     int size = 0;
-
-    GroupData() {
-        connectionHandler = new Persistent<Function>;
-        messageHandler = new Persistent<Function>;
-        disconnectionHandler = new Persistent<Function>;
-        pingHandler = new Persistent<Function>;
-        pongHandler = new Persistent<Function>;
-        errorHandler = new Persistent<Function>;
-        httpRequestHandler = new Persistent<Function>;
-    }
-
-    ~GroupData() {
-        delete connectionHandler;
-        delete messageHandler;
-        delete disconnectionHandler;
-        delete pingHandler;
-        delete pongHandler;
-        delete errorHandler;
-        delete httpRequestHandler;
-    }
 };
 
 template <bool isServer>
@@ -259,7 +239,7 @@ void onConnection(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *connectionCallback = groupData->connectionHandler;
+    Persistent<Function> *connectionCallback = &groupData->connectionHandler;
     connectionCallback->Reset(isolate, Local<Function>::Cast(args[1]));
     group->onConnection([isolate, connectionCallback, groupData](uWS::WebSocket<isServer> webSocket, uWS::HTTPRequest req) {
         groupData->size++;
@@ -275,7 +255,7 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *messageCallback = groupData->messageHandler;
+    Persistent<Function> *messageCallback = &groupData->messageHandler;
     messageCallback->Reset(isolate, Local<Function>::Cast(args[1]));
     group->onMessage([isolate, messageCallback](uWS::WebSocket<isServer> webSocket, const char *message, size_t length, uWS::OpCode opCode) {
         HandleScope hs(isolate);
@@ -291,7 +271,7 @@ void onPing(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *pingCallback = groupData->pingHandler;
+    Persistent<Function> *pingCallback = &groupData->pingHandler;
     pingCallback->Reset(isolate, Local<Function>::Cast(args[1]));
     group->onPing([isolate, pingCallback](uWS::WebSocket<isServer> webSocket, const char *message, size_t length) {
         HandleScope hs(isolate);
@@ -307,7 +287,7 @@ void onPong(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *pongCallback = groupData->pongHandler;
+    Persistent<Function> *pongCallback = &groupData->pongHandler;
     pongCallback->Reset(isolate, Local<Function>::Cast(args[1]));
     group->onPong([isolate, pongCallback](uWS::WebSocket<isServer> webSocket, const char *message, size_t length) {
         HandleScope hs(isolate);
@@ -323,7 +303,7 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *disconnectionCallback = groupData->disconnectionHandler;
+    Persistent<Function> *disconnectionCallback = &groupData->disconnectionHandler;
     disconnectionCallback->Reset(isolate, Local<Function>::Cast(args[1]));
 
     group->onDisconnection([isolate, disconnectionCallback, groupData](uWS::WebSocket<isServer> webSocket, int code, char *message, size_t length) {
@@ -342,7 +322,7 @@ void onError(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *errorCallback = groupData->errorHandler;
+    Persistent<Function> *errorCallback = &groupData->errorHandler;
     errorCallback->Reset(isolate, Local<Function>::Cast(args[1]));
 
     group->onError([isolate, errorCallback](void *user) {
@@ -443,7 +423,7 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *httpRequestCallback = groupData->httpRequestHandler;
+    Persistent<Function> *httpRequestCallback = &groupData->httpRequestHandler;
     httpRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
     group->onHttpRequest([isolate, httpRequestCallback](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req, char *data, size_t length, size_t remainingBytes) {
         currentReq = req;
