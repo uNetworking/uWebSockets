@@ -1,6 +1,8 @@
 <div align="center"><img src="images/logo.png"/></div>
 `µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
+*Note: master is a WIP currently, always use a released version in production. I'm working on a new release with HTTP support but will need some time (latest release is WebSocket only)*
+
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/autobahn/index.html).
 * Significantly outperforms `WebSocket++`, `libwebsockets`, `Beast`, `Crow`, `Gorilla`, `Kaazing Gateway`, `ws` and `Socket.IO` in every tested dimension (see benchmark table below).
 * Outperforms Node.js itself by 5x in HTTP requests/second when run as a Node.js module.
@@ -26,6 +28,17 @@ Socket.IO 1.5.1 | µWS is **62x** as lightweight | µWS is **42x** as performant
 WebSocket++ v0.7.0 | µWS is **63x** as lightweight :-1: | µWS is **4x** as performant | µWS is **3x** as performant :+1: | µWS is **2x** as performant :+1:
 
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. These results were achieved with the native C++ server, not the Node.js addon. Expect worse performance and scalability when using Node.js (don't worry, the Node.js addon will run circles around `ws`).*
+
+### HTTP benchmarks
+Implementation | Requests per second
+--- | ---
+Nodejs (ExpressJS) | 10k
+Node.js (vanilla) | 30k
+NGINX | 70k
+µWS | 250k
+h2o | probably a bit faster than µWS
+
+*Experimental HTTP 1.1 benchmark using wrk. All servers are single threaded and serve a static page with no PHP, database queries or similar. µWS has experimental HTTP support in master but not in the latest release.*
 
 ## Built with µWS
 <div align="center"><img src="images/builtwithuws.png"/></div>
