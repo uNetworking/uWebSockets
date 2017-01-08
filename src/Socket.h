@@ -108,10 +108,16 @@ public:
     Address getAddress();
 
     void cork(int enable) {
+#if defined(TCP_CORK)
         // Linux & SmartOS have proper TCP_CORK
-        // Mac OS X & FreeBSD have TCP_NOPUSH which is useless
-#ifdef TCP_CORK
         setsockopt(getFd(), IPPROTO_TCP, TCP_CORK, &enable, sizeof(int));
+#elif defined(TCP_NOPUSH)
+        // Mac OS X & FreeBSD have TCP_NOPUSH
+        setsockopt(getFd(), IPPROTO_TCP, TCP_NOPUSH, &enable, sizeof(int));
+        if (!enable) {
+            // Tested on OS X, FreeBSD situation is unclear
+            ::send(getFd(), "", 0, MSG_NOSIGNAL);
+        }
 #endif
     }
 
