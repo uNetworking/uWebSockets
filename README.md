@@ -32,8 +32,9 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight :-1: | µWS is **4x** as per
 ### HTTP benchmarks
 Implementation | Requests per second
 --- | ---
-Nodejs (ExpressJS) | 10k
+Node.js (ExpressJS) | 10k
 Node.js (vanilla) | 30k
+Node.js (µWS) | 150 - 200k
 NGINX | 70k
 µWS | 250k
 h2o | probably a bit faster than µWS
