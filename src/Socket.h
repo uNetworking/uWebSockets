@@ -108,7 +108,9 @@ public:
     Address getAddress();
 
     void cork(int enable) {
-#ifdef __linux
+        // Linux & SmartOS have proper TCP_CORK
+        // Mac OS X & FreeBSD have TCP_NOPUSH which is useless
+#ifdef TCP_CORK
         setsockopt(getFd(), IPPROTO_TCP, TCP_CORK, &enable, sizeof(int));
 #endif
     }
