@@ -16,7 +16,7 @@ bool WebSocketProtocol<isServer>::setCompressed(void *user) {
 }
 
 template <const bool isServer>
-bool WebSocketProtocol<isServer>::refusePayloadLength(void *user, int length) {
+bool WebSocketProtocol<isServer>::refusePayloadLength(void */*user*/, int length) {
     return length > 16777216;
 }
 

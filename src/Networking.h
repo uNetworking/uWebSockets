@@ -72,7 +72,7 @@ class WIN32_EXPORT Context {
 private:
     SSL_CTX *context = nullptr;
 
-    static int passwordCallback(char *buf, int size, int rwflag, void *u)
+    static int passwordCallback(char *buf, int size, int /*rwflag*/, void *u)
     {
         std::string *password = (std::string *) u;
         int length = std::min<int>(size, password->length());

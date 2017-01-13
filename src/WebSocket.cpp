@@ -72,7 +72,7 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
 }
 
 template <bool isServer>
-typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages, OpCode opCode, bool compressed, void (*callback)(void *, void *, bool, void *))
+typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &/*excludedMessages*/, OpCode opCode, bool compressed, void (*callback)(void *, void *, bool, void *))
 {
     // should be sent in!
     size_t batchLength = 0;
@@ -174,7 +174,7 @@ void WebSocket<isServer>::close(int code, const char *message, size_t length) {
 
     char closePayload[MAX_CLOSE_PAYLOAD + 2];
     int closePayloadLength = WebSocketProtocol<isServer>::formatClosePayload(closePayload, code, message, length);
-    send(closePayload, closePayloadLength, OpCode::CLOSE, [](void *p, void *data, bool cancelled, void *reserved) {
+    send(closePayload, closePayloadLength, OpCode::CLOSE, [](void *p, void */*data*/, bool cancelled, void */*reserved*/) {
         if (!cancelled) {
             Socket((uv_poll_t *) p).shutdown();
         }

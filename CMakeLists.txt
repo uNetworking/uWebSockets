@@ -22,6 +22,10 @@ if(CMAKE_VERSION VERSION_LESS "3.1")
         set(CMAKE_CXX_FLAGS "--std=gnu++11 ${CMAKE_CXX_FLAGS}")
     endif()
 endif()
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra ${CMAKE_CXX_FLAGS}") # add extra warning flags
+endif()
+
 target_include_directories(uWS PUBLIC src)
 
 target_include_directories(uWS PUBLIC ${LIBUV_INCLUDE_DIR})

@@ -163,7 +163,7 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 }
 
 template <bool isServer>
-void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType contentType,
+void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType /*contentType*/,
                                    void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
     // assume we always respond with less than 128 byte header
     const int HEADER_LENGTH = 128;
