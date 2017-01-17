@@ -56,7 +56,7 @@ void Group<isServer>::addHttpSocket(uv_poll_t *httpSocket) {
         httpTimer->data = this;
         uv_timer_start(httpTimer, [](uv_timer_t *httpTimer) {
             Group<isServer> *group = (Group<isServer> *) httpTimer->data;
-            group->forEachHttpSocket([](HTTPSocket<isServer> httpSocket) {
+            group->forEachHttpSocket([](HttpSocket<isServer> httpSocket) {
                 if (httpSocket.getData()->missedDeadline) {
                     // recursive? don't think so!
                     httpSocket.terminate();
@@ -129,14 +129,14 @@ void Group<isServer>::removeWebSocket(uv_poll_t *webSocket) {
 
 template <bool isServer>
 Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) : uS::NodeData(*nodeData), hub(hub), extensionOptions(extensionOptions) {
-    connectionHandler = [](WebSocket<isServer>, HTTPRequest) {};
+    connectionHandler = [](WebSocket<isServer>, HttpRequest) {};
     messageHandler = [](WebSocket<isServer>, char *, size_t, OpCode) {};
     disconnectionHandler = [](WebSocket<isServer>, int, char *, size_t) {};
     pingHandler = pongHandler = [](WebSocket<isServer>, char *, size_t) {};
     errorHandler = [](errorType) {};
-    httpRequestHandler = [](HTTPSocket<isServer>, HTTPRequest, char *, size_t, size_t) {};
-    httpConnectionHandler = [](HTTPSocket<isServer>) {};
-    httpDisconnectionHandler = [](HTTPSocket<isServer>) {};
+    httpRequestHandler = [](HttpSocket<isServer>, HttpRequest, char *, size_t, size_t) {};
+    httpConnectionHandler = [](HttpSocket<isServer>) {};
+    httpDisconnectionHandler = [](HttpSocket<isServer>) {};
 
     this->extensionOptions |= CLIENT_NO_CONTEXT_TAKEOVER | SERVER_NO_CONTEXT_TAKEOVER;
 }
@@ -159,7 +159,7 @@ void Group<isServer>::stopListening() {
 }
 
 template <bool isServer>
-void Group<isServer>::onConnection(std::function<void (WebSocket<isServer>, HTTPRequest)> handler) {
+void Group<isServer>::onConnection(std::function<void (WebSocket<isServer>, HttpRequest)> handler) {
     connectionHandler = handler;
 }
 
@@ -189,27 +189,27 @@ void Group<isServer>::onError(std::function<void (typename Group::errorType)> ha
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpConnection(std::function<void (HTTPSocket<isServer>)> handler) {
+void Group<isServer>::onHttpConnection(std::function<void (HttpSocket<isServer>)> handler) {
     httpConnectionHandler = handler;
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpRequest(std::function<void (HTTPSocket<isServer>, HTTPRequest, char *, size_t, size_t)> handler) {
+void Group<isServer>::onHttpRequest(std::function<void (HttpSocket<isServer>, HttpRequest, char *, size_t, size_t)> handler) {
     httpRequestHandler = handler;
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpData(std::function<void(HTTPSocket<isServer>, char *, size_t, size_t)> handler) {
+void Group<isServer>::onHttpData(std::function<void(HttpSocket<isServer>, char *, size_t, size_t)> handler) {
     httpDataHandler = handler;
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpDisconnection(std::function<void (HTTPSocket<isServer>)> handler) {
+void Group<isServer>::onHttpDisconnection(std::function<void (HttpSocket<isServer>)> handler) {
     httpDisconnectionHandler = handler;
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpUpgrade(std::function<void(HTTPSocket<isServer>, HTTPRequest)> handler) {
+void Group<isServer>::onHttpUpgrade(std::function<void(HttpSocket<isServer>, HttpRequest)> handler) {
     httpUpgradeHandler = handler;
 }
 

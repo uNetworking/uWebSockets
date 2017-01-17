@@ -31,13 +31,13 @@ enum HTTPVerb {
     INVALID
 };
 
-struct HTTPRequest {
+struct HttpRequest {
     Header *headers;
     Header getHeader(const char *key) {
         return getHeader(key, strlen(key));
     }
 
-    HTTPRequest(Header *headers = nullptr) : headers(headers) {}
+    HttpRequest(Header *headers = nullptr) : headers(headers) {}
 
     Header getHeader(const char *key, size_t length) {
         if (headers) {
@@ -67,7 +67,7 @@ struct HTTPRequest {
 };
 
 template <const bool isServer>
-struct WIN32_EXPORT HTTPSocket : private uS::Socket {
+struct WIN32_EXPORT HttpSocket : private uS::Socket {
     struct Data : uS::SocketData {
         std::string httpBuffer;
         size_t contentLength = 0;
@@ -83,6 +83,11 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
         Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
     };
 
+    using uS::Socket::getUserData;
+    using uS::Socket::setUserData;
+    using uS::Socket::getAddress;
+    using uS::Socket::Address;
+
     uv_poll_t *getPollHandle() const {return p;}
     void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
     using uS::Socket::shutdown;
@@ -92,10 +97,10 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
         onEnd(*this);
     }
 
-    HTTPSocket(uS::Socket s) : uS::Socket(s) {}
+    HttpSocket(uS::Socket s) : uS::Socket(s) {}
 
-    typename HTTPSocket::Data *getData() {
-        return (HTTPSocket::Data *) getSocketData();
+    typename HttpSocket::Data *getData() {
+        return (HttpSocket::Data *) getSocketData();
     }
 
     bool upgrade(const char *secKey, const char *extensions,
