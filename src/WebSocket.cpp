@@ -167,8 +167,8 @@ template <bool isServer>
 void WebSocket<isServer>::close(int code, const char *message, size_t length) {
     static const int MAX_CLOSE_PAYLOAD = 123;
     length = std::min<size_t>(MAX_CLOSE_PAYLOAD, length);
-    ((Group<isServer> *) getSocketData()->nodeData)->removeWebSocket(*this);
-    ((Group<isServer> *) getSocketData()->nodeData)->disconnectionHandler(*this, code, (char *) message, length);
+    getGroup<isServer>(*this)->removeWebSocket(*this);
+    getGroup<isServer>(*this)->disconnectionHandler(*this, code, (char *) message, length);
     getSocketData()->shuttingDown = true;
     startTimeout<WebSocket<isServer>::onEnd>();
 
@@ -184,8 +184,8 @@ void WebSocket<isServer>::close(int code, const char *message, size_t length) {
 template <bool isServer>
 void WebSocket<isServer>::onEnd(uS::Socket s) {
     if (!s.isShuttingDown()) {
-        ((Group<isServer> *) s.getSocketData()->nodeData)->removeWebSocket(s);
-        ((Group<isServer> *) s.getSocketData()->nodeData)->disconnectionHandler(WebSocket<isServer>(s), 1006, nullptr, 0);
+        getGroup<isServer>(s)->removeWebSocket(s);
+        getGroup<isServer>(s)->disconnectionHandler(WebSocket<isServer>(s), 1006, nullptr, 0);
     } else {
         s.cancelTimeout();
     }
