@@ -697,7 +697,7 @@ void testHTTP() {
 int main(int argc, char *argv[])
 {
     // blocking
-    testHTTP();
+    //testHTTP();
     //testMessageBatch();
 
     // falls through
@@ -712,7 +712,7 @@ int main(int argc, char *argv[])
     testListening();
     testBroadcast();
     stressTest();
-    serveAutobahn();
+    //serveAutobahn();
 
 
     //testAutoPing();
