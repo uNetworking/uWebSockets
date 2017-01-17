@@ -45,6 +45,11 @@ struct WIN32_EXPORT Group : protected uS::NodeData {
     void addWebSocket(uv_poll_t *webSocket);
     void removeWebSocket(uv_poll_t *webSocket);
 
+    uv_timer_t *httpTimer = nullptr;
+    void addHttpSocket(uv_poll_t *httpSocket);
+    void removeHttpSocket(uv_poll_t *httpSocket);
+
+
     std::stack<uv_poll_t *> iterators;
 
 protected:
@@ -79,6 +84,23 @@ public:
         while (iterator) {
             uv_poll_t *lastIterator = iterator;
             cb(WebSocket<isServer>(iterator));
+            iterator = iterators.top();
+            if (lastIterator == iterator) {
+                iterator = ((uS::SocketData *) iterator->data)->next;
+                iterators.top() = iterator;
+            }
+        }
+        iterators.pop();
+    }
+
+    // duplicated code for now!
+    template <class F>
+    void forEachHttpSocket(const F &cb) {
+        uv_poll_t *iterator = httpSocketHead;
+        iterators.push(iterator);
+        while (iterator) {
+            uv_poll_t *lastIterator = iterator;
+            cb(HTTPSocket<isServer>(iterator));
             iterator = iterators.top();
             if (lastIterator == iterator) {
                 iterator = ((uS::SocketData *) iterator->data)->next;

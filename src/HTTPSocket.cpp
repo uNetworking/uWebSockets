@@ -9,8 +9,6 @@
 
 #include <iostream>
 
-// remove old timeout feature and replace with autoPing-like passive timeout
-
 namespace uWS {
 
 // needs some more work and checking!
@@ -84,6 +82,9 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
         if (isServer) {
             headers->valueLength = std::max<unsigned int>(0, headers->valueLength - 9);
+
+            httpData->missedDeadline = false;
+
             if (req.getHeader("upgrade", 7)) {
                 if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpUpgradeHandler) {
                     ((Group<SERVER> *) s.getSocketData()->nodeData)->httpUpgradeHandler(HTTPSocket<isServer>(s), req);
@@ -94,9 +95,8 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                     bool perMessageDeflate;
                     if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
                                                                        subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
-                        s.cancelTimeout();
+                        ((Group<SERVER> *) s.getSocketData()->nodeData)->removeHttpSocket(s);
                         s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
-
                         ((Group<SERVER> *) s.getSocketData()->nodeData)->addWebSocket(s);
                         s.cork(true);
                         ((Group<SERVER> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<SERVER>(s), req);
@@ -131,7 +131,8 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
             if (req.getHeader("upgrade", 7)) {
                 s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
 
-                httpSocket.cancelTimeout();
+                // todo: fix client timeout
+                //httpSocket.cancelTimeout();
                 httpSocket.setUserData(httpData->httpUser);
                 ((Group<CLIENT> *) s.getSocketData()->nodeData)->addWebSocket(s);
                 s.cork(true);
@@ -316,7 +317,9 @@ bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
 
 template <bool isServer>
 void HTTPSocket<isServer>::onEnd(uS::Socket s) {
-    s.cancelTimeout();
+
+    // cancelTimeout of shutdowns
+    //s.cancelTimeout();
 
     //    Data *httpSocketData = (Data *) s.getSocketData();
     //    s.close();
@@ -326,6 +329,9 @@ void HTTPSocket<isServer>::onEnd(uS::Socket s) {
     //    }
 
     //    delete httpSocketData;
+
+    // not going to be set from Hub::upgrade!
+    ((Group<isServer> *) s.getSocketData()->nodeData)->removeHttpSocket(HTTPSocket<isServer>(s));
 
     ((Group<isServer> *) s.getSocketData()->nodeData)->httpDisconnectionHandler(HTTPSocket<isServer>(s));
 
