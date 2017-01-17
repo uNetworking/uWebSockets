@@ -28,7 +28,7 @@ public:
     }
 
     template <void C(Socket p, bool error)>
-    static void connect_cb(uv_poll_t *p, int status, int events) {
+    static void connect_cb(uv_poll_t *p, int status, int /*events*/) {
         C(p, status < 0);
     }
 
@@ -73,7 +73,7 @@ public:
     }
 
     template <void A(Socket s)>
-    static void accept_cb(uv_poll_t *p, int status, int events) {
+    static void accept_cb(uv_poll_t *p, int /*status*/, int /*events*/) {
         ListenData *listenData = (ListenData *) p->data;
         uv_os_sock_t serverFd = Socket(p).getFd();
         uv_os_sock_t clientFd = accept(serverFd, nullptr, nullptr);
@@ -110,7 +110,7 @@ public:
     }
 
     template <void A(Socket s)>
-    bool listen(int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void *user) {
+    bool listen(int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void */*user*/) {
         addrinfo hints, *result;
         memset(&hints, 0, sizeof(addrinfo));
 
