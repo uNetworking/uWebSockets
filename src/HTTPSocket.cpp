@@ -9,9 +9,13 @@
 
 #include <iostream>
 
+// todo: when inside of a data stream, reset timer for each chunk and update content-length
+// todo: clear httpBuffer if not empty after emitting the request
+
 namespace uWS {
 
-// needs some more work and checking!
+// UNSAFETY NOTE: assumes *end == '\r' (might unref end pointer)
+// todo: scan this parser for bugs
 char *getHeaders(char *buffer, char *end, Header *headers, size_t maxHeaders) {
     for (unsigned int i = 0; i < maxHeaders; i++) {
         headers->key = buffer;
@@ -82,12 +86,10 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
         if (isServer) {
             headers->valueLength = std::max<unsigned int>(0, headers->valueLength - 9);
-
             httpData->missedDeadline = false;
-
             if (req.getHeader("upgrade", 7)) {
-                if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpUpgradeHandler) {
-                    ((Group<SERVER> *) s.getSocketData()->nodeData)->httpUpgradeHandler(HTTPSocket<isServer>(s), req);
+                if (getGroup<SERVER>(s)->httpUpgradeHandler) {
+                    getGroup<SERVER>(s)->httpUpgradeHandler(HTTPSocket<isServer>(s), req);
                 } else {
                     Header secKey = req.getHeader("sec-websocket-key", 17);
                     Header extensions = req.getHeader("sec-websocket-extensions", 24);
@@ -95,31 +97,32 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                     bool perMessageDeflate;
                     if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
                                                                        subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
-                        ((Group<SERVER> *) s.getSocketData()->nodeData)->removeHttpSocket(s);
+                        getGroup<SERVER>(s)->removeHttpSocket(s);
                         s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
-                        ((Group<SERVER> *) s.getSocketData()->nodeData)->addWebSocket(s);
+                        getGroup<SERVER>(s)->addWebSocket(s);
                         s.cork(true);
-                        ((Group<SERVER> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<SERVER>(s), req);
+                        getGroup<SERVER>(s)->connectionHandler(WebSocket<SERVER>(s), req);
                         s.cork(false);
                         delete httpData;
                     } else {
+                        // note: not needed, we can let the poll catch any errors
                         httpSocket.onEnd(s);
                     }
                 }
                 return;
             } else {
-                if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler) {
+                if (getGroup<SERVER>(s)->httpRequestHandler) {
                     if (cursor == end) {
-                        ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req, nullptr, 0, 0);
+                        getGroup<SERVER>(s)->httpRequestHandler(s, req, nullptr, 0, 0);
                     } else {
                         Header contentLength = req.getHeader("content-length", 14);
                         if (contentLength) {
                             httpData->contentLength = atoi(contentLength.value);
                             size_t bytesToRead = std::min<int>(httpData->contentLength, end - cursor);
-                            ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req, cursor, bytesToRead, httpData->contentLength - bytesToRead);
+                            getGroup<SERVER>(s)->httpRequestHandler(s, req, cursor, bytesToRead, httpData->contentLength - bytesToRead);
                             cursor += bytesToRead;
                         } else {
-                            ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req, nullptr, 0, 0);
+                            getGroup<SERVER>(s)->httpRequestHandler(s, req, nullptr, 0, 0);
                         }
                     }
                 } else {
@@ -131,12 +134,11 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
             if (req.getHeader("upgrade", 7)) {
                 s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
 
-                // todo: fix client timeout
-                //httpSocket.cancelTimeout();
+                httpSocket.cancelTimeout();
                 httpSocket.setUserData(httpData->httpUser);
-                ((Group<CLIENT> *) s.getSocketData()->nodeData)->addWebSocket(s);
+                getGroup<CLIENT>(s)->addWebSocket(s);
                 s.cork(true);
-                ((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), req);
+                getGroup<CLIENT>(s)->connectionHandler(WebSocket<CLIENT>(s), req);
                 s.cork(false);
 
                 if (!(s.isClosed() || s.isShuttingDown())) {
@@ -244,7 +246,7 @@ bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
         *perMessageDeflate = false;
         std::string extensionsResponse;
         if (extensionsLength) {
-            Group<isServer> *group = (Group<isServer> *) getNodeData(getSocketData());
+            Group<isServer> *group = getGroup<isServer>(*this);
             ExtensionsNegotiator<uWS::SERVER> extensionsNegotiator(group->extensionOptions);
             extensionsNegotiator.readOffer(std::string(extensions, extensionsLength));
             extensionsResponse = extensionsNegotiator.generateOffer();
@@ -331,9 +333,9 @@ void HTTPSocket<isServer>::onEnd(uS::Socket s) {
     //    delete httpSocketData;
 
     // not going to be set from Hub::upgrade!
-    ((Group<isServer> *) s.getSocketData()->nodeData)->removeHttpSocket(HTTPSocket<isServer>(s));
+    getGroup<isServer>(s)->removeHttpSocket(HTTPSocket<isServer>(s));
 
-    ((Group<isServer> *) s.getSocketData()->nodeData)->httpDisconnectionHandler(HTTPSocket<isServer>(s));
+    getGroup<isServer>(s)->httpDisconnectionHandler(HTTPSocket<isServer>(s));
 
     //    if (!s.isShuttingDown()) {
     //        // ((Group<isServer> *) s.getSocketData()->nodeData)->removeWebSocket(s);
@@ -355,7 +357,7 @@ void HTTPSocket<isServer>::onEnd(uS::Socket s) {
     }
 
     if (!isServer) {
-        ((Group<CLIENT> *) httpSocketData->nodeData)->errorHandler(httpSocketData->httpUser);
+        getGroup<CLIENT>(s)->errorHandler(httpSocketData->httpUser);
     }
 
     delete httpSocketData;

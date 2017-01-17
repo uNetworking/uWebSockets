@@ -12,7 +12,7 @@ namespace uWS {
 struct Hub;
 
 template <bool isServer>
-struct WIN32_EXPORT Group : protected uS::NodeData {
+struct WIN32_EXPORT Group : uS::NodeData {
     friend struct Hub;
     std::function<void(WebSocket<isServer>, HTTPRequest)> connectionHandler;
     std::function<void(WebSocket<isServer>, char *message, size_t length, OpCode opCode)> messageHandler;
@@ -110,6 +110,11 @@ public:
         iterators.pop();
     }
 };
+
+template <bool isServer>
+Group<isServer> *getGroup(uS::Socket s) {
+    return static_cast<Group<isServer> *>(s.getSocketData()->nodeData);
+}
 
 }
 
