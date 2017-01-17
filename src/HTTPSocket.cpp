@@ -56,9 +56,9 @@ static void base64(unsigned char *src, char *dst) {
 }
 
 template <bool isServer>
-void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
-    HTTPSocket httpSocket(s);
-    HTTPSocket::Data *httpData = httpSocket.getData();
+void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
+    HttpSocket httpSocket(s);
+    HttpSocket::Data *httpData = httpSocket.getData();
 
     if (httpData->contentLength) {
         httpData->missedDeadline = false;
@@ -90,14 +90,14 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
     *end = '\r';
     Header headers[MAX_HEADERS];
     while (cursor != end && (cursor = getHeaders(cursor, end, headers, MAX_HEADERS))) {
-        HTTPRequest req(headers);
+        HttpRequest req(headers);
 
         if (isServer) {
             headers->valueLength = std::max<unsigned int>(0, headers->valueLength - 9);
             httpData->missedDeadline = false;
             if (req.getHeader("upgrade", 7)) {
                 if (getGroup<SERVER>(s)->httpUpgradeHandler) {
-                    getGroup<SERVER>(s)->httpUpgradeHandler(HTTPSocket<isServer>(s), req);
+                    getGroup<SERVER>(s)->httpUpgradeHandler(HttpSocket<isServer>(s), req);
                 } else {
                     Header secKey = req.getHeader("sec-websocket-key", 17);
                     Header extensions = req.getHeader("sec-websocket-extensions", 24);
@@ -120,9 +120,10 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                 return;
             } else {
                 if (getGroup<SERVER>(s)->httpRequestHandler) {
-                    if (cursor == end) {
-                        getGroup<SERVER>(s)->httpRequestHandler(s, req, nullptr, 0, 0);
-                    } else {
+                    //if (false && cursor == end) {
+                        // this gets called when sending large posts
+                        //getGroup<SERVER>(s)->httpRequestHandler(s, req, nullptr, 0, 0);
+                    /*} else */{
                         Header contentLength = req.getHeader("content-length", 14);
                         if (contentLength) {
                             httpData->contentLength = atoi(contentLength.value);
@@ -174,7 +175,7 @@ void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 }
 
 template <bool isServer>
-void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType contentType,
+void HttpSocket<isServer>::respond(char *message, size_t length, ContentType contentType,
                                    void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
     // assume we always respond with less than 128 byte header
     const int HEADER_LENGTH = 128;
@@ -248,7 +249,7 @@ void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType con
 }
 
 template <bool isServer>
-bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength,
+bool HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength,
                                    const char *subprotocol, size_t subprotocolLength, bool *perMessageDeflate) {
     if (isServer) {
         *perMessageDeflate = false;
@@ -326,12 +327,15 @@ bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
 }
 
 template <bool isServer>
-void HTTPSocket<isServer>::onEnd(uS::Socket s) {
+void HttpSocket<isServer>::onEnd(uS::Socket s) {
 
     if (!s.isShuttingDown()) {
         // not going to be set from Hub::upgrade!
-        getGroup<isServer>(s)->removeHttpSocket(HTTPSocket<isServer>(s));
-        getGroup<isServer>(s)->httpDisconnectionHandler(HTTPSocket<isServer>(s));
+        // only server HttpSockets set this currently
+        if (isServer) {
+            getGroup<isServer>(s)->removeHttpSocket(HttpSocket<isServer>(s));
+        }
+        getGroup<isServer>(s)->httpDisconnectionHandler(HttpSocket<isServer>(s));
     } else {
         s.cancelTimeout();
     }
@@ -355,7 +359,7 @@ void HTTPSocket<isServer>::onEnd(uS::Socket s) {
     delete httpSocketData;
 }
 
-template struct HTTPSocket<SERVER>;
-template struct HTTPSocket<CLIENT>;
+template struct HttpSocket<SERVER>;
+template struct HttpSocket<CLIENT>;
 
 }
