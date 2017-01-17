@@ -63,6 +63,7 @@ inline SOCKET dup(SOCKET socket) {
 #include <string>
 #include <mutex>
 #include <algorithm>
+#include <memory>
 
 namespace uS {
 
@@ -71,6 +72,7 @@ namespace TLS {
 class WIN32_EXPORT Context {
 private:
     SSL_CTX *context = nullptr;
+    std::shared_ptr<std::string> password;
 
     static int passwordCallback(char *buf, int size, int rwflag, void *u)
     {
