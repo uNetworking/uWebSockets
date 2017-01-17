@@ -7,11 +7,6 @@
 #define MAX_HEADER_BUFFER_SIZE 4096
 #define FORCE_SLOW_PATH false
 
-#include <iostream>
-
-// todo: when inside of a data stream, reset timer for each chunk and update content-length
-// todo: clear httpBuffer if not empty after emitting the request
-
 namespace uWS {
 
 // UNSAFETY NOTE: assumes *end == '\r' (might unref end pointer)
@@ -64,6 +59,19 @@ template <bool isServer>
 void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
     HTTPSocket httpSocket(s);
     HTTPSocket::Data *httpData = httpSocket.getData();
+
+    if (httpData->contentLength) {
+        httpData->missedDeadline = false;
+        if (httpData->contentLength >= length) {
+            getGroup<isServer>(s)->httpDataHandler(s, data, length, httpData->contentLength -= length);
+            return;
+        } else {
+            getGroup<isServer>(s)->httpDataHandler(s, data, httpData->contentLength, 0);
+            data += httpData->contentLength;
+            length -= httpData->contentLength;
+            httpData->contentLength = 0;
+        }
+    }
 
     if (FORCE_SLOW_PATH || httpData->httpBuffer.length()) {
         if (httpData->httpBuffer.length() + length > MAX_HEADER_BUFFER_SIZE) {
@@ -320,29 +328,13 @@ bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
 template <bool isServer>
 void HTTPSocket<isServer>::onEnd(uS::Socket s) {
 
-    // cancelTimeout of shutdowns
-    //s.cancelTimeout();
-
-    //    Data *httpSocketData = (Data *) s.getSocketData();
-    //    s.close();
-
-    //    if (!isServer) {
-    //        ((Group<CLIENT> *) httpSocketData->nodeData)->errorHandler(httpSocketData->httpUser);
-    //    }
-
-    //    delete httpSocketData;
-
-    // not going to be set from Hub::upgrade!
-    getGroup<isServer>(s)->removeHttpSocket(HTTPSocket<isServer>(s));
-
-    getGroup<isServer>(s)->httpDisconnectionHandler(HTTPSocket<isServer>(s));
-
-    //    if (!s.isShuttingDown()) {
-    //        // ((Group<isServer> *) s.getSocketData()->nodeData)->removeWebSocket(s);
-    //        ((Group<isServer> *) s.getSocketData()->nodeData)->httpDisconnectionHandler(HTTPSocket<isServer>(s));
-    //    } else {
-    //        //s.cancelTimeout();
-    //    }
+    if (!s.isShuttingDown()) {
+        // not going to be set from Hub::upgrade!
+        getGroup<isServer>(s)->removeHttpSocket(HTTPSocket<isServer>(s));
+        getGroup<isServer>(s)->httpDisconnectionHandler(HTTPSocket<isServer>(s));
+    } else {
+        s.cancelTimeout();
+    }
 
     Data *httpSocketData = (Data *) s.getSocketData();
     s.close();
