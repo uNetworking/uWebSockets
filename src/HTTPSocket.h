@@ -77,6 +77,9 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
         std::string host;
         void *httpUser;
 
+        // used to close sockets not sending requests in time
+        bool missedDeadline = false;
+
         Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
     };
 
@@ -84,6 +87,10 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
     void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
     using uS::Socket::shutdown;
     using uS::Socket::close;
+
+    void terminate() {
+        onEnd(*this);
+    }
 
     HTTPSocket(uS::Socket s) : uS::Socket(s) {}
 

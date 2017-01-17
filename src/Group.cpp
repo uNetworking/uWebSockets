@@ -1,4 +1,5 @@
 #include "Group.h"
+#include "Hub.h"
 
 namespace uWS {
 
@@ -39,6 +40,60 @@ void Group<isServer>::startAutoPing(int intervalMs, std::string userMessage) {
     timer->data = this;
     uv_timer_start(timer, timerCallback, intervalMs, intervalMs);
     userPingMessage = userMessage;
+}
+
+// WIP
+template <bool isServer>
+void Group<isServer>::addHttpSocket(uv_poll_t *httpSocket) {
+    if (httpSocketHead) {
+        uS::SocketData *nextData = (uS::SocketData *) httpSocketHead->data;
+        nextData->prev = httpSocket;
+        uS::SocketData *data = (uS::SocketData *) httpSocket->data;
+        data->next = httpSocketHead;
+    } else {
+        httpTimer = new uv_timer_t;
+        uv_timer_init(hub->getLoop(), httpTimer);
+        httpTimer->data = this;
+        uv_timer_start(httpTimer, [](uv_timer_t *httpTimer) {
+            Group<isServer> *group = (Group<isServer> *) httpTimer->data;
+            group->forEachHttpSocket([](HTTPSocket<isServer> httpSocket) {
+                if (httpSocket.getData()->missedDeadline) {
+                    // recursive? don't think so!
+                    httpSocket.terminate();
+                } else {
+                    httpSocket.getData()->missedDeadline = true;
+                }
+            });
+        }, 1000, 1000);
+    }
+    httpSocketHead = httpSocket;
+}
+
+// WIP
+template <bool isServer>
+void Group<isServer>::removeHttpSocket(uv_poll_t *httpSocket) {
+    uS::SocketData *socketData = (uS::SocketData *) httpSocket->data;
+    if (iterators.size()) {
+        iterators.top() = socketData->next;
+    }
+    if (socketData->prev == socketData->next) {
+        httpSocketHead = (uv_poll_t *) nullptr;
+
+        uv_timer_stop(httpTimer);
+        uv_close((uv_handle_t *) httpTimer, [](uv_handle_t *handle) {
+            delete (uv_timer_t *) handle;
+        });
+
+    } else {
+        if (socketData->prev) {
+            ((uS::SocketData *) socketData->prev->data)->next = socketData->next;
+        } else {
+            httpSocketHead = socketData->next;
+        }
+        if (socketData->next) {
+            ((uS::SocketData *) socketData->next->data)->prev = socketData->prev;
+        }
+    }
 }
 
 template <bool isServer>

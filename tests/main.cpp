@@ -636,13 +636,18 @@ void testMessageBatch() {
 void testHTTP() {
     uWS::Hub h;
     int online = 0;
+    int numHttpConnections = 0;
 
-    h.onHttpDisconnection([](uWS::HTTPSocket<uWS::SERVER> s) {
-        std::cout << "Http Disconnection" << std::endl;
+    h.onHttpDisconnection([&numHttpConnections](uWS::HTTPSocket<uWS::SERVER> s) {
+        if (!--numHttpConnections) {
+            std::cout << "HTTP connections: none" << std::endl;
+        }
     });
 
-    h.onHttpConnection([](uWS::HTTPSocket<uWS::SERVER> s) {
-        std::cout << "Http Connection" << std::endl;
+    h.onHttpConnection([&numHttpConnections](uWS::HTTPSocket<uWS::SERVER> s) {
+        if (!numHttpConnections++) {
+            std::cout << "HTTP connections: one or more" << std::endl;
+        }
     });
 
     h.onHttpData([](uWS::HTTPSocket<uWS::SERVER> s, char *data, size_t length, size_t remainingBytes) {
@@ -697,7 +702,7 @@ void testHTTP() {
 int main(int argc, char *argv[])
 {
     // blocking
-    //testHTTP();
+    testHTTP();
     //testMessageBatch();
 
     // falls through
