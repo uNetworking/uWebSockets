@@ -338,18 +338,6 @@ class WebSocketClient extends WebSocket {
     }
 }
 
-class HttpSocket {
-    constructor(external) {
-        this.external = external;
-    }
-
-    end(data) {
-        if (this.external) {
-            native.server.respond(this.external, data);
-        }
-    }
-}
-
 class Server extends EventEmitter {
     constructor(options, callback) {
         super();
@@ -370,7 +358,7 @@ class Server extends EventEmitter {
         this._lastUpgradeListener = true;
         this._passedHttpServer = options.server;
 
-        if (!options.noServer && !options.nativeHttp) {
+        if (!options.noServer) {
             this.httpServer = options.server ? options.server : http.createServer((request, response) => {
                 // todo: default HTTP response
                 response.end();
@@ -447,42 +435,38 @@ class Server extends EventEmitter {
         });
 
         if (options.port) {
-            if (options.nativeHttp) {
-                this._upgradeCallback = emitConnection;
-                // todo: close any http connection by default
-                native.server.group.listen(this.serverGroup, options.port);
+            if (options.host) {
+                this.httpServer.listen(options.port, options.host, callback);
             } else {
-                if (options.host) {
-                    this.httpServer.listen(options.port, options.host, callback);
-                } else {
-                    this.httpServer.listen(options.port, callback);
-                }
+                this.httpServer.listen(options.port, callback);
             }
         }
     }
 
-    onHttpRequest(reqCb) {
-        native.server.group.onHttpRequest(this.serverGroup, (external, verb, url, data, remainingBytes) => {
-            reqCb(new HttpSocket(external), {verb: verb, url: url, getHeader: native.server.getHeader, data: data, remainingBytes: remainingBytes});
-        });
-    }
-
     handleUpgrade(request, socket, upgradeHead, callback) {
-        const secKey = request.headers['sec-websocket-key'];
-        const socketHandle = socket.ssl ? socket._parent._handle : socket._handle;
-        const sslState = socket.ssl ? socket.ssl._external : null;
-        if (secKey && secKey.length == 24) {
-            socket.setNoDelay(this._noDelay);
-            const ticket = native.transfer(socketHandle.fd === -1 ? socketHandle : socketHandle.fd, sslState);
-            socket.on('close', (error) => {
-                if (this.serverGroup) {
-                    _upgradeReq = request;
-                    this._upgradeCallback = callback ? callback : noop;
-                    native.upgrade(this.serverGroup, ticket, secKey, request.headers['sec-websocket-extensions'], request.headers['sec-websocket-protocol']);
-                }
-            });
+        if (socket._isNative) {
+                    if (this.serverGroup) {
+                        _upgradeReq = request;
+                        this._upgradeCallback = callback ? callback : noop;
+                        native.upgrade(this.serverGroup, socket.external, secKey, request.headers['sec-websocket-extensions'], request.headers['sec-websocket-protocol']);
+                    }
+        } else {
+            const secKey = request.headers['sec-websocket-key'];
+            const socketHandle = socket.ssl ? socket._parent._handle : socket._handle;
+            const sslState = socket.ssl ? socket.ssl._external : null;
+            if (secKey && secKey.length == 24) {
+                socket.setNoDelay(this._noDelay);
+                const ticket = native.transfer(socketHandle.fd === -1 ? socketHandle : socketHandle.fd, sslState);
+                socket.on('close', (error) => {
+                    if (this.serverGroup) {
+                        _upgradeReq = request;
+                        this._upgradeCallback = callback ? callback : noop;
+                        native.upgrade(this.serverGroup, ticket, secKey, request.headers['sec-websocket-extensions'], request.headers['sec-websocket-protocol']);
+                    }
+                });
+            }
+            socket.destroy();
         }
-        socket.destroy();
     }
 
     broadcast(message, options) {
@@ -521,6 +505,47 @@ class Server extends EventEmitter {
     }
 }
 
+class HttpSocket {
+
+    constructor(external) {
+        this.external = external;
+    }
+
+    end(data) {
+        native.server.respond(this.external, data);
+    }
+
+    get _isNative() {
+        return true;
+    }
+}
+
+class HttpServer extends EventEmitter {
+
+    constructor(reqCb) {
+        super();
+        this.serverGroup = native.server.group.create();
+
+        native.server.group.onHttpRequest(this.serverGroup, (external, verb, url, data, remainingBytes) => {
+            this.emit('request', {url: url}, new HttpSocket(external));
+        });
+
+        native.server.group.onHttpUpgrade(this.serverGroup, (external, verb, url) => {
+            this.emit('upgrade', {url: url}, new HttpSocket(external));
+        });
+
+        this.on('request', reqCb);
+    }
+
+    static createServer(reqCb) {
+        return new HttpServer(reqCb);
+    }
+
+    listen(port) {
+        native.server.group.listen(this.serverGroup, port);
+    }
+}
+
 WebSocketClient.PERMESSAGE_DEFLATE = 1;
 WebSocketClient.SERVER_NO_CONTEXT_TAKEOVER = 2;
 WebSocketClient.CLIENT_NO_CONTEXT_TAKEOVER = 4;
@@ -530,6 +555,7 @@ WebSocketClient.OPCODE_PING = 9;
 WebSocketClient.OPEN = 1;
 WebSocketClient.CLOSED = 0;
 WebSocketClient.Server = Server;
+WebSocketClient.http = HttpServer;
 WebSocketClient.native = native;
 WebSocketClient.HTTP_GET = 0;
 WebSocketClient.HTTP_POST = 1;

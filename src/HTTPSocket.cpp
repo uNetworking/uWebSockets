@@ -330,6 +330,8 @@ template <bool isServer>
 void HttpSocket<isServer>::onEnd(uS::Socket s) {
     if (!s.isShuttingDown()) {
         // todo: not going to be set from Hub::upgrade!
+        // Hub::upgrade can fail and call onEnd with a socket not in a group!
+        // upgrade should always succeed!
         if (isServer) {
             getGroup<isServer>(s)->removeHttpSocket(HttpSocket<isServer>(s));
             getGroup<isServer>(s)->httpDisconnectionHandler(HttpSocket<isServer>(s));
