@@ -328,22 +328,20 @@ bool HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
 
 template <bool isServer>
 void HttpSocket<isServer>::onEnd(uS::Socket s) {
-
     if (!s.isShuttingDown()) {
-        // not going to be set from Hub::upgrade!
-        // only server HttpSockets set this currently
+        // todo: not going to be set from Hub::upgrade!
         if (isServer) {
             getGroup<isServer>(s)->removeHttpSocket(HttpSocket<isServer>(s));
+            getGroup<isServer>(s)->httpDisconnectionHandler(HttpSocket<isServer>(s));
         }
-        getGroup<isServer>(s)->httpDisconnectionHandler(HttpSocket<isServer>(s));
     } else {
         s.cancelTimeout();
     }
 
     Data *httpSocketData = (Data *) s.getSocketData();
+
     s.close();
 
-    // should not happen if shutting down!
     while (!httpSocketData->messageQueue.empty()) {
         uS::SocketData::Queue::Message *message = httpSocketData->messageQueue.front();
         if (message->callback) {
@@ -353,6 +351,7 @@ void HttpSocket<isServer>::onEnd(uS::Socket s) {
     }
 
     if (!isServer) {
+        s.cancelTimeout();
         getGroup<CLIENT>(s)->errorHandler(httpSocketData->httpUser);
     }
 

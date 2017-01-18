@@ -730,18 +730,18 @@ void testPOST() {
 int main(int argc, char *argv[])
 {
     // falls through
-    /*testPOST();
+    testPOST();
     testSTL();
     testSmallSends();
     testSendCallback();
     testMultithreading();
     testReusePort();
     testRouting();
-    testClosing();*/
+    testClosing();
     testConnections();
-    /*testListening();
+    testListening();
     testBroadcast();
-    stressTest();*/
+    stressTest();
     //serveAutobahn();
 
 
