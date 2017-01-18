@@ -70,7 +70,8 @@ public:
 struct GroupData {
     Persistent<Function> connectionHandler, messageHandler,
                          disconnectionHandler, pingHandler,
-                         pongHandler, errorHandler, httpRequestHandler;
+                         pongHandler, errorHandler, httpRequestHandler,
+                         httpUpgradeHandler;
     int size = 0;
 };
 
@@ -433,7 +434,24 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
                                String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength),
                                ArrayBuffer::New(isolate, (char *) data, length),
                                Integer::New(isolate, remainingBytes)};
-        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 4, argv);
+        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 5, argv);
+    });
+}
+
+void onHttpUpgrade(const FunctionCallbackInfo<Value> &args) {
+    uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
+    GroupData *groupData = (GroupData *) group->getUserData();
+
+    Isolate *isolate = args.GetIsolate();
+    Persistent<Function> *httpUpgradeCallback = &groupData->httpUpgradeHandler;
+    httpUpgradeCallback->Reset(isolate, Local<Function>::Cast(args[1]));
+    group->onHttpUpgrade([isolate, httpUpgradeCallback](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req) {
+        currentReq = req;
+        HandleScope hs(isolate);
+        Local<Value> argv[] = {External::New(isolate, s.getPollHandle()),
+                               Integer::New(isolate, req.getVerb()),
+                               String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength)};
+        Local<Function>::New(isolate, *httpUpgradeCallback)->Call(isolate->GetCurrentContext()->Global(), 3, argv);
     });
 }
 
@@ -476,6 +494,7 @@ struct Namespace {
 
             NODE_SET_METHOD(group, "listen", listen);
             NODE_SET_METHOD(group, "onHttpRequest", onHttpRequest);
+            NODE_SET_METHOD(group, "onHttpUpgrade", onHttpUpgrade);
             NODE_SET_METHOD(object, "respond", respond);
             NODE_SET_METHOD(object, "getHeader", getHeader);
         }
