@@ -11,7 +11,7 @@ using namespace v8;
 uWS::Hub hub(0, true);
 uv_check_t check;
 Persistent<Function> noop;
-uWS::HTTPRequest currentReq;
+uWS::HttpRequest currentReq;
 
 void registerCheck(Isolate *isolate) {
     uv_check_init(hub.getLoop(), &check);
@@ -241,7 +241,7 @@ void onConnection(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     Persistent<Function> *connectionCallback = &groupData->connectionHandler;
     connectionCallback->Reset(isolate, Local<Function>::Cast(args[1]));
-    group->onConnection([isolate, connectionCallback, groupData](uWS::WebSocket<isServer> webSocket, uWS::HTTPRequest req) {
+    group->onConnection([isolate, connectionCallback, groupData](uWS::WebSocket<isServer> webSocket, uWS::HttpRequest req) {
         groupData->size++;
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(webSocket, isolate)};
@@ -425,7 +425,7 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     Persistent<Function> *httpRequestCallback = &groupData->httpRequestHandler;
     httpRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
-    group->onHttpRequest([isolate, httpRequestCallback](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req, char *data, size_t length, size_t remainingBytes) {
+    group->onHttpRequest([isolate, httpRequestCallback](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
         currentReq = req;
         HandleScope hs(isolate);
         Local<Value> argv[] = {External::New(isolate, s.getPollHandle()),
@@ -439,7 +439,7 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
 
 void respond(const FunctionCallbackInfo<Value> &args) {
     NativeString nativeString(args[1]);
-    uWS::HTTPSocket<uWS::SERVER>((uv_poll_t *) args[0].As<External>()->Value()).respond(nativeString.getData(), nativeString.getLength(), uWS::ContentType::TEXT_HTML);
+    uWS::HttpSocket<uWS::SERVER>((uv_poll_t *) args[0].As<External>()->Value()).respond(nativeString.getData(), nativeString.getLength(), uWS::ContentType::TEXT_HTML);
 }
 
 void getHeader(const FunctionCallbackInfo<Value> &args) {
