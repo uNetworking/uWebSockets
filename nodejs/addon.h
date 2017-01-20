@@ -217,9 +217,10 @@ void upgrade(const FunctionCallbackInfo<Value> &args) {
 
 void transfer(const FunctionCallbackInfo<Value> &args) {
     // (_handle.fd OR _handle), SSL
+    uv_handle_t *handle = nullptr;
     Ticket *ticket = new Ticket;
     if (args[0]->IsObject()) {
-        uv_fileno(getTcpHandle(args[0]->ToObject()->GetAlignedPointerFromInternalField(0)), (uv_os_fd_t *) &ticket->fd);
+        uv_fileno((handle = getTcpHandle(args[0]->ToObject()->GetAlignedPointerFromInternalField(0))), (uv_os_fd_t *) &ticket->fd);
     } else {
         ticket->fd = args[0]->IntegerValue();
     }
@@ -229,6 +230,13 @@ void transfer(const FunctionCallbackInfo<Value> &args) {
     if (args[1]->IsExternal()) {
         ticket->ssl = (SSL *) args[1].As<External>()->Value();
         SSL_up_ref(ticket->ssl);
+    }
+
+    // note: we SHOULD set this for all OS's but only Windows has a problem without it for now
+    // uv_close calls shutdown if not set
+    if (handle) {
+        // UV_HANDLE_SHARED_TCP_SOCKET
+        handle->flags |= 0x40000000;
     }
 
     args.GetReturnValue().Set(External::New(args.GetIsolate(), ticket));
