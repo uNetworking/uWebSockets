@@ -10,37 +10,34 @@
 namespace uWS {
 
 // UNSAFETY NOTE: assumes *end == '\r' (might unref end pointer)
-// todo: scan this parser for bugs
 char *getHeaders(char *buffer, char *end, Header *headers, size_t maxHeaders) {
     for (unsigned int i = 0; i < maxHeaders; i++) {
-        headers->key = buffer;
-        for (; *buffer != ':' && !isspace(*buffer) && *buffer != '\r'; buffer++) {
-            *buffer = tolower(*buffer);
-        }
+        for (headers->key = buffer; (*buffer != ':') & (*buffer > 32); *(buffer++) |= 32);
         if (*buffer == '\r') {
-            if (!(buffer + 1 < end && buffer[1] == '\n')) {
+            if ((buffer != end) & (buffer[1] == '\n') & (i > 0)) {
+                headers->key = nullptr;
+                return buffer + 2;
+            } else {
                 return nullptr;
             }
         } else {
             headers->keyLength = buffer - headers->key;
-            for (buffer++; *buffer == ':' || isspace(*buffer); buffer++);
+            for (buffer++; (*buffer == ':' || *buffer < 33) && *buffer != '\r'; buffer++);
             headers->value = buffer;
-            for (; *buffer != '\r'; buffer++);
-            headers->valueLength = buffer - headers->value;
-            if (buffer + 1 < end && *++buffer == '\n') {
-                ++buffer;
+            buffer = (char *) memchr(buffer, '\r', end - buffer); //for (; *buffer != '\r'; buffer++);
+            if (buffer /*!= end*/ && buffer[1] == '\n') {
+                headers->valueLength = buffer - headers->value;
+                buffer += 2;
                 headers++;
-                continue;
             } else {
                 return nullptr;
             }
         }
-        headers->key = nullptr;
-        return buffer + 2;
     }
     return nullptr;
 }
 
+// UNSAFETY NOTE: assumes 24 byte length
 static void base64(unsigned char *src, char *dst) {
     static const char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     for (int i = 0; i < 18; i += 3) {
