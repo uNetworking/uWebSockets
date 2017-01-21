@@ -50,13 +50,16 @@ struct HttpRequest {
         return {nullptr, nullptr, 0, 0};
     }
     Header getUrl() {
-        if (headers) {
+        if (headers->key) {
             return *headers;
         }
         return {nullptr, nullptr, 0, 0};
     }
 
     HTTPVerb getVerb() {
+        if (!headers->key) {
+            return INVALID;
+        }
         if (headers->keyLength == 3 && !strncmp(headers->key, "get", 3)) {
             return GET;
         } else if (headers->keyLength == 4 && !strncmp(headers->key, "post", 4)) {

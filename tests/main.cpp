@@ -694,7 +694,7 @@ void testPOST() {
             std::cout << "HTTP POST, length: " << length << std::endl;
             controlData(s, data, length, remainingBytes);
         } else {
-            char response[] = "Nope, nope";
+            char response[] = "Nope, nope\n";
             s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
             //s.shutdown();
         }
