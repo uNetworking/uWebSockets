@@ -28,6 +28,9 @@ enum ContentType {
 enum HTTPVerb {
     GET,
     POST,
+    PUT,
+    DELETE,
+    PATCH,
     INVALID
 };
 
@@ -60,10 +63,28 @@ struct HttpRequest {
         if (!headers->key) {
             return INVALID;
         }
-        if (headers->keyLength == 3 && !strncmp(headers->key, "get", 3)) {
-            return GET;
-        } else if (headers->keyLength == 4 && !strncmp(headers->key, "post", 4)) {
-            return POST;
+        switch (headers->keyLength) {
+        case 3:
+            if (!strncmp(headers->key, "get", 3)) {
+                return GET;
+            } else if (!strncmp(headers->key, "put", 3)) {
+                return PUT;
+            }
+            break;
+        case 4:
+            if (!strncmp(headers->key, "post", 4)) {
+                return POST;
+            }
+        case 5:
+            if (!strncmp(headers->key, "patch", 5)) {
+                return PATCH;
+            }
+            break;
+        case 6:
+            if (!strncmp(headers->key, "delete", 6)) {
+                return DELETE;
+            }
+            break;
         }
         return INVALID;
     }
