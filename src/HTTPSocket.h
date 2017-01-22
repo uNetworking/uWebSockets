@@ -103,6 +103,7 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
 
         // used to close sockets not sending requests in time
         bool missedDeadline = false;
+        bool awaitsResponse = false;
 
         Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
     };
