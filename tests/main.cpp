@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <map>
+#include <atomic>
 
 int countOccurrences(std::string word, std::string &document) {
     int count = 0;
@@ -634,22 +635,17 @@ void testMessageBatch() {
     h.run();
 }
 
-// todo: can also test GET in the same function!
-void testPOST() {
+void testHTTP() {
     uWS::Hub h;
-    int online = 0;
-    int numHttpConnections = 0;
+    std::atomic<int> expectedRequests(0);
 
-    auto controlData = [&h](uWS::HttpSocket<uWS::SERVER> s, char *data, size_t length, size_t remainingBytes) {
+    auto controlData = [&h, &expectedRequests](uWS::HttpSocket<uWS::SERVER> s, char *data, size_t length, size_t remainingBytes) {
         std::string *buffer = (std::string *) s.getUserData();
         buffer->append(data, length);
 
-        std::cout << "HTTP POST, chunk: " << length << std::endl;
+        std::cout << "HTTP POST, chunk: " << length << ", total: " << buffer->length() << ", remainingBytes: " << remainingBytes << std::endl;
 
         if (!remainingBytes) {
-            char response[] = "Thanks for the post!\n";
-            s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
-
             // control the contents
             for (int i = 0; i < buffer->length(); i++) {
                 if ((*buffer)[i] != '0' + i % 10) {
@@ -658,25 +654,15 @@ void testPOST() {
                 }
             }
 
-            if (buffer->length() == 500000) {
-                h.getDefaultGroup<uWS::SERVER>().close();
-            }
+            expectedRequests++;
         }
     };
 
-    h.onHttpDisconnection([&numHttpConnections](uWS::HttpSocket<uWS::SERVER> s) {
-        if (!--numHttpConnections) {
-            std::cout << "HTTP connections: none" << std::endl;
-        }
-
+    h.onHttpDisconnection([](uWS::HttpSocket<uWS::SERVER> s) {
         delete (std::string *) s.getUserData();
     });
 
-    h.onHttpConnection([&numHttpConnections](uWS::HttpSocket<uWS::SERVER> s) {
-        if (!numHttpConnections++) {
-            std::cout << "HTTP connections: one or more" << std::endl;
-        }
-
+    h.onHttpConnection([](uWS::HttpSocket<uWS::SERVER> s) {
         s.setUserData(new std::string);
     });
 
@@ -684,43 +670,161 @@ void testPOST() {
         controlData(s, data, length, remainingBytes);
     });
 
-    h.onHttpRequest([&controlData](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
-        //std::cout << clock() << " : " << req.getUrl().toString() << std::endl << req.getHeader("user-agent").toString() << std::endl;
-
-        if (req.getVerb() == uWS::GET && req.getUrl().toString() == "/") {
-            char response[] = "<html><body><div style=\"background-color: red; text-align: center; color: white; border-radius: 5em; margin-bottom: 1em\">µWebSockets v0.13.0</div><center><img src=\"https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRUCEoO6dkQsWZdvGqpJkDLdnkdEHCo-1a6Yf5k_HwjO1VrdbAiOg\" /><center></body></html>";
-            s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
-        } else if (req.getVerb() == uWS::POST) {
-            std::cout << "HTTP POST, length: " << length << std::endl;
-            controlData(s, data, length, remainingBytes);
-        } else {
-            char response[] = "Nope, nope\n";
-            s.respond(response, sizeof(response) - 1, uWS::ContentType::TEXT_HTML);
-            //s.shutdown();
+    h.onHttpRequest([&h, &expectedRequests, &controlData](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
+        if (req.getUrl().toString() == "/segmentedUrl") {
+            if (req.getVerb() == uWS::HTTPVerb::GET && req.getHeader("host").toString() == "localhost") {
+                expectedRequests++;
+                return;
+            }
+        } else if (req.getUrl().toString() == "/closeServer") {
+            if (req.getVerb() == uWS::HTTPVerb::PUT) {
+                h.getDefaultGroup<uWS::SERVER>().close();
+                expectedRequests++;
+                return;
+            }
+        } else if (req.getUrl().toString() == "/postTest") {
+            if (req.getVerb() == uWS::HTTPVerb::POST) {
+                controlData(s, data, length, remainingBytes);
+                return;
+            }
         }
+
+        std::cerr << "FAILURE: Unexpected request!" << std::endl;
+        exit(-1);
     });
 
-    /*h.onConnection([&online](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
-        std::cout << "WebSocket connected: " << clock() << " numbers online: " << ++online << std::endl;
+    h.onConnection([&expectedRequests](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
+        if (req.getUrl().toString() == "/upgradeUrl") {
+            if (req.getVerb() == uWS::HTTPVerb::GET && req.getHeader("upgrade").toString() == "websocket") {
+                expectedRequests++;
+                return;
+            }
+        }
+
+        std::cerr << "FAILURE: Unexpected request!" << std::endl;
+        exit(-1);
     });
 
-    h.onDisconnection([&online](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
-        std::cout << "WebSocket disconnected: " << clock() << " numbers online: " << --online << std::endl;
+    h.onDisconnection([](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
+        delete (std::string *) ws.getUserData();
     });
 
-    h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode) {
-        ws.send(message, length, opCode);
-    });
-
-    h.getDefaultGroup<uWS::SERVER>().startAutoPing(15000);*/
     h.listen(3000);
 
-    std::thread t([]() {
-        system("printf '0123456789%.0s' {1..5} | curl -d @- http://localhost:3000");
-        system("printf '0123456789%.0s' {1..50} | curl -d @- http://localhost:3000");
-        system("printf '0123456789%.0s' {1..500} | curl -d @- http://localhost:3000");
-        system("printf '0123456789%.0s' {1..5000} | curl -d @- http://localhost:3000");
-        system("printf '0123456789%.0s' {1..50000} | curl -d @- http://localhost:3000");
+    std::thread t([&expectedRequests]() {
+        FILE *nc;
+
+        // invalid data
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("invalid http", nc);
+        pclose(nc);
+
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("\r\n\r\n", nc);
+        pclose(nc);
+
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("\r\n", nc);
+        pclose(nc);
+
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("\r\n\r", nc);
+        pclose(nc);
+
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("\r", nc);
+        pclose(nc);
+
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("\n", nc);
+        pclose(nc);
+
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("GET \r\n", nc);
+        pclose(nc);
+
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("GET / HTTP/1.1\r\n", nc);
+        pclose(nc);
+
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("GET / HTTP/1.1\r\nHost: localhost:3000", nc);
+        pclose(nc);
+
+        // segmented GET
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("GET /segme", nc);
+        fflush(nc);
+        usleep(100000);
+
+        fputs("ntedUrl HTTP/1.1\r", nc);
+        fflush(nc);
+        usleep(100000);
+
+        fputs("\nHost: loca", nc);
+        fflush(nc);
+        usleep(100000);
+
+        fputs("lhost\r\n\r\n", nc);
+        fflush(nc);
+        usleep(100000);
+        pclose(nc);
+
+        // segmented upgrade
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("GET /upgra", nc);
+        fflush(nc);
+        usleep(100000);
+
+        fputs("deUrl HTTP/1.1\r", nc);
+        fflush(nc);
+        usleep(100000);
+
+        fputs("\nSec-WebSocket-Key: 123456789012341234567890\r", nc);
+        fflush(nc);
+        usleep(100000);
+
+        fputs("\nUpgrade: websoc", nc);
+        fflush(nc);
+        usleep(100000);
+
+        fputs("ket\r\n\r\n", nc);
+        fflush(nc);
+        usleep(100000);
+        pclose(nc);
+
+        // slow GET should get disconnected
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        sleep(3);
+        fputs("GET /slowRequest HTTP/1.1\r\n\r\n", nc);
+        pclose(nc);
+
+        // post tests with increading data length
+        for (int j = 0; j < 10; j++) {
+            nc = popen("nc localhost 3000 &> /dev/null", "w");
+            fputs("POST /postTest HTTP/1.1\r\nContent-Length: ", nc);
+
+            int contentLength = j * 1000000;
+            std::cout << "POSTing " << contentLength << " bytes" << std::endl;
+
+            fputs(std::to_string(contentLength).c_str(), nc);
+            fputs("\r\n\r\n", nc);
+            for (int i = 0; i < (contentLength / 10); i++) {
+                fputs("0123456789", nc);
+            }
+            pclose(nc);
+        }
+
+        // todo: two-in-one GET, two-in-one GET, upgrade, etc
+
+        // shutdown
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("PUT /closeServer HTTP/1.1\r\n\r\n", nc);
+        pclose(nc);
+        if (expectedRequests != 13) {
+            std::cerr << "FAILURE: expectedRequests differ: " << expectedRequests << std::endl;
+            exit(-1);
+        }
     });
 
     h.run();
@@ -730,7 +834,7 @@ void testPOST() {
 int main(int argc, char *argv[])
 {
     // falls through
-    testPOST();
+    testHTTP();
     testSTL();
     testSmallSends();
     testSendCallback();
