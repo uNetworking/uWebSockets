@@ -86,43 +86,41 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
     char *cursor = data;
     *end = '\r';
     Header headers[MAX_HEADERS];
-    while (cursor != end && (cursor = getHeaders(cursor, end, headers, MAX_HEADERS))) {
-        HttpRequest req(headers);
+    do {
+        char *lastCursor = cursor;
+        if ((cursor = getHeaders(cursor, end, headers, MAX_HEADERS))) {
+            HttpRequest req(headers);
 
-        if (isServer) {
-            headers->valueLength = std::max<int>(0, headers->valueLength - 9);
-            httpData->missedDeadline = false;
-            if (req.getHeader("upgrade", 7)) {
-                if (getGroup<SERVER>(s)->httpUpgradeHandler) {
-                    getGroup<SERVER>(s)->httpUpgradeHandler(HttpSocket<isServer>(s), req);
-                } else {
-                    Header secKey = req.getHeader("sec-websocket-key", 17);
-                    Header extensions = req.getHeader("sec-websocket-extensions", 24);
-                    Header subprotocol = req.getHeader("sec-websocket-protocol", 22);
-                    bool perMessageDeflate;
-                    if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
-                                                                       subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
-                        getGroup<SERVER>(s)->removeHttpSocket(s);
-                        s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
-                        getGroup<SERVER>(s)->addWebSocket(s);
-                        s.cork(true);
-                        getGroup<SERVER>(s)->connectionHandler(WebSocket<SERVER>(s), req);
-                        s.cork(false);
-                        delete httpData;
+            if (isServer) {
+                headers->valueLength = std::max<int>(0, headers->valueLength - 9);
+                httpData->missedDeadline = false;
+                if (req.getHeader("upgrade", 7)) {
+                    if (getGroup<SERVER>(s)->httpUpgradeHandler) {
+                        getGroup<SERVER>(s)->httpUpgradeHandler(HttpSocket<isServer>(s), req);
                     } else {
-                        // note: not needed, we can let the poll catch any errors
-                        httpSocket.onEnd(s);
+                        Header secKey = req.getHeader("sec-websocket-key", 17);
+                        Header extensions = req.getHeader("sec-websocket-extensions", 24);
+                        Header subprotocol = req.getHeader("sec-websocket-protocol", 22);
+                        bool perMessageDeflate;
+                        if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
+                                                                           subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
+                            getGroup<SERVER>(s)->removeHttpSocket(s);
+                            s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
+                            getGroup<SERVER>(s)->addWebSocket(s);
+                            s.cork(true);
+                            getGroup<SERVER>(s)->connectionHandler(WebSocket<SERVER>(s), req);
+                            s.cork(false);
+                            delete httpData;
+                        } else {
+                            // note: not needed, we can let the poll catch any errors
+                            httpSocket.onEnd(s);
+                        }
                     }
-                }
-                return;
-            } else {
-                if (getGroup<SERVER>(s)->httpRequestHandler) {
-                    //if (false && cursor == end) {
-                        // this gets called when sending large posts
-                        //getGroup<SERVER>(s)->httpRequestHandler(s, req, nullptr, 0, 0);
-                    /*} else */{
-                        Header contentLength = req.getHeader("content-length", 14);
-                        if (contentLength) {
+                    return;
+                } else {
+                    if (getGroup<SERVER>(s)->httpRequestHandler) {
+                        Header contentLength;
+                        if (req.getVerb() != HTTPVerb::GET && (contentLength = req.getHeader("content-length", 14))) {
                             httpData->contentLength = atoi(contentLength.value);
                             size_t bytesToRead = std::min<int>(httpData->contentLength, end - cursor);
                             getGroup<SERVER>(s)->httpRequestHandler(s, req, cursor, bytesToRead, httpData->contentLength -= bytesToRead);
@@ -130,45 +128,46 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                         } else {
                             getGroup<SERVER>(s)->httpRequestHandler(s, req, nullptr, 0, 0);
                         }
+                    } else {
+                        httpSocket.onEnd(s);
+                        return;
                     }
+                }
+            } else {
+                if (req.getHeader("upgrade", 7)) {
+                    s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
+
+                    httpSocket.cancelTimeout();
+                    httpSocket.setUserData(httpData->httpUser);
+                    getGroup<CLIENT>(s)->addWebSocket(s);
+                    s.cork(true);
+                    getGroup<CLIENT>(s)->connectionHandler(WebSocket<CLIENT>(s), req);
+                    s.cork(false);
+
+                    if (!(s.isClosed() || s.isShuttingDown())) {
+                        WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
+                        kws->consume(cursor, end - cursor, s);
+                    }
+
+                    delete httpData;
                 } else {
                     httpSocket.onEnd(s);
-                    return;
                 }
+                return;
             }
         } else {
-            if (req.getHeader("upgrade", 7)) {
-                s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
-
-                httpSocket.cancelTimeout();
-                httpSocket.setUserData(httpData->httpUser);
-                getGroup<CLIENT>(s)->addWebSocket(s);
-                s.cork(true);
-                getGroup<CLIENT>(s)->connectionHandler(WebSocket<CLIENT>(s), req);
-                s.cork(false);
-
-                if (!(s.isClosed() || s.isShuttingDown())) {
-                    WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
-                    kws->consume(cursor, end - cursor, s);
+            if (!httpData->httpBuffer.length()) {
+                if (length > MAX_HEADER_BUFFER_SIZE) {
+                    httpSocket.onEnd(s);
+                } else {
+                    httpData->httpBuffer.append(lastCursor, end - lastCursor);
                 }
-
-                delete httpData;
-            } else {
-                httpSocket.onEnd(s);
             }
             return;
         }
-    }
+    } while(cursor != end);
 
-    if (cursor != end) {
-        if (length > MAX_HEADER_BUFFER_SIZE) {
-            httpSocket.onEnd(s);
-        } else {
-            httpData->httpBuffer.append(data, length);
-        }
-    } else {
-        httpData->httpBuffer.clear();
-    }
+    httpData->httpBuffer.clear();
 }
 
 template <bool isServer>
