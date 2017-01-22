@@ -37,7 +37,7 @@ char *getHeaders(char *buffer, char *end, Header *headers, size_t maxHeaders) {
     return nullptr;
 }
 
-// UNSAFETY NOTE: assumes 24 byte length
+// UNSAFETY NOTE: assumes 24 byte input length
 static void base64(unsigned char *src, char *dst) {
     static const char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     for (int i = 0; i < 18; i += 3) {
@@ -76,7 +76,7 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
             return;
         }
 
-        httpData->httpBuffer.reserve(httpData->httpBuffer.length() + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
+        httpData->httpBuffer.reserve(httpData->httpBuffer.length() + length + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
         httpData->httpBuffer.append(data, length);
         data = (char *) httpData->httpBuffer.data();
         length = httpData->httpBuffer.length();
@@ -90,7 +90,7 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
         HttpRequest req(headers);
 
         if (isServer) {
-            headers->valueLength = std::max<unsigned int>(0, headers->valueLength - 9);
+            headers->valueLength = std::max<int>(0, headers->valueLength - 9);
             httpData->missedDeadline = false;
             if (req.getHeader("upgrade", 7)) {
                 if (getGroup<SERVER>(s)->httpUpgradeHandler) {
