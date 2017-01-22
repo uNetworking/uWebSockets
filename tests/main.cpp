@@ -671,6 +671,9 @@ void testHTTP() {
     });
 
     h.onHttpRequest([&h, &expectedRequests, &controlData](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
+
+        std::cout << req.getUrl().toString() << std::endl;
+
         if (req.getUrl().toString() == "/segmentedUrl") {
             if (req.getVerb() == uWS::HTTPVerb::GET && req.getHeader("host").toString() == "localhost") {
                 expectedRequests++;
@@ -685,6 +688,11 @@ void testHTTP() {
         } else if (req.getUrl().toString() == "/postTest") {
             if (req.getVerb() == uWS::HTTPVerb::POST) {
                 controlData(s, data, length, remainingBytes);
+                return;
+            }
+        } else if (req.getUrl().toString() == "/packedTest") {
+            if (req.getVerb() == uWS::HTTPVerb::GET) {
+                expectedRequests++;
                 return;
             }
         }
@@ -817,11 +825,23 @@ void testHTTP() {
 
         // todo: two-in-one GET, two-in-one GET, upgrade, etc
 
+        // segmented second GET
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("GET /packedTest HTTP/1.1\r\n\r\nGET /packedTest HTTP/", nc);
+        fflush(nc);
+        usleep(100000);
+        fputs("1.1\r\n\r\n", nc);
+        pclose(nc);
+
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("GET /packedTest HTTP/1.1\r\n\r\nGET /packedTest HTTP/1.1\r\n\r\n", nc);
+        pclose(nc);
+
         // shutdown
         nc = popen("nc localhost 3000 &> /dev/null", "w");
         fputs("PUT /closeServer HTTP/1.1\r\n\r\n", nc);
         pclose(nc);
-        if (expectedRequests != 13) {
+        if (expectedRequests != 17) {
             std::cerr << "FAILURE: expectedRequests differ: " << expectedRequests << std::endl;
             exit(-1);
         }
