@@ -119,6 +119,7 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                     return;
                 } else {
                     if (getGroup<SERVER>(s)->httpRequestHandler) {
+                        httpData->awaitsResponse = true;
                         Header contentLength;
                         if (req.getVerb() != HTTPVerb::GET && (contentLength = req.getHeader("content-length", 14))) {
                             httpData->contentLength = atoi(contentLength.value);
@@ -175,6 +176,8 @@ void HttpSocket<isServer>::respond(char *message, size_t length, ContentType con
                                    void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
     // assume we always respond with less than 128 byte header
     const int HEADER_LENGTH = 128;
+
+    ((Data *) getSocketData())->awaitsResponse = false;
 
     if (hasEmptyQueue()) {
         if (length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH <= uS::NodeData::preAllocMaxSize) {
