@@ -125,7 +125,7 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                         if (contentLength) {
                             httpData->contentLength = atoi(contentLength.value);
                             size_t bytesToRead = std::min<int>(httpData->contentLength, end - cursor);
-                            getGroup<SERVER>(s)->httpRequestHandler(s, req, cursor, bytesToRead, httpData->contentLength - bytesToRead);
+                            getGroup<SERVER>(s)->httpRequestHandler(s, req, cursor, bytesToRead, httpData->contentLength -= bytesToRead);
                             cursor += bytesToRead;
                         } else {
                             getGroup<SERVER>(s)->httpRequestHandler(s, req, nullptr, 0, 0);
