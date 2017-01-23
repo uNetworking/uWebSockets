@@ -30,14 +30,7 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight :-1: | µWS is **4x** as per
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. These results were achieved with the native C++ server, not the Node.js addon. Expect worse performance and scalability when using Node.js (don't worry, the Node.js addon will run circles around `ws`).*
 
 ### HTTP benchmarks
-Implementation | Requests per second
---- | ---
-Node.js (ExpressJS) | 10k
-Node.js (vanilla) | 30k
-Node.js (µWS) | 150 - 200k
-NGINX | 70k
-µWS | 250k
-h2o | probably a bit faster than µWS
+![](images/wrk_benchmark.png)
 
 *Experimental HTTP 1.1 benchmark using wrk. All servers are single threaded and serve a static page with no PHP, database queries or similar. µWS has experimental HTTP support in master but not in the latest release.*
 
