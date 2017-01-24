@@ -108,7 +108,7 @@ Context createContext(std::string certChainFileName, std::string keyFileName, st
 
 struct SocketData;
 
-struct NodeData {
+struct WIN32_EXPORT NodeData {
     char *recvBufferMemoryBlock;
     char *recvBuffer;
     int recvLength;
