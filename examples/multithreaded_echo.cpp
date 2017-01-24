@@ -16,7 +16,7 @@ int main()
 		// you need at least one server listening to a port
 		Hub h;
 		
-		h.onConnection([&](uWS::WebSocket<uWS::SERVER> ws, uWS::UpgradeInfo upgInfo){
+		h.onConnection([&](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req){
 			int t = rand() % THREADS;
 			cout << "Transfering connection to thread " << t << endl;
 			ws.transfer(&threadedServer[t]->getDefaultGroup<uWS::SERVER>());
