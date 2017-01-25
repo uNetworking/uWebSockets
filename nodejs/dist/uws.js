@@ -66,7 +66,10 @@ native.client.group.onPong(clientGroup, (message, webSocket) => {
 
 native.client.group.onError(clientGroup, (webSocket) => {
     process.nextTick(() => {
-        webSocket.internalOnError();
+        webSocket.internalOnError({
+            message: 'uWs client connection error',
+            stack: 'uWs client connection error'
+        });
     });
 });
 
