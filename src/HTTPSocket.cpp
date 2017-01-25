@@ -129,6 +129,10 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                         } else {
                             getGroup<SERVER>(s)->httpRequestHandler(s, req, nullptr, 0, 0);
                         }
+
+                        if (s.isClosed() || s.isShuttingDown()) {
+                            return;
+                        }
                     } else {
                         httpSocket.onEnd(s);
                         return;
