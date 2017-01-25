@@ -137,6 +137,7 @@ Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) :
     httpRequestHandler = [](HttpSocket<isServer>, HttpRequest, char *, size_t, size_t) {};
     httpConnectionHandler = [](HttpSocket<isServer>) {};
     httpDisconnectionHandler = [](HttpSocket<isServer>) {};
+    httpDataHandler = [](HttpSocket<isServer>, char *, size_t, size_t) {};
 
     this->extensionOptions |= CLIENT_NO_CONTEXT_TAKEOVER | SERVER_NO_CONTEXT_TAKEOVER;
 }
