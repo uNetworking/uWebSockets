@@ -7,58 +7,21 @@ template <bool isServer>
 void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
     const int HEADER_LENGTH = WebSocketProtocol<!isServer>::LONG_MESSAGE_HEADER;
 
-    if (hasEmptyQueue()) {
-        if (length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH <= uS::NodeData::preAllocMaxSize) {
-            int memoryLength = length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH;
-            int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
+    struct TransformData {
+        OpCode opCode;
+    } transformData = {opCode};
 
-            uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
-            messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
-            messagePtr->length = WebSocketProtocol<isServer>::formatMessage((char *) messagePtr->data, message, length, opCode, length, false);
-
-            bool wasTransferred;
-            if (write(messagePtr, wasTransferred)) {
-                if (!wasTransferred) {
-                    getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
-                    if (callback) {
-                        callback(*this, callbackData, false, nullptr);
-                    }
-                } else {
-                    messagePtr->callback = callback;
-                    messagePtr->callbackData = callbackData;
-                }
-            } else {
-                if (callback) {
-                    callback(*this, callbackData, true, nullptr);
-                }
-            }
-        } else {
-            uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
-            messagePtr->length = WebSocketProtocol<isServer>::formatMessage((char *) messagePtr->data, message, length, opCode, length, false);
-            bool wasTransferred;
-            if (write(messagePtr, wasTransferred)) {
-                if (!wasTransferred) {
-                    freeMessage(messagePtr);
-                    if (callback) {
-                        callback(*this, callbackData, false, nullptr);
-                    }
-                } else {
-                    messagePtr->callback = callback;
-                    messagePtr->callbackData = callbackData;
-                }
-            } else {
-                if (callback) {
-                    callback(*this, callbackData, true, nullptr);
-                }
-            }
+    struct WebSocketTransformer {
+        static size_t estimate(char *data, size_t length) {
+            return length + HEADER_LENGTH;
         }
-    } else {
-        uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
-        messagePtr->length = WebSocketProtocol<isServer>::formatMessage((char *) messagePtr->data, message, length, opCode, length, false);
-        messagePtr->callback = callback;
-        messagePtr->callbackData = callbackData;
-        enqueue(messagePtr);
-    }
+
+        static size_t transform(char *src, char *dst, size_t length, TransformData transformData) {
+            return WebSocketProtocol<isServer>::formatMessage(dst, src, length, transformData.opCode, length, false);
+        }
+    };
+
+    sendTransformed<WebSocketTransformer>((char *) message, length, callback, callbackData, transformData);
 }
 
 template <bool isServer>
@@ -93,6 +56,7 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
     return preparedMessage;
 }
 
+// todo: see if this can be made a transformer instead
 template <bool isServer>
 void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMessage *preparedMessage, void *callbackData) {
     preparedMessage->references++;

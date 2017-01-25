@@ -178,155 +178,46 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 template <bool isServer>
 void HttpSocket<isServer>::send(char *message, size_t length,
                                 void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
-    // assume we always respond with less than 128 byte header
-    const int HEADER_LENGTH = 0;
 
-    //((Data *) getSocketData())->awaitsResponse = false;
-
-    if (hasEmptyQueue()) {
-        if (length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH <= uS::NodeData::preAllocMaxSize) {
-            int memoryLength = length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH;
-            int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
-
-            uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
-            messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
-
-            // shared code!
-            int offset = 0;//std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
-            memcpy((char *) messagePtr->data + offset, message, length);
-            messagePtr->length = length + offset;
-
-            bool wasTransferred;
-            if (write(messagePtr, wasTransferred)) {
-                if (!wasTransferred) {
-                    getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
-                    if (callback) {
-                        callback(*this, callbackData, false, nullptr);
-                    }
-                } else {
-                    messagePtr->callback = callback;
-                    messagePtr->callbackData = callbackData;
-                }
-            } else {
-                if (callback) {
-                    callback(*this, callbackData, true, nullptr);
-                }
-            }
-        } else {
-            uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
-
-            // shared code!
-            int offset = 0;//std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
-            memcpy((char *) messagePtr->data + offset, message, length);
-            messagePtr->length = length + offset;
-
-            bool wasTransferred;
-            if (write(messagePtr, wasTransferred)) {
-                if (!wasTransferred) {
-                    freeMessage(messagePtr);
-                    if (callback) {
-                        callback(*this, callbackData, false, nullptr);
-                    }
-                } else {
-                    messagePtr->callback = callback;
-                    messagePtr->callbackData = callbackData;
-                }
-            } else {
-                if (callback) {
-                    callback(*this, callbackData, true, nullptr);
-                }
-            }
+    struct NoopTransformer {
+        static size_t estimate(char *data, size_t length) {
+            return length;
         }
-    } else {
-        uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
 
-        // shared code!
-        int offset = 0;//std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
-        memcpy((char *) messagePtr->data + offset, message, length);
-        messagePtr->length = length + offset;
+        static size_t transform(char *src, char *dst, size_t length, int transformData) {
+            memcpy(dst, src, length);
+            return length;
+        }
+    };
 
-        messagePtr->callback = callback;
-        messagePtr->callbackData = callbackData;
-        enqueue(messagePtr);
-    }
+    sendTransformed<NoopTransformer>(message, length, callback, callbackData, 0);
 }
 
 template <bool isServer>
 void HttpSocket<isServer>::respond(char *message, size_t length, ContentType contentType,
                                    void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
-    // assume we always respond with less than 128 byte header
-    const int HEADER_LENGTH = 128;
+
+    struct TransformData {
+        ContentType contentType;
+    } transformData = {contentType};
+
+    struct HttpTransformer {
+        static size_t estimate(char *data, size_t length) {
+            return length + 128;
+        }
+
+        static size_t transform(char *src, char *dst, size_t length, TransformData transformData) {
+            int offset = std::sprintf(dst, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
+            memcpy(dst + offset, src, length);
+            return length + offset;
+        }
+    };
 
     ((Data *) getSocketData())->awaitsResponse = false;
-
-    if (hasEmptyQueue()) {
-        if (length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH <= uS::NodeData::preAllocMaxSize) {
-            int memoryLength = length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH;
-            int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
-
-            uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
-            messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
-
-            // shared code!
-            int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
-            memcpy((char *) messagePtr->data + offset, message, length);
-            messagePtr->length = length + offset;
-
-            bool wasTransferred;
-            if (write(messagePtr, wasTransferred)) {
-                if (!wasTransferred) {
-                    getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
-                    if (callback) {
-                        callback(*this, callbackData, false, nullptr);
-                    }
-                } else {
-                    messagePtr->callback = callback;
-                    messagePtr->callbackData = callbackData;
-                }
-            } else {
-                if (callback) {
-                    callback(*this, callbackData, true, nullptr);
-                }
-            }
-        } else {
-            uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
-
-            // shared code!
-            int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
-            memcpy((char *) messagePtr->data + offset, message, length);
-            messagePtr->length = length + offset;
-
-            bool wasTransferred;
-            if (write(messagePtr, wasTransferred)) {
-                if (!wasTransferred) {
-                    freeMessage(messagePtr);
-                    if (callback) {
-                        callback(*this, callbackData, false, nullptr);
-                    }
-                } else {
-                    messagePtr->callback = callback;
-                    messagePtr->callbackData = callbackData;
-                }
-            } else {
-                if (callback) {
-                    callback(*this, callbackData, true, nullptr);
-                }
-            }
-        }
-    } else {
-        uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
-
-        // shared code!
-        int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
-        memcpy((char *) messagePtr->data + offset, message, length);
-        messagePtr->length = length + offset;
-
-        messagePtr->callback = callback;
-        messagePtr->callbackData = callbackData;
-        enqueue(messagePtr);
-    }
+    sendTransformed<HttpTransformer>(message, length, callback, callbackData, transformData);
 }
 
+// todo: make this into a transformer and make use of sendTransformed
 template <bool isServer>
 bool HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength,
                                    const char *subprotocol, size_t subprotocolLength, bool *perMessageDeflate) {
