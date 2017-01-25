@@ -851,8 +851,71 @@ void testHTTP() {
     t.join();
 }
 
+// todo: move this out to examples folder, it is not a test but a stragiht up example of EventSource support
+void serveEventSource() {
+    uWS::Hub h;
+
+    std::string document = "<script>var es = new EventSource('/eventSource'); es.onmessage = function(message) {document.write('<p><b>Server sent event:</b> ' + message.data + '</p>');};</script>";
+    std::string header = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n";
+
+    // stop and delete the libuv timer on http disconnection
+    h.onHttpDisconnection([](uWS::HttpSocket<uWS::SERVER> s) {
+        uv_timer_t *timer = (uv_timer_t *) s.getUserData();
+        if (timer) {
+            uv_timer_stop(timer);
+            uv_close((uv_handle_t *) timer, [](uv_handle_t *handle) {
+                delete (uv_timer_t *) handle;
+            });
+        }
+    });
+
+    // terminate any upgrade attempt, this is http only
+    h.onHttpUpgrade([](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req) {
+        s.terminate();
+    });
+
+    h.onHttpRequest([&h, &document, &header](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
+        std::string url = req.getUrl().toString();
+
+        if (url == "/") {
+            // respond with the document
+            s.respond((char *) document.data(), document.length(), uWS::ContentType::TEXT_HTML);
+            return;
+        } else if (url == "/eventSource") {
+
+            if (!s.getUserData()) {
+                // establish a text/event-stream connection where we can send messages server -> client at any point in time
+                s.write((char *) header.data(), header.length());
+
+                // create and attach a libuv timer to the socket and let it send messages to the client each second
+                uv_timer_t *timer = new uv_timer_t;
+                uv_timer_init(h.getLoop(), timer);
+                timer->data = s.getPollHandle();
+                uv_timer_start(timer, [](uv_timer_t *timer) {
+                    uWS::HttpSocket<uWS::SERVER> s((uv_poll_t *) timer->data);
+
+                    // send a message to the browser
+                    std::string message = "data: Clock sent from the server: " + std::to_string(clock()) + "\n\n";
+                    s.write((char *) message.data(), message.length());
+                }, 1000, 1000);
+                s.setUserData(timer);
+            } else {
+                // why would the client send a new request at this point?
+                s.terminate();
+            }
+        } else {
+            s.terminate();
+        }
+    });
+
+    h.listen(3000);
+    h.run();
+}
+
 int main(int argc, char *argv[])
 {
+    serveEventSource();
+
     // falls through
     testHTTP();
     testSTL();
