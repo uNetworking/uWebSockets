@@ -418,6 +418,65 @@ public:
         wasTransferred = true;
         return true;
     }
+
+    template <class T, class D>
+    void sendTransformed(char *message, size_t length, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved), void *callbackData, D transformData) {
+        size_t estimatedLength = T::estimate(message, length) + sizeof(uS::SocketData::Queue::Message);
+
+        if (hasEmptyQueue()) {
+            if (estimatedLength <= uS::NodeData::preAllocMaxSize) {
+                int memoryLength = estimatedLength;
+                int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
+
+                uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
+                messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
+                messagePtr->length = T::transform(message, (char *) messagePtr->data, length, transformData);
+
+                bool wasTransferred;
+                if (write(messagePtr, wasTransferred)) {
+                    if (!wasTransferred) {
+                        getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
+                        if (callback) {
+                            callback(*this, callbackData, false, nullptr);
+                        }
+                    } else {
+                        messagePtr->callback = callback;
+                        messagePtr->callbackData = callbackData;
+                    }
+                } else {
+                    if (callback) {
+                        callback(*this, callbackData, true, nullptr);
+                    }
+                }
+            } else {
+                uS::SocketData::Queue::Message *messagePtr = allocMessage(estimatedLength - sizeof(uS::SocketData::Queue::Message));
+                messagePtr->length = T::transform(message, (char *) messagePtr->data, length, transformData);
+
+                bool wasTransferred;
+                if (write(messagePtr, wasTransferred)) {
+                    if (!wasTransferred) {
+                        freeMessage(messagePtr);
+                        if (callback) {
+                            callback(*this, callbackData, false, nullptr);
+                        }
+                    } else {
+                        messagePtr->callback = callback;
+                        messagePtr->callbackData = callbackData;
+                    }
+                } else {
+                    if (callback) {
+                        callback(*this, callbackData, true, nullptr);
+                    }
+                }
+            }
+        } else {
+            uS::SocketData::Queue::Message *messagePtr = allocMessage(estimatedLength - sizeof(uS::SocketData::Queue::Message));
+            messagePtr->length = T::transform(message, (char *) messagePtr->data, length, transformData);
+            messagePtr->callback = callback;
+            messagePtr->callbackData = callbackData;
+            enqueue(messagePtr);
+        }
+    }
 };
 
 }

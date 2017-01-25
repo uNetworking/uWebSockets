@@ -914,7 +914,7 @@ void serveEventSource() {
 
 int main(int argc, char *argv[])
 {
-    serveEventSource();
+    //serveEventSource();
 
     // falls through
     testHTTP();
