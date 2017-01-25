@@ -114,8 +114,23 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
     using uS::Socket::Address;
 
     uv_poll_t *getPollHandle() const {return p;}
+
+    // respond is a full HTTP response with a call to timeOut
     void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
+
+    // send is a raw TCP send where you can send any set of headers
     void send(char *message, size_t length, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
+
+    // a socket that is timing out will close if not getting a new request in a while
+    bool isTimingOut() {
+        return !getData()->awaitsResponse;
+    }
+
+    // put socket in timeOut state
+    void timeOut() {
+        getData()->awaitsResponse = false;
+    }
+
     using uS::Socket::shutdown;
     using uS::Socket::close;
 
