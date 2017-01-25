@@ -885,7 +885,7 @@ void serveEventSource() {
 
             if (!s.getUserData()) {
                 // establish a text/event-stream connection where we can send messages server -> client at any point in time
-                s.write((char *) header.data(), header.length());
+                s.send((char *) header.data(), header.length());
 
                 // create and attach a libuv timer to the socket and let it send messages to the client each second
                 uv_timer_t *timer = new uv_timer_t;
@@ -896,7 +896,7 @@ void serveEventSource() {
 
                     // send a message to the browser
                     std::string message = "data: Clock sent from the server: " + std::to_string(clock()) + "\n\n";
-                    s.write((char *) message.data(), message.length());
+                    s.send((char *) message.data(), message.length());
                 }, 1000, 1000);
                 s.setUserData(timer);
             } else {

@@ -114,7 +114,8 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
     using uS::Socket::Address;
 
     uv_poll_t *getPollHandle() const {return p;}
-    void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
+    void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
+    void send(char *message, size_t length, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
     using uS::Socket::shutdown;
     using uS::Socket::close;
 
