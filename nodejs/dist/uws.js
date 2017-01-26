@@ -512,10 +512,44 @@ class HttpSocket {
 
     constructor(external) {
         this.external = external;
+        this.headLess = true;
+    }
+
+    writeHead(statusCode, statusMessage, headers) {
+        if (this.external) {
+            if (typeof statusMessage !== 'string') {
+                headers = statusMessage;
+                statusMessage = 'OK';
+            }
+
+            let head = 'HTTP/1.1 ' + statusCode + ' ' + statusMessage + '\r\n';
+            for (let key in headers) {
+                head += key + ': ' + headers[key] + '\r\n';
+            }
+            head += '\r\n';
+            native.server.httpWrite(this.external, head);
+            this.headLess = false;
+        }
+    }
+
+    write(data) {
+        if (this.external) {
+            if (this.headLess) {
+                data = 'HTTP/1.1 200 OK\r\n\r\n' + data;
+                this.headLess = false;
+            }
+            native.server.httpWrite(this.external, data);
+        }
     }
 
     end(data) {
-        native.server.respond(this.external, data);
+        if (this.external) {
+            if (this.headLess) {
+                data = 'HTTP/1.1 200 OK\r\nContent-Length: ' + data.length + '\r\n\r\n' + data;
+                this.headLess = false;
+            }
+            native.server.httpEnd(this.external, data);
+        }
     }
 
     get _isNative() {
@@ -525,17 +559,31 @@ class HttpSocket {
 
 class HttpServer extends EventEmitter {
 
+    verbToString(verb) {
+        switch (verb) {
+            case 0: return 'get';
+            case 1: return 'post';
+            case 2: return 'put';
+            case 3: return 'delete';
+            case 4: return 'patch';
+            case 5: break;
+        }
+        return 'invalid';
+    }
+
     constructor(reqCb) {
         super();
         this.serverGroup = native.server.group.create();
 
         native.server.group.onHttpRequest(this.serverGroup, (external, verb, url, data, remainingBytes) => {
-            this.emit('request', {url: url}, new HttpSocket(external));
+            this.emit('request', {url: url, verb: this.verbToString(verb), getHeader: native.server.getHeader}, new HttpSocket(external));
         });
 
         native.server.group.onHttpUpgrade(this.serverGroup, (external, verb, url) => {
-            this.emit('upgrade', {url: url}, new HttpSocket(external));
+            this.emit('upgrade', {url: url, verb: this.verbToString(verb), getHeader: native.server.getHeader}, new HttpSocket(external));
         });
+
+        // important to add httpDisconnection and set external to zero!
 
         this.on('request', reqCb);
     }
@@ -545,6 +593,7 @@ class HttpServer extends EventEmitter {
     }
 
     listen(port) {
+        // return bool and emit error on listen error!
         native.server.group.listen(this.serverGroup, port);
     }
 }

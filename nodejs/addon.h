@@ -463,9 +463,16 @@ void onHttpUpgrade(const FunctionCallbackInfo<Value> &args) {
     });
 }
 
-void respond(const FunctionCallbackInfo<Value> &args) {
+void httpWrite(const FunctionCallbackInfo<Value> &args) {
     NativeString nativeString(args[1]);
-    uWS::HttpSocket<uWS::SERVER>((uv_poll_t *) args[0].As<External>()->Value()).respond(nativeString.getData(), nativeString.getLength(), uWS::ContentType::TEXT_HTML);
+    uWS::HttpSocket<uWS::SERVER>((uv_poll_t *) args[0].As<External>()->Value()).send(nativeString.getData(), nativeString.getLength());
+}
+
+void httpEnd(const FunctionCallbackInfo<Value> &args) {
+    NativeString nativeString(args[1]);
+    uWS::HttpSocket<uWS::SERVER> s((uv_poll_t *) args[0].As<External>()->Value());
+    s.send(nativeString.getData(), nativeString.getLength());
+    s.timeOut();
 }
 
 void getHeader(const FunctionCallbackInfo<Value> &args) {
@@ -503,7 +510,8 @@ struct Namespace {
             NODE_SET_METHOD(group, "listen", listen);
             NODE_SET_METHOD(group, "onHttpRequest", onHttpRequest);
             NODE_SET_METHOD(group, "onHttpUpgrade", onHttpUpgrade);
-            NODE_SET_METHOD(object, "respond", respond);
+            NODE_SET_METHOD(object, "httpWrite", httpWrite);
+            NODE_SET_METHOD(object, "httpEnd", httpEnd);
             NODE_SET_METHOD(object, "getHeader", getHeader);
         }
 
