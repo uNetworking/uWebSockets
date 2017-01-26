@@ -561,14 +561,14 @@ class HttpServer extends EventEmitter {
 
     verbToString(verb) {
         switch (verb) {
-            case 0: return 'get';
-            case 1: return 'post';
-            case 2: return 'put';
-            case 3: return 'delete';
-            case 4: return 'patch';
+            case 0: return 'GET';
+            case 1: return 'POST';
+            case 2: return 'PUT';
+            case 3: return 'DELETE';
+            case 4: return 'PATCH';
             case 5: break;
         }
-        return 'invalid';
+        return 'INVALID';
     }
 
     constructor(reqCb) {
@@ -576,11 +576,11 @@ class HttpServer extends EventEmitter {
         this.serverGroup = native.server.group.create();
 
         native.server.group.onHttpRequest(this.serverGroup, (external, verb, url, data, remainingBytes) => {
-            this.emit('request', {url: url, verb: this.verbToString(verb), getHeader: native.server.getHeader}, new HttpSocket(external));
+            this.emit('request', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new HttpSocket(external));
         });
 
         native.server.group.onHttpUpgrade(this.serverGroup, (external, verb, url) => {
-            this.emit('upgrade', {url: url, verb: this.verbToString(verb), getHeader: native.server.getHeader}, new HttpSocket(external));
+            this.emit('upgrade', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new HttpSocket(external));
         });
 
         // important to add httpDisconnection and set external to zero!
