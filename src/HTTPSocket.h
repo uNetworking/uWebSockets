@@ -36,11 +36,13 @@ enum HTTPVerb {
 
 struct HttpRequest {
     Header *headers;
+    unsigned int requestId;
     Header getHeader(const char *key) {
         return getHeader(key, strlen(key));
     }
 
-    HttpRequest(Header *headers = nullptr) : headers(headers) {}
+    HttpRequest() = default;
+    HttpRequest(Header *headers, unsigned int requestId) : headers(headers), requestId(requestId) {}
 
     Header getHeader(const char *key, size_t length) {
         if (headers) {
@@ -52,6 +54,7 @@ struct HttpRequest {
         }
         return {nullptr, nullptr, 0, 0};
     }
+
     Header getUrl() {
         if (headers->key) {
             return *headers;
@@ -88,6 +91,10 @@ struct HttpRequest {
         }
         return INVALID;
     }
+
+    unsigned int getRequestId() {
+        return requestId;
+    }
 };
 
 template <const bool isServer>
@@ -105,6 +112,10 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
         bool missedDeadline = false;
         bool awaitsResponse = false;
 
+        // used to order responses
+        unsigned int currentBlockingRequest = 0;
+        unsigned int nextRequestId = 0;
+
         Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
     };
 
@@ -114,6 +125,10 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
     using uS::Socket::Address;
 
     uv_poll_t *getPollHandle() const {return p;}
+
+    // use Node.js-like interface here!
+    void end(unsigned int requestId, char *data = nullptr, size_t length = 0);
+    // void write()
 
     // respond is a full HTTP response with a call to timeOut
     void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
