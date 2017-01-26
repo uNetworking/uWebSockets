@@ -508,11 +508,16 @@ class Server extends EventEmitter {
     }
 }
 
-class HttpSocket {
+class ServerResponse {
 
     constructor(external) {
         this.external = external;
         this.headLess = true;
+        this.implicitHead = 'HTTP/1.1 200 OK\r\n';
+    }
+
+    setHeader(key, value) {
+        this.implicitHead += key + ': ' + value + '\r\n';
     }
 
     writeHead(statusCode, statusMessage, headers) {
@@ -527,6 +532,7 @@ class HttpSocket {
                 head += key + ': ' + headers[key] + '\r\n';
             }
             head += '\r\n';
+            // todo: add headers from setHeader here
             native.server.httpWrite(this.external, head);
             this.headLess = false;
         }
@@ -535,7 +541,7 @@ class HttpSocket {
     write(data) {
         if (this.external) {
             if (this.headLess) {
-                data = 'HTTP/1.1 200 OK\r\n\r\n' + data;
+                data = this.implicitHead + '\r\n' + data;
                 this.headLess = false;
             }
             native.server.httpWrite(this.external, data);
@@ -545,7 +551,7 @@ class HttpSocket {
     end(data) {
         if (this.external) {
             if (this.headLess) {
-                data = 'HTTP/1.1 200 OK\r\nContent-Length: ' + data.length + '\r\n\r\n' + data;
+                data = this.implicitHead + 'Content-Length: ' + data.length + '\r\n\r\n' + data;
                 this.headLess = false;
             }
             native.server.httpEnd(this.external, data);
@@ -576,11 +582,11 @@ class HttpServer extends EventEmitter {
         this.serverGroup = native.server.group.create();
 
         native.server.group.onHttpRequest(this.serverGroup, (external, verb, url, data, remainingBytes) => {
-            this.emit('request', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new HttpSocket(external));
+            this.emit('request', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new ServerResponse(external));
         });
 
         native.server.group.onHttpUpgrade(this.serverGroup, (external, verb, url) => {
-            this.emit('upgrade', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new HttpSocket(external));
+            this.emit('upgrade', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new ServerResponse(external));
         });
 
         // important to add httpDisconnection and set external to zero!
