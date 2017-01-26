@@ -695,6 +695,15 @@ void testHTTP() {
                 expectedRequests++;
                 return;
             }
+        } else if (req.getUrl().toString() == "/firstRequest") {
+            // store requestId in user data
+            s.setUserData((void *) req.getRequestId());
+            return;
+        } else if (req.getUrl().toString() == "/secondRequest") {
+            // respond to request out of order
+            s.end(req.getRequestId(), "Second request responded to");
+            s.end((unsigned long) s.getUserData(), "First request responded to");
+            return;
         }
 
         std::cerr << "FAILURE: Unexpected request!" << std::endl;
@@ -835,6 +844,11 @@ void testHTTP() {
 
         nc = popen("nc localhost 3000 &> /dev/null", "w");
         fputs("GET /packedTest HTTP/1.1\r\n\r\nGET /packedTest HTTP/1.1\r\n\r\n", nc);
+        pclose(nc);
+
+        // out of order responses
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        fputs("GET /firstRequest HTTP/1.1\r\n\r\nGET /secondRequest HTTP/1.1\r\n\r\n", nc);
         pclose(nc);
 
         // shutdown

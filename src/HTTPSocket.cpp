@@ -7,6 +7,8 @@
 #define MAX_HEADER_BUFFER_SIZE 4096
 #define FORCE_SLOW_PATH false
 
+#include <iostream>
+
 namespace uWS {
 
 // UNSAFETY NOTE: assumes *end == '\r' (might unref end pointer)
@@ -89,7 +91,7 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
     do {
         char *lastCursor = cursor;
         if ((cursor = getHeaders(cursor, end, headers, MAX_HEADERS))) {
-            HttpRequest req(headers);
+            HttpRequest req(headers, httpData->nextRequestId++);
 
             if (isServer) {
                 headers->valueLength = std::max<int>(0, headers->valueLength - 9);
@@ -191,6 +193,20 @@ void HttpSocket<isServer>::send(char *message, size_t length,
     };
 
     sendTransformed<NoopTransformer>(message, length, callback, callbackData, 0);
+}
+
+template <bool isServer>
+void HttpSocket<isServer>::end(unsigned int requestId, char *data, size_t length)
+{
+    auto *httpData = getData();
+    if (requestId != httpData->currentBlockingRequest) {
+        std::cout << "FAILURE: responding out of order!" << std::endl;
+        exit(-1);
+    } else {
+        // todo: handle integer overflow
+        httpData->currentBlockingRequest++;
+        respond(data, length, uWS::ContentType::TEXT_HTML);
+    }
 }
 
 template <bool isServer>
