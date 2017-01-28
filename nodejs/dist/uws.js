@@ -436,9 +436,15 @@ class Server extends EventEmitter {
 
         if (options.port) {
             if (options.host) {
-                this.httpServer.listen(options.port, options.host, callback);
+                this.httpServer.listen(options.port, options.host, ()=> {
+                      this.emit('listening');
+                      callback && callback();
+                });
             } else {
-                this.httpServer.listen(options.port, callback);
+                this.httpServer.listen(options.port,  ()=> {
+                      this.emit('listening');
+                      callback && callback();
+                });
             }
         }
     }
