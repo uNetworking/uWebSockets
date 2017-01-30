@@ -89,7 +89,6 @@ struct HttpRequest {
                 return DELETE;
             }
             break;
-        }
         case 7:
             if (!strncmp(headers->key, "options", 7)) {
                 return OPTIONS;
