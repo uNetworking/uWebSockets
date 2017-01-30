@@ -31,6 +31,7 @@ enum HTTPVerb {
     PUT,
     DELETE,
     PATCH,
+    OPTIONS,
     INVALID
 };
 
@@ -86,6 +87,12 @@ struct HttpRequest {
         case 6:
             if (!strncmp(headers->key, "delete", 6)) {
                 return DELETE;
+            }
+            break;
+        }
+        case 7:
+            if (!strncmp(headers->key, "options", 7)) {
+                return OPTIONS;
             }
             break;
         }
