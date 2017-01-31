@@ -639,8 +639,8 @@ void testHTTP() {
     uWS::Hub h;
     std::atomic<int> expectedRequests(0);
 
-    auto controlData = [&h, &expectedRequests](uWS::HttpSocket<uWS::SERVER> s, char *data, size_t length, size_t remainingBytes) {
-        std::string *buffer = (std::string *) s.getUserData();
+    auto controlData = [&h, &expectedRequests](uWS::HttpResponse *res, char *data, size_t length, size_t remainingBytes) {
+        std::string *buffer = (std::string *) res->httpSocket.getUserData();
         buffer->append(data, length);
 
         std::cout << "HTTP POST, chunk: " << length << ", total: " << buffer->length() << ", remainingBytes: " << remainingBytes << std::endl;
@@ -655,54 +655,51 @@ void testHTTP() {
             }
 
             expectedRequests++;
+
+            delete (std::string *) res->httpSocket.getUserData();
         }
     };
 
-    h.onHttpDisconnection([](uWS::HttpSocket<uWS::SERVER> s) {
-        delete (std::string *) s.getUserData();
+    h.onHttpData([&controlData](uWS::HttpResponse *res, char *data, size_t length, size_t remainingBytes) {
+        controlData(res, data, length, remainingBytes);
     });
 
-    h.onHttpConnection([](uWS::HttpSocket<uWS::SERVER> s) {
-        s.setUserData(new std::string);
-    });
-
-    h.onHttpData([&controlData](uWS::HttpSocket<uWS::SERVER> s, char *data, size_t length, size_t remainingBytes) {
-        controlData(s, data, length, remainingBytes);
-    });
-
-    h.onHttpRequest([&h, &expectedRequests, &controlData](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
+    h.onHttpRequest([&h, &expectedRequests, &controlData](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
 
         std::cout << req.getUrl().toString() << std::endl;
 
         if (req.getUrl().toString() == "/segmentedUrl") {
-            if (req.getVerb() == uWS::HTTPVerb::GET && req.getHeader("host").toString() == "localhost") {
+            if (req.getMethod() == uWS::HttpMethod::GET && req.getHeader("host").toString() == "localhost") {
                 expectedRequests++;
                 return;
             }
         } else if (req.getUrl().toString() == "/closeServer") {
-            if (req.getVerb() == uWS::HTTPVerb::PUT) {
+            if (req.getMethod() == uWS::HttpMethod::PUT) {
                 h.getDefaultGroup<uWS::SERVER>().close();
                 expectedRequests++;
                 return;
             }
         } else if (req.getUrl().toString() == "/postTest") {
-            if (req.getVerb() == uWS::HTTPVerb::POST) {
-                controlData(s, data, length, remainingBytes);
+            if (req.getMethod() == uWS::HttpMethod::POST) {
+                res->httpSocket.setUserData(new std::string);
+                controlData(res, data, length, remainingBytes);
                 return;
             }
         } else if (req.getUrl().toString() == "/packedTest") {
-            if (req.getVerb() == uWS::HTTPVerb::GET) {
+            if (req.getMethod() == uWS::HttpMethod::GET) {
                 expectedRequests++;
                 return;
             }
         } else if (req.getUrl().toString() == "/firstRequest") {
-            // store requestId in user data
-            s.setUserData((void *) req.getRequestId());
+            // store response in user data
+            res->httpSocket.setUserData(res);
             return;
         } else if (req.getUrl().toString() == "/secondRequest") {
             // respond to request out of order
-            s.end(req.getRequestId(), "Second request responded to");
-            s.end((unsigned long) s.getUserData(), "First request responded to");
+            std::string secondResponse = "Second request responded to";
+            res->end(secondResponse.data(), secondResponse.length());
+            std::string firstResponse = "First request responded to";
+            ((uWS::HttpResponse *) res->httpSocket.getUserData())->end(firstResponse.data(), firstResponse.length());
             return;
         }
 
@@ -712,7 +709,7 @@ void testHTTP() {
 
     h.onConnection([&expectedRequests](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
         if (req.getUrl().toString() == "/upgradeUrl") {
-            if (req.getVerb() == uWS::HTTPVerb::GET && req.getHeader("upgrade").toString() == "websocket") {
+            if (req.getMethod() == uWS::HttpMethod::GET && req.getHeader("upgrade").toString() == "websocket") {
                 expectedRequests++;
                 return;
             }
@@ -732,7 +729,7 @@ void testHTTP() {
         FILE *nc;
 
         // invalid data
-        nc = popen("nc localhost 3000 &> /dev/null", "w");
+        /*nc = popen("nc localhost 3000 &> /dev/null", "w");
         fputs("invalid http", nc);
         pclose(nc);
 
@@ -844,7 +841,7 @@ void testHTTP() {
 
         nc = popen("nc localhost 3000 &> /dev/null", "w");
         fputs("GET /packedTest HTTP/1.1\r\n\r\nGET /packedTest HTTP/1.1\r\n\r\n", nc);
-        pclose(nc);
+        pclose(nc);*/
 
         // out of order responses
         nc = popen("nc localhost 3000 &> /dev/null", "w");
@@ -888,37 +885,36 @@ void serveEventSource() {
         s.terminate();
     });
 
-    h.onHttpRequest([&h, &document, &header](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
+    // httpRequest borde vara defaultsatt till att hantera upgrades, ta bort onupgrade! (sätter man request avsätts upgrade handlern)
+    h.onHttpRequest([&h, &document, &header](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
         std::string url = req.getUrl().toString();
 
         if (url == "/") {
             // respond with the document
-            s.respond((char *) document.data(), document.length(), uWS::ContentType::TEXT_HTML);
+            res->end((char *) document.data(), document.length());
             return;
         } else if (url == "/eventSource") {
 
-            if (!s.getUserData()) {
+            if (!res->getUserData()) {
                 // establish a text/event-stream connection where we can send messages server -> client at any point in time
-                s.send((char *) header.data(), header.length());
+                res->write((char *) header.data(), header.length());
 
                 // create and attach a libuv timer to the socket and let it send messages to the client each second
                 uv_timer_t *timer = new uv_timer_t;
                 uv_timer_init(h.getLoop(), timer);
-                timer->data = s.getPollHandle();
+                timer->data = res;//s.getPollHandle();
                 uv_timer_start(timer, [](uv_timer_t *timer) {
-                    uWS::HttpSocket<uWS::SERVER> s((uv_poll_t *) timer->data);
-
                     // send a message to the browser
                     std::string message = "data: Clock sent from the server: " + std::to_string(clock()) + "\n\n";
-                    s.send((char *) message.data(), message.length());
+                    ((uWS::HttpResponse *) timer->data)->write((char *) message.data(), message.length());
                 }, 1000, 1000);
-                s.setUserData(timer);
+                res->setUserData(timer);
             } else {
                 // why would the client send a new request at this point?
-                s.terminate();
+                res->getHttpSocket().terminate();
             }
         } else {
-            s.terminate();
+            res->getHttpSocket().terminate();
         }
     });
 
