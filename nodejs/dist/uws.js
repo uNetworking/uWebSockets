@@ -176,32 +176,32 @@ class WebSocket {
                 throw Error(EE_ERROR);
             }
             this.internalOnMessage = (message) => {
-                f(message);
                 this.internalOnMessage = noop;
+                f(message);
             };
         } else if (eventName === 'close') {
             if (this.internalOnClose !== noop) {
                 throw Error(EE_ERROR);
             }
             this.internalOnClose = (code, message) => {
-                f(code, message);
                 this.internalOnClose = noop;
+                f(code, message);
             };
         } else if (eventName === 'ping') {
             if (this.onping !== noop) {
                 throw Error(EE_ERROR);
             }
             this.onping = () => {
-                f();
                 this.onping = noop;
+                f();
             };
         } else if (eventName === 'pong') {
             if (this.onpong !== noop) {
                 throw Error(EE_ERROR);
             }
             this.onpong = () => {
-                f();
                 this.onpong = noop;
+                f();
             };
         }
         return this;
