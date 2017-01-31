@@ -11,38 +11,35 @@
 
 namespace uWS {
 
-// needs some more work and checking!
-char *getHeaders(char *buffer, size_t length, Header *headers, size_t maxHeaders) {
-    char *end = buffer + length;
-    for (int i = 0; i < maxHeaders; i++) {
-        headers->key = buffer;
-        for (; *buffer != ':' && !isspace(*buffer) && *buffer != '\r'; buffer++) {
-            *buffer = tolower(*buffer);
-        }
+// UNSAFETY NOTE: assumes *end == '\r' (might unref end pointer)
+char *getHeaders(char *buffer, char *end, Header *headers, size_t maxHeaders) {
+    for (unsigned int i = 0; i < maxHeaders; i++) {
+        for (headers->key = buffer; (*buffer != ':') & (*buffer > 32); *(buffer++) |= 32);
         if (*buffer == '\r') {
-            if (!(buffer + 1 < end && buffer[1] == '\n')) {
+            if ((buffer != end) & (buffer[1] == '\n') & (i > 0)) {
+                headers->key = nullptr;
+                return buffer + 2;
+            } else {
                 return nullptr;
             }
         } else {
             headers->keyLength = buffer - headers->key;
-            for (buffer++; *buffer == ':' || isspace(*buffer); buffer++);
+            for (buffer++; (*buffer == ':' || *buffer < 33) && *buffer != '\r'; buffer++);
             headers->value = buffer;
-            for (; *buffer != '\r'; buffer++);
-            headers->valueLength = buffer - headers->value;
-            if (buffer + 1 < end && *++buffer == '\n') {
-                ++buffer;
+            buffer = (char *) memchr(buffer, '\r', end - buffer); //for (; *buffer != '\r'; buffer++);
+            if (buffer /*!= end*/ && buffer[1] == '\n') {
+                headers->valueLength = buffer - headers->value;
+                buffer += 2;
                 headers++;
-                continue;
             } else {
                 return nullptr;
             }
         }
-        headers->key = nullptr;
-        return buffer + 2;
     }
     return nullptr;
 }
 
+// UNSAFETY NOTE: assumes 24 byte input length
 static void base64(unsigned char *src, char *dst) {
     static const char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     for (int i = 0; i < 18; i += 3) {
@@ -58,178 +55,193 @@ static void base64(unsigned char *src, char *dst) {
 }
 
 template <bool isServer>
-void HTTPSocket<isServer>::onData(uS::Socket s, char *data, int length) {
-    HTTPSocket httpSocket(s);
-    HTTPSocket::Data *httpData = httpSocket.getData();
+void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
+    HttpSocket httpSocket(s);
+    HttpSocket::Data *httpData = httpSocket.getData();
 
-    char *httpBuffer = data;
-    int httpLength = length;
+    if (httpData->contentLength) {
+        httpData->missedDeadline = false;
+        if (httpData->contentLength >= length) {
+            getGroup<isServer>(s)->httpDataHandler(s, data, length, httpData->contentLength -= length);
+            return;
+        } else {
+            getGroup<isServer>(s)->httpDataHandler(s, data, httpData->contentLength, 0);
+            data += httpData->contentLength;
+            length -= httpData->contentLength;
+            httpData->contentLength = 0;
+        }
+    }
+
     if (FORCE_SLOW_PATH || httpData->httpBuffer.length()) {
         if (httpData->httpBuffer.length() + length > MAX_HEADER_BUFFER_SIZE) {
             httpSocket.onEnd(s);
             return;
         }
 
-        httpData->httpBuffer.reserve(httpData->httpBuffer.length() + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
+        httpData->httpBuffer.reserve(httpData->httpBuffer.length() + length + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
         httpData->httpBuffer.append(data, length);
-        httpBuffer = (char *) httpData->httpBuffer.data();
-        httpLength = httpData->httpBuffer.length();
+        data = (char *) httpData->httpBuffer.data();
+        length = httpData->httpBuffer.length();
     }
 
+    char *end = data + length;
+    char *cursor = data;
+    *end = '\r';
     Header headers[MAX_HEADERS];
-    char *httpBody;
-    if ((httpBody = getHeaders(httpBuffer, httpLength, headers, MAX_HEADERS))) {
-        HTTPRequest req(headers);
+    do {
+        char *lastCursor = cursor;
+        if ((cursor = getHeaders(cursor, end, headers, MAX_HEADERS))) {
+            HttpRequest req(headers, httpData->nextRequestId++);
 
-        if (isServer) {
-            headers->valueLength = std::max(0, headers->valueLength - 9);
-            if (req.getHeader("upgrade", 7)) {
-                Header secKey = req.getHeader("sec-websocket-key");
-                Header extensions = req.getHeader("sec-websocket-extensions");
-                Header subprotocol = req.getHeader("sec-websocket-protocol");
-                bool perMessageDeflate;
-                if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
-                                                                   subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
-                    s.cancelTimeout();
-                    s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
+            if (isServer) {
+                headers->valueLength = std::max<int>(0, headers->valueLength - 9);
+                httpData->missedDeadline = false;
+                if (req.getHeader("upgrade", 7)) {
+                    if (getGroup<SERVER>(s)->httpUpgradeHandler) {
+                        getGroup<SERVER>(s)->httpUpgradeHandler(HttpSocket<isServer>(s), req);
+                    } else {
+                        Header secKey = req.getHeader("sec-websocket-key", 17);
+                        Header extensions = req.getHeader("sec-websocket-extensions", 24);
+                        Header subprotocol = req.getHeader("sec-websocket-protocol", 22);
+                        bool perMessageDeflate;
+                        if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
+                                                                           subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
+                            getGroup<SERVER>(s)->removeHttpSocket(s);
+                            s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
+                            getGroup<SERVER>(s)->addWebSocket(s);
+                            s.cork(true);
+                            getGroup<SERVER>(s)->connectionHandler(WebSocket<SERVER>(s), req);
+                            s.cork(false);
+                            delete httpData;
+                        } else {
+                            // note: not needed, we can let the poll catch any errors
+                            httpSocket.onEnd(s);
+                        }
+                    }
+                    return;
+                } else {
+                    if (getGroup<SERVER>(s)->httpRequestHandler) {
+                        httpData->awaitsResponse = true;
+                        Header contentLength;
+                        if (req.getVerb() != HTTPVerb::GET && (contentLength = req.getHeader("content-length", 14))) {
+                            httpData->contentLength = atoi(contentLength.value);
+                            size_t bytesToRead = std::min<int>(httpData->contentLength, end - cursor);
+                            getGroup<SERVER>(s)->httpRequestHandler(s, req, cursor, bytesToRead, httpData->contentLength -= bytesToRead);
+                            cursor += bytesToRead;
+                        } else {
+                            getGroup<SERVER>(s)->httpRequestHandler(s, req, nullptr, 0, 0);
+                        }
 
-                    ((Group<SERVER> *) s.getSocketData()->nodeData)->addWebSocket(s);
+                        if (s.isClosed() || s.isShuttingDown()) {
+                            return;
+                        }
+                    } else {
+                        httpSocket.onEnd(s);
+                        return;
+                    }
+                }
+            } else {
+                if (req.getHeader("upgrade", 7)) {
+                    s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
+
+                    httpSocket.cancelTimeout();
+                    httpSocket.setUserData(httpData->httpUser);
+                    getGroup<CLIENT>(s)->addWebSocket(s);
                     s.cork(true);
-                    ((Group<SERVER> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<SERVER>(s), req);
+                    getGroup<CLIENT>(s)->connectionHandler(WebSocket<CLIENT>(s), req);
                     s.cork(false);
+
+                    if (!(s.isClosed() || s.isShuttingDown())) {
+                        WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
+                        kws->consume(cursor, end - cursor, s);
+                    }
+
                     delete httpData;
                 } else {
                     httpSocket.onEnd(s);
                 }
-            } else {
-                if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler) {
-                    ((Group<SERVER> *) s.getSocketData()->nodeData)->httpRequestHandler(s, req);
-
-                    Header contentLength = req.getHeader("content-length");
-                    if (contentLength) {
-                        httpData->contentLength = atoi(contentLength.value);
-
-                        if (((Group<SERVER> *) s.getSocketData()->nodeData)->httpDataHandler) {
-                            size_t availableBytes = (httpLength - (httpBody - httpBuffer));
-                            ((Group<SERVER> *) s.getSocketData()->nodeData)->httpDataHandler(s, httpBody, availableBytes, httpData->contentLength - availableBytes);
-                            httpData->contentLength -= availableBytes;
-                        }
-                    }
-
-                    // if finns mer available bytes, fortsätt parsning från start!
-                    return;
-                } else {
+                return;
+            }
+        } else {
+            if (!httpData->httpBuffer.length()) {
+                if (length > MAX_HEADER_BUFFER_SIZE) {
                     httpSocket.onEnd(s);
+                } else {
+                    httpData->httpBuffer.append(lastCursor, end - lastCursor);
                 }
             }
-        } else {
-            if (req.getHeader("upgrade", 7)) {
-                s.enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>::Data(false, httpData));
-
-                httpSocket.cancelTimeout();
-                httpSocket.setUserData(httpData->httpUser);
-                ((Group<CLIENT> *) s.getSocketData()->nodeData)->addWebSocket(s);
-                s.cork(true);
-                ((Group<CLIENT> *) s.getSocketData()->nodeData)->connectionHandler(WebSocket<CLIENT>(s), req);
-                s.cork(false);
-
-                if (!(s.isClosed() || s.isShuttingDown())) {
-                    WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
-                    kws->consume(httpBody, (httpLength - (httpBody - httpBuffer)), s);
-                }
-
-                delete httpData;
-            } else {
-                httpSocket.onEnd(s);
-            }
+            return;
         }
+    } while(cursor != end);
+
+    httpData->httpBuffer.clear();
+}
+
+template <bool isServer>
+void HttpSocket<isServer>::send(char *message, size_t length,
+                                void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
+
+    struct NoopTransformer {
+        static size_t estimate(char *data, size_t length) {
+            return length;
+        }
+
+        static size_t transform(char *src, char *dst, size_t length, int transformData) {
+            memcpy(dst, src, length);
+            return length;
+        }
+    };
+
+    sendTransformed<NoopTransformer>(message, length, callback, callbackData, 0);
+}
+
+template <bool isServer>
+void HttpSocket<isServer>::end(unsigned int requestId, char *data, size_t length)
+{
+    auto *httpData = getData();
+    if (requestId != httpData->currentBlockingRequest) {
+        std::cout << "FAILURE: responding out of order!" << std::endl;
+        exit(-1);
     } else {
-        httpData->httpBuffer.append(data, length);
+        // todo: handle integer overflow
+        httpData->currentBlockingRequest++;
+        respond(data, length, uWS::ContentType::TEXT_HTML);
     }
 }
 
 template <bool isServer>
-void HTTPSocket<isServer>::respond(char *message, size_t length, ContentType contentType,
-                                   void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
-    // assume we always respond with less than 128 byte header
-    const int HEADER_LENGTH = 128;
+void HttpSocket<isServer>::respond(char *message, size_t length, ContentType contentType,
+                                   void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
 
-    if (hasEmptyQueue()) {
-        if (length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH <= uS::NodeData::preAllocMaxSize) {
-            int memoryLength = length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH;
-            int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
+    struct TransformData {
+        ContentType contentType;
+    } transformData = {contentType};
 
-            uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
-            messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
-
-            // shared code!
-            int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
-            memcpy((char *) messagePtr->data + offset, message, length);
-            messagePtr->length = length + offset;
-
-            bool wasTransferred;
-            if (write(messagePtr, wasTransferred)) {
-                if (!wasTransferred) {
-                    getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
-                    if (callback) {
-                        callback(*this, callbackData, false, nullptr);
-                    }
-                } else {
-                    messagePtr->callback = callback;
-                    messagePtr->callbackData = callbackData;
-                }
-            } else {
-                if (callback) {
-                    callback(*this, callbackData, true, nullptr);
-                }
-            }
-        } else {
-            uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
-
-            // shared code!
-            int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
-            memcpy((char *) messagePtr->data + offset, message, length);
-            messagePtr->length = length + offset;
-
-            bool wasTransferred;
-            if (write(messagePtr, wasTransferred)) {
-                if (!wasTransferred) {
-                    freeMessage(messagePtr);
-                    if (callback) {
-                        callback(*this, callbackData, false, nullptr);
-                    }
-                } else {
-                    messagePtr->callback = callback;
-                    messagePtr->callbackData = callbackData;
-                }
-            } else {
-                if (callback) {
-                    callback(*this, callbackData, true, nullptr);
-                }
-            }
+    struct HttpTransformer {
+        static size_t estimate(char *data, size_t length) {
+            return length + 128;
         }
-    } else {
-        uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
 
-        // shared code!
-        int offset = std::sprintf((char *) messagePtr->data, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n", length);
-        memcpy((char *) messagePtr->data + offset, message, length);
-        messagePtr->length = length + offset;
+        static size_t transform(char *src, char *dst, size_t length, TransformData transformData) {
+            int offset = std::sprintf(dst, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
+            memcpy(dst + offset, src, length);
+            return length + offset;
+        }
+    };
 
-        messagePtr->callback = callback;
-        messagePtr->callbackData = callbackData;
-        enqueue(messagePtr);
-    }
+    ((Data *) getSocketData())->awaitsResponse = false;
+    sendTransformed<HttpTransformer>(message, length, callback, callbackData, transformData);
 }
 
+// todo: make this into a transformer and make use of sendTransformed
 template <bool isServer>
-bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength,
+bool HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength,
                                    const char *subprotocol, size_t subprotocolLength, bool *perMessageDeflate) {
     if (isServer) {
         *perMessageDeflate = false;
         std::string extensionsResponse;
         if (extensionsLength) {
-            Group<isServer> *group = (Group<isServer> *) getNodeData(getSocketData());
+            Group<isServer> *group = getGroup<isServer>(*this);
             ExtensionsNegotiator<uWS::SERVER> extensionsNegotiator(group->extensionOptions);
             extensionsNegotiator.readOffer(std::string(extensions, extensionsLength));
             extensionsResponse = extensionsNegotiator.generateOffer();
@@ -301,20 +313,40 @@ bool HTTPSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
 }
 
 template <bool isServer>
-void HTTPSocket<isServer>::onEnd(uS::Socket s) {
-    s.cancelTimeout();
+void HttpSocket<isServer>::onEnd(uS::Socket s) {
+    if (!s.isShuttingDown()) {
+        // todo: not going to be set from Hub::upgrade!
+        // Hub::upgrade can fail and call onEnd with a socket not in a group!
+        // upgrade should always succeed!
+        if (isServer) {
+            getGroup<isServer>(s)->removeHttpSocket(HttpSocket<isServer>(s));
+            getGroup<isServer>(s)->httpDisconnectionHandler(HttpSocket<isServer>(s));
+        }
+    } else {
+        s.cancelTimeout();
+    }
 
     Data *httpSocketData = (Data *) s.getSocketData();
+
     s.close();
 
+    while (!httpSocketData->messageQueue.empty()) {
+        uS::SocketData::Queue::Message *message = httpSocketData->messageQueue.front();
+        if (message->callback) {
+            message->callback(nullptr, message->callbackData, true, nullptr);
+        }
+        httpSocketData->messageQueue.pop();
+    }
+
     if (!isServer) {
-        ((Group<CLIENT> *) httpSocketData->nodeData)->errorHandler(httpSocketData->httpUser);
+        s.cancelTimeout();
+        getGroup<CLIENT>(s)->errorHandler(httpSocketData->httpUser);
     }
 
     delete httpSocketData;
 }
 
-template struct HTTPSocket<SERVER>;
-template struct HTTPSocket<CLIENT>;
+template struct HttpSocket<SERVER>;
+template struct HttpSocket<CLIENT>;
 
 }

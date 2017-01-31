@@ -1,22 +1,15 @@
 'use strict';
 
-const WebSocketServer = require('./dist/uws').Server;
-const wss = new WebSocketServer({ port: 3000, nativeHttp: true });
+const uws = require('./dist/uws');
 
-function onMessage(message) {
-    this.send(message);
-}
-
-wss.on('connection', function(ws) {
-    ws.on('message', onMessage);
+const server = uws.http.createServer((req, res) => {
+    res.end('Welcome to the 90s!\n');
 });
 
-wss.on('error', function(error) {
-    console.log('Cannot start server');
+const wss = new uws.Server({server: server});
+
+wss.on('connection', (ws) => {
+    ws.send('Welcome to the 10s!');
 });
 
-wss.onHttpRequest((req, res) => {
-    // console.log(req.url);
-    // console.log(req.getHeader('user-agent'));
-    res.end('Hello there! Welcome to the 90s');
-});
+server.listen(3000);

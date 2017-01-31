@@ -1,9 +1,9 @@
 <div align="center"><img src="https://github.com/uWebSockets/uWebSockets/raw/master/images/logo.png"/></div>
-`µWS` is one of the most lightweight, efficient & scalable WebSocket server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
+`µWS` is one of the most lightweight, efficient & scalable WebSocket & HTTP server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/autobahn/index.html).
 * Significantly outperforms `WebSocket++`, `libwebsockets`, `Beast`, `Crow`, `Gorilla`, `Kaazing Gateway`, `ws` and `Socket.IO` in every tested dimension (see benchmark table below).
-* Outperforms Node.js itself by 5x in HTTP requests/second when run as a Node.js module.
+* Outperforms `Apache`, `Node.js`, `NGINX` by at least 4x in HTTP requests per second.
 * Linux, OS X & Windows support.
 * Valgrind / AddressSanitizer clean.
 * Built-in load balancing and multi-core scalability.
@@ -26,6 +26,11 @@ Socket.IO 1.5.1 | µWS is **62x** as lightweight | µWS is **42x** as performant
 WebSocket++ v0.7.0 | µWS is **63x** as lightweight :-1: | µWS is **4x** as performant | µWS is **3x** as performant :+1: | µWS is **2x** as performant :+1:
 
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. These results were achieved with the native C++ server, not the Node.js addon. Expect worse performance and scalability when using Node.js (don't worry, the Node.js addon will run circles around `ws`).*
+
+### HTTP benchmarks
+![](images/wrk_benchmark.png)
+
+*HTTP 1.1 benchmark using wrk. All servers but Apache are single threaded and all serve a static page with no PHP, database queries or similar. Apache performance is estimated by dividing its multi-process performance by number of CPU cores.*
 
 ## Built with µWS
 <div align="center"><img src="https://github.com/uWebSockets/uWebSockets/raw/master/images/builtwithuws.png"/></div>
@@ -77,20 +82,12 @@ There are some important incompatibilities with `ws` though, we aim to be ~90% c
 * `webSocket` acts like an `EventEmitter` with one listener per event maximum.
 * `webSocket.upgradeReq` is only valid during execution of the connection handler. If you want to keep properties of the upgradeReq for the entire lifetime of the webSocket you better attach that specific property to the webSocket at connection.
 
-##### Consider these projects
-`µWS` is already the default engine in recent versions of [deepstream.io](http://deepstream.io/) and [SocketCluster](http://socketcluster.io).
+##### Notable projects defaulting to µWS
+`µWS` is the default engine in recent versions of [deepstream.io](http://deepstream.io/), [SocketCluster](http://socketcluster.io) and [Socket.IO](http://socket.io).
 
-##### I would stay away from these projects
+*While having a fast low level engine by default certainly helps when it comes to efficiency, you still need to watch out for wrapper overhead. Some of these projects have been shown to add up to 10x in throughput overhead. Always check your numbers before jumping the gun. Take Sails.js for one, it wraps ExpressJS and performs 13x worse than ExpressJS, while ExpressJS wraps Node.js and performs 3x worse than Node.js. Comparing Sails.js with µWS in HTTP requests per second gives a 300x difference in performance. Many projects in the Node.js sphere are just wrappers of wrappers of wrappers which add astronomical overhead. Roughly speaking, the fewer NPM modules you can use the better.*
 
-You can enable `uws` in **Socket.IO** using something like this:
-```javascript
-var io = require('socket.io')(80);
-io.engine.ws = new (require('uws').Server)({
-    noServer: true,
-    perMessageDeflate: false
-});
-```
-
+##### Not quite there yet
 You can set 'uws' as transformer in **Primus**:
 ```javascript
 var primus = new Primus(server, { transformer: 'uws' });

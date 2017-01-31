@@ -9,7 +9,7 @@ namespace uWS {
 
 struct Header {
     char *key, *value;
-    int keyLength, valueLength;
+    unsigned int keyLength, valueLength;
 
     operator bool() {
         return key;
@@ -28,16 +28,22 @@ enum ContentType {
 enum HTTPVerb {
     GET,
     POST,
+    PUT,
+    DELETE,
+    PATCH,
+    OPTIONS,
     INVALID
 };
 
-struct HTTPRequest {
+struct HttpRequest {
     Header *headers;
+    unsigned int requestId;
     Header getHeader(const char *key) {
         return getHeader(key, strlen(key));
     }
 
-    HTTPRequest(Header *headers = nullptr) : headers(headers) {}
+    HttpRequest() = default;
+    HttpRequest(Header *headers, unsigned int requestId) : headers(headers), requestId(requestId) {}
 
     Header getHeader(const char *key, size_t length) {
         if (headers) {
@@ -49,25 +55,56 @@ struct HTTPRequest {
         }
         return {nullptr, nullptr, 0, 0};
     }
+
     Header getUrl() {
-        if (headers) {
+        if (headers->key) {
             return *headers;
         }
         return {nullptr, nullptr, 0, 0};
     }
 
     HTTPVerb getVerb() {
-        if (headers->keyLength == 3 && !strncmp(headers->key, "get", 3)) {
-            return GET;
-        } else if (headers->keyLength == 4 && !strncmp(headers->key, "post", 4)) {
-            return POST;
+        if (!headers->key) {
+            return INVALID;
+        }
+        switch (headers->keyLength) {
+        case 3:
+            if (!strncmp(headers->key, "get", 3)) {
+                return GET;
+            } else if (!strncmp(headers->key, "put", 3)) {
+                return PUT;
+            }
+            break;
+        case 4:
+            if (!strncmp(headers->key, "post", 4)) {
+                return POST;
+            }
+        case 5:
+            if (!strncmp(headers->key, "patch", 5)) {
+                return PATCH;
+            }
+            break;
+        case 6:
+            if (!strncmp(headers->key, "delete", 6)) {
+                return DELETE;
+            }
+            break;
+        case 7:
+            if (!strncmp(headers->key, "options", 7)) {
+                return OPTIONS;
+            }
+            break;
         }
         return INVALID;
+    }
+
+    unsigned int getRequestId() {
+        return requestId;
     }
 };
 
 template <const bool isServer>
-struct WIN32_EXPORT HTTPSocket : private uS::Socket {
+struct WIN32_EXPORT HttpSocket : private uS::Socket {
     struct Data : uS::SocketData {
         std::string httpBuffer;
         size_t contentLength = 0;
@@ -77,20 +114,55 @@ struct WIN32_EXPORT HTTPSocket : private uS::Socket {
         std::string host;
         void *httpUser;
 
+        // used to close sockets not sending requests in time
+        bool missedDeadline = false;
+        bool awaitsResponse = false;
+
+        // used to order responses
+        unsigned int currentBlockingRequest = 0;
+        unsigned int nextRequestId = 0;
+
         Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
     };
 
+    using uS::Socket::getUserData;
+    using uS::Socket::setUserData;
+    using uS::Socket::getAddress;
+    using uS::Socket::Address;
+
     uv_poll_t *getPollHandle() const {return p;}
-    void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
+
+    // use Node.js-like interface here!
+    void end(unsigned int requestId, char *data = nullptr, size_t length = 0);
+    // void write()
+
+    // respond is a full HTTP response with a call to timeOut
+    void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
+
+    // send is a raw TCP send where you can send any set of headers
+    void send(char *message, size_t length, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
+
+    // a socket that is timing out will close if not getting a new request in a while
+    bool isTimingOut() {
+        return !getData()->awaitsResponse;
+    }
+
+    // put socket in timeOut state
+    void timeOut() {
+        getData()->awaitsResponse = false;
+    }
+
     using uS::Socket::shutdown;
     using uS::Socket::close;
 
-    HTTPSocket(uS::Socket s) : uS::Socket(s) {
-        // question is if we want this on HTTP sockets?
-        setNoDelay(true);
+    void terminate() {
+        onEnd(*this);
     }
-    typename HTTPSocket::Data *getData() {
-        return (HTTPSocket::Data *) getSocketData();
+
+    HttpSocket(uS::Socket s) : uS::Socket(s) {}
+
+    typename HttpSocket::Data *getData() {
+        return (HttpSocket::Data *) getSocketData();
     }
 
     bool upgrade(const char *secKey, const char *extensions,

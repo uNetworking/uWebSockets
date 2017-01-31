@@ -23,7 +23,6 @@ Context &Context::operator=(const Context &other) {
 Context::~Context()
 {
     if (context) {
-        // todo: remove password if having 1 reference at this point
         SSL_CTX_free(context);
     }
 }
@@ -35,22 +34,22 @@ struct Init {
 
 Context createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword)
 {
-    SSL_CTX *context = SSL_CTX_new(SSLv23_server_method());
-    if (!context) {
+    Context context(SSL_CTX_new(SSLv23_server_method()));
+    if (!context.context) {
         return nullptr;
     }
 
     if (keyFilePassword.length()) {
-        std::string *password = new std::string(keyFilePassword);
-        SSL_CTX_set_default_passwd_cb_userdata(context, password);
-        SSL_CTX_set_default_passwd_cb(context, Context::passwordCallback);
+        context.password.reset(new std::string(keyFilePassword));
+        SSL_CTX_set_default_passwd_cb_userdata(context.context, context.password.get());
+        SSL_CTX_set_default_passwd_cb(context.context, Context::passwordCallback);
     }
 
-    SSL_CTX_set_options(context, SSL_OP_NO_SSLv3);
+    SSL_CTX_set_options(context.context, SSL_OP_NO_SSLv3);
 
-    if (SSL_CTX_use_certificate_chain_file(context, certChainFileName.c_str()) != 1) {
+    if (SSL_CTX_use_certificate_chain_file(context.context, certChainFileName.c_str()) != 1) {
         return nullptr;
-    } else if (SSL_CTX_use_PrivateKey_file(context, keyFileName.c_str(), SSL_FILETYPE_PEM) != 1) {
+    } else if (SSL_CTX_use_PrivateKey_file(context.context, keyFileName.c_str(), SSL_FILETYPE_PEM) != 1) {
         return nullptr;
     }
 

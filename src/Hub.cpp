@@ -44,24 +44,22 @@ char *Hub::inflate(char *data, size_t &length) {
 
 void Hub::onServerAccept(uS::Socket s) {
     uS::SocketData *socketData = s.getSocketData();
-    s.startTimeout<HTTPSocket<SERVER>::onEnd>();
-    s.enterState<HTTPSocket<SERVER>>(new HTTPSocket<SERVER>::Data(socketData));
-
-    // todo: add this httpsocket into group's list!
-
-
+    s.enterState<HttpSocket<SERVER>>(new HttpSocket<SERVER>::Data(socketData));
+    ((Group<SERVER> *) socketData->nodeData)->addHttpSocket(s);
+    ((Group<SERVER> *) socketData->nodeData)->httpConnectionHandler(s);
+    s.setNoDelay(true);
     delete socketData;
 }
 
 void Hub::onClientConnection(uS::Socket s, bool error) {
-    HTTPSocket<CLIENT>::Data *httpSocketData = (HTTPSocket<CLIENT>::Data *) s.getSocketData();
+    HttpSocket<CLIENT>::Data *httpSocketData = (HttpSocket<CLIENT>::Data *) s.getSocketData();
 
     if (error) {
         ((Group<CLIENT> *) httpSocketData->nodeData)->errorHandler(httpSocketData->httpUser);
         delete httpSocketData;
     } else {
-        s.enterState<HTTPSocket<CLIENT>>(s.getSocketData());
-        HTTPSocket<CLIENT>(s).upgrade(nullptr, nullptr, 0, nullptr, 0, nullptr);
+        s.enterState<HttpSocket<CLIENT>>(s.getSocketData());
+        HttpSocket<CLIENT>(s).upgrade(nullptr, nullptr, 0, nullptr, 0, nullptr);
     }
 }
 
@@ -114,7 +112,7 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh)
         }
 
         uS::SocketData socketData((uS::NodeData *) eh);
-        HTTPSocket<CLIENT>::Data *httpSocketData = new HTTPSocket<CLIENT>::Data(&socketData);
+        HttpSocket<CLIENT>::Data *httpSocketData = new HttpSocket<CLIENT>::Data(&socketData);
 
         httpSocketData->host = hostname;
         httpSocketData->path = path;
@@ -122,7 +120,8 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh)
 
         uS::Socket s = uS::Node::connect<onClientConnection>(hostname.c_str(), port, secure, httpSocketData);
         if (s) {
-            s.startTimeout<HTTPSocket<CLIENT>::onEnd>(timeoutMs);
+            s.startTimeout<HttpSocket<CLIENT>::onEnd>(timeoutMs);
+            // getGroup<CLIENT>(s)->addHttpSocket(s);
         }
     } else {
         eh->errorHandler(user);
@@ -136,15 +135,15 @@ bool Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
 
     uS::Socket s = uS::Socket::init((uS::NodeData *) serverGroup, fd, ssl);
     uS::SocketData *socketData = s.getSocketData();
-    HTTPSocket<SERVER>::Data *temporaryHttpData = new HTTPSocket<SERVER>::Data(socketData);
+    HttpSocket<SERVER>::Data *temporaryHttpData = new HttpSocket<SERVER>::Data(socketData);
     delete socketData;
-    s.enterState<HTTPSocket<SERVER>>(temporaryHttpData);
+    s.enterState<HttpSocket<SERVER>>(temporaryHttpData);
 
     bool perMessageDeflate;
-    if (HTTPSocket<SERVER>(s).upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate)) {
+    if (HttpSocket<SERVER>(s).upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate)) {
         s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
         serverGroup->addWebSocket(s);
-        serverGroup->connectionHandler(WebSocket<SERVER>(s), HTTPRequest({}));
+        serverGroup->connectionHandler(WebSocket<SERVER>(s), HttpRequest({}));
         delete temporaryHttpData;
         return true;
     }

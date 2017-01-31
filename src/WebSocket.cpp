@@ -7,58 +7,21 @@ template <bool isServer>
 void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
     const int HEADER_LENGTH = WebSocketProtocol<!isServer>::LONG_MESSAGE_HEADER;
 
-    if (hasEmptyQueue()) {
-        if (length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH <= uS::NodeData::preAllocMaxSize) {
-            int memoryLength = length + sizeof(uS::SocketData::Queue::Message) + HEADER_LENGTH;
-            int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
+    struct TransformData {
+        OpCode opCode;
+    } transformData = {opCode};
 
-            uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
-            messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
-            messagePtr->length = WebSocketProtocol<isServer>::formatMessage((char *) messagePtr->data, message, length, opCode, length, false);
-
-            bool wasTransferred;
-            if (write(messagePtr, wasTransferred)) {
-                if (!wasTransferred) {
-                    getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
-                    if (callback) {
-                        callback(*this, callbackData, false, nullptr);
-                    }
-                } else {
-                    messagePtr->callback = callback;
-                    messagePtr->callbackData = callbackData;
-                }
-            } else {
-                if (callback) {
-                    callback(*this, callbackData, true, nullptr);
-                }
-            }
-        } else {
-            uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
-            messagePtr->length = WebSocketProtocol<isServer>::formatMessage((char *) messagePtr->data, message, length, opCode, length, false);
-            bool wasTransferred;
-            if (write(messagePtr, wasTransferred)) {
-                if (!wasTransferred) {
-                    freeMessage(messagePtr);
-                    if (callback) {
-                        callback(*this, callbackData, false, nullptr);
-                    }
-                } else {
-                    messagePtr->callback = callback;
-                    messagePtr->callbackData = callbackData;
-                }
-            } else {
-                if (callback) {
-                    callback(*this, callbackData, true, nullptr);
-                }
-            }
+    struct WebSocketTransformer {
+        static size_t estimate(char *data, size_t length) {
+            return length + HEADER_LENGTH;
         }
-    } else {
-        uS::SocketData::Queue::Message *messagePtr = allocMessage(length + HEADER_LENGTH);
-        messagePtr->length = WebSocketProtocol<isServer>::formatMessage((char *) messagePtr->data, message, length, opCode, length, false);
-        messagePtr->callback = callback;
-        messagePtr->callbackData = callbackData;
-        enqueue(messagePtr);
-    }
+
+        static size_t transform(char *src, char *dst, size_t length, TransformData transformData) {
+            return WebSocketProtocol<isServer>::formatMessage(dst, src, length, transformData.opCode, length, false);
+        }
+    };
+
+    sendTransformed<WebSocketTransformer>((char *) message, length, callback, callbackData, transformData);
 }
 
 template <bool isServer>
@@ -76,7 +39,7 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
 {
     // should be sent in!
     size_t batchLength = 0;
-    for (int i = 0; i < messages.size(); i++) {
+    for (size_t i = 0; i < messages.size(); i++) {
         batchLength += messages[i].length();
     }
 
@@ -84,7 +47,7 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
     preparedMessage->buffer = new char[batchLength + 10 * messages.size()];
 
     int offset = 0;
-    for (int i = 0; i < messages.size(); i++) {
+    for (size_t i = 0; i < messages.size(); i++) {
         offset += WebSocketProtocol<isServer>::formatMessage(preparedMessage->buffer + offset, messages[i].data(), messages[i].length(), opCode, messages[i].length(), compressed);
     }
     preparedMessage->length = offset;
@@ -93,6 +56,7 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
     return preparedMessage;
 }
 
+// todo: see if this can be made a transformer instead
 template <bool isServer>
 void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMessage *preparedMessage, void *callbackData) {
     preparedMessage->references++;
@@ -164,12 +128,15 @@ void WebSocket<isServer>::terminate() {
 }
 
 template <bool isServer>
-void WebSocket<isServer>::close(int code, char *message, size_t length) {
+void WebSocket<isServer>::close(int code, const char *message, size_t length) {
     static const int MAX_CLOSE_PAYLOAD = 123;
     length = std::min<size_t>(MAX_CLOSE_PAYLOAD, length);
-    ((Group<isServer> *) getSocketData()->nodeData)->removeWebSocket(*this);
-    ((Group<isServer> *) getSocketData()->nodeData)->disconnectionHandler(*this, code, message, length);
+    getGroup<isServer>(*this)->removeWebSocket(*this);
+    getGroup<isServer>(*this)->disconnectionHandler(*this, code, (char *) message, length);
     getSocketData()->shuttingDown = true;
+
+    // todo: using the shared timer in the group, we can skip creating a new timer per socket
+    // only this line and the one in Hub::connect uses the timeout feature
     startTimeout<WebSocket<isServer>::onEnd>();
 
     char closePayload[MAX_CLOSE_PAYLOAD + 2];
@@ -184,8 +151,8 @@ void WebSocket<isServer>::close(int code, char *message, size_t length) {
 template <bool isServer>
 void WebSocket<isServer>::onEnd(uS::Socket s) {
     if (!s.isShuttingDown()) {
-        ((Group<isServer> *) s.getSocketData()->nodeData)->removeWebSocket(s);
-        ((Group<isServer> *) s.getSocketData()->nodeData)->disconnectionHandler(WebSocket<isServer>(s), 1006, nullptr, 0);
+        getGroup<isServer>(s)->removeWebSocket(s);
+        getGroup<isServer>(s)->disconnectionHandler(WebSocket<isServer>(s), 1006, nullptr, 0);
     } else {
         s.cancelTimeout();
     }

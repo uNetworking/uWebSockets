@@ -66,7 +66,10 @@ native.client.group.onPong(clientGroup, (message, webSocket) => {
 
 native.client.group.onError(clientGroup, (webSocket) => {
     process.nextTick(() => {
-        webSocket.internalOnError();
+        webSocket.internalOnError({
+            message: 'uWs client connection error',
+            stack: 'uWs client connection error'
+        });
     });
 });
 
@@ -173,32 +176,32 @@ class WebSocket {
                 throw Error(EE_ERROR);
             }
             this.internalOnMessage = (message) => {
-                f(message);
                 this.internalOnMessage = noop;
+                f(message);
             };
         } else if (eventName === 'close') {
             if (this.internalOnClose !== noop) {
                 throw Error(EE_ERROR);
             }
             this.internalOnClose = (code, message) => {
-                f(code, message);
                 this.internalOnClose = noop;
+                f(code, message);
             };
         } else if (eventName === 'ping') {
             if (this.onping !== noop) {
                 throw Error(EE_ERROR);
             }
             this.onping = () => {
-                f();
                 this.onping = noop;
+                f();
             };
         } else if (eventName === 'pong') {
             if (this.onpong !== noop) {
                 throw Error(EE_ERROR);
             }
             this.onpong = () => {
-                f();
                 this.onpong = noop;
+                f();
             };
         }
         return this;
@@ -338,16 +341,6 @@ class WebSocketClient extends WebSocket {
     }
 }
 
-class HttpRes {
-    constructor(external) {
-        this.external = external;
-    }
-
-    end(data) {
-        native.server.respond(this.external, data);
-    }
-}
-
 class Server extends EventEmitter {
     constructor(options, callback) {
         super();
@@ -368,7 +361,7 @@ class Server extends EventEmitter {
         this._lastUpgradeListener = true;
         this._passedHttpServer = options.server;
 
-        if (!options.noServer && !options.nativeHttp) {
+        if (!options.noServer) {
             this.httpServer = options.server ? options.server : http.createServer((request, response) => {
                 // todo: default HTTP response
                 response.end();
@@ -445,42 +438,44 @@ class Server extends EventEmitter {
         });
 
         if (options.port) {
-            if (options.nativeHttp) {
-                this._upgradeCallback = emitConnection;
-                // todo: close any http connection by default
-                native.server.group.listen(this.serverGroup, options.port);
+            if (options.host) {
+                this.httpServer.listen(options.port, options.host, ()=> {
+                      this.emit('listening');
+                      callback && callback();
+                });
             } else {
-                if (options.host) {
-                    this.httpServer.listen(options.port, options.host, callback);
-                } else {
-                    this.httpServer.listen(options.port, callback);
-                }
+                this.httpServer.listen(options.port,  ()=> {
+                      this.emit('listening');
+                      callback && callback();
+                });
             }
         }
     }
 
-    onHttpRequest(reqCb) {
-        native.server.group.onHttpRequest(this.serverGroup, (external, url) => {
-            reqCb({url: url, getHeader: native.server.getHeader}, new HttpRes(external));
-        });
-    }
-
     handleUpgrade(request, socket, upgradeHead, callback) {
-        const secKey = request.headers['sec-websocket-key'];
-        const socketHandle = socket.ssl ? socket._parent._handle : socket._handle;
-        const sslState = socket.ssl ? socket.ssl._external : null;
-        if (secKey && secKey.length == 24) {
-            socket.setNoDelay(this._noDelay);
-            const ticket = native.transfer(socketHandle.fd === -1 ? socketHandle : socketHandle.fd, sslState);
-            socket.on('close', (error) => {
-                if (this.serverGroup) {
-                    _upgradeReq = request;
-                    this._upgradeCallback = callback ? callback : noop;
-                    native.upgrade(this.serverGroup, ticket, secKey, request.headers['sec-websocket-extensions'], request.headers['sec-websocket-protocol']);
-                }
-            });
+        if (socket._isNative) {
+                    if (this.serverGroup) {
+                        _upgradeReq = request;
+                        this._upgradeCallback = callback ? callback : noop;
+                        native.upgrade(this.serverGroup, socket.external, secKey, request.headers['sec-websocket-extensions'], request.headers['sec-websocket-protocol']);
+                    }
+        } else {
+            const secKey = request.headers['sec-websocket-key'];
+            const socketHandle = socket.ssl ? socket._parent._handle : socket._handle;
+            const sslState = socket.ssl ? socket.ssl._external : null;
+            if (secKey && secKey.length == 24) {
+                socket.setNoDelay(this._noDelay);
+                const ticket = native.transfer(socketHandle.fd === -1 ? socketHandle : socketHandle.fd, sslState);
+                socket.on('close', (error) => {
+                    if (this.serverGroup) {
+                        _upgradeReq = request;
+                        this._upgradeCallback = callback ? callback : noop;
+                        native.upgrade(this.serverGroup, ticket, secKey, request.headers['sec-websocket-extensions'], request.headers['sec-websocket-protocol']);
+                    }
+                });
+            }
+            socket.destroy();
         }
-        socket.destroy();
     }
 
     broadcast(message, options) {
@@ -519,6 +514,102 @@ class Server extends EventEmitter {
     }
 }
 
+class ServerResponse {
+
+    constructor(external) {
+        this.external = external;
+        this.headLess = true;
+        this.implicitHead = 'HTTP/1.1 200 OK\r\n';
+    }
+
+    setHeader(key, value) {
+        this.implicitHead += key + ': ' + value + '\r\n';
+    }
+
+    writeHead(statusCode, statusMessage, headers) {
+        if (this.external) {
+            if (typeof statusMessage !== 'string') {
+                headers = statusMessage;
+                statusMessage = 'OK';
+            }
+
+            let head = 'HTTP/1.1 ' + statusCode + ' ' + statusMessage + '\r\n';
+            for (let key in headers) {
+                head += key + ': ' + headers[key] + '\r\n';
+            }
+            head += '\r\n';
+            // todo: add headers from setHeader here
+            native.server.httpWrite(this.external, head);
+            this.headLess = false;
+        }
+    }
+
+    write(data) {
+        if (this.external) {
+            if (this.headLess) {
+                data = this.implicitHead + '\r\n' + data;
+                this.headLess = false;
+            }
+            native.server.httpWrite(this.external, data);
+        }
+    }
+
+    end(data) {
+        if (this.external) {
+            if (this.headLess) {
+                data = this.implicitHead + 'Content-Length: ' + data.length + '\r\n\r\n' + data;
+                this.headLess = false;
+            }
+            native.server.httpEnd(this.external, data);
+        }
+    }
+
+    get _isNative() {
+        return true;
+    }
+}
+
+class HttpServer extends EventEmitter {
+
+    verbToString(verb) {
+        switch (verb) {
+            case 0: return 'GET';
+            case 1: return 'POST';
+            case 2: return 'PUT';
+            case 3: return 'DELETE';
+            case 4: return 'PATCH';
+            case 5: break;
+        }
+        return 'INVALID';
+    }
+
+    constructor(reqCb) {
+        super();
+        this.serverGroup = native.server.group.create();
+
+        native.server.group.onHttpRequest(this.serverGroup, (external, verb, url, data, remainingBytes) => {
+            this.emit('request', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new ServerResponse(external));
+        });
+
+        native.server.group.onHttpUpgrade(this.serverGroup, (external, verb, url) => {
+            this.emit('upgrade', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new ServerResponse(external));
+        });
+
+        // important to add httpDisconnection and set external to zero!
+
+        this.on('request', reqCb);
+    }
+
+    static createServer(reqCb) {
+        return new HttpServer(reqCb);
+    }
+
+    listen(port) {
+        // return bool and emit error on listen error!
+        native.server.group.listen(this.serverGroup, port);
+    }
+}
+
 WebSocketClient.PERMESSAGE_DEFLATE = 1;
 WebSocketClient.SERVER_NO_CONTEXT_TAKEOVER = 2;
 WebSocketClient.CLIENT_NO_CONTEXT_TAKEOVER = 4;
@@ -528,5 +619,8 @@ WebSocketClient.OPCODE_PING = 9;
 WebSocketClient.OPEN = 1;
 WebSocketClient.CLOSED = 0;
 WebSocketClient.Server = Server;
+WebSocketClient.http = HttpServer;
 WebSocketClient.native = native;
+WebSocketClient.HTTP_GET = 0;
+WebSocketClient.HTTP_POST = 1;
 module.exports = WebSocketClient;

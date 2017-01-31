@@ -254,7 +254,7 @@ public:
         return cf;
     }
 
-    static inline size_t formatClosePayload(char *dst, uint16_t code, char *message, size_t length) {
+    static inline size_t formatClosePayload(char *dst, uint16_t code, const char *message, size_t length) {
         if (code) {
             code = htons(code);
             memcpy(dst, &code, 2);

@@ -11,6 +11,7 @@ using namespace v8;
 uWS::Hub hub(0, true);
 uv_check_t check;
 Persistent<Function> noop;
+uWS::HttpRequest currentReq;
 
 void registerCheck(Isolate *isolate) {
     uv_check_init(hub.getLoop(), &check);
@@ -67,30 +68,11 @@ public:
 };
 
 struct GroupData {
-    Persistent<Function> *connectionHandler, *messageHandler,
-                         *disconnectionHandler, *pingHandler,
-                         *pongHandler, *errorHandler, *httpRequestHandler;
+    Persistent<Function> connectionHandler, messageHandler,
+                         disconnectionHandler, pingHandler,
+                         pongHandler, errorHandler, httpRequestHandler,
+                         httpUpgradeHandler;
     int size = 0;
-
-    GroupData() {
-        connectionHandler = new Persistent<Function>;
-        messageHandler = new Persistent<Function>;
-        disconnectionHandler = new Persistent<Function>;
-        pingHandler = new Persistent<Function>;
-        pongHandler = new Persistent<Function>;
-        errorHandler = new Persistent<Function>;
-        httpRequestHandler = new Persistent<Function>;
-    }
-
-    ~GroupData() {
-        delete connectionHandler;
-        delete messageHandler;
-        delete disconnectionHandler;
-        delete pingHandler;
-        delete pongHandler;
-        delete errorHandler;
-        delete httpRequestHandler;
-    }
 };
 
 template <bool isServer>
@@ -235,9 +217,10 @@ void upgrade(const FunctionCallbackInfo<Value> &args) {
 
 void transfer(const FunctionCallbackInfo<Value> &args) {
     // (_handle.fd OR _handle), SSL
+    uv_handle_t *handle = nullptr;
     Ticket *ticket = new Ticket;
     if (args[0]->IsObject()) {
-        uv_fileno(getTcpHandle(args[0]->ToObject()->GetAlignedPointerFromInternalField(0)), (uv_os_fd_t *) &ticket->fd);
+        uv_fileno((handle = getTcpHandle(args[0]->ToObject()->GetAlignedPointerFromInternalField(0))), (uv_os_fd_t *) &ticket->fd);
     } else {
         ticket->fd = args[0]->IntegerValue();
     }
@@ -249,6 +232,13 @@ void transfer(const FunctionCallbackInfo<Value> &args) {
         SSL_up_ref(ticket->ssl);
     }
 
+    // note: we SHOULD set this for all OS's but only Windows has a problem without it for now
+    // uv_close calls shutdown if not set
+    if (handle) {
+        // UV_HANDLE_SHARED_TCP_SOCKET
+        handle->flags |= 0x40000000;
+    }
+
     args.GetReturnValue().Set(External::New(args.GetIsolate(), ticket));
 }
 
@@ -258,9 +248,9 @@ void onConnection(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *connectionCallback = groupData->connectionHandler;
+    Persistent<Function> *connectionCallback = &groupData->connectionHandler;
     connectionCallback->Reset(isolate, Local<Function>::Cast(args[1]));
-    group->onConnection([isolate, connectionCallback, groupData](uWS::WebSocket<isServer> webSocket, uWS::HTTPRequest req) {
+    group->onConnection([isolate, connectionCallback, groupData](uWS::WebSocket<isServer> webSocket, uWS::HttpRequest req) {
         groupData->size++;
         HandleScope hs(isolate);
         Local<Value> argv[] = {wrapSocket(webSocket, isolate)};
@@ -274,7 +264,7 @@ void onMessage(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *messageCallback = groupData->messageHandler;
+    Persistent<Function> *messageCallback = &groupData->messageHandler;
     messageCallback->Reset(isolate, Local<Function>::Cast(args[1]));
     group->onMessage([isolate, messageCallback](uWS::WebSocket<isServer> webSocket, const char *message, size_t length, uWS::OpCode opCode) {
         HandleScope hs(isolate);
@@ -290,7 +280,7 @@ void onPing(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *pingCallback = groupData->pingHandler;
+    Persistent<Function> *pingCallback = &groupData->pingHandler;
     pingCallback->Reset(isolate, Local<Function>::Cast(args[1]));
     group->onPing([isolate, pingCallback](uWS::WebSocket<isServer> webSocket, const char *message, size_t length) {
         HandleScope hs(isolate);
@@ -306,7 +296,7 @@ void onPong(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *pongCallback = groupData->pongHandler;
+    Persistent<Function> *pongCallback = &groupData->pongHandler;
     pongCallback->Reset(isolate, Local<Function>::Cast(args[1]));
     group->onPong([isolate, pongCallback](uWS::WebSocket<isServer> webSocket, const char *message, size_t length) {
         HandleScope hs(isolate);
@@ -322,7 +312,7 @@ void onDisconnection(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *disconnectionCallback = groupData->disconnectionHandler;
+    Persistent<Function> *disconnectionCallback = &groupData->disconnectionHandler;
     disconnectionCallback->Reset(isolate, Local<Function>::Cast(args[1]));
 
     group->onDisconnection([isolate, disconnectionCallback, groupData](uWS::WebSocket<isServer> webSocket, int code, char *message, size_t length) {
@@ -341,7 +331,7 @@ void onError(const FunctionCallbackInfo<Value> &args) {
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *errorCallback = groupData->errorHandler;
+    Persistent<Function> *errorCallback = &groupData->errorHandler;
     errorCallback->Reset(isolate, Local<Function>::Cast(args[1]));
 
     group->onError([isolate, errorCallback](void *user) {
@@ -437,27 +427,52 @@ void listen(const FunctionCallbackInfo<Value> &args) {
     hub.listen(args[1]->IntegerValue(), nullptr, 0, group);
 }
 
-uWS::HTTPRequest currentReq;
-
 void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
-    Persistent<Function> *httpRequestCallback = groupData->httpRequestHandler;
+    Persistent<Function> *httpRequestCallback = &groupData->httpRequestHandler;
     httpRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
-    group->onHttpRequest([isolate, httpRequestCallback](uWS::HTTPSocket<uWS::SERVER> s, uWS::HTTPRequest req) {
+    group->onHttpRequest([isolate, httpRequestCallback](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
         currentReq = req;
         HandleScope hs(isolate);
         Local<Value> argv[] = {External::New(isolate, s.getPollHandle()),
-                               String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength)};
-        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
+                               Integer::New(isolate, req.getVerb()),
+                               String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength),
+                               ArrayBuffer::New(isolate, (char *) data, length),
+                               Integer::New(isolate, remainingBytes)};
+        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 5, argv);
     });
 }
 
-void respond(const FunctionCallbackInfo<Value> &args) {
+void onHttpUpgrade(const FunctionCallbackInfo<Value> &args) {
+    uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
+    GroupData *groupData = (GroupData *) group->getUserData();
+
+    Isolate *isolate = args.GetIsolate();
+    Persistent<Function> *httpUpgradeCallback = &groupData->httpUpgradeHandler;
+    httpUpgradeCallback->Reset(isolate, Local<Function>::Cast(args[1]));
+    group->onHttpUpgrade([isolate, httpUpgradeCallback](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req) {
+        currentReq = req;
+        HandleScope hs(isolate);
+        Local<Value> argv[] = {External::New(isolate, s.getPollHandle()),
+                               Integer::New(isolate, req.getVerb()),
+                               String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength)};
+        Local<Function>::New(isolate, *httpUpgradeCallback)->Call(isolate->GetCurrentContext()->Global(), 3, argv);
+    });
+}
+
+void httpWrite(const FunctionCallbackInfo<Value> &args) {
     NativeString nativeString(args[1]);
-    uWS::HTTPSocket<uWS::SERVER>((uv_poll_t *) args[0].As<External>()->Value()).respond(nativeString.getData(), nativeString.getLength(), uWS::ContentType::TEXT_HTML);
+    uWS::HttpSocket<uWS::SERVER>((uv_poll_t *) args[0].As<External>()->Value()).send(nativeString.getData(), nativeString.getLength());
+}
+
+void httpEnd(const FunctionCallbackInfo<Value> &args) {
+    NativeString nativeString(args[1]);
+    uWS::HttpSocket<uWS::SERVER> s((uv_poll_t *) args[0].As<External>()->Value());
+    s.send(nativeString.getData(), nativeString.getLength());
+    s.timeOut();
 }
 
 void getHeader(const FunctionCallbackInfo<Value> &args) {
@@ -494,7 +509,9 @@ struct Namespace {
 
             NODE_SET_METHOD(group, "listen", listen);
             NODE_SET_METHOD(group, "onHttpRequest", onHttpRequest);
-            NODE_SET_METHOD(object, "respond", respond);
+            NODE_SET_METHOD(group, "onHttpUpgrade", onHttpUpgrade);
+            NODE_SET_METHOD(object, "httpWrite", httpWrite);
+            NODE_SET_METHOD(object, "httpEnd", httpEnd);
             NODE_SET_METHOD(object, "getHeader", getHeader);
         }
 
