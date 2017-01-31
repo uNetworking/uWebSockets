@@ -62,10 +62,10 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
     if (httpData->contentLength) {
         httpData->missedDeadline = false;
         if (httpData->contentLength >= length) {
-            getGroup<isServer>(s)->httpDataHandler(s, data, length, httpData->contentLength -= length);
+            getGroup<isServer>(s)->httpDataHandler(httpData->outstandingResponsesTail, data, length, httpData->contentLength -= length);
             return;
         } else {
-            getGroup<isServer>(s)->httpDataHandler(s, data, httpData->contentLength, 0);
+            getGroup<isServer>(s)->httpDataHandler(httpData->outstandingResponsesTail, data, httpData->contentLength, 0);
             data += httpData->contentLength;
             length -= httpData->contentLength;
             httpData->contentLength = 0;
@@ -91,7 +91,7 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
     do {
         char *lastCursor = cursor;
         if ((cursor = getHeaders(cursor, end, headers, MAX_HEADERS))) {
-            HttpRequest req(headers, httpData->nextRequestId++);
+            HttpRequest req(headers);
 
             if (isServer) {
                 headers->valueLength = std::max<int>(0, headers->valueLength - 9);
@@ -120,16 +120,33 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                     }
                     return;
                 } else {
+
+
+                    // create res and add it to the HttpSocket's list of outstanding responses
+                    HttpResponse *res = new HttpResponse(s);
+
+                    if (httpData->outstandingResponsesTail) {
+                        httpData->outstandingResponsesTail->next = res;
+                    }
+                    httpData->outstandingResponsesTail = res;
+
+                    // set head if not already!
+                    if (!httpData->outstandingResponsesHead) {
+                        httpData->outstandingResponsesHead = httpData->outstandingResponsesTail;
+                    }
+
+
+
                     if (getGroup<SERVER>(s)->httpRequestHandler) {
                         httpData->awaitsResponse = true;
                         Header contentLength;
-                        if (req.getVerb() != HTTPVerb::GET && (contentLength = req.getHeader("content-length", 14))) {
+                        if (req.getMethod() != HttpMethod::GET && (contentLength = req.getHeader("content-length", 14))) {
                             httpData->contentLength = atoi(contentLength.value);
                             size_t bytesToRead = std::min<int>(httpData->contentLength, end - cursor);
-                            getGroup<SERVER>(s)->httpRequestHandler(s, req, cursor, bytesToRead, httpData->contentLength -= bytesToRead);
+                            getGroup<SERVER>(s)->httpRequestHandler(res, req, cursor, bytesToRead, httpData->contentLength -= bytesToRead);
                             cursor += bytesToRead;
                         } else {
-                            getGroup<SERVER>(s)->httpRequestHandler(s, req, nullptr, 0, 0);
+                            getGroup<SERVER>(s)->httpRequestHandler(res, req, nullptr, 0, 0);
                         }
 
                         if (s.isClosed() || s.isShuttingDown()) {
@@ -175,62 +192,6 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
     } while(cursor != end);
 
     httpData->httpBuffer.clear();
-}
-
-template <bool isServer>
-void HttpSocket<isServer>::send(char *message, size_t length,
-                                void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
-
-    struct NoopTransformer {
-        static size_t estimate(char *data, size_t length) {
-            return length;
-        }
-
-        static size_t transform(char *src, char *dst, size_t length, int transformData) {
-            memcpy(dst, src, length);
-            return length;
-        }
-    };
-
-    sendTransformed<NoopTransformer>(message, length, callback, callbackData, 0);
-}
-
-template <bool isServer>
-void HttpSocket<isServer>::end(unsigned int requestId, char *data, size_t length)
-{
-    auto *httpData = getData();
-    if (requestId != httpData->currentBlockingRequest) {
-        std::cout << "FAILURE: responding out of order!" << std::endl;
-        exit(-1);
-    } else {
-        // todo: handle integer overflow
-        httpData->currentBlockingRequest++;
-        respond(data, length, uWS::ContentType::TEXT_HTML);
-    }
-}
-
-template <bool isServer>
-void HttpSocket<isServer>::respond(char *message, size_t length, ContentType contentType,
-                                   void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
-
-    struct TransformData {
-        ContentType contentType;
-    } transformData = {contentType};
-
-    struct HttpTransformer {
-        static size_t estimate(char *data, size_t length) {
-            return length + 128;
-        }
-
-        static size_t transform(char *src, char *dst, size_t length, TransformData transformData) {
-            int offset = std::sprintf(dst, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
-            memcpy(dst + offset, src, length);
-            return length + offset;
-        }
-    };
-
-    ((Data *) getSocketData())->awaitsResponse = false;
-    sendTransformed<HttpTransformer>(message, length, callback, callbackData, transformData);
 }
 
 // todo: make this into a transformer and make use of sendTransformed

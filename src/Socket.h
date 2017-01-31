@@ -420,7 +420,7 @@ public:
     }
 
     template <class T, class D>
-    void sendTransformed(char *message, size_t length, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved), void *callbackData, D transformData) {
+    void sendTransformed(const char *message, size_t length, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved), void *callbackData, D transformData) {
         size_t estimatedLength = T::estimate(message, length) + sizeof(uS::SocketData::Queue::Message);
 
         if (hasEmptyQueue()) {
