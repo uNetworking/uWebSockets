@@ -221,7 +221,7 @@ struct HttpResponse {
         httpSocket.sendTransformed<NoopTransformer>(message, length, callback, callbackData, 0);
     }
 
-    void end(const char *message, size_t length,
+    void end(const char *message = nullptr, size_t length = 0,
              void(*callback)(void *httpResponse, void *data, bool cancelled, void *reserved) = nullptr,
              void *callbackData = nullptr) {
 
