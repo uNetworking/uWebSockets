@@ -657,6 +657,7 @@ void testHTTP() {
             expectedRequests++;
 
             delete (std::string *) res->httpSocket.getUserData();
+            res->end();
         }
     };
 
@@ -671,6 +672,7 @@ void testHTTP() {
         if (req.getUrl().toString() == "/segmentedUrl") {
             if (req.getMethod() == uWS::HttpMethod::GET && req.getHeader("host").toString() == "localhost") {
                 expectedRequests++;
+                res->end();
                 return;
             }
         } else if (req.getUrl().toString() == "/closeServer") {
@@ -690,6 +692,7 @@ void testHTTP() {
         } else if (req.getUrl().toString() == "/packedTest") {
             if (req.getMethod() == uWS::HttpMethod::GET) {
                 expectedRequests++;
+                res->end();
                 return;
             }
         } else if (req.getUrl().toString() == "/firstRequest") {
