@@ -125,9 +125,28 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
         // list of responses to end, handed out
         HttpResponse *outstandingResponsesHead = nullptr;
         HttpResponse *outstandingResponsesTail = nullptr;
+        HttpResponse *preAllocatedResponse = nullptr;
 
         Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
     };
+
+    HttpResponse *allocateResponse(Data *httpData) {
+        if (httpData->preAllocatedResponse) {
+            HttpResponse *ret = httpData->preAllocatedResponse;
+            httpData->preAllocatedResponse = nullptr;
+            return ret;
+        } else {
+            return new HttpResponse(*this);
+        }
+    }
+
+    void freeResponse(Data *httpData, HttpResponse *response) {
+        if (httpData->preAllocatedResponse) {
+            delete response;
+        } else {
+            httpData->preAllocatedResponse = response;
+        }
+    }
 
     using uS::Socket::getUserData;
     using uS::Socket::setUserData;
@@ -183,6 +202,7 @@ struct HttpResponse {
 
     }
 
+    // todo
     void write(const char *message, size_t length = 0,
                void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr,
                void *callbackData = nullptr) {
@@ -264,7 +284,8 @@ struct HttpResponse {
                     break;
                 } else {
                     HttpResponse *next = head->next;
-                    delete head;
+                    //delete head;
+                    httpSocket.freeResponse(httpSocket.getData(), head);
                     head = next;
                 }
             }
@@ -273,7 +294,9 @@ struct HttpResponse {
             if (!head) {
                 httpSocket.getData()->outstandingResponsesTail = nullptr;
             }
-            delete this;
+
+            httpSocket.freeResponse(httpSocket.getData(), this);
+            //delete this;
         }
     }
 

@@ -123,9 +123,8 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
 
                     // create res and add it to the HttpSocket's list of outstanding responses
-                    HttpResponse *res = new HttpResponse(s);
+                    HttpResponse *res = httpSocket.allocateResponse(httpData);//new HttpResponse(s);
 
-                    // insert res in queue
                     if (httpData->outstandingResponsesTail) {
                         httpData->outstandingResponsesTail->next = res;
                     } else {
@@ -301,6 +300,10 @@ void HttpSocket<isServer>::onEnd(uS::Socket s) {
         HttpResponse *next = httpSocketData->outstandingResponsesHead->next;
         delete httpSocketData->outstandingResponsesHead;
         httpSocketData->outstandingResponsesHead = next;
+    }
+
+    if (httpSocketData->preAllocatedResponse) {
+        delete httpSocketData->preAllocatedResponse;
     }
 
     if (!isServer) {
