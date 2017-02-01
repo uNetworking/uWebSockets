@@ -12,11 +12,11 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
     } transformData = {opCode};
 
     struct WebSocketTransformer {
-        static size_t estimate(char *data, size_t length) {
+        static size_t estimate(const char *data, size_t length) {
             return length + HEADER_LENGTH;
         }
 
-        static size_t transform(char *src, char *dst, size_t length, TransformData transformData) {
+        static size_t transform(const char *src, char *dst, size_t length, TransformData transformData) {
             return WebSocketProtocol<isServer>::formatMessage(dst, src, length, transformData.opCode, length, false);
         }
     };

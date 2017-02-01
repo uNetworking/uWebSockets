@@ -5,6 +5,8 @@
 #include <string>
 // #include <experimental/string_view>
 
+#include <iostream>
+
 namespace uWS {
 
 struct Header {
@@ -21,29 +23,26 @@ struct Header {
     }
 };
 
-enum ContentType {
-    TEXT_HTML
-};
-
-enum HTTPVerb {
+enum HttpMethod {
     GET,
     POST,
     PUT,
     DELETE,
     PATCH,
     OPTIONS,
+    HEAD,
+    TRACE,
+    CONNECT,
     INVALID
 };
 
 struct HttpRequest {
     Header *headers;
-    unsigned int requestId;
     Header getHeader(const char *key) {
         return getHeader(key, strlen(key));
     }
 
-    HttpRequest() = default;
-    HttpRequest(Header *headers, unsigned int requestId) : headers(headers), requestId(requestId) {}
+    HttpRequest(Header *headers = nullptr) : headers(headers) {}
 
     Header getHeader(const char *key, size_t length) {
         if (headers) {
@@ -63,7 +62,7 @@ struct HttpRequest {
         return {nullptr, nullptr, 0, 0};
     }
 
-    HTTPVerb getVerb() {
+    HttpMethod getMethod() {
         if (!headers->key) {
             return INVALID;
         }
@@ -78,10 +77,15 @@ struct HttpRequest {
         case 4:
             if (!strncmp(headers->key, "post", 4)) {
                 return POST;
+            } else if (!strncmp(headers->key, "head", 4)) {
+                return HEAD;
             }
+            break;
         case 5:
             if (!strncmp(headers->key, "patch", 5)) {
                 return PATCH;
+            } else if (!strncmp(headers->key, "trace", 5)) {
+                return TRACE;
             }
             break;
         case 6:
@@ -92,16 +96,16 @@ struct HttpRequest {
         case 7:
             if (!strncmp(headers->key, "options", 7)) {
                 return OPTIONS;
+            } else if (!strncmp(headers->key, "connect", 7)) {
+                return CONNECT;
             }
             break;
         }
         return INVALID;
     }
-
-    unsigned int getRequestId() {
-        return requestId;
-    }
 };
+
+struct HttpResponse;
 
 template <const bool isServer>
 struct WIN32_EXPORT HttpSocket : private uS::Socket {
@@ -118,12 +122,31 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
         bool missedDeadline = false;
         bool awaitsResponse = false;
 
-        // used to order responses
-        unsigned int currentBlockingRequest = 0;
-        unsigned int nextRequestId = 0;
+        // list of responses to end, handed out
+        HttpResponse *outstandingResponsesHead = nullptr;
+        HttpResponse *outstandingResponsesTail = nullptr;
+        HttpResponse *preAllocatedResponse = nullptr;
 
         Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
     };
+
+    HttpResponse *allocateResponse(Data *httpData) {
+        if (httpData->preAllocatedResponse) {
+            HttpResponse *ret = httpData->preAllocatedResponse;
+            httpData->preAllocatedResponse = nullptr;
+            return ret;
+        } else {
+            return new HttpResponse(*this);
+        }
+    }
+
+    void freeResponse(Data *httpData, HttpResponse *response) {
+        if (httpData->preAllocatedResponse) {
+            delete response;
+        } else {
+            httpData->preAllocatedResponse = response;
+        }
+    }
 
     using uS::Socket::getUserData;
     using uS::Socket::setUserData;
@@ -131,16 +154,6 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
     using uS::Socket::Address;
 
     uv_poll_t *getPollHandle() const {return p;}
-
-    // use Node.js-like interface here!
-    void end(unsigned int requestId, char *data = nullptr, size_t length = 0);
-    // void write()
-
-    // respond is a full HTTP response with a call to timeOut
-    void respond(char *message, size_t length, ContentType contentType, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
-
-    // send is a raw TCP send where you can send any set of headers
-    void send(char *message, size_t length, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
 
     // a socket that is timing out will close if not getting a new request in a while
     bool isTimingOut() {
@@ -171,9 +184,133 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
 
 private:
     friend class uS::Socket;
+    friend struct HttpResponse;
     friend struct Hub;
     static void onData(uS::Socket s, char *data, int length);
     static void onEnd(uS::Socket s);
+};
+
+struct HttpResponse {
+
+    HttpSocket<true> httpSocket;
+    HttpResponse *next = nullptr;
+    void *userData = nullptr;
+    uS::SocketData::Queue::Message *messageQueue = nullptr;
+    bool hasEnded = false;
+
+    HttpResponse(HttpSocket<true> httpSocket) : httpSocket(httpSocket) {
+
+    }
+
+    // todo
+    void write(const char *message, size_t length = 0,
+               void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr,
+               void *callbackData = nullptr) {
+
+        struct NoopTransformer {
+            static size_t estimate(const char *data, size_t length) {
+                return length;
+            }
+
+            static size_t transform(const char *src, char *dst, size_t length, int transformData) {
+                memcpy(dst, src, length);
+                return length;
+            }
+        };
+
+        httpSocket.sendTransformed<NoopTransformer>(message, length, callback, callbackData, 0);
+    }
+
+    void end(const char *message, size_t length,
+             void(*callback)(void *httpResponse, void *data, bool cancelled, void *reserved) = nullptr,
+             void *callbackData = nullptr) {
+
+        struct TransformData {
+            //ContentType contentType;
+        } transformData;// = {uWS::ContentType::TEXT_HTML};
+
+        struct HttpTransformer {
+            static size_t estimate(const char *data, size_t length) {
+                return length + 128;
+            }
+
+            static size_t transform(const char *src, char *dst, size_t length, TransformData transformData) {
+                int offset = std::sprintf(dst, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
+                memcpy(dst + offset, src, length);
+                return length + offset;
+            }
+        };
+
+        if (httpSocket.getData()->outstandingResponsesHead != this) {
+            uS::SocketData::Queue::Message *messagePtr = httpSocket.allocMessage(HttpTransformer::estimate(message, length));
+            messagePtr->length = HttpTransformer::transform(message, (char *) messagePtr->data, length, transformData);
+            messagePtr->callback = callback;
+            messagePtr->callbackData = callbackData;
+            messagePtr->nextMessage = messageQueue;
+            messageQueue = messagePtr;
+            hasEnded = true;
+        } else {
+            httpSocket.sendTransformed<HttpTransformer>(message, length, callback, callbackData, transformData);
+            // move head as far as possible
+            HttpResponse *head = next;
+            while (head) {
+                // empty message queue
+                uS::SocketData::Queue::Message *messagePtr = head->messageQueue;
+                while (messagePtr) {
+                    uS::SocketData::Queue::Message *nextMessage = messagePtr->nextMessage;
+
+                    bool wasTransferred;
+                    if (httpSocket.write(messagePtr, wasTransferred)) {
+                        if (!wasTransferred) {
+                            httpSocket.freeMessage(messagePtr);
+                            if (callback) {
+                                callback(this, callbackData, false, nullptr);
+                            }
+                        } else {
+                            messagePtr->callback = callback;
+                            messagePtr->callbackData = callbackData;
+                        }
+                    } else {
+                        httpSocket.freeMessage(messagePtr);
+                        if (callback) {
+                            callback(this, callbackData, true, nullptr);
+                        }
+                        goto updateHead;
+                    }
+                    messagePtr = nextMessage;
+                }
+                // cannot go beyond unfinished responses
+                if (!head->hasEnded) {
+                    break;
+                } else {
+                    HttpResponse *next = head->next;
+                    //delete head;
+                    httpSocket.freeResponse(httpSocket.getData(), head);
+                    head = next;
+                }
+            }
+            updateHead:
+            httpSocket.getData()->outstandingResponsesHead = head;
+            if (!head) {
+                httpSocket.getData()->outstandingResponsesTail = nullptr;
+            }
+
+            httpSocket.freeResponse(httpSocket.getData(), this);
+            //delete this;
+        }
+    }
+
+    void setUserData(void *userData) {
+        this->userData = userData;
+    }
+
+    void *getUserData() {
+        return userData;
+    }
+
+    HttpSocket<true> getHttpSocket() {
+        return httpSocket;
+    }
 };
 
 }
