@@ -116,6 +116,7 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
         // todo: limit these to only client, but who cares for now?
         std::string path;
         std::string host;
+        std::string subprotocol;
         void *httpUser;
 
         // used to close sockets not sending requests in time
