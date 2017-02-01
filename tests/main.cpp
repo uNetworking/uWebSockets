@@ -713,6 +713,9 @@ void testHTTP() {
         if (res->getUserData() == (void *) 1234) {
             // let's say we want this one cancelled
             expectedRequests++;
+        } else {
+            std::cerr << "FAILURE: Unexpected cancelled request!" << std::endl;
+            exit(-1);
         }
     });
 
