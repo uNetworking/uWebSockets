@@ -675,6 +675,8 @@ void testHTTP() {
             }
         } else if (req.getUrl().toString() == "/closeServer") {
             if (req.getMethod() == uWS::HttpMethod::PUT) {
+                res->setUserData((void *) 1234);
+                // this will trigger a cancelled request
                 h.getDefaultGroup<uWS::SERVER>().close();
                 expectedRequests++;
                 return;
@@ -707,6 +709,13 @@ void testHTTP() {
         exit(-1);
     });
 
+    h.onCancelledHttpRequest([&expectedRequests](uWS::HttpResponse *res) {
+        if (res->getUserData() == (void *) 1234) {
+            // let's say we want this one cancelled
+            expectedRequests++;
+        }
+    });
+
     h.onConnection([&expectedRequests](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
         if (req.getUrl().toString() == "/upgradeUrl") {
             if (req.getMethod() == uWS::HttpMethod::GET && req.getHeader("upgrade").toString() == "websocket") {
@@ -729,7 +738,7 @@ void testHTTP() {
         FILE *nc;
 
         // invalid data
-        /*nc = popen("nc localhost 3000 &> /dev/null", "w");
+        nc = popen("nc localhost 3000 &> /dev/null", "w");
         fputs("invalid http", nc);
         pclose(nc);
 
@@ -841,7 +850,7 @@ void testHTTP() {
 
         nc = popen("nc localhost 3000 &> /dev/null", "w");
         fputs("GET /packedTest HTTP/1.1\r\n\r\nGET /packedTest HTTP/1.1\r\n\r\n", nc);
-        pclose(nc);*/
+        pclose(nc);
 
         // out of order responses
         nc = popen("nc localhost 3000 &> /dev/null", "w");
@@ -852,7 +861,7 @@ void testHTTP() {
         nc = popen("nc localhost 3000 &> /dev/null", "w");
         fputs("PUT /closeServer HTTP/1.1\r\n\r\n", nc);
         pclose(nc);
-        if (expectedRequests != 17) {
+        if (expectedRequests != 18) {
             std::cerr << "FAILURE: expectedRequests differ: " << expectedRequests << std::endl;
             exit(-1);
         }

@@ -183,7 +183,10 @@ struct HttpResponse {
 
     }
 
-    void write(const char *message, size_t length = 0, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr) {
+    void write(const char *message, size_t length = 0,
+               void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr,
+               void *callbackData = nullptr) {
+
         struct NoopTransformer {
             static size_t estimate(const char *data, size_t length) {
                 return length;
@@ -198,7 +201,9 @@ struct HttpResponse {
         httpSocket.sendTransformed<NoopTransformer>(message, length, callback, callbackData, 0);
     }
 
-    void end(const char *message, size_t length, void(*callback)(void *httpResponse, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr) {
+    void end(const char *message, size_t length,
+             void(*callback)(void *httpResponse, void *data, bool cancelled, void *reserved) = nullptr,
+             void *callbackData = nullptr) {
 
         struct TransformData {
             //ContentType contentType;
@@ -217,31 +222,22 @@ struct HttpResponse {
         };
 
         if (httpSocket.getData()->outstandingResponsesHead != this) {
-
             uS::SocketData::Queue::Message *messagePtr = httpSocket.allocMessage(HttpTransformer::estimate(message, length));
             messagePtr->length = HttpTransformer::transform(message, (char *) messagePtr->data, length, transformData);
             messagePtr->callback = callback;
             messagePtr->callbackData = callbackData;
             messagePtr->nextMessage = messageQueue;
             messageQueue = messagePtr;
-
-            std::cout << "Blocking response: " << std::string(message, length) << std::endl;
-
             hasEnded = true;
         } else {
-
-            std::cout << "Sending straight away: " << std::string(message, length) << std::endl;
             httpSocket.sendTransformed<HttpTransformer>(message, length, callback, callbackData, transformData);
-
-            // strip ended responses
-            for (HttpResponse *nextResponse = next; nextResponse; ) {
-
-                for (uS::SocketData::Queue::Message *messagePtr = nextResponse->messageQueue; messagePtr; ) {
-
+            // move head as far as possible
+            HttpResponse *head = next;
+            while (head) {
+                // empty message queue
+                uS::SocketData::Queue::Message *messagePtr = head->messageQueue;
+                while (messagePtr) {
                     uS::SocketData::Queue::Message *nextMessage = messagePtr->nextMessage;
-
-                    // send raw / send node
-                    std::cout << "Sending blocked message: " << std::string(messagePtr->data, messagePtr->length) << std::endl;
 
                     bool wasTransferred;
                     if (httpSocket.write(messagePtr, wasTransferred)) {
@@ -255,34 +251,28 @@ struct HttpResponse {
                             messagePtr->callbackData = callbackData;
                         }
                     } else {
-                        // connection is broken, we can probably exit here?
-                        //httpSocket.freeMessage(queuedMessage);
-
-                        //
+                        httpSocket.freeMessage(messagePtr);
                         if (callback) {
                             callback(this, callbackData, true, nullptr);
                         }
-
-                        // make sure to clear up memory in onEnd
-                        //
-                        return;
+                        goto updateHead;
                     }
-
                     messagePtr = nextMessage;
                 }
-
-                if (!nextResponse->hasEnded) {
-                    // update httpsocket's responses now to this nextResponse!
+                // cannot go beyond unfinished responses
+                if (!head->hasEnded) {
                     break;
+                } else {
+                    HttpResponse *next = head->next;
+                    delete head;
+                    head = next;
                 }
-
-                HttpResponse *endedResponse = nextResponse;
-                nextResponse = nextResponse->next;
-                delete endedResponse;
             }
-
-
-            // we can delete us if ended and not blocked
+            updateHead:
+            httpSocket.getData()->outstandingResponsesHead = head;
+            if (!head) {
+                httpSocket.getData()->outstandingResponsesTail = nullptr;
+            }
             delete this;
         }
     }
