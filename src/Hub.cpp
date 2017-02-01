@@ -75,7 +75,7 @@ bool Hub::listen(int port, uS::TLS::Context sslContext, int options, Group<SERVE
     return true;
 }
 
-void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh, std::string subprotocol ) {
+void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh, std::string subprotocol) {
     if (!eh) {
         eh = (Group<CLIENT> *) this;
     }
