@@ -247,7 +247,7 @@ bool HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
         }
     } else {
         std::string optionalSubprotocol;
-        if(!getData()->subprotocol.empty()) {
+        if (!getData()->subprotocol.empty()) {
             optionalSubprotocol = "Sec-WebSocket-Protocol: " + getData()->subprotocol + "\r\n";
         }
         std::string upgradeHeaderBuffer = std::string("GET /") + getData()->path + " HTTP/1.1\r\n"
