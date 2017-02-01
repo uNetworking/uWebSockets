@@ -595,7 +595,9 @@ class HttpServer extends EventEmitter {
             this.emit('upgrade', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new ServerResponse(external));
         });
 
-        // important to add httpDisconnection and set external to zero!
+        native.server.group.onCancelledHttpRequest(this.serverGroup, (external) => {
+            console.log('Request got invalidated!');
+        });
 
         this.on('request', reqCb);
     }

@@ -71,7 +71,7 @@ struct GroupData {
     Persistent<Function> connectionHandler, messageHandler,
                          disconnectionHandler, pingHandler,
                          pongHandler, errorHandler, httpRequestHandler,
-                         httpUpgradeHandler;
+                         httpUpgradeHandler, httpCancelledRequestCallback;
     int size = 0;
 };
 
@@ -232,8 +232,7 @@ void transfer(const FunctionCallbackInfo<Value> &args) {
         SSL_up_ref(ticket->ssl);
     }
 
-    // note: we SHOULD set this for all OS's but only Windows has a problem without it for now
-    // uv_close calls shutdown if not set
+    // uv_close calls shutdown if not set on Windows
     if (handle) {
         // UV_HANDLE_SHARED_TCP_SOCKET
         handle->flags |= 0x40000000;
@@ -434,15 +433,29 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
     Persistent<Function> *httpRequestCallback = &groupData->httpRequestHandler;
     httpRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
-    group->onHttpRequest([isolate, httpRequestCallback](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
+    group->onHttpRequest([isolate, httpRequestCallback](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
         currentReq = req;
         HandleScope hs(isolate);
-        Local<Value> argv[] = {External::New(isolate, s.getPollHandle()),
-                               Integer::New(isolate, req.getVerb()),
+        Local<Value> argv[] = {External::New(isolate, res),
+                               Integer::New(isolate, req.getMethod()),
                                String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength),
                                ArrayBuffer::New(isolate, (char *) data, length),
                                Integer::New(isolate, remainingBytes)};
         Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 5, argv);
+    });
+}
+
+void onCancelledHttpRequest(const FunctionCallbackInfo<Value> &args) {
+    uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
+    GroupData *groupData = (GroupData *) group->getUserData();
+
+    Isolate *isolate = args.GetIsolate();
+    Persistent<Function> *httpCancelledRequestCallback = &groupData->httpCancelledRequestCallback;
+    httpCancelledRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
+    group->onCancelledHttpRequest([isolate, httpCancelledRequestCallback](uWS::HttpResponse *res) {
+        HandleScope hs(isolate);
+        Local<Value> argv[] = {External::New(isolate, res)};
+        Local<Function>::New(isolate, *httpCancelledRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
     });
 }
 
@@ -457,7 +470,7 @@ void onHttpUpgrade(const FunctionCallbackInfo<Value> &args) {
         currentReq = req;
         HandleScope hs(isolate);
         Local<Value> argv[] = {External::New(isolate, s.getPollHandle()),
-                               Integer::New(isolate, req.getVerb()),
+                               Integer::New(isolate, req.getMethod()),
                                String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength)};
         Local<Function>::New(isolate, *httpUpgradeCallback)->Call(isolate->GetCurrentContext()->Global(), 3, argv);
     });
@@ -465,14 +478,15 @@ void onHttpUpgrade(const FunctionCallbackInfo<Value> &args) {
 
 void httpWrite(const FunctionCallbackInfo<Value> &args) {
     NativeString nativeString(args[1]);
-    uWS::HttpSocket<uWS::SERVER>((uv_poll_t *) args[0].As<External>()->Value()).send(nativeString.getData(), nativeString.getLength());
+    uWS::HttpResponse *res = (uWS::HttpResponse *) args[0].As<External>()->Value();
+    res->write(nativeString.getData(), nativeString.getLength());
 }
 
+// makes the res invalid
 void httpEnd(const FunctionCallbackInfo<Value> &args) {
     NativeString nativeString(args[1]);
-    uWS::HttpSocket<uWS::SERVER> s((uv_poll_t *) args[0].As<External>()->Value());
-    s.send(nativeString.getData(), nativeString.getLength());
-    s.timeOut();
+    uWS::HttpResponse *res = (uWS::HttpResponse *) args[0].As<External>()->Value();
+    res->end(nativeString.getData(), nativeString.getLength());
 }
 
 void getHeader(const FunctionCallbackInfo<Value> &args) {
@@ -510,6 +524,7 @@ struct Namespace {
             NODE_SET_METHOD(group, "listen", listen);
             NODE_SET_METHOD(group, "onHttpRequest", onHttpRequest);
             NODE_SET_METHOD(group, "onHttpUpgrade", onHttpUpgrade);
+            NODE_SET_METHOD(group, "onCancelledHttpRequest", onCancelledHttpRequest);
             NODE_SET_METHOD(object, "httpWrite", httpWrite);
             NODE_SET_METHOD(object, "httpEnd", httpEnd);
             NODE_SET_METHOD(object, "getHeader", getHeader);
