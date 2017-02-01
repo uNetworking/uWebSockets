@@ -120,7 +120,6 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
 
         // used to close sockets not sending requests in time
         bool missedDeadline = false;
-        bool awaitsResponse = false;
 
         // list of responses to end, handed out
         HttpResponse *outstandingResponsesHead = nullptr;
@@ -154,16 +153,6 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
     using uS::Socket::Address;
 
     uv_poll_t *getPollHandle() const {return p;}
-
-    // a socket that is timing out will close if not getting a new request in a while
-    bool isTimingOut() {
-        return !getData()->awaitsResponse;
-    }
-
-    // put socket in timeOut state
-    void timeOut() {
-        getData()->awaitsResponse = false;
-    }
 
     using uS::Socket::shutdown;
     using uS::Socket::close;
@@ -296,7 +285,6 @@ struct HttpResponse {
             }
 
             httpSocket.freeResponse(httpSocket.getData(), this);
-            //delete this;
         }
     }
 

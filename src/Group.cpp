@@ -60,7 +60,7 @@ void Group<isServer>::addHttpSocket(uv_poll_t *httpSocket) {
                 if (httpSocket.getData()->missedDeadline) {
                     // recursive? don't think so!
                     httpSocket.terminate();
-                } else if (!httpSocket.getData()->awaitsResponse) {
+                } else if (!httpSocket.getData()->outstandingResponsesHead) {
                     httpSocket.getData()->missedDeadline = true;
                 }
             });

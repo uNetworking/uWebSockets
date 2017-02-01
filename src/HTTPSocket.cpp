@@ -120,21 +120,16 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                     }
                     return;
                 } else {
-
-
-                    // create res and add it to the HttpSocket's list of outstanding responses
-                    HttpResponse *res = httpSocket.allocateResponse(httpData);//new HttpResponse(s);
-
-                    if (httpData->outstandingResponsesTail) {
-                        httpData->outstandingResponsesTail->next = res;
-                    } else {
-                        httpData->outstandingResponsesHead = res;
-                    }
-                    httpData->outstandingResponsesTail = res;
-
-
                     if (getGroup<SERVER>(s)->httpRequestHandler) {
-                        httpData->awaitsResponse = true;
+
+                        HttpResponse *res = httpSocket.allocateResponse(httpData);
+                        if (httpData->outstandingResponsesTail) {
+                            httpData->outstandingResponsesTail->next = res;
+                        } else {
+                            httpData->outstandingResponsesHead = res;
+                        }
+                        httpData->outstandingResponsesTail = res;
+
                         Header contentLength;
                         if (req.getMethod() != HttpMethod::GET && (contentLength = req.getHeader("content-length", 14))) {
                             httpData->contentLength = atoi(contentLength.value);
