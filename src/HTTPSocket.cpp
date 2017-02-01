@@ -125,16 +125,13 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                     // create res and add it to the HttpSocket's list of outstanding responses
                     HttpResponse *res = new HttpResponse(s);
 
+                    // insert res in queue
                     if (httpData->outstandingResponsesTail) {
                         httpData->outstandingResponsesTail->next = res;
+                    } else {
+                        httpData->outstandingResponsesHead = res;
                     }
                     httpData->outstandingResponsesTail = res;
-
-                    // set head if not already!
-                    if (!httpData->outstandingResponsesHead) {
-                        httpData->outstandingResponsesHead = httpData->outstandingResponsesTail;
-                    }
-
 
 
                     if (getGroup<SERVER>(s)->httpRequestHandler) {
@@ -297,6 +294,13 @@ void HttpSocket<isServer>::onEnd(uS::Socket s) {
             message->callback(nullptr, message->callbackData, true, nullptr);
         }
         httpSocketData->messageQueue.pop();
+    }
+
+    while (httpSocketData->outstandingResponsesHead) {
+        getGroup<isServer>(s)->httpCancelledRequestHandler(httpSocketData->outstandingResponsesHead);
+        HttpResponse *next = httpSocketData->outstandingResponsesHead->next;
+        delete httpSocketData->outstandingResponsesHead;
+        httpSocketData->outstandingResponsesHead = next;
     }
 
     if (!isServer) {

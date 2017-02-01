@@ -137,6 +137,7 @@ Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) :
     httpRequestHandler = [](HttpResponse *, HttpRequest, char *, size_t, size_t) {};
     httpConnectionHandler = [](HttpSocket<isServer>) {};
     httpDisconnectionHandler = [](HttpSocket<isServer>) {};
+    httpCancelledRequestHandler = [](HttpResponse *) {};
     httpDataHandler = [](HttpResponse *, char *, size_t, size_t) {};
 
     this->extensionOptions |= CLIENT_NO_CONTEXT_TAKEOVER | SERVER_NO_CONTEXT_TAKEOVER;
@@ -207,6 +208,11 @@ void Group<isServer>::onHttpData(std::function<void(HttpResponse *, char *, size
 template <bool isServer>
 void Group<isServer>::onHttpDisconnection(std::function<void (HttpSocket<isServer>)> handler) {
     httpDisconnectionHandler = handler;
+}
+
+template <bool isServer>
+void Group<isServer>::onCancelledHttpRequest(std::function<void (HttpResponse *)> handler) {
+    httpCancelledRequestHandler = handler;
 }
 
 template <bool isServer>
