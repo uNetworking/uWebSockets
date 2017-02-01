@@ -931,9 +931,23 @@ void serveEventSource() {
     h.run();
 }
 
+void serveHttp() {
+    uWS::Hub h;
+
+    std::string document = "<h2>Well hello there, this is a basic test!</h2>";
+
+    h.onHttpRequest([&document](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
+        res->end(document.data(), document.length());
+    });
+
+    h.listen(3000);
+    h.run();
+}
+
 int main(int argc, char *argv[])
 {
     //serveEventSource();
+    //serveHttp();
 
     // falls through
     testHTTP();
