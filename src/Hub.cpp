@@ -75,7 +75,7 @@ bool Hub::listen(int port, uS::TLS::Context sslContext, int options, Group<SERVE
     return true;
 }
 
-void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh) {
+void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh, std::string subprotocol) {
     if (!eh) {
         eh = (Group<CLIENT> *) this;
     }
@@ -117,6 +117,7 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh)
         httpSocketData->host = hostname;
         httpSocketData->path = path;
         httpSocketData->httpUser = user;
+        httpSocketData->subprotocol = subprotocol;
 
         uS::Socket s = uS::Node::connect<onClientConnection>(hostname.c_str(), port, secure, httpSocketData);
         if (s) {

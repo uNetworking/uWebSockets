@@ -241,11 +241,16 @@ bool HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
             return false;
         }
     } else {
+        std::string optionalSubprotocol;
+        if (!getData()->subprotocol.empty()) {
+            optionalSubprotocol = "Sec-WebSocket-Protocol: " + getData()->subprotocol + "\r\n";
+        }
         std::string upgradeHeaderBuffer = std::string("GET /") + getData()->path + " HTTP/1.1\r\n"
                                                                                    "Upgrade: websocket\r\n"
                                                                                    "Connection: Upgrade\r\n"
                                                                                    "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"
                                                                                    "Host: " + getData()->host + "\r\n"
+                                                                                   + optionalSubprotocol +
                                                                                    "Sec-WebSocket-Version: 13\r\n\r\n";
 
         uS::SocketData::Queue::Message *messagePtr = allocMessage(upgradeHeaderBuffer.length(), upgradeHeaderBuffer.data());
