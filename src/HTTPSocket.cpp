@@ -59,6 +59,8 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
     HttpSocket httpSocket(s);
     HttpSocket::Data *httpData = httpSocket.getData();
 
+    httpSocket.cork(true);
+
     if (httpData->contentLength) {
         httpData->missedDeadline = false;
         if (httpData->contentLength >= length) {
@@ -182,6 +184,7 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
         }
     } while(cursor != end);
 
+    httpSocket.cork(false);
     httpData->httpBuffer.clear();
 }
 
