@@ -32,6 +32,10 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight :-1: | µWS is **4x** as per
 
 *HTTP 1.1 benchmark using wrk. All servers but Apache are single threaded and all serve a static page with no PHP, database queries or similar. Apache performance is estimated by dividing its multi-process performance by number of CPU cores.*
 
+![](images/pipelining_benchmark.png)
+
+*Experimental HTTP 1.1 benchmark using wrk + Japronto's own (ridiculous) pipeline script.*
+
 ## Built with µWS
 <div align="center"><img src="images/builtwithuws.png"/></div>
 
