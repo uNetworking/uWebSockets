@@ -514,92 +514,22 @@ class Server extends EventEmitter {
     }
 }
 
-class ServerResponse {
-
-    constructor(external) {
-        this.external = external;
-        this.headLess = true;
-        this.implicitHead = 'HTTP/1.1 200 OK\r\n';
-    }
-
-    setHeader(key, value) {
-        this.implicitHead += key + ': ' + value + '\r\n';
-    }
-
-    writeHead(statusCode, statusMessage, headers) {
-        if (this.external) {
-            if (typeof statusMessage !== 'string') {
-                headers = statusMessage;
-                statusMessage = 'OK';
-            }
-
-            let head = 'HTTP/1.1 ' + statusCode + ' ' + statusMessage + '\r\n';
-            for (let key in headers) {
-                head += key + ': ' + headers[key] + '\r\n';
-            }
-            head += '\r\n';
-            // todo: add headers from setHeader here
-            native.server.httpWrite(this.external, head);
-            this.headLess = false;
-        }
-    }
-
-    write(data) {
-        if (this.external) {
-            if (this.headLess) {
-                data = this.implicitHead + '\r\n' + data;
-                this.headLess = false;
-            }
-            native.server.httpWrite(this.external, data);
-        }
-    }
-
-    end(data) {
-        if (this.external) {
-            if (this.headLess) {
-                data = this.implicitHead + 'Content-Length: ' + data.length + '\r\n\r\n' + data;
-                this.headLess = false;
-            }
-            native.server.httpEnd(this.external, data);
-        }
-    }
-
-    get _isNative() {
-        return true;
-    }
-}
-
+// todo: move this whole thing into the addon
 class HttpServer extends EventEmitter {
-
-    verbToString(verb) {
-        switch (verb) {
-            case 0: return 'GET';
-            case 1: return 'POST';
-            case 2: return 'PUT';
-            case 3: return 'DELETE';
-            case 4: return 'PATCH';
-            case 5: break;
-        }
-        return 'INVALID';
-    }
 
     constructor(reqCb) {
         super();
         this.serverGroup = native.server.group.create();
 
-        native.server.group.onHttpRequest(this.serverGroup, (external, verb, url, data, remainingBytes) => {
-            this.emit('request', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new ServerResponse(external));
+        native.server.group.onHttpRequest(this.serverGroup, reqCb);
+
+        native.server.group.onHttpUpgrade(this.serverGroup, (req, res) => {
+
         });
 
-        native.server.group.onHttpUpgrade(this.serverGroup, (external, verb, url) => {
-            this.emit('upgrade', {url: url, method: this.verbToString(verb), getHeader: native.server.getHeader}, new ServerResponse(external));
+        native.server.group.onCancelledHttpRequest(this.serverGroup, (res) => {
+            // emit abort or something here
         });
-
-        native.server.group.onCancelledHttpRequest(this.serverGroup, (external) => {
-            console.log('Request got invalidated!');
-        });
-
-        this.on('request', reqCb);
     }
 
     static createServer(reqCb) {

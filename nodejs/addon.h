@@ -13,6 +13,8 @@ uv_check_t check;
 Persistent<Function> noop;
 uWS::HttpRequest currentReq;
 
+Persistent<Object> reqObject, resTemplate;
+
 void registerCheck(Isolate *isolate) {
     uv_check_init(hub.getLoop(), &check);
     check.data = isolate;
@@ -436,12 +438,18 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     group->onHttpRequest([isolate, httpRequestCallback](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
         currentReq = req;
         HandleScope hs(isolate);
-        Local<Value> argv[] = {External::New(isolate, res),
-                               Integer::New(isolate, req.getMethod()),
-                               String::NewFromUtf8(isolate, req.getUrl().value, String::kNormalString, req.getUrl().valueLength),
-                               ArrayBuffer::New(isolate, (char *) data, length),
-                               Integer::New(isolate, remainingBytes)};
-        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 5, argv);
+
+        Local<Object> resObject = Local<Object>::New(isolate, resTemplate)->Clone();
+        resObject->SetAlignedPointerInInternalField(0, res);
+        if (sizeof(Persistent<Object>) != sizeof(void *)) {
+            std::cerr << "Error: sizeof(Persistent<Object>) != sizeof(void *)" << std::endl;
+            std::terminate();
+        } else {
+            new (&res->userData) Persistent<Object>(isolate, resObject);
+        }
+
+        Local<Value> argv[] = {Local<Object>::New(isolate, reqObject), resObject};
+        Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
     });
 }
 
@@ -454,7 +462,12 @@ void onCancelledHttpRequest(const FunctionCallbackInfo<Value> &args) {
     httpCancelledRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
     group->onCancelledHttpRequest([isolate, httpCancelledRequestCallback](uWS::HttpResponse *res) {
         HandleScope hs(isolate);
-        Local<Value> argv[] = {External::New(isolate, res)};
+
+        Persistent<Object> *resObjectPersistent = (Persistent<Object> *) &res->userData;
+        Local<Object> resObject = Local<Object>::New(isolate, *resObjectPersistent);
+        resObject->SetAlignedPointerInInternalField(0, nullptr);
+
+        Local<Value> argv[] = {resObject};
         Local<Function>::New(isolate, *httpCancelledRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
     });
 }
@@ -476,25 +489,67 @@ void onHttpUpgrade(const FunctionCallbackInfo<Value> &args) {
     });
 }
 
-void httpWrite(const FunctionCallbackInfo<Value> &args) {
-    NativeString nativeString(args[1]);
-    uWS::HttpResponse *res = (uWS::HttpResponse *) args[0].As<External>()->Value();
-    res->write(nativeString.getData(), nativeString.getLength());
-}
-
-// makes the res invalid
-void httpEnd(const FunctionCallbackInfo<Value> &args) {
-    NativeString nativeString(args[1]);
-    uWS::HttpResponse *res = (uWS::HttpResponse *) args[0].As<External>()->Value();
-    res->end(nativeString.getData(), nativeString.getLength());
-}
-
-void getHeader(const FunctionCallbackInfo<Value> &args) {
+void reqGetHeader(const FunctionCallbackInfo<Value> &args) {
     NativeString nativeString(args[0]);
     uWS::Header header = currentReq.getHeader(nativeString.getData(), nativeString.getLength());
     if (header) {
         args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), header.value, String::kNormalString, header.valueLength));
     }
+}
+
+void reqUrl(Local<String> property, const PropertyCallbackInfo<Value> &args) {
+    args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), currentReq.getUrl().value, String::kNormalString, currentReq.getUrl().valueLength));
+}
+
+// todo: implement
+void reqMethod(Local<String> property, const PropertyCallbackInfo<Value> &args) {
+    args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), currentReq.getUrl().value, String::kNormalString, currentReq.getUrl().valueLength));
+}
+
+void resEnd(const FunctionCallbackInfo<Value> &args) {
+    uWS::HttpResponse *res = (uWS::HttpResponse *) args.Holder()->GetAlignedPointerFromInternalField(0);
+
+    if (!res) {
+        std::cout << "Info: this response has already closed!" << std::endl;
+        return;
+    }
+
+    NativeString nativeString(args[0]);
+
+    ((Persistent<Value> *) &res->userData)->Reset();
+    ((Persistent<Value> *) &res->userData)->~Persistent<Value>();
+    res->end(nativeString.getData(), nativeString.getLength());
+}
+
+// todo: implement
+void resWriteHead(const FunctionCallbackInfo<Value> &args) {
+    uWS::HttpResponse *res = (uWS::HttpResponse *) args.Holder()->GetAlignedPointerFromInternalField(0);
+
+    if (!res) {
+        std::cout << "Info: this response has already closed!" << std::endl;
+        return;
+    }
+
+    NativeString nativeString(args[0]);
+
+    ((Persistent<Value> *) &res->userData)->Reset();
+    ((Persistent<Value> *) &res->userData)->~Persistent<Value>();
+    res->end(nativeString.getData(), nativeString.getLength());
+}
+
+void resWrite(const FunctionCallbackInfo<Value> &args) {
+    uWS::HttpResponse *res = (uWS::HttpResponse *) args.Holder()->GetAlignedPointerFromInternalField(0);
+
+    if (!res) {
+        std::cout << "Info: this response has already closed!" << std::endl;
+        return;
+    }
+
+    NativeString nativeString(args[0]);
+
+    ((Persistent<Value> *) &res->userData)->Reset();
+    ((Persistent<Value> *) &res->userData)->~Persistent<Value>();
+    res->end(nativeString.getData(), nativeString.getLength());
 }
 
 template <bool isServer>
@@ -525,9 +580,6 @@ struct Namespace {
             NODE_SET_METHOD(group, "onHttpRequest", onHttpRequest);
             NODE_SET_METHOD(group, "onHttpUpgrade", onHttpUpgrade);
             NODE_SET_METHOD(group, "onCancelledHttpRequest", onCancelledHttpRequest);
-            NODE_SET_METHOD(object, "httpWrite", httpWrite);
-            NODE_SET_METHOD(object, "httpEnd", httpEnd);
-            NODE_SET_METHOD(object, "getHeader", getHeader);
         }
 
         NODE_SET_METHOD(group, "onPing", onPing<isServer>);
