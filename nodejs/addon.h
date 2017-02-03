@@ -489,8 +489,8 @@ void onHttpUpgrade(const FunctionCallbackInfo<Value> &args) {
     });
 }
 
-void reqGetHeader(const FunctionCallbackInfo<Value> &args) {
-    NativeString nativeString(args[0]);
+void reqGetHeader(Local<String> property, const PropertyCallbackInfo<Value> &args) {
+    NativeString nativeString(property);
     uWS::Header header = currentReq.getHeader(nativeString.getData(), nativeString.getLength());
     if (header) {
         args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), header.value, String::kNormalString, header.valueLength));

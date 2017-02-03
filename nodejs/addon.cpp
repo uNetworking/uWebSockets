@@ -7,8 +7,11 @@ void Main(Local<Object> exports) {
     exports->Set(String::NewFromUtf8(isolate, "server"), Namespace<uWS::SERVER>(isolate).object);
     exports->Set(String::NewFromUtf8(isolate, "client"), Namespace<uWS::CLIENT>(isolate).object);
 
+    Local<ObjectTemplate> headersTemplate = ObjectTemplate::New(isolate);
+    headersTemplate->SetNamedPropertyHandler(reqGetHeader);
+
     Local<FunctionTemplate> reqTemplateLocal = FunctionTemplate::New(isolate);
-    reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "getHeader"), FunctionTemplate::New(isolate, reqGetHeader));
+    reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "headers"), headersTemplate->NewInstance());
     reqTemplateLocal->PrototypeTemplate()->SetAccessor(String::NewFromUtf8(isolate, "url"), reqUrl);
     reqTemplateLocal->PrototypeTemplate()->SetAccessor(String::NewFromUtf8(isolate, "method"), reqMethod);
     reqObject.Reset(isolate, reqTemplateLocal->GetFunction()->NewInstance());
