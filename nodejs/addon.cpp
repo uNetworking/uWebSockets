@@ -10,14 +10,18 @@ void Main(Local<Object> exports) {
     Local<ObjectTemplate> headersTemplate = ObjectTemplate::New(isolate);
     headersTemplate->SetNamedPropertyHandler(reqGetHeader);
 
+    // reqObject has room for 5 pointers - on('data', 'end') most important
     Local<FunctionTemplate> reqTemplateLocal = FunctionTemplate::New(isolate);
+    reqTemplateLocal->InstanceTemplate()->SetInternalFieldCount(5);
     reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "headers"), headersTemplate->NewInstance());
     reqTemplateLocal->PrototypeTemplate()->SetAccessor(String::NewFromUtf8(isolate, "url"), reqUrl);
     reqTemplateLocal->PrototypeTemplate()->SetAccessor(String::NewFromUtf8(isolate, "method"), reqMethod);
-    reqObject.Reset(isolate, reqTemplateLocal->GetFunction()->NewInstance());
+    reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, reqOn));
+    reqTemplate.Reset(isolate, reqTemplateLocal->GetFunction()->NewInstance());
 
+    // resObject has room for 5 pointers
     Local<FunctionTemplate> resTemplateLocal = FunctionTemplate::New(isolate);
-    resTemplateLocal->InstanceTemplate()->SetInternalFieldCount(1);
+    resTemplateLocal->InstanceTemplate()->SetInternalFieldCount(5);
     resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "end"), FunctionTemplate::New(isolate, resEnd));
     resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "writeHead"), FunctionTemplate::New(isolate, resWriteHead));
     resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "write"), FunctionTemplate::New(isolate, resWrite));

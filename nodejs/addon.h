@@ -13,7 +13,7 @@ uv_check_t check;
 Persistent<Function> noop;
 uWS::HttpRequest currentReq;
 
-Persistent<Object> reqObject, resTemplate;
+Persistent<Object> reqTemplate, resTemplate;
 
 void registerCheck(Isolate *isolate) {
     uv_check_init(hub.getLoop(), &check);
@@ -428,6 +428,7 @@ void listen(const FunctionCallbackInfo<Value> &args) {
     hub.listen(args[1]->IntegerValue(), nullptr, 0, group);
 }
 
+// basically the constructor of the HttpServer
 void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
     uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
     GroupData *groupData = (GroupData *) group->getUserData();
@@ -439,25 +440,73 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
         currentReq = req;
         HandleScope hs(isolate);
 
-        Local<Object> resObject = Local<Object>::New(isolate, resTemplate)->Clone();
-        resObject->SetAlignedPointerInInternalField(0, res);
         if (sizeof(Persistent<Object>) != sizeof(void *)) {
             std::cerr << "Error: sizeof(Persistent<Object>) != sizeof(void *)" << std::endl;
             std::terminate();
-        } else {
-            new (&res->userData) Persistent<Object>(isolate, resObject);
         }
 
-        Local<Value> argv[] = {Local<Object>::New(isolate, reqObject), resObject};
+        Local<Object> reqObject = Local<Object>::New(isolate, reqTemplate)->Clone();
+        reqObject->SetAlignedPointerInInternalField(0, &req);
+        reqObject->SetAlignedPointerInInternalField(1, nullptr);
+        reqObject->SetAlignedPointerInInternalField(2, nullptr);
+        //new (&res->userData) Persistent<Object>(isolate, reqObject);
+
+        Local<Object> resObject = Local<Object>::New(isolate, resTemplate)->Clone();
+        resObject->SetAlignedPointerInInternalField(0, res);
+        new (&res->userData) Persistent<Object>(isolate, resObject);
+
+        Local<Value> argv[] = {reqObject, resObject};
         Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
+
+        // initial data post wrapper
+        if (length) {
+            Persistent<Function> *dataCallback = (Persistent<Function> *) reqObject->GetAlignedPointerFromInternalField(1);
+            if (dataCallback) {
+                Local<Value> argv[] = {ArrayBuffer::New(isolate, data, length)};
+                Local<Function>::New(isolate, *dataCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+            }
+
+            if (!remainingBytes) {
+                Persistent<Function> *endCallback = (Persistent<Function> *) reqObject->GetAlignedPointerFromInternalField(2);
+                if (endCallback) {
+                    //Local<Value> argv[] = {ArrayBuffer::New(isolate, data, length)};
+                    Local<Function>::New(isolate, *endCallback)->Call(isolate->GetCurrentContext()->Global(), 0, argv);
+                }
+
+                // release events here?
+            }
+        }
     });
+
+    group->onCancelledHttpRequest([isolate](uWS::HttpResponse *res) {
+        HandleScope hs(isolate);
+
+        Persistent<Object> *resObjectPersistent = (Persistent<Object> *) &res->userData;
+        Local<Object> resObject = Local<Object>::New(isolate, *resObjectPersistent);
+        resObject->SetAlignedPointerInInternalField(0, nullptr);
+
+        // if res has abort event set, then call this here!
+        //Local<Value> argv[] = {resObject};
+        //Local<Function>::New(isolate, *httpCancelledRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+    });
+
+
+    /*group->onHttpData([](uWS::HttpResponse *res, char *data, size_t length, size_t remainingBytes) {
+
+        std::cout << "Got some data!" << std::endl;
+
+        // res -> reqObject
+    });*/
 }
 
+// this should not be used
 void onCancelledHttpRequest(const FunctionCallbackInfo<Value> &args) {
     uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args[0].As<External>()->Value();
     GroupData *groupData = (GroupData *) group->getUserData();
 
     Isolate *isolate = args.GetIsolate();
+
+
     Persistent<Function> *httpCancelledRequestCallback = &groupData->httpCancelledRequestCallback;
     httpCancelledRequestCallback->Reset(isolate, Local<Function>::Cast(args[1]));
     group->onCancelledHttpRequest([isolate, httpCancelledRequestCallback](uWS::HttpResponse *res) {
@@ -489,6 +538,16 @@ void onHttpUpgrade(const FunctionCallbackInfo<Value> &args) {
     });
 }
 
+void reqOn(const FunctionCallbackInfo<Value> &args) {
+    NativeString eventName(args[0]);
+    if (std::string(eventName.getData(), eventName.getLength()) == "data") {
+        args.Holder()->SetAlignedPointerInInternalField(1, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
+    } else if (std::string(eventName.getData(), eventName.getLength()) == "end") {
+        args.Holder()->SetAlignedPointerInInternalField(2, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
+    }
+    args.GetReturnValue().Set(args.Holder());
+}
+
 void reqGetHeader(Local<String> property, const PropertyCallbackInfo<Value> &args) {
     NativeString nativeString(property);
     uWS::Header header = currentReq.getHeader(nativeString.getData(), nativeString.getLength());
@@ -498,12 +557,14 @@ void reqGetHeader(Local<String> property, const PropertyCallbackInfo<Value> &arg
 }
 
 void reqUrl(Local<String> property, const PropertyCallbackInfo<Value> &args) {
-    args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), currentReq.getUrl().value, String::kNormalString, currentReq.getUrl().valueLength));
+    args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) currentReq.getUrl().value, String::kNormalString, currentReq.getUrl().valueLength));
 }
 
-// todo: implement
 void reqMethod(Local<String> property, const PropertyCallbackInfo<Value> &args) {
-    args.GetReturnValue().Set(String::NewFromUtf8(args.GetIsolate(), currentReq.getUrl().value, String::kNormalString, currentReq.getUrl().valueLength));
+    for (int i = 0; i < currentReq.getUrl().keyLength; i++) {
+        currentReq.getUrl().key[i] &= ~32;
+    }
+    args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) currentReq.getUrl().key, String::kNormalString, currentReq.getUrl().keyLength));
 }
 
 void resEnd(const FunctionCallbackInfo<Value> &args) {
