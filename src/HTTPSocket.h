@@ -185,6 +185,7 @@ struct HttpResponse {
     HttpSocket<true> httpSocket;
     HttpResponse *next = nullptr;
     void *userData = nullptr;
+    void *extraUserData = nullptr;
     uS::SocketData::Queue::Message *messageQueue = nullptr;
     bool hasEnded = false;
 

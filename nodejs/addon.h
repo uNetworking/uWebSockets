@@ -449,7 +449,7 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
         reqObject->SetAlignedPointerInInternalField(0, &req);
         reqObject->SetAlignedPointerInInternalField(1, nullptr);
         reqObject->SetAlignedPointerInInternalField(2, nullptr);
-        //new (&res->userData) Persistent<Object>(isolate, reqObject);
+        new (&res->extraUserData) Persistent<Object>(isolate, reqObject);
 
         Local<Object> resObject = Local<Object>::New(isolate, resTemplate)->Clone();
         resObject->SetAlignedPointerInInternalField(0, res);
@@ -579,6 +579,9 @@ void resEnd(const FunctionCallbackInfo<Value> &args) {
 
     ((Persistent<Value> *) &res->userData)->Reset();
     ((Persistent<Value> *) &res->userData)->~Persistent<Value>();
+
+    ((Persistent<Value> *) &res->extraUserData)->Reset();
+    ((Persistent<Value> *) &res->extraUserData)->~Persistent<Value>();
     res->end(nativeString.getData(), nativeString.getLength());
 }
 
