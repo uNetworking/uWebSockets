@@ -2,8 +2,10 @@
 
 const uws = require('./dist/uws');
 
+const document = Buffer.from('Hello world!');
+
 const server = uws.http.createServer((req, res) => {
-    res.end('Welcome to the 90s!\n');
+    res.end(document);
 });
 
 const wss = new uws.Server({server: server});
