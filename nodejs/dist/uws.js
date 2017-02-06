@@ -102,7 +102,7 @@ class WebSocket {
         } else {
             this.internalOnOpen = noop;
         }
-    }   
+    }
 
     set onclose(f) {
         if (f) {
@@ -463,7 +463,7 @@ class Server extends EventEmitter {
             const secKey = request.headers['sec-websocket-key'];
             const socketHandle = socket.ssl ? socket._parent._handle : socket._handle;
             const sslState = socket.ssl ? socket.ssl._external : null;
-            if (secKey && secKey.length == 24) {
+            if (socketHandle && secKey && secKey.length == 24) {
                 socket.setNoDelay(this._noDelay);
                 const ticket = native.transfer(socketHandle.fd === -1 ? socketHandle : socketHandle.fd, sslState);
                 socket.on('close', (error) => {
