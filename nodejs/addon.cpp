@@ -13,11 +13,12 @@ void Main(Local<Object> exports) {
     // reqObject has room for 5 pointers - on('data', 'end') most important
     Local<FunctionTemplate> reqTemplateLocal = FunctionTemplate::New(isolate);
     reqTemplateLocal->InstanceTemplate()->SetInternalFieldCount(5);
-    reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "headers"), headersTemplate->NewInstance());
     reqTemplateLocal->PrototypeTemplate()->SetAccessor(String::NewFromUtf8(isolate, "url"), reqUrl);
     reqTemplateLocal->PrototypeTemplate()->SetAccessor(String::NewFromUtf8(isolate, "method"), reqMethod);
     reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, reqOn));
-    reqTemplate.Reset(isolate, reqTemplateLocal->GetFunction()->NewInstance());
+    Local<Object> reqObjectLocal = reqTemplateLocal->GetFunction()->NewInstance();
+    reqObjectLocal->Set(String::NewFromUtf8(isolate, "headers"), headersTemplate->NewInstance());
+    reqTemplate.Reset(isolate, reqObjectLocal);
 
     // resObject has room for 5 pointers
     Local<FunctionTemplate> resTemplateLocal = FunctionTemplate::New(isolate);
