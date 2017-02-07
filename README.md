@@ -11,7 +11,7 @@
 * Permessage-deflate built-in.
 * Node.js binding exposed as the well-known `ws` interface (`uws` is at least 20x faster and 20x more scalable).
 
-[![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/uWebSockets/uWebSockets)
+[![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](images/patreon.png)](https://www.patreon.com/uWebSockets)
 
 ## Benchmarks table - [validate](https://github.com/alexhultman/uWebSockets/tree/master/benchmarks#websocket-echo-server-benchmarks)
 Implementation | User space memory scaling | Connection performance | Short message throughput | Huge message throughput
