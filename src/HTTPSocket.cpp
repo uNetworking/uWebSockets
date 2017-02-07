@@ -124,7 +124,7 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                 } else {
                     if (getGroup<SERVER>(s)->httpRequestHandler) {
 
-                        HttpResponse *res = httpSocket.allocateResponse(httpData);
+                        HttpResponse *res = HttpResponse::allocateResponse(httpSocket, httpData);
                         if (httpData->outstandingResponsesTail) {
                             httpData->outstandingResponsesTail->next = res;
                         } else {

@@ -130,24 +130,6 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
         Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
     };
 
-    HttpResponse *allocateResponse(Data *httpData) {
-        if (httpData->preAllocatedResponse) {
-            HttpResponse *ret = httpData->preAllocatedResponse;
-            httpData->preAllocatedResponse = nullptr;
-            return ret;
-        } else {
-            return new HttpResponse(*this);
-        }
-    }
-
-    void freeResponse(Data *httpData, HttpResponse *response) {
-        if (httpData->preAllocatedResponse) {
-            delete response;
-        } else {
-            httpData->preAllocatedResponse = response;
-        }
-    }
-
     using uS::Socket::getUserData;
     using uS::Socket::setUserData;
     using uS::Socket::getAddress;
@@ -191,6 +173,26 @@ struct HttpResponse {
 
     HttpResponse(HttpSocket<true> httpSocket) : httpSocket(httpSocket) {
 
+    }
+
+    template <bool isServer>
+    static HttpResponse *allocateResponse(HttpSocket<isServer> httpSocket, typename HttpSocket<isServer>::Data *httpData) {
+        if (httpData->preAllocatedResponse) {
+            HttpResponse *ret = httpData->preAllocatedResponse;
+            httpData->preAllocatedResponse = nullptr;
+            return ret;
+        } else {
+            return new HttpResponse(httpSocket);
+        }
+    }
+
+    //template <bool isServer>
+    void freeResponse(typename HttpSocket<true>::Data *httpData) {
+        if (httpData->preAllocatedResponse) {
+            delete this;
+        } else {
+            httpData->preAllocatedResponse = this;
+        }
     }
 
     // todo
@@ -275,8 +277,7 @@ struct HttpResponse {
                     break;
                 } else {
                     HttpResponse *next = head->next;
-                    //delete head;
-                    httpSocket.freeResponse(httpSocket.getData(), head);
+                    head->freeResponse(httpSocket.getData());
                     head = next;
                 }
             }
@@ -286,7 +287,7 @@ struct HttpResponse {
                 httpSocket.getData()->outstandingResponsesTail = nullptr;
             }
 
-            httpSocket.freeResponse(httpSocket.getData(), this);
+            freeResponse(httpSocket.getData());
         }
     }
 
