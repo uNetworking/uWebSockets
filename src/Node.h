@@ -21,7 +21,7 @@ protected:
 public:
     Node(int recvLength = 1024, int prePadding = 0, int postPadding = 0, bool useDefaultLoop = false);
     ~Node();
-    void run();
+    void run(uv_run_mode mode = UV_RUN_DEFAULT);
 
     uv_loop_t *getLoop() {
         return loop;
