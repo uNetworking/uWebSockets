@@ -570,50 +570,60 @@ void reqMethod(Local<String> property, const PropertyCallbackInfo<Value> &args) 
 void resEnd(const FunctionCallbackInfo<Value> &args) {
     uWS::HttpResponse *res = (uWS::HttpResponse *) args.Holder()->GetAlignedPointerFromInternalField(0);
 
-    if (!res) {
-        std::cout << "Info: this response has already closed!" << std::endl;
-        return;
+    if (res) {
+        NativeString nativeString(args[0]);
+
+        ((Persistent<Value> *) &res->userData)->Reset();
+        ((Persistent<Value> *) &res->userData)->~Persistent<Value>();
+        ((Persistent<Value> *) &res->extraUserData)->Reset();
+        ((Persistent<Value> *) &res->extraUserData)->~Persistent<Value>();
+        res->end(nativeString.getData(), nativeString.getLength());
     }
-
-    NativeString nativeString(args[0]);
-
-    ((Persistent<Value> *) &res->userData)->Reset();
-    ((Persistent<Value> *) &res->userData)->~Persistent<Value>();
-
-    ((Persistent<Value> *) &res->extraUserData)->Reset();
-    ((Persistent<Value> *) &res->extraUserData)->~Persistent<Value>();
-    res->end(nativeString.getData(), nativeString.getLength());
 }
 
-// todo: implement
 void resWriteHead(const FunctionCallbackInfo<Value> &args) {
     uWS::HttpResponse *res = (uWS::HttpResponse *) args.Holder()->GetAlignedPointerFromInternalField(0);
 
-    if (!res) {
-        std::cout << "Info: this response has already closed!" << std::endl;
-        return;
+    if (res) {
+        std::string head = "HTTP/1.1 " + std::to_string(args[0]->IntegerValue()) + " ";
+
+        Local<Object> headersObject;
+        if (args[1]->IsString()) {
+            NativeString statusMessage(args[1]);
+            head.append(statusMessage.getData(), statusMessage.getLength());
+            headersObject = args[2]->ToObject();
+        } else {
+            head += "OK";
+            headersObject = args[1]->ToObject();
+        }
+
+        Local<Array> headers = headersObject->GetOwnPropertyNames();
+        for (int i = 0; i < headers->Length(); i++) {
+            Local<Value> key = headers->Get(i);
+            Local<Value> value = headersObject->Get(key);
+
+            NativeString nativeKey(key);
+            NativeString nativeValue(value);
+
+            head += "\r\n";
+            head.append(nativeKey.getData(), nativeKey.getLength());
+            head += ": ";
+            head.append(nativeValue.getData(), nativeValue.getLength());
+        }
+
+        head += "\r\n\r\n";
+        res->write(head.data(), head.length());
     }
-
-    NativeString nativeString(args[0]);
-
-    ((Persistent<Value> *) &res->userData)->Reset();
-    ((Persistent<Value> *) &res->userData)->~Persistent<Value>();
-    res->end(nativeString.getData(), nativeString.getLength());
 }
 
+// todo: if not writeHead called before then should write implicit headers
 void resWrite(const FunctionCallbackInfo<Value> &args) {
     uWS::HttpResponse *res = (uWS::HttpResponse *) args.Holder()->GetAlignedPointerFromInternalField(0);
 
-    if (!res) {
-        std::cout << "Info: this response has already closed!" << std::endl;
-        return;
+    if (res) {
+        NativeString nativeString(args[0]);
+        res->write(nativeString.getData(), nativeString.getLength());
     }
-
-    NativeString nativeString(args[0]);
-
-    ((Persistent<Value> *) &res->userData)->Reset();
-    ((Persistent<Value> *) &res->userData)->~Persistent<Value>();
-    res->end(nativeString.getData(), nativeString.getLength());
 }
 
 template <bool isServer>
