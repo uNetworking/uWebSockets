@@ -105,9 +105,10 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                         Header secKey = req.getHeader("sec-websocket-key", 17);
                         Header extensions = req.getHeader("sec-websocket-extensions", 24);
                         Header subprotocol = req.getHeader("sec-websocket-protocol", 22);
-                        bool perMessageDeflate;
-                        if (secKey.valueLength == 24 && httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
-                                                                           subprotocol.value, subprotocol.valueLength, &perMessageDeflate)) {
+                        if (secKey.valueLength == 24) {
+                            bool perMessageDeflate;
+                            httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
+                                               subprotocol.value, subprotocol.valueLength, &perMessageDeflate);
                             getGroup<SERVER>(s)->removeHttpSocket(s);
                             s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
                             getGroup<SERVER>(s)->addWebSocket(s);
@@ -116,7 +117,6 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                             s.cork(false);
                             delete httpData;
                         } else {
-                            // note: not needed, we can let the poll catch any errors
                             httpSocket.onEnd(s);
                         }
                     }
@@ -190,8 +190,11 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
 // todo: make this into a transformer and make use of sendTransformed
 template <bool isServer>
-bool HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength,
+void HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength,
                                    const char *subprotocol, size_t subprotocolLength, bool *perMessageDeflate) {
+
+    uS::SocketData::Queue::Message *messagePtr;
+
     if (isServer) {
         *perMessageDeflate = false;
         std::string extensionsResponse;
@@ -231,45 +234,22 @@ bool HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
         memcpy(upgradeBuffer + upgradeResponseLength, stamp, sizeof(stamp) - 1);
         upgradeResponseLength += sizeof(stamp) - 1;
 
-        uS::SocketData::Queue::Message *messagePtr = allocMessage(upgradeResponseLength, upgradeBuffer);
-        bool wasTransferred;
-        if (write(messagePtr, wasTransferred)) {
-            if (!wasTransferred) {
-                freeMessage(messagePtr);
-            } else {
-                messagePtr->callback = nullptr;
-            }
+        messagePtr = allocMessage(upgradeResponseLength, upgradeBuffer);
+    } else {
+        messagePtr = allocMessage(getData()->httpBuffer.length(), getData()->httpBuffer.data());
+        getData()->httpBuffer.clear();
+    }
+
+    bool wasTransferred;
+    if (write(messagePtr, wasTransferred)) {
+        if (!wasTransferred) {
+            freeMessage(messagePtr);
         } else {
-            onEnd(*this);
-            return false;
+            messagePtr->callback = nullptr;
         }
     } else {
-        std::string optionalSubprotocol;
-        if (!getData()->subprotocol.empty()) {
-            optionalSubprotocol = "Sec-WebSocket-Protocol: " + getData()->subprotocol + "\r\n";
-        }
-        std::string upgradeHeaderBuffer = std::string("GET /") + getData()->path + " HTTP/1.1\r\n"
-                                                                                   "Upgrade: websocket\r\n"
-                                                                                   "Connection: Upgrade\r\n"
-                                                                                   "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"
-                                                                                   "Host: " + getData()->host + "\r\n"
-                                                                                   + optionalSubprotocol +
-                                                                                   "Sec-WebSocket-Version: 13\r\n\r\n";
-
-        uS::SocketData::Queue::Message *messagePtr = allocMessage(upgradeHeaderBuffer.length(), upgradeHeaderBuffer.data());
-        bool wasTransferred;
-        if (write(messagePtr, wasTransferred)) {
-            if (!wasTransferred) {
-                freeMessage(messagePtr);
-            } else {
-                messagePtr->callback = nullptr;
-            }
-        } else {
-            onEnd(*this);
-            return false;
-        }
+        freeMessage(messagePtr);
     }
-    return true;
 }
 
 template <bool isServer>

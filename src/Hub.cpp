@@ -114,10 +114,18 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh,
         uS::SocketData socketData((uS::NodeData *) eh);
         HttpSocket<CLIENT>::Data *httpSocketData = new HttpSocket<CLIENT>::Data(&socketData);
 
-        httpSocketData->host = hostname;
-        httpSocketData->path = path;
+        std::string optionalSubprotocol;
+        if (!subprotocol.empty()) {
+            optionalSubprotocol = "Sec-WebSocket-Protocol: " + subprotocol + "\r\n";
+        }
         httpSocketData->httpUser = user;
-        httpSocketData->subprotocol = subprotocol;
+        httpSocketData->httpBuffer = "GET /" + path + " HTTP/1.1\r\n"
+                                     "Upgrade: websocket\r\n"
+                                     "Connection: Upgrade\r\n"
+                                     "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"
+                                     "Host: " + hostname + "\r\n"
+                                     + optionalSubprotocol +
+                                     "Sec-WebSocket-Version: 13\r\n\r\n";
 
         uS::Socket s = uS::Node::connect<onClientConnection>(hostname.c_str(), port, secure, httpSocketData);
         if (s) {
@@ -129,7 +137,7 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh,
     }
 }
 
-bool Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup) {
+void Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup) {
     if (!serverGroup) {
         serverGroup = &getDefaultGroup<SERVER>();
     }
@@ -141,14 +149,11 @@ bool Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
     s.enterState<HttpSocket<SERVER>>(temporaryHttpData);
 
     bool perMessageDeflate;
-    if (HttpSocket<SERVER>(s).upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate)) {
-        s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
-        serverGroup->addWebSocket(s);
-        serverGroup->connectionHandler(WebSocket<SERVER>(s), HttpRequest({}));
-        delete temporaryHttpData;
-        return true;
-    }
-    return false;
+    HttpSocket<SERVER>(s).upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate);
+    s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
+    serverGroup->addWebSocket(s);
+    serverGroup->connectionHandler(WebSocket<SERVER>(s), HttpRequest({}));
+    delete temporaryHttpData;
 }
 
 }

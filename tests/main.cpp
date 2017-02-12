@@ -953,7 +953,7 @@ void serveHttp() {
 int main(int argc, char *argv[])
 {
     //serveEventSource();
-    serveHttp();
+    //serveHttp();
 
     // falls through
     testHTTP();

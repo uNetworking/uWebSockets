@@ -112,17 +112,9 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
     struct Data : uS::SocketData {
         std::string httpBuffer;
         size_t contentLength = 0;
-
-        // todo: limit these to only client, but who cares for now?
-        std::string path;
-        std::string host;
-        std::string subprotocol;
         void *httpUser;
-
-        // used to close sockets not sending requests in time
         bool missedDeadline = false;
 
-        // list of responses to end, handed out
         HttpResponse *outstandingResponsesHead = nullptr;
         HttpResponse *outstandingResponsesTail = nullptr;
         HttpResponse *preAllocatedResponse = nullptr;
@@ -150,7 +142,7 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
         return (HttpSocket::Data *) getSocketData();
     }
 
-    bool upgrade(const char *secKey, const char *extensions,
+    void upgrade(const char *secKey, const char *extensions,
                  size_t extensionsLength, const char *subprotocol,
                  size_t subprotocolLength, bool *perMessageDeflate);
 
