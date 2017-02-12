@@ -514,25 +514,6 @@ class Server extends EventEmitter {
     }
 }
 
-// todo: move this whole thing into the addon
-class HttpServer extends EventEmitter {
-
-    constructor(reqCb) {
-        super();
-        this.serverGroup = native.server.group.create();
-        native.server.group.onHttpRequest(this.serverGroup, reqCb);
-    }
-
-    static createServer(reqCb) {
-        return new HttpServer(reqCb);
-    }
-
-    listen(port) {
-        // return bool and emit error on listen error!
-        native.server.group.listen(this.serverGroup, port);
-    }
-}
-
 WebSocketClient.PERMESSAGE_DEFLATE = 1;
 WebSocketClient.SERVER_NO_CONTEXT_TAKEOVER = 2;
 WebSocketClient.CLIENT_NO_CONTEXT_TAKEOVER = 4;
@@ -542,8 +523,6 @@ WebSocketClient.OPCODE_PING = 9;
 WebSocketClient.OPEN = 1;
 WebSocketClient.CLOSED = 0;
 WebSocketClient.Server = Server;
-WebSocketClient.http = HttpServer;
+WebSocketClient.http = native.httpServer;
 WebSocketClient.native = native;
-WebSocketClient.HTTP_GET = 0;
-WebSocketClient.HTTP_POST = 1;
 module.exports = WebSocketClient;
