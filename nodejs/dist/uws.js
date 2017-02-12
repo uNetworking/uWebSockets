@@ -520,16 +520,7 @@ class HttpServer extends EventEmitter {
     constructor(reqCb) {
         super();
         this.serverGroup = native.server.group.create();
-
         native.server.group.onHttpRequest(this.serverGroup, reqCb);
-
-        native.server.group.onHttpUpgrade(this.serverGroup, (req, res) => {
-
-        });
-
-        native.server.group.onCancelledHttpRequest(this.serverGroup, (res) => {
-            // emit abort or something here
-        });
     }
 
     static createServer(reqCb) {

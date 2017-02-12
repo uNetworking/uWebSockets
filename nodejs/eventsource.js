@@ -13,14 +13,15 @@ const server = uws.http.createServer((req, res) => {
         res.writeHead(200, {'Content-Type': 'text/event-stream'});
 
         // start a timer that will send back events over this HTTP socket
-        var that;
-        setTimeout(that = () => {
+        var interval = setInterval(() => {
             // important to not end the socket, but write instead!
             res.write('data: Some message from server here!\n\n');
-
-            // todo: cancel timer when socket closes!
-            setTimeout(that, 1000);
         }, 1000);
+
+        // if the client disconnects we stop the timer
+        res.on('close', () => {
+            clearInterval(interval);
+        });
     } else {
         // todo: terminate
         console.log('Unsupported url: ' + req.url);

@@ -453,6 +453,7 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
 
         Local<Object> resObject = Local<Object>::New(isolate, resTemplate)->Clone();
         resObject->SetAlignedPointerInInternalField(0, res);
+        resObject->SetAlignedPointerInInternalField(1, nullptr);
         new (&res->userData) Persistent<Object>(isolate, resObject);
 
         Local<Value> argv[] = {reqObject, resObject};
@@ -488,6 +489,12 @@ void onHttpRequest(const FunctionCallbackInfo<Value> &args) {
         // if res has abort event set, then call this here!
         //Local<Value> argv[] = {resObject};
         //Local<Function>::New(isolate, *httpCancelledRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+
+        // emit res 'close' on aborted response
+        Persistent<Function> *closeCallback = (Persistent<Function> *) resObject->GetAlignedPointerFromInternalField(1);
+        if (closeCallback) {
+            Local<Function>::New(isolate, *closeCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
+        }
     });
 
 
@@ -544,6 +551,14 @@ void reqOn(const FunctionCallbackInfo<Value> &args) {
         args.Holder()->SetAlignedPointerInInternalField(1, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
     } else if (std::string(eventName.getData(), eventName.getLength()) == "end") {
         args.Holder()->SetAlignedPointerInInternalField(2, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
+    }
+    args.GetReturnValue().Set(args.Holder());
+}
+
+void resOn(const FunctionCallbackInfo<Value> &args) {
+    NativeString eventName(args[0]);
+    if (std::string(eventName.getData(), eventName.getLength()) == "close") {
+        args.Holder()->SetAlignedPointerInInternalField(1, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
     }
     args.GetReturnValue().Set(args.Holder());
 }

@@ -26,6 +26,7 @@ void Main(Local<Object> exports) {
     resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "end"), FunctionTemplate::New(isolate, resEnd));
     resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "writeHead"), FunctionTemplate::New(isolate, resWriteHead));
     resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "write"), FunctionTemplate::New(isolate, resWrite));
+    resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, resOn));
     resTemplate.Reset(isolate, resTemplateLocal->GetFunction()->NewInstance());
 
     NODE_SET_METHOD(exports, "setUserData", setUserData<uWS::SERVER>);
