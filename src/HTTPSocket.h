@@ -162,6 +162,7 @@ struct HttpResponse {
     void *extraUserData = nullptr;
     uS::SocketData::Queue::Message *messageQueue = nullptr;
     bool hasEnded = false;
+    bool hasHead = false;
 
     HttpResponse(HttpSocket<true> httpSocket) : httpSocket(httpSocket) {
 
@@ -187,7 +188,6 @@ struct HttpResponse {
         }
     }
 
-    // todo
     void write(const char *message, size_t length = 0,
                void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved) = nullptr,
                void *callbackData = nullptr) {
@@ -204,23 +204,28 @@ struct HttpResponse {
         };
 
         httpSocket.sendTransformed<NoopTransformer>(message, length, callback, callbackData, 0);
+        hasHead = true;
     }
 
+    // todo: maybe this function should have a fast path for 0 length?
     void end(const char *message = nullptr, size_t length = 0,
              void(*callback)(void *httpResponse, void *data, bool cancelled, void *reserved) = nullptr,
              void *callbackData = nullptr) {
 
         struct TransformData {
-            //ContentType contentType;
-        } transformData;// = {uWS::ContentType::TEXT_HTML};
+            bool hasHead;
+        } transformData = {hasHead};
 
         struct HttpTransformer {
+
+            // todo: this should get TransformData!
             static size_t estimate(const char *data, size_t length) {
                 return length + 128;
             }
 
             static size_t transform(const char *src, char *dst, size_t length, TransformData transformData) {
-                int offset = std::sprintf(dst, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
+                // todo: sprintf is extremely slow
+                int offset = transformData.hasHead ? 0 : std::sprintf(dst, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
                 memcpy(dst + offset, src, length);
                 return length + offset;
             }
