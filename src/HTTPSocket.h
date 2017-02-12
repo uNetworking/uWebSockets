@@ -24,16 +24,16 @@ struct Header {
 };
 
 enum HttpMethod {
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    PATCH,
-    OPTIONS,
-    HEAD,
-    TRACE,
-    CONNECT,
-    INVALID
+    METHOD_GET,
+    METHOD_POST,
+    METHOD_PUT,
+    METHOD_DELETE,
+    METHOD_PATCH,
+    METHOD_OPTIONS,
+    METHOD_HEAD,
+    METHOD_TRACE,
+    METHOD_CONNECT,
+    METHOD_INVALID
 };
 
 struct HttpRequest {
@@ -64,44 +64,44 @@ struct HttpRequest {
 
     HttpMethod getMethod() {
         if (!headers->key) {
-            return INVALID;
+            return METHOD_INVALID;
         }
         switch (headers->keyLength) {
         case 3:
             if (!strncmp(headers->key, "get", 3)) {
-                return GET;
+                return METHOD_GET;
             } else if (!strncmp(headers->key, "put", 3)) {
-                return PUT;
+                return METHOD_PUT;
             }
             break;
         case 4:
             if (!strncmp(headers->key, "post", 4)) {
-                return POST;
+                return METHOD_POST;
             } else if (!strncmp(headers->key, "head", 4)) {
-                return HEAD;
+                return METHOD_HEAD;
             }
             break;
         case 5:
             if (!strncmp(headers->key, "patch", 5)) {
-                return PATCH;
+                return METHOD_PATCH;
             } else if (!strncmp(headers->key, "trace", 5)) {
-                return TRACE;
+                return METHOD_TRACE;
             }
             break;
         case 6:
             if (!strncmp(headers->key, "delete", 6)) {
-                return DELETE;
+                return METHOD_DELETE;
             }
             break;
         case 7:
             if (!strncmp(headers->key, "options", 7)) {
-                return OPTIONS;
+                return METHOD_OPTIONS;
             } else if (!strncmp(headers->key, "connect", 7)) {
-                return CONNECT;
+                return METHOD_CONNECT;
             }
             break;
         }
-        return INVALID;
+        return METHOD_INVALID;
     }
 };
 

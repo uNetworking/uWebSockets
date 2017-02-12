@@ -670,13 +670,13 @@ void testHTTP() {
         std::cout << req.getUrl().toString() << std::endl;
 
         if (req.getUrl().toString() == "/segmentedUrl") {
-            if (req.getMethod() == uWS::HttpMethod::GET && req.getHeader("host").toString() == "localhost") {
+            if (req.getMethod() == uWS::HttpMethod::METHOD_GET && req.getHeader("host").toString() == "localhost") {
                 expectedRequests++;
                 res->end();
                 return;
             }
         } else if (req.getUrl().toString() == "/closeServer") {
-            if (req.getMethod() == uWS::HttpMethod::PUT) {
+            if (req.getMethod() == uWS::HttpMethod::METHOD_PUT) {
                 res->setUserData((void *) 1234);
                 // this will trigger a cancelled request
                 h.getDefaultGroup<uWS::SERVER>().close();
@@ -684,13 +684,13 @@ void testHTTP() {
                 return;
             }
         } else if (req.getUrl().toString() == "/postTest") {
-            if (req.getMethod() == uWS::HttpMethod::POST) {
+            if (req.getMethod() == uWS::HttpMethod::METHOD_POST) {
                 res->httpSocket.setUserData(new std::string);
                 controlData(res, data, length, remainingBytes);
                 return;
             }
         } else if (req.getUrl().toString() == "/packedTest") {
-            if (req.getMethod() == uWS::HttpMethod::GET) {
+            if (req.getMethod() == uWS::HttpMethod::METHOD_GET) {
                 expectedRequests++;
                 res->end();
                 return;
@@ -724,7 +724,7 @@ void testHTTP() {
 
     h.onConnection([&expectedRequests](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
         if (req.getUrl().toString() == "/upgradeUrl") {
-            if (req.getMethod() == uWS::HttpMethod::GET && req.getHeader("upgrade").toString() == "websocket") {
+            if (req.getMethod() == uWS::HttpMethod::METHOD_GET && req.getHeader("upgrade").toString() == "websocket") {
                 expectedRequests++;
                 return;
             }

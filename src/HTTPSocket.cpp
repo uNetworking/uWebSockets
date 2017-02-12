@@ -133,7 +133,7 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                         httpData->outstandingResponsesTail = res;
 
                         Header contentLength;
-                        if (req.getMethod() != HttpMethod::GET && (contentLength = req.getHeader("content-length", 14))) {
+                        if (req.getMethod() != HttpMethod::METHOD_GET && (contentLength = req.getHeader("content-length", 14))) {
                             httpData->contentLength = atoi(contentLength.value);
                             size_t bytesToRead = std::min<int>(httpData->contentLength, end - cursor);
                             getGroup<SERVER>(s)->httpRequestHandler(res, req, cursor, bytesToRead, httpData->contentLength -= bytesToRead);
