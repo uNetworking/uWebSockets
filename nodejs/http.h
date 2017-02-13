@@ -34,6 +34,14 @@ struct HttpServer {
             args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) currentReq.getUrl().key, String::kNormalString, currentReq.getUrl().keyLength));
         }
 
+        static void unpipe(const FunctionCallbackInfo<Value> &args) {
+            std::cout << "req.unpipe called" << std::endl;
+        }
+
+        static void resume(const FunctionCallbackInfo<Value> &args) {
+            std::cout << "req.resume called" << std::endl;
+        }
+
         static Local<Object> getTemplateObject(Isolate *isolate) {
             Local<ObjectTemplate> headersTemplate = ObjectTemplate::New(isolate);
             headersTemplate->SetNamedPropertyHandler(Request::headers);
@@ -44,6 +52,11 @@ struct HttpServer {
             reqTemplateLocal->PrototypeTemplate()->SetAccessor(String::NewFromUtf8(isolate, "url"), Request::url);
             reqTemplateLocal->PrototypeTemplate()->SetAccessor(String::NewFromUtf8(isolate, "method"), Request::method);
             reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, Request::on));
+
+            // needed for finalhandler
+            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "unpipe"), FunctionTemplate::New(isolate, Request::unpipe));
+            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "resume"), FunctionTemplate::New(isolate, Request::resume));
+
             Local<Object> reqObjectLocal = reqTemplateLocal->GetFunction()->NewInstance();
             reqObjectLocal->Set(String::NewFromUtf8(isolate, "headers"), headersTemplate->NewInstance());
             return reqObjectLocal;
@@ -119,6 +132,10 @@ struct HttpServer {
             }
         }
 
+        static void setHeader(const FunctionCallbackInfo<Value> &args) {
+            std::cout << "res.setHeader called" << std::endl;
+        }
+
         static Local<Object> getTemplateObject(Isolate *isolate) {
             Local<FunctionTemplate> resTemplateLocal = FunctionTemplate::New(isolate);
             resTemplateLocal->InstanceTemplate()->SetInternalFieldCount(5);
@@ -126,6 +143,7 @@ struct HttpServer {
             resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "writeHead"), FunctionTemplate::New(isolate, Response::writeHead));
             resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "write"), FunctionTemplate::New(isolate, Response::write));
             resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, Response::on));
+            resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "setHeader"), FunctionTemplate::New(isolate, Response::setHeader));
             return resTemplateLocal->GetFunction()->NewInstance();
         }
     };
