@@ -223,7 +223,9 @@ struct ListenData : SocketData {
 
     }
 
-    uv_poll_t *listenPoll;
+    uv_poll_t *listenPoll = nullptr;
+    uv_timer_t *listenTimer = nullptr;
+    uv_os_sock_t sock;
     uS::TLS::Context sslContext;
 };
 

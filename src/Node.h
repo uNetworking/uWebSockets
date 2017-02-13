@@ -73,12 +73,51 @@ public:
     }
 
     template <void A(Socket s)>
-    static void accept_cb(uv_poll_t *p, int status, int events) {
+    static void accept_poll_cb(uv_poll_t *p, int status, int events) {
         ListenData *listenData = (ListenData *) p->data;
-        uv_os_sock_t serverFd = Socket(p).getFd();
+        accept_cb<A, false>(listenData);
+    }
+
+    template <void A(Socket s)>
+    static void accept_timer_cb(uv_timer_t *p) {
+        ListenData *listenData = (ListenData *) p->data;
+        accept_cb<A, true>(listenData);
+    }
+
+    template <void A(Socket s), bool TIMER>
+    static void accept_cb(ListenData *listenData) {
+        uv_os_sock_t serverFd = listenData->sock;
         uv_os_sock_t clientFd = accept(serverFd, nullptr, nullptr);
         if (clientFd == INVALID_SOCKET) {
+            /*
+            * If accept is failing, the pending connection won't be removed and the
+            * polling will cause the server to spin, using 100% cpu. Switch to a timer
+            * event instead to avoid this.
+            */
+            if (!TIMER) {
+                uv_poll_stop(listenData->listenPoll);
+                uv_close((uv_handle_t *) listenData->listenPoll, [](uv_handle_t *handle) {
+                    delete handle;
+                });
+                listenData->listenPoll = nullptr;
+
+                listenData->listenTimer = new uv_timer_t();
+                listenData->listenTimer->data = listenData;
+                uv_timer_init(listenData->nodeData->loop, listenData->listenTimer);
+                uv_timer_start(listenData->listenTimer, accept_timer_cb<A>, 100, 100);
+            }
             return;
+        } else if (TIMER) {
+            uv_timer_stop(listenData->listenTimer);
+            uv_close((uv_handle_t *) listenData->listenTimer, [](uv_handle_t *handle) {
+                delete handle;
+            });
+            listenData->listenTimer = nullptr;
+
+            listenData->listenPoll = new uv_poll_t;
+            listenData->listenPoll->data = listenData;
+            uv_poll_init_socket(listenData->nodeData->loop, listenData->listenPoll, serverFd);
+            uv_poll_start(listenData->listenPoll, UV_READABLE, accept_poll_cb<A>);
         }
 
     #ifdef __APPLE__
@@ -171,10 +210,11 @@ public:
         listenPoll->data = listenData;
 
         listenData->listenPoll = listenPoll;
+        listenData->sock = listenFd;
         listenData->ssl = nullptr;
 
         uv_poll_init_socket(loop, listenPoll, listenFd);
-        uv_poll_start(listenPoll, UV_READABLE, accept_cb<A>);
+        uv_poll_start(listenPoll, UV_READABLE, accept_poll_cb<A>);
 
         // should be vector of listen data! one group can have many listeners!
         nodeData->user = listenData;
