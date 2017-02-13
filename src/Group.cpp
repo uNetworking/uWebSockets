@@ -45,6 +45,11 @@ void Group<isServer>::startAutoPing(int intervalMs, std::string userMessage) {
 // WIP
 template <bool isServer>
 void Group<isServer>::addHttpSocket(uv_poll_t *httpSocket) {
+
+    // always clear last chain!
+    ((uS::SocketData *) httpSocket->data)->next = nullptr;
+    ((uS::SocketData *) httpSocket->data)->prev = nullptr;
+
     if (httpSocketHead) {
         uS::SocketData *nextData = (uS::SocketData *) httpSocketHead->data;
         nextData->prev = httpSocket;
@@ -98,6 +103,11 @@ void Group<isServer>::removeHttpSocket(uv_poll_t *httpSocket) {
 
 template <bool isServer>
 void Group<isServer>::addWebSocket(uv_poll_t *webSocket) {
+
+    // always clear last chain!
+    ((uS::SocketData *) webSocket->data)->next = nullptr;
+    ((uS::SocketData *) webSocket->data)->prev = nullptr;
+
     if (webSocketHead) {
         uS::SocketData *nextData = (uS::SocketData *) webSocketHead->data;
         nextData->prev = webSocket;
