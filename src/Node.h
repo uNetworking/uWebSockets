@@ -104,7 +104,7 @@ public:
                 listenData->listenTimer = new uv_timer_t();
                 listenData->listenTimer->data = listenData;
                 uv_timer_init(listenData->nodeData->loop, listenData->listenTimer);
-                uv_timer_start(listenData->listenTimer, accept_timer_cb<A>, 100, 100);
+                uv_timer_start(listenData->listenTimer, accept_timer_cb<A>, 1000, 1000);
             }
             return;
         } else if (TIMER) {
