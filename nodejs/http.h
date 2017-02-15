@@ -19,25 +19,19 @@ struct HttpServer {
         static void headers(Local<String> property, const PropertyCallbackInfo<Value> &args) {
             uWS::HttpRequest *req = (uWS::HttpRequest *) args.This()->GetAlignedPointerFromInternalField(0);
             if (!req) {
-                Isolate* isolate = Isolate::GetCurrent();
-                isolate->ThrowException(String::NewFromUtf8(isolate, "invalidated req.headers"));
-            }
-
-            NativeString nativeString(property);
-            uWS::Header header = req->getHeader(nativeString.getData(), nativeString.getLength());
-            if (header) {
-                args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) header.value, String::kNormalString, header.valueLength));
+                std::cerr << "Warning: req.headers usage past request handler is not supported!" << std::endl;
+            } else {
+                NativeString nativeString(property);
+                uWS::Header header = req->getHeader(nativeString.getData(), nativeString.getLength());
+                if (header) {
+                    args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) header.value, String::kNormalString, header.valueLength));
+                }
             }
         }
 
         static void url(Local<String> property, const PropertyCallbackInfo<Value> &args) {
-            uWS::HttpRequest *req = (uWS::HttpRequest *) args.This()->GetAlignedPointerFromInternalField(0);
-            if (!req) {
-                Isolate* isolate = Isolate::GetCurrent();
-                isolate->ThrowException(String::NewFromUtf8(isolate, "invalidated req.url"));
-            }
-
-            args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) req->getUrl().value, String::kNormalString, req->getUrl().valueLength));
+            // for now we store a copy of url -> should have two paths?
+            args.GetReturnValue().Set(args.This()->GetInternalField(4));
         }
 
         // todo: add all cases
@@ -192,7 +186,10 @@ struct HttpServer {
             reqObject->SetAlignedPointerInInternalField(0, &req);
             reqObject->SetAlignedPointerInInternalField(1, nullptr);
             reqObject->SetAlignedPointerInInternalField(2, nullptr);
+
+            // store url and method for usage after req is invalidated
             reqObject->SetAlignedPointerInInternalField(3, (void *) req.getMethod());
+            reqObject->SetInternalField(4, String::NewFromOneByte(isolate, (uint8_t *) req.getUrl().value, String::kNormalString, req.getUrl().valueLength));
             new (&res->extraUserData) Persistent<Object>(isolate, reqObject);
 
             Local<Object> resObject = Local<Object>::New(isolate, resTemplate)->Clone();
