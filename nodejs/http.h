@@ -1,6 +1,5 @@
 Persistent<Object> reqTemplate, resTemplate;
 Persistent<Function> httpPersistent;
-uWS::HttpRequest currentReq;
 
 struct HttpServer {
 
@@ -11,39 +10,62 @@ struct HttpServer {
                 args.Holder()->SetAlignedPointerInInternalField(1, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
             } else if (std::string(eventName.getData(), eventName.getLength()) == "end") {
                 args.Holder()->SetAlignedPointerInInternalField(2, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
+            } else {
+                std::cout << "req.on(" << std::string(eventName.getData(), eventName.getLength()) << ") is not implemented!" << std::endl;
             }
             args.GetReturnValue().Set(args.Holder());
         }
 
         static void headers(Local<String> property, const PropertyCallbackInfo<Value> &args) {
-            NativeString nativeString(property);
-            uWS::Header header = currentReq.getHeader(nativeString.getData(), nativeString.getLength());
-            if (header) {
-                args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) header.value, String::kNormalString, header.valueLength));
+            uWS::HttpRequest *req = (uWS::HttpRequest *) args.This()->GetAlignedPointerFromInternalField(0);
+            if (!req) {
+                std::cerr << "Warning: req.headers usage past request handler is not supported!" << std::endl;
+            } else {
+                NativeString nativeString(property);
+                uWS::Header header = req->getHeader(nativeString.getData(), nativeString.getLength());
+                if (header) {
+                    args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) header.value, String::kNormalString, header.valueLength));
+                }
             }
         }
 
         static void url(Local<String> property, const PropertyCallbackInfo<Value> &args) {
-            args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) currentReq.getUrl().value, String::kNormalString, currentReq.getUrl().valueLength));
+            // for now we store a copy of url -> should have two paths?
+            args.GetReturnValue().Set(args.This()->GetInternalField(4));
         }
 
+        // todo: add all cases
         static void method(Local<String> property, const PropertyCallbackInfo<Value> &args) {
-            for (int i = 0; i < currentReq.getUrl().keyLength; i++) {
-                currentReq.getUrl().key[i] &= ~32;
+            int methodId = (long) args.This()->GetAlignedPointerFromInternalField(3);
+            switch (methodId) {
+            case uWS::HttpMethod::METHOD_GET:
+                args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) "GET", String::kNormalString, 3));
+                break;
             }
-            args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) currentReq.getUrl().key, String::kNormalString, currentReq.getUrl().keyLength));
+        }
+
+        // placeholders
+        static void unpipe(const FunctionCallbackInfo<Value> &args) {
+            //std::cout << "req.unpipe called" << std::endl;
+        }
+
+        static void resume(const FunctionCallbackInfo<Value> &args) {
+            //std::cout << "req.resume called" << std::endl;
         }
 
         static Local<Object> getTemplateObject(Isolate *isolate) {
             Local<ObjectTemplate> headersTemplate = ObjectTemplate::New(isolate);
             headersTemplate->SetNamedPropertyHandler(Request::headers);
 
-            // reqObject has room for 5 pointers - on('data', 'end') most important
             Local<FunctionTemplate> reqTemplateLocal = FunctionTemplate::New(isolate);
+            reqTemplateLocal->SetClassName(String::NewFromUtf8(isolate, "uws.Request"));
             reqTemplateLocal->InstanceTemplate()->SetInternalFieldCount(5);
             reqTemplateLocal->PrototypeTemplate()->SetAccessor(String::NewFromUtf8(isolate, "url"), Request::url);
             reqTemplateLocal->PrototypeTemplate()->SetAccessor(String::NewFromUtf8(isolate, "method"), Request::method);
             reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, Request::on));
+            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "unpipe"), FunctionTemplate::New(isolate, Request::unpipe));
+            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "resume"), FunctionTemplate::New(isolate, Request::resume));
+
             Local<Object> reqObjectLocal = reqTemplateLocal->GetFunction()->NewInstance();
             reqObjectLocal->Set(String::NewFromUtf8(isolate, "headers"), headersTemplate->NewInstance());
             return reqObjectLocal;
@@ -55,13 +77,14 @@ struct HttpServer {
             NativeString eventName(args[0]);
             if (std::string(eventName.getData(), eventName.getLength()) == "close") {
                 args.Holder()->SetAlignedPointerInInternalField(1, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
+            } else {
+                std::cout << "res.on(" << std::string(eventName.getData(), eventName.getLength()) << ") is not implemented!" << std::endl;
             }
             args.GetReturnValue().Set(args.Holder());
         }
 
         static void end(const FunctionCallbackInfo<Value> &args) {
             uWS::HttpResponse *res = (uWS::HttpResponse *) args.Holder()->GetAlignedPointerFromInternalField(0);
-
             if (res) {
                 NativeString nativeString(args[0]);
 
@@ -76,7 +99,6 @@ struct HttpServer {
         // todo: this is slow
         static void writeHead(const FunctionCallbackInfo<Value> &args) {
             uWS::HttpResponse *res = (uWS::HttpResponse *) args.Holder()->GetAlignedPointerFromInternalField(0);
-
             if (res) {
                 std::string head = "HTTP/1.1 " + std::to_string(args[0]->IntegerValue()) + " ";
 
@@ -119,13 +141,24 @@ struct HttpServer {
             }
         }
 
+        static void setHeader(const FunctionCallbackInfo<Value> &args) {
+            //std::cout << "res.setHeader called" << std::endl;
+        }
+
+        static void getHeader(const FunctionCallbackInfo<Value> &args) {
+            //std::cout << "res.getHeader called" << std::endl;
+        }
+
         static Local<Object> getTemplateObject(Isolate *isolate) {
             Local<FunctionTemplate> resTemplateLocal = FunctionTemplate::New(isolate);
+            resTemplateLocal->SetClassName(String::NewFromUtf8(isolate, "uws.Response"));
             resTemplateLocal->InstanceTemplate()->SetInternalFieldCount(5);
             resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "end"), FunctionTemplate::New(isolate, Response::end));
             resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "writeHead"), FunctionTemplate::New(isolate, Response::writeHead));
             resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "write"), FunctionTemplate::New(isolate, Response::write));
             resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, Response::on));
+            resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "setHeader"), FunctionTemplate::New(isolate, Response::setHeader));
+            resTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "getHeader"), FunctionTemplate::New(isolate, Response::getHeader));
             return resTemplateLocal->GetFunction()->NewInstance();
         }
     };
@@ -147,13 +180,16 @@ struct HttpServer {
         Persistent<Function> *httpRequestCallback = &groupData->httpRequestHandler;
         httpRequestCallback->Reset(isolate, Local<Function>::Cast(args[0]));
         group->onHttpRequest([isolate, httpRequestCallback](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
-            currentReq = req;
             HandleScope hs(isolate);
 
             Local<Object> reqObject = Local<Object>::New(isolate, reqTemplate)->Clone();
             reqObject->SetAlignedPointerInInternalField(0, &req);
             reqObject->SetAlignedPointerInInternalField(1, nullptr);
             reqObject->SetAlignedPointerInInternalField(2, nullptr);
+
+            // store url and method for usage after req is invalidated
+            reqObject->SetAlignedPointerInInternalField(3, (void *) req.getMethod());
+            reqObject->SetInternalField(4, String::NewFromOneByte(isolate, (uint8_t *) req.getUrl().value, String::kNormalString, req.getUrl().valueLength));
             new (&res->extraUserData) Persistent<Object>(isolate, reqObject);
 
             Local<Object> resObject = Local<Object>::New(isolate, resTemplate)->Clone();
@@ -164,7 +200,6 @@ struct HttpServer {
             Local<Value> argv[] = {reqObject, resObject};
             Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
 
-            // initial data post wrapper
             if (length) {
                 Persistent<Function> *dataCallback = (Persistent<Function> *) reqObject->GetAlignedPointerFromInternalField(1);
                 if (dataCallback) {
@@ -175,21 +210,25 @@ struct HttpServer {
                 if (!remainingBytes) {
                     Persistent<Function> *endCallback = (Persistent<Function> *) reqObject->GetAlignedPointerFromInternalField(2);
                     if (endCallback) {
-                        //Local<Value> argv[] = {ArrayBuffer::New(isolate, data, length)};
-                        Local<Function>::New(isolate, *endCallback)->Call(isolate->GetCurrentContext()->Global(), 0, argv);
+                        Local<Function>::New(isolate, *endCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
                     }
-
-                    // release events here?
                 }
             }
+
+            // invalidate req
+            reqObject->SetAlignedPointerInInternalField(0, nullptr);
         });
 
         group->onCancelledHttpRequest([isolate](uWS::HttpResponse *res) {
             HandleScope hs(isolate);
 
-            Persistent<Object> *resObjectPersistent = (Persistent<Object> *) &res->userData;
-            Local<Object> resObject = Local<Object>::New(isolate, *resObjectPersistent);
+            // mark res as invalid
+            Local<Object> resObject = Local<Object>::New(isolate, *(Persistent<Object> *) &res->userData);
             resObject->SetAlignedPointerInInternalField(0, nullptr);
+
+            // mark req as invalid
+            Local<Object> reqObject = Local<Object>::New(isolate, *(Persistent<Object> *) &res->extraUserData);
+            reqObject->SetAlignedPointerInInternalField(0, nullptr);
 
             // if res has abort event set, then call this here!
             //Local<Value> argv[] = {resObject};
@@ -200,16 +239,27 @@ struct HttpServer {
             if (closeCallback) {
                 Local<Function>::New(isolate, *closeCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
             }
+
+
+            // make sure to release every held persistent here and in end!
         });
 
+        group->onHttpData([isolate](uWS::HttpResponse *res, char *data, size_t length, size_t remainingBytes) {
+            Local<Object> reqObject = Local<Object>::New(isolate, *(Persistent<Object> *) res->extraUserData);
 
-        /*group->onHttpData([](uWS::HttpResponse *res, char *data, size_t length, size_t remainingBytes) {
+            Persistent<Function> *dataCallback = (Persistent<Function> *) reqObject->GetAlignedPointerFromInternalField(1);
+            if (dataCallback) {
+                Local<Value> argv[] = {ArrayBuffer::New(isolate, data, length)};
+                Local<Function>::New(isolate, *dataCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+            }
 
-            std::cout << "Got some data!" << std::endl;
-
-            // res -> reqObject
-        });*/
-
+            if (!remainingBytes) {
+                Persistent<Function> *endCallback = (Persistent<Function> *) reqObject->GetAlignedPointerFromInternalField(2);
+                if (endCallback) {
+                    Local<Function>::New(isolate, *endCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
+                }
+            }
+        });
 
         Local<Object> newInstance;
         if (!args.IsConstructCall()) {
@@ -226,13 +276,22 @@ struct HttpServer {
         hub.listen(args[0]->IntegerValue(), nullptr, 0, group);
     }
 
+    static void getResponsePrototype(const FunctionCallbackInfo<Value> &args) {
+        args.GetReturnValue().Set(Local<Object>::New(args.GetIsolate(), resTemplate)->GetPrototype());
+    }
+
+    static void getRequestPrototype(const FunctionCallbackInfo<Value> &args) {
+        args.GetReturnValue().Set(Local<Object>::New(args.GetIsolate(), reqTemplate)->GetPrototype());
+    }
+
     static Local<Function> getHttpServer(Isolate *isolate) {
         Local<FunctionTemplate> httpServer = FunctionTemplate::New(isolate, HttpServer::createServer);
         httpServer->InstanceTemplate()->SetInternalFieldCount(1);
 
         httpServer->Set(String::NewFromUtf8(isolate, "createServer"), FunctionTemplate::New(isolate, HttpServer::createServer));
+        httpServer->Set(String::NewFromUtf8(isolate, "getResponsePrototype"), FunctionTemplate::New(isolate, HttpServer::getResponsePrototype));
+        httpServer->Set(String::NewFromUtf8(isolate, "getRequestPrototype"), FunctionTemplate::New(isolate, HttpServer::getRequestPrototype));
         httpServer->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "listen"), FunctionTemplate::New(isolate, HttpServer::listen));
-
 
         // on('upgrade') needed to integrate with uws
 
