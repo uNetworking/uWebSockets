@@ -2,23 +2,23 @@
 
 namespace uS {
 
-void NodeData::asyncCallback(uv_async_t *async)
+void NodeData::asyncCallback(UWS_UV uv_async_t *async)
 {
     NodeData *nodeData = (NodeData *) async->data;
 
     nodeData->asyncMutex->lock();
     for (TransferData transferData : nodeData->transferQueue) {
-        uv_poll_init_socket(nodeData->loop, transferData.p, transferData.fd);
+        UWS_UV uv_poll_init_socket(nodeData->loop, transferData.p, transferData.fd);
         transferData.p->data = transferData.socketData;
         transferData.socketData->nodeData = nodeData;
-        uv_poll_start(transferData.p, transferData.socketData->poll, transferData.pollCb);
+        UWS_UV uv_poll_start(transferData.p, transferData.socketData->poll, transferData.pollCb);
 
         transferData.cb(transferData.p);
     }
 
-    for (uv_poll_t *p : nodeData->changePollQueue) {
+    for (UWS_UV uv_poll_t *p : nodeData->changePollQueue) {
         SocketData *socketData = (SocketData *) p->data;
-        uv_poll_start(p, socketData->poll, /*p->poll_cb*/ Socket(p).getPollCallback());
+        UWS_UV uv_poll_start(p, socketData->poll, /*p->poll_cb*/ Socket(p).getPollCallback());
     }
 
     nodeData->changePollQueue.clear();
@@ -35,9 +35,9 @@ Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop)
     nodeData->tid = pthread_self();
 
     if (useDefaultLoop) {
-        loop = uv_default_loop();
+        loop = UWS_UV uv_default_loop();
     } else {
-        loop = uv_loop_new();
+        loop = UWS_UV uv_loop_new();
     }
 
     nodeData->loop = loop;
@@ -56,7 +56,7 @@ Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop)
 void Node::run() {
     nodeData->tid = pthread_self();
 
-    uv_run(loop, UV_RUN_DEFAULT);
+    UWS_UV uv_run(loop, UWS_UV UV_RUN_DEFAULT);
 }
 
 Node::~Node() {
@@ -73,8 +73,8 @@ Node::~Node() {
 
     delete nodeData;
 
-    if (loop != uv_default_loop()) {
-        uv_loop_delete(loop);
+    if (loop != UWS_UV uv_default_loop()) {
+        UWS_UV uv_loop_delete(loop);
     }
 }
 

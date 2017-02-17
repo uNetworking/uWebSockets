@@ -52,12 +52,7 @@ inline SOCKET dup(SOCKET socket) {
 #define WIN32_EXPORT
 #endif
 
-#ifdef USE_MICRO_UV
 #include "uUV.h"
-#else
-#include <uv.h>
-#endif
-
 #include <openssl/ssl.h>
 #include <vector>
 #include <string>
@@ -112,33 +107,33 @@ struct WIN32_EXPORT NodeData {
     char *recvBufferMemoryBlock;
     char *recvBuffer;
     int recvLength;
-    uv_loop_t *loop;
+    UWS_UV uv_loop_t *loop;
     void *user = nullptr;
     static const int preAllocMaxSize = 1024;
     char **preAlloc;
     SSL_CTX *clientContext;
 
-    uv_async_t *async = nullptr;
+    UWS_UV uv_async_t *async = nullptr;
     pthread_t tid;
 
     struct TransferData {
-        uv_poll_t *p;
-        uv_os_sock_t fd;
+        UWS_UV uv_poll_t *p;
+        UWS_UV uv_os_sock_t fd;
         SocketData *socketData;
-        uv_poll_cb pollCb;
-        void (*cb)(uv_poll_t *);
+        UWS_UV uv_poll_cb pollCb;
+        void (*cb)(UWS_UV uv_poll_t *);
     };
 
     void addAsync() {
-        async = new uv_async_t;
+        async = new UWS_UV uv_async_t;
         async->data = this;
-        uv_async_init(loop, async, NodeData::asyncCallback);
+        UWS_UV uv_async_init(loop, async, NodeData::asyncCallback);
     }
 
     std::mutex *asyncMutex;
     std::vector<TransferData> transferQueue;
-    std::vector<uv_poll_t *> changePollQueue;
-    static void asyncCallback(uv_async_t *async);
+    std::vector<UWS_UV uv_poll_t *> changePollQueue;
+    static void asyncCallback(UWS_UV uv_async_t *async);
 
     static int getMemoryBlockIndex(size_t length) {
         return (length >> 4) + bool(length & 15);
@@ -214,7 +209,7 @@ struct SocketData {
         }
     } messageQueue;
 
-    uv_poll_t *next = nullptr, *prev = nullptr;
+    UWS_UV uv_poll_t *next = nullptr, *prev = nullptr;
 };
 
 struct ListenData : SocketData {
@@ -223,9 +218,9 @@ struct ListenData : SocketData {
 
     }
 
-    uv_poll_t *listenPoll = nullptr;
-    uv_timer_t *listenTimer = nullptr;
-    uv_os_sock_t sock;
+    UWS_UV uv_poll_t *listenPoll = nullptr;
+    UWS_UV uv_timer_t *listenTimer = nullptr;
+    UWS_UV uv_os_sock_t sock;
     uS::TLS::Context sslContext;
 };
 

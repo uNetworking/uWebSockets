@@ -137,7 +137,7 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh,
     }
 }
 
-void Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup) {
+void Hub::upgrade(UWS_UV uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup) {
     if (!serverGroup) {
         serverGroup = &getDefaultGroup<SERVER>();
     }

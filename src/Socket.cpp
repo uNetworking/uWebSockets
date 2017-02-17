@@ -4,7 +4,7 @@ namespace uS {
 
 Socket::Address Socket::getAddress()
 {
-    uv_os_sock_t fd = getFd();
+    UWS_UV uv_os_sock_t fd = getFd();
 
     sockaddr_storage addr;
     socklen_t addrLength = sizeof(addr);

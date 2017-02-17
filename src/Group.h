@@ -33,7 +33,7 @@ struct WIN32_EXPORT Group : uS::NodeData {
 
     Hub *hub;
     int extensionOptions;
-    uv_timer_t *timer = nullptr;
+    UWS_UV uv_timer_t *timer = nullptr;
     std::string userPingMessage;
 
     // todo: cannot be named user, collides with parent!
@@ -41,18 +41,18 @@ struct WIN32_EXPORT Group : uS::NodeData {
     void setUserData(void *user);
     void *getUserData();
     void startAutoPing(int intervalMs, std::string userMessage = "");
-    static void timerCallback(uv_timer_t *timer);
+    static void timerCallback(UWS_UV uv_timer_t *timer);
 
-    uv_poll_t *webSocketHead = nullptr, *httpSocketHead = nullptr;
-    void addWebSocket(uv_poll_t *webSocket);
-    void removeWebSocket(uv_poll_t *webSocket);
+    UWS_UV uv_poll_t *webSocketHead = nullptr, *httpSocketHead = nullptr;
+    void addWebSocket(UWS_UV uv_poll_t *webSocket);
+    void removeWebSocket(UWS_UV uv_poll_t *webSocket);
 
-    uv_timer_t *httpTimer = nullptr;
-    void addHttpSocket(uv_poll_t *httpSocket);
-    void removeHttpSocket(uv_poll_t *httpSocket);
+    UWS_UV uv_timer_t *httpTimer = nullptr;
+    void addHttpSocket(UWS_UV uv_poll_t *httpSocket);
+    void removeHttpSocket(UWS_UV uv_poll_t *httpSocket);
 
 
-    std::stack<uv_poll_t *> iterators;
+    std::stack<UWS_UV uv_poll_t *> iterators;
 
 protected:
     Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData);
@@ -82,10 +82,10 @@ public:
     // todo: handle nested forEachs with removeWebSocket
     template <class F>
     void forEach(const F &cb) {
-        uv_poll_t *iterator = webSocketHead;
+        UWS_UV uv_poll_t *iterator = webSocketHead;
         iterators.push(iterator);
         while (iterator) {
-            uv_poll_t *lastIterator = iterator;
+            UWS_UV uv_poll_t *lastIterator = iterator;
             cb(WebSocket<isServer>(iterator));
             iterator = iterators.top();
             if (lastIterator == iterator) {
@@ -99,10 +99,10 @@ public:
     // duplicated code for now!
     template <class F>
     void forEachHttpSocket(const F &cb) {
-        uv_poll_t *iterator = httpSocketHead;
+        UWS_UV uv_poll_t *iterator = httpSocketHead;
         iterators.push(iterator);
         while (iterator) {
-            uv_poll_t *lastIterator = iterator;
+            UWS_UV uv_poll_t *lastIterator = iterator;
             cb(HttpSocket<isServer>(iterator));
             iterator = iterators.top();
             if (lastIterator == iterator) {
