@@ -158,7 +158,22 @@ void Group<isServer>::stopListening() {
     if (isServer) {
         uS::ListenData *listenData = (uS::ListenData *) user;
         if (listenData) {
-            uS::Socket(listenData->listenPoll).close();
+            if (listenData->listenPoll)
+                uS::Socket(listenData->listenPoll).close();
+            else if (listenData->listenTimer) {
+                uv_os_sock_t fd = listenData->sock;
+                uv_timer_stop(listenData->listenTimer);
+                ::close(fd);
+
+                SSL *ssl = listenData->ssl;
+                if (ssl) {
+                    SSL_free(ssl);
+                }
+
+                uv_close((uv_handle_t *) &listenData->listenTimer, [](uv_handle_t *handle) {
+                    delete handle;
+                });
+            }
             delete listenData;
         }
     }
