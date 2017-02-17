@@ -276,12 +276,20 @@ struct HttpServer {
         hub.listen(args[0]->IntegerValue(), nullptr, 0, group);
     }
 
-    static void getResponsePrototype(const FunctionCallbackInfo<Value> &args) {
-        args.GetReturnValue().Set(Local<Object>::New(args.GetIsolate(), resTemplate)->GetPrototype());
-    }
+    // var app = getExpressApp(express)
+    static void getExpressApp(const FunctionCallbackInfo<Value> &args) {
+        Isolate *isolate = args.GetIsolate();
+        if (args[0]->IsFunction()) {
+            Local<Function> express = Local<Function>::Cast(args[0]);
+            express->Get(String::NewFromUtf8(isolate, "request"))->ToObject()->SetPrototype(Local<Object>::New(args.GetIsolate(), reqTemplate)->GetPrototype());
+            express->Get(String::NewFromUtf8(isolate, "response"))->ToObject()->SetPrototype(Local<Object>::New(args.GetIsolate(), resTemplate)->GetPrototype());
 
-    static void getRequestPrototype(const FunctionCallbackInfo<Value> &args) {
-        args.GetReturnValue().Set(Local<Object>::New(args.GetIsolate(), reqTemplate)->GetPrototype());
+            // also change app.listen?
+
+            // change prototypes back?
+
+            args.GetReturnValue().Set(express->NewInstance());
+        }
     }
 
     static Local<Function> getHttpServer(Isolate *isolate) {
@@ -289,8 +297,7 @@ struct HttpServer {
         httpServer->InstanceTemplate()->SetInternalFieldCount(1);
 
         httpServer->Set(String::NewFromUtf8(isolate, "createServer"), FunctionTemplate::New(isolate, HttpServer::createServer));
-        httpServer->Set(String::NewFromUtf8(isolate, "getResponsePrototype"), FunctionTemplate::New(isolate, HttpServer::getResponsePrototype));
-        httpServer->Set(String::NewFromUtf8(isolate, "getRequestPrototype"), FunctionTemplate::New(isolate, HttpServer::getRequestPrototype));
+        httpServer->Set(String::NewFromUtf8(isolate, "getExpressApp"), FunctionTemplate::New(isolate, HttpServer::getExpressApp));
         httpServer->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "listen"), FunctionTemplate::New(isolate, HttpServer::listen));
 
         // on('upgrade') needed to integrate with uws
