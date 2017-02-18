@@ -13,7 +13,7 @@ struct HttpServer {
             } else if (std::string(eventName.getData(), eventName.getLength()) == "end") {
                 args.Holder()->SetInternalField(2, args[1]);
             } else {
-                std::cout << "req.on(" << std::string(eventName.getData(), eventName.getLength()) << ") is not implemented!" << std::endl;
+                std::cout << "Warning: req.on(" << std::string(eventName.getData(), eventName.getLength()) << ") is not implemented!" << std::endl;
             }
             args.GetReturnValue().Set(args.Holder());
         }
@@ -71,7 +71,7 @@ struct HttpServer {
             Local<Object> reqObjectLocal = reqTemplateLocal->GetFunction()->NewInstance();
 
             Local<ObjectTemplate> headersTemplate = ObjectTemplate::New(isolate);
-            headersTemplate->SetNamedPropertyHandler(Request::headers/*, 0, 0, 0, 0, reqObjectLocal*/);
+            headersTemplate->SetNamedPropertyHandler(Request::headers);
 
             reqObjectLocal->Set(String::NewFromUtf8(isolate, "headers"), headersTemplate->NewInstance());
             return reqObjectLocal;
@@ -84,7 +84,7 @@ struct HttpServer {
             if (std::string(eventName.getData(), eventName.getLength()) == "close") {
                 args.Holder()->SetInternalField(1, args[1]);
             } else {
-                std::cout << "res.on(" << std::string(eventName.getData(), eventName.getLength()) << ") is not implemented!" << std::endl;
+                std::cout << "Warning: res.on(" << std::string(eventName.getData(), eventName.getLength()) << ") is not implemented!" << std::endl;
             }
             args.GetReturnValue().Set(args.Holder());
         }
@@ -94,43 +94,42 @@ struct HttpServer {
             if (res) {
                 NativeString nativeString(args[0]);
 
-                ((Persistent<Value> *) &res->userData)->Reset();
-                ((Persistent<Value> *) &res->userData)->~Persistent<Value>();
-                ((Persistent<Value> *) &res->extraUserData)->Reset();
-                ((Persistent<Value> *) &res->extraUserData)->~Persistent<Value>();
+                ((Persistent<Object> *) &res->userData)->Reset();
+                ((Persistent<Object> *) &res->userData)->~Persistent<Object>();
+                ((Persistent<Object> *) &res->extraUserData)->Reset();
+                ((Persistent<Object> *) &res->extraUserData)->~Persistent<Object>();
                 res->end(nativeString.getData(), nativeString.getLength());
             }
         }
 
         // todo: this is slow
         static void writeHead(const FunctionCallbackInfo<Value> &args) {
-            std::cout << "writeHead" << std::endl;
             uWS::HttpResponse *res = (uWS::HttpResponse *) args.Holder()->GetAlignedPointerFromInternalField(0);
             if (res) {
                 std::string head = "HTTP/1.1 " + std::to_string(args[0]->IntegerValue()) + " ";
 
-                Local<Object> headersObject;
-                if (args[1]->IsString()) {
+                if (args.Length() > 1 && args[1]->IsString()) {
                     NativeString statusMessage(args[1]);
                     head.append(statusMessage.getData(), statusMessage.getLength());
-                    headersObject = args[2]->ToObject();
                 } else {
                     head += "OK";
-                    headersObject = args[1]->ToObject();
                 }
 
-                Local<Array> headers = headersObject->GetOwnPropertyNames();
-                for (int i = 0; i < headers->Length(); i++) {
-                    Local<Value> key = headers->Get(i);
-                    Local<Value> value = headersObject->Get(key);
+                if (args[args.Length() - 1]->IsObject()) {
+                    Local<Object> headersObject = args[args.Length() - 1]->ToObject();
+                    Local<Array> headers = headersObject->GetOwnPropertyNames();
+                    for (int i = 0; i < headers->Length(); i++) {
+                        Local<Value> key = headers->Get(i);
+                        Local<Value> value = headersObject->Get(key);
 
-                    NativeString nativeKey(key);
-                    NativeString nativeValue(value);
+                        NativeString nativeKey(key);
+                        NativeString nativeValue(value);
 
-                    head += "\r\n";
-                    head.append(nativeKey.getData(), nativeKey.getLength());
-                    head += ": ";
-                    head.append(nativeValue.getData(), nativeValue.getLength());
+                        head += "\r\n";
+                        head.append(nativeKey.getData(), nativeKey.getLength());
+                        head += ": ";
+                        head.append(nativeValue.getData(), nativeValue.getLength());
+                    }
                 }
 
                 head += "\r\n\r\n";
@@ -238,6 +237,10 @@ struct HttpServer {
                 Local<Function>::Cast(closeCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
             }
 
+            ((Persistent<Object> *) &res->userData)->Reset();
+            ((Persistent<Object> *) &res->userData)->~Persistent<Object>();
+            ((Persistent<Object> *) &res->extraUserData)->Reset();
+            ((Persistent<Object> *) &res->extraUserData)->~Persistent<Object>();
         });
 
         group->onHttpData([isolate](uWS::HttpResponse *res, char *data, size_t length, size_t remainingBytes) {
@@ -268,12 +271,17 @@ struct HttpServer {
     }
 
     static void on(const FunctionCallbackInfo<Value> &args) {
-        std::cout << "server.on not implemented" << std::endl;
+        NativeString eventName(args[0]);
+        std::cout << "Warning: server.on(" << std::string(eventName.getData(), eventName.getLength()) << ") is not implemented!" << std::endl;
     }
 
     static void listen(const FunctionCallbackInfo<Value> &args) {
         uWS::Group<uWS::SERVER> *group = (uWS::Group<uWS::SERVER> *) args.Holder()->GetAlignedPointerFromInternalField(0);
-        hub.listen(args[0]->IntegerValue(), nullptr, 0, group);
+        std::cout << "listen: " << hub.listen(args[0]->IntegerValue(), nullptr, 0, group) << std::endl;
+
+        if (args[args.Length() - 1]->IsFunction()) {
+            Local<Function>::Cast(args[args.Length() - 1])->Call(args.GetIsolate()->GetCurrentContext()->Global(), 0, nullptr);
+        }
     }
 
     // var app = getExpressApp(express)
@@ -300,8 +308,6 @@ struct HttpServer {
         httpServer->Set(String::NewFromUtf8(isolate, "getExpressApp"), FunctionTemplate::New(isolate, HttpServer::getExpressApp));
         httpServer->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "listen"), FunctionTemplate::New(isolate, HttpServer::listen));
         httpServer->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, HttpServer::on));
-
-        // on('upgrade') needed to integrate with uws
 
         reqTemplate.Reset(isolate, Request::getTemplateObject(isolate));
         resTemplate.Reset(isolate, Response::getTemplateObject(isolate));
