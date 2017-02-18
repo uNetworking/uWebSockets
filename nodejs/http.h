@@ -1,6 +1,8 @@
 Persistent<Object> reqTemplate, resTemplate;
 Persistent<Function> httpPersistent;
 
+uWS::HttpRequest *currentReq = nullptr;
+
 struct HttpServer {
 
     struct Request {
@@ -17,24 +19,16 @@ struct HttpServer {
         }
 
         static void headers(Local<String> property, const PropertyCallbackInfo<Value> &args) {
-
-            // broken, accessing wrong this
-
-            std::cout << "headers, internal field count: " << args.Holder()->InternalFieldCount() << std::endl;
-            std::cout << "this, internal field count: " << args.This()->InternalFieldCount() << std::endl;
-
-//            uWS::HttpRequest *req = (uWS::HttpRequest *) args.Holder()->GetAlignedPointerFromInternalField(0);
-//            if (!req) {
-//                std::cerr << "Warning: req.headers usage past request handler is not supported!" << std::endl;
-//            } else {
-//                NativeString nativeString(property);
-//                uWS::Header header = req->getHeader(nativeString.getData(), nativeString.getLength());
-//                if (header) {
-//                    args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) header.value, String::kNormalString, header.valueLength));
-//                }
-//            }
-
-//            std::cout << "headers done" << std::endl;
+            uWS::HttpRequest *req = currentReq;
+            if (!req) {
+                std::cerr << "Warning: req.headers usage past request handler is not supported!" << std::endl;
+            } else {
+                NativeString nativeString(property);
+                uWS::Header header = req->getHeader(nativeString.getData(), nativeString.getLength());
+                if (header) {
+                    args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) header.value, String::kNormalString, header.valueLength));
+                }
+            }
         }
 
         static void url(Local<String> property, const PropertyCallbackInfo<Value> &args) {
@@ -190,6 +184,8 @@ struct HttpServer {
         group->onHttpRequest([isolate, httpRequestCallback](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
             HandleScope hs(isolate);
 
+            currentReq = &req;
+
             Local<Object> reqObject = Local<Object>::New(isolate, reqTemplate)->Clone();
             reqObject->SetAlignedPointerInInternalField(0, &req);
             new (&res->extraUserData) Persistent<Object>(isolate, reqObject);
@@ -221,6 +217,7 @@ struct HttpServer {
                 }
             }
 
+            currentReq = nullptr;
             reqObject->SetAlignedPointerInInternalField(0, nullptr);
         });
 
