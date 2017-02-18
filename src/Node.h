@@ -62,6 +62,7 @@ public:
             SSL_set_fd(socketData->ssl, fd);
             SSL_set_connect_state(socketData->ssl);
             SSL_set_mode(socketData->ssl, SSL_MODE_RELEASE_BUFFERS);
+            SSL_set_tlsext_host_name(socketData->ssl, hostname);
         } else {
             socketData->ssl = nullptr;
         }
