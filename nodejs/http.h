@@ -58,6 +58,11 @@ struct HttpServer {
             //std::cout << "req.resume called" << std::endl;
         }
 
+        static void socket(const FunctionCallbackInfo<Value> &args) {
+            // return new empty object
+            args.GetReturnValue().Set(Object::New(args.GetIsolate()));
+        }
+
         static Local<Object> getTemplateObject(Isolate *isolate) {
             Local<FunctionTemplate> reqTemplateLocal = FunctionTemplate::New(isolate);
             reqTemplateLocal->SetClassName(String::NewFromUtf8(isolate, "uws.Request"));
@@ -67,6 +72,7 @@ struct HttpServer {
             reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, Request::on));
             reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "unpipe"), FunctionTemplate::New(isolate, Request::unpipe));
             reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "resume"), FunctionTemplate::New(isolate, Request::resume));
+            reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "socket"), FunctionTemplate::New(isolate, Request::socket));
 
             Local<Object> reqObjectLocal = reqTemplateLocal->GetFunction()->NewInstance();
 
