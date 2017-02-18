@@ -7,9 +7,9 @@ struct HttpServer {
         static void on(const FunctionCallbackInfo<Value> &args) {
             NativeString eventName(args[0]);
             if (std::string(eventName.getData(), eventName.getLength()) == "data") {
-                args.Holder()->SetAlignedPointerInInternalField(1, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
+                args.Holder()->SetInternalField(1, args[1]);
             } else if (std::string(eventName.getData(), eventName.getLength()) == "end") {
-                args.Holder()->SetAlignedPointerInInternalField(2, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
+                args.Holder()->SetInternalField(2, args[1]);
             } else {
                 std::cout << "req.on(" << std::string(eventName.getData(), eventName.getLength()) << ") is not implemented!" << std::endl;
             }
@@ -17,29 +17,40 @@ struct HttpServer {
         }
 
         static void headers(Local<String> property, const PropertyCallbackInfo<Value> &args) {
-            uWS::HttpRequest *req = (uWS::HttpRequest *) args.This()->GetAlignedPointerFromInternalField(0);
-            if (!req) {
-                std::cerr << "Warning: req.headers usage past request handler is not supported!" << std::endl;
-            } else {
-                NativeString nativeString(property);
-                uWS::Header header = req->getHeader(nativeString.getData(), nativeString.getLength());
-                if (header) {
-                    args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) header.value, String::kNormalString, header.valueLength));
-                }
-            }
+
+            // broken, accessing wrong this
+
+            std::cout << "headers, internal field count: " << args.Holder()->InternalFieldCount() << std::endl;
+            std::cout << "this, internal field count: " << args.This()->InternalFieldCount() << std::endl;
+
+//            uWS::HttpRequest *req = (uWS::HttpRequest *) args.Holder()->GetAlignedPointerFromInternalField(0);
+//            if (!req) {
+//                std::cerr << "Warning: req.headers usage past request handler is not supported!" << std::endl;
+//            } else {
+//                NativeString nativeString(property);
+//                uWS::Header header = req->getHeader(nativeString.getData(), nativeString.getLength());
+//                if (header) {
+//                    args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) header.value, String::kNormalString, header.valueLength));
+//                }
+//            }
+
+//            std::cout << "headers done" << std::endl;
         }
 
         static void url(Local<String> property, const PropertyCallbackInfo<Value> &args) {
-            // for now we store a copy of url -> should have two paths?
             args.GetReturnValue().Set(args.This()->GetInternalField(4));
         }
 
         // todo: add all cases
         static void method(Local<String> property, const PropertyCallbackInfo<Value> &args) {
-            int methodId = (long) args.This()->GetAlignedPointerFromInternalField(3);
+            //std::cout << "method" << std::endl;
+            long methodId = ((long) args.This()->GetAlignedPointerFromInternalField(3)) >> 1;
             switch (methodId) {
             case uWS::HttpMethod::METHOD_GET:
                 args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) "GET", String::kNormalString, 3));
+                break;
+            case uWS::HttpMethod::METHOD_POST:
+                args.GetReturnValue().Set(String::NewFromOneByte(args.GetIsolate(), (uint8_t *) "POST", String::kNormalString, 4));
                 break;
             }
         }
@@ -54,9 +65,6 @@ struct HttpServer {
         }
 
         static Local<Object> getTemplateObject(Isolate *isolate) {
-            Local<ObjectTemplate> headersTemplate = ObjectTemplate::New(isolate);
-            headersTemplate->SetNamedPropertyHandler(Request::headers);
-
             Local<FunctionTemplate> reqTemplateLocal = FunctionTemplate::New(isolate);
             reqTemplateLocal->SetClassName(String::NewFromUtf8(isolate, "uws.Request"));
             reqTemplateLocal->InstanceTemplate()->SetInternalFieldCount(5);
@@ -67,6 +75,10 @@ struct HttpServer {
             reqTemplateLocal->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "resume"), FunctionTemplate::New(isolate, Request::resume));
 
             Local<Object> reqObjectLocal = reqTemplateLocal->GetFunction()->NewInstance();
+
+            Local<ObjectTemplate> headersTemplate = ObjectTemplate::New(isolate);
+            headersTemplate->SetNamedPropertyHandler(Request::headers/*, 0, 0, 0, 0, reqObjectLocal*/);
+
             reqObjectLocal->Set(String::NewFromUtf8(isolate, "headers"), headersTemplate->NewInstance());
             return reqObjectLocal;
         }
@@ -76,7 +88,7 @@ struct HttpServer {
         static void on(const FunctionCallbackInfo<Value> &args) {
             NativeString eventName(args[0]);
             if (std::string(eventName.getData(), eventName.getLength()) == "close") {
-                args.Holder()->SetAlignedPointerInInternalField(1, new Persistent<Function>(args.GetIsolate(), Local<Function>::Cast(args[1])));
+                args.Holder()->SetInternalField(1, args[1]);
             } else {
                 std::cout << "res.on(" << std::string(eventName.getData(), eventName.getLength()) << ") is not implemented!" << std::endl;
             }
@@ -98,6 +110,7 @@ struct HttpServer {
 
         // todo: this is slow
         static void writeHead(const FunctionCallbackInfo<Value> &args) {
+            std::cout << "writeHead" << std::endl;
             uWS::HttpResponse *res = (uWS::HttpResponse *) args.Holder()->GetAlignedPointerFromInternalField(0);
             if (res) {
                 std::string head = "HTTP/1.1 " + std::to_string(args[0]->IntegerValue()) + " ";
@@ -166,12 +179,7 @@ struct HttpServer {
     // todo: wrap everything up - most important function to get correct
     static void createServer(const FunctionCallbackInfo<Value> &args) {
 
-        if (sizeof(Persistent<Object>) != sizeof(void *)) {
-            std::cerr << "Error: sizeof(Persistent<Object>) != sizeof(void *)" << std::endl;
-            std::terminate();
-        }
-
-        // create the group, should be deleted in destructor
+        // todo: delete this on destructor
         uWS::Group<uWS::SERVER> *group = hub.createGroup<uWS::SERVER>();
         group->setUserData(new GroupData);
         GroupData *groupData = (GroupData *) group->getUserData();
@@ -184,38 +192,35 @@ struct HttpServer {
 
             Local<Object> reqObject = Local<Object>::New(isolate, reqTemplate)->Clone();
             reqObject->SetAlignedPointerInInternalField(0, &req);
-            reqObject->SetAlignedPointerInInternalField(1, nullptr);
-            reqObject->SetAlignedPointerInInternalField(2, nullptr);
-
-            // store url and method for usage after req is invalidated
-            reqObject->SetAlignedPointerInInternalField(3, (void *) req.getMethod());
-            reqObject->SetInternalField(4, String::NewFromOneByte(isolate, (uint8_t *) req.getUrl().value, String::kNormalString, req.getUrl().valueLength));
             new (&res->extraUserData) Persistent<Object>(isolate, reqObject);
 
             Local<Object> resObject = Local<Object>::New(isolate, resTemplate)->Clone();
             resObject->SetAlignedPointerInInternalField(0, res);
-            resObject->SetAlignedPointerInInternalField(1, nullptr);
             new (&res->userData) Persistent<Object>(isolate, resObject);
+
+            // store url & method (needed by Koa and Express)
+            long methodId = req.getMethod() << 1;
+            reqObject->SetAlignedPointerInInternalField(3, (void *) methodId);
+            reqObject->SetInternalField(4, String::NewFromOneByte(isolate, (uint8_t *) req.getUrl().value, String::kNormalString, req.getUrl().valueLength));
 
             Local<Value> argv[] = {reqObject, resObject};
             Local<Function>::New(isolate, *httpRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 2, argv);
 
             if (length) {
-                Persistent<Function> *dataCallback = (Persistent<Function> *) reqObject->GetAlignedPointerFromInternalField(1);
-                if (dataCallback) {
+                Local<Value> dataCallback = reqObject->GetInternalField(1);
+                if (!dataCallback->IsUndefined()) {
                     Local<Value> argv[] = {ArrayBuffer::New(isolate, data, length)};
-                    Local<Function>::New(isolate, *dataCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+                    Local<Function>::Cast(dataCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
                 }
 
                 if (!remainingBytes) {
-                    Persistent<Function> *endCallback = (Persistent<Function> *) reqObject->GetAlignedPointerFromInternalField(2);
-                    if (endCallback) {
-                        Local<Function>::New(isolate, *endCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
+                    Local<Value> endCallback = reqObject->GetInternalField(2);
+                    if (!endCallback->IsUndefined()) {
+                        Local<Function>::Cast(endCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
                     }
                 }
             }
 
-            // invalidate req
             reqObject->SetAlignedPointerInInternalField(0, nullptr);
         });
 
@@ -230,33 +235,27 @@ struct HttpServer {
             Local<Object> reqObject = Local<Object>::New(isolate, *(Persistent<Object> *) &res->extraUserData);
             reqObject->SetAlignedPointerInInternalField(0, nullptr);
 
-            // if res has abort event set, then call this here!
-            //Local<Value> argv[] = {resObject};
-            //Local<Function>::New(isolate, *httpCancelledRequestCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
-
             // emit res 'close' on aborted response
-            Persistent<Function> *closeCallback = (Persistent<Function> *) resObject->GetAlignedPointerFromInternalField(1);
-            if (closeCallback) {
-                Local<Function>::New(isolate, *closeCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
+            Local<Value> closeCallback = resObject->GetInternalField(1);
+            if (!closeCallback->IsUndefined()) {
+                Local<Function>::Cast(closeCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
             }
 
-
-            // make sure to release every held persistent here and in end!
         });
 
         group->onHttpData([isolate](uWS::HttpResponse *res, char *data, size_t length, size_t remainingBytes) {
             Local<Object> reqObject = Local<Object>::New(isolate, *(Persistent<Object> *) res->extraUserData);
 
-            Persistent<Function> *dataCallback = (Persistent<Function> *) reqObject->GetAlignedPointerFromInternalField(1);
-            if (dataCallback) {
+            Local<Value> dataCallback = reqObject->GetInternalField(1);
+            if (!dataCallback->IsUndefined()) {
                 Local<Value> argv[] = {ArrayBuffer::New(isolate, data, length)};
-                Local<Function>::New(isolate, *dataCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+                Local<Function>::Cast(dataCallback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
             }
 
             if (!remainingBytes) {
-                Persistent<Function> *endCallback = (Persistent<Function> *) reqObject->GetAlignedPointerFromInternalField(2);
-                if (endCallback) {
-                    Local<Function>::New(isolate, *endCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
+                Local<Value> endCallback = reqObject->GetInternalField(2);
+                if (!endCallback->IsUndefined()) {
+                    Local<Function>::Cast(endCallback)->Call(isolate->GetCurrentContext()->Global(), 0, nullptr);
                 }
             }
         });
@@ -269,6 +268,10 @@ struct HttpServer {
         }
 
         newInstance->SetAlignedPointerInInternalField(0, group);
+    }
+
+    static void on(const FunctionCallbackInfo<Value> &args) {
+        std::cout << "server.on not implemented" << std::endl;
     }
 
     static void listen(const FunctionCallbackInfo<Value> &args) {
@@ -299,6 +302,7 @@ struct HttpServer {
         httpServer->Set(String::NewFromUtf8(isolate, "createServer"), FunctionTemplate::New(isolate, HttpServer::createServer));
         httpServer->Set(String::NewFromUtf8(isolate, "getExpressApp"), FunctionTemplate::New(isolate, HttpServer::getExpressApp));
         httpServer->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "listen"), FunctionTemplate::New(isolate, HttpServer::listen));
+        httpServer->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, HttpServer::on));
 
         // on('upgrade') needed to integrate with uws
 
