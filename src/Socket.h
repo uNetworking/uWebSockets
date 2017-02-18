@@ -36,7 +36,7 @@ public:
         }
 
         UWS_UV uv_poll_stop(p);
-        UWS_UV uv_close((UWS_UV uv_handle_t *) p, [](UWS_UV uv_handle_t *h) {
+        UWS_UV uv_close(p, [](UWS_UV uv_handle_t *h) {
             delete (UWS_UV uv_poll_t *) h;
         });
     }
@@ -157,7 +157,7 @@ public:
         UWS_UV uv_timer_t *timer = (UWS_UV uv_timer_t *) getUserData();
         if (timer) {
             UWS_UV uv_timer_stop(timer);
-            UWS_UV uv_close((UWS_UV uv_handle_t *) timer, [](UWS_UV uv_handle_t *handle) {
+            UWS_UV uv_close(timer, [](UWS_UV uv_handle_t *handle) {
                 delete (UWS_UV uv_timer_t *) handle;
             });
             getSocketData()->user = nullptr;
@@ -329,7 +329,7 @@ public:
             SSL_free(ssl);
         }
 
-        UWS_UV uv_close((UWS_UV uv_handle_t *) p, [](UWS_UV uv_handle_t *h) {
+        UWS_UV uv_close(p, [](UWS_UV uv_handle_t *h) {
             delete (UWS_UV uv_poll_t *) h;
         });
     }

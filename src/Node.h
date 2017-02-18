@@ -96,7 +96,7 @@ public:
             */
             if (!TIMER) {
                 UWS_UV uv_poll_stop(listenData->listenPoll);
-                UWS_UV uv_close((UWS_UV uv_handle_t *) listenData->listenPoll, [](UWS_UV uv_handle_t *handle) {
+                UWS_UV uv_close(listenData->listenPoll, [](UWS_UV uv_handle_t *handle) {
                     delete handle;
                 });
                 listenData->listenPoll = nullptr;
@@ -109,7 +109,7 @@ public:
             return;
         } else if (TIMER) {
             UWS_UV uv_timer_stop(listenData->listenTimer);
-            UWS_UV uv_close((UWS_UV uv_handle_t *) listenData->listenTimer, [](UWS_UV uv_handle_t *handle) {
+            UWS_UV uv_close(listenData->listenTimer, [](UWS_UV uv_handle_t *handle) {
                 delete handle;
             });
             listenData->listenTimer = nullptr;

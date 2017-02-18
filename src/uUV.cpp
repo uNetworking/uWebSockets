@@ -1,16 +1,36 @@
-#ifdef USE_MICRO_UV
+#include "uUV.h"
+
+#ifndef USE_MICRO_UV
+void uv_close(uv_async_t *handle, uv_close_cb cb) {
+	uv_close((uv_handle_t *) handle, cb);
+}
+void uv_close(uv_idle_t *handle, uv_close_cb cb) {
+	uv_close((uv_handle_t *) handle, cb);
+}
+void uv_close(uv_poll_t *handle, uv_close_cb cb) {
+	uv_close((uv_handle_t *) handle, cb);
+}
+void uv_close(uv_timer_t *handle, uv_close_cb cb) {
+	uv_close((uv_handle_t *) handle, cb);
+}
+#else
 
 #include <sys/eventfd.h>
-
-#include "uUV.h"
 
 namespace uUV {
 
 uv_loop_t *loops[128];
 int loopHead = 0;
 
-uv_poll_cb poll_callbacks[128];
+#define CALLBACK_ARR_SIZE 128
+uv_async_cb async_callbacks[CALLBACK_ARR_SIZE];
+int asyncCbHead = 0;
+uv_idle_cb idle_callbacks[CALLBACK_ARR_SIZE];
+int idleCbHead = 0;
+uv_poll_cb poll_callbacks[CALLBACK_ARR_SIZE];
 int pollCbHead = 0;
+uv_timer_cb timer_callbacks[CALLBACK_ARR_SIZE];
+int timerCbHead = 0;
 
 uv_loop_t *uv_handle_t::get_loop() const {
     return loops[loopIndex];
@@ -56,49 +76,25 @@ void uv_loop_delete(uv_loop_t *loop) {
     delete loop;
 }
 
-void uv_close(uv_handle_t *handle, uv_handle_cb cb) {
-    uv_loop_t *loop = handle->get_loop();
-    switch (handle->type) {
-    case UV_ASYNC:
-    {
-        loop->asyncs.erase((uv_async_t *) handle);
-    }
-    case UV_POLL:
-    {
-        uv_poll_t *poll = (uv_poll_t *) handle;
-        poll->fd = -1;
-        break;
-    }
-    default:
-        break;
-    }
-    handle->flags |= UV_HANDLE_CLOSING;
-    loop->closing.push_back({handle, cb});
-}
-
 bool uv_is_closing(uv_handle_t *handle) {
     return handle->flags & (UV_HANDLE_CLOSING | UV_HANDLE_CLOSED);
 }
 
-int uv_fileno(uv_handle_t *handle) {
-    switch (handle->type) {
-    case UV_POLL:
-        if (uv_is_closing(handle))
-            return UV_EBADF;
-        else
-            return ((uv_poll_t *) handle)->fd;
-        break;
-    default:
-        return UV_EINVAL;
-        break;
-    }
-}
-
 void uv_async_init(uv_loop_t *loop, uv_async_t *async, uv_async_cb cb) {
-    async->type = UV_ASYNC;
     async->loopIndex = loop->index;
     loop->numEvents++;
-    async->cb = cb;
+
+    async->cbIndex = asyncCbHead;
+    for (int i = 0; i < asyncCbHead; i++) {
+        if (async_callbacks[i] == cb) {
+            async->cbIndex = i;
+            break;
+        }
+    }
+    if (async->cbIndex == asyncCbHead) {
+        async_callbacks[asyncCbHead++] = cb;
+    }
+
     loop->asyncs.insert(async);
 }
 
@@ -111,19 +107,43 @@ void uv_async_send(uv_async_t *async) {
     loop->async_mutex.unlock();
 }
 
+void uv_close(uv_async_t *handle, uv_close_cb cb) {
+    uv_loop_t *loop = handle->get_loop();
+
+	loop->asyncs.erase((uv_async_t *) handle);
+
+    handle->flags |= UV_HANDLE_CLOSING;
+    loop->closing.push_back({(uv_handle_t *) handle, cb});
+}
+
 void uv_idle_init(uv_loop_t *loop, uv_idle_t *idle) {
-    idle->type = UV_IDLE;
     idle->loopIndex = loop->index;
     loop->numEvents++;
 }
 
 void uv_idle_start(uv_idle_t *idle, uv_idle_cb cb) {
-    idle->cb = cb;
+    idle->cbIndex = idleCbHead;
+    for (int i = 0; i < idleCbHead; i++) {
+        if (idle_callbacks[i] == cb) {
+            idle->cbIndex = i;
+            break;
+        }
+    }
+    if (idle->cbIndex == idleCbHead) {
+        idle_callbacks[idleCbHead++] = cb;
+    }
+
     idle->get_loop()->idlers.insert(idle);
 }
 
 void uv_idle_stop(uv_idle_t *idle) {
     idle->get_loop()->idlers.erase(idle);
+}
+
+void uv_close(uv_idle_t *handle, uv_close_cb cb) {
+    uv_loop_t *loop = handle->get_loop();
+    handle->flags |= UV_HANDLE_CLOSING;
+    loop->closing.push_back({(uv_handle_t *) handle, cb});
 }
 
 uv_poll_cb uv_poll_t::get_poll_cb() const {
@@ -141,7 +161,6 @@ int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *poll, uv_os_sock_t socket) {
         return -1;
     }
 
-    poll->type = UV_POLL;
     poll->loopIndex = loop->index;
     poll->fd = socket;
     poll->event.events = 0;
@@ -171,8 +190,24 @@ int uv_poll_stop(uv_poll_t *poll) {
     return epoll_ctl(poll->get_loop()->efd, EPOLL_CTL_DEL, poll->fd, &poll->event);
 }
 
+void uv_close(uv_poll_t *handle, uv_close_cb cb) {
+    uv_loop_t *loop = handle->get_loop();
+
+	uv_poll_t *poll = (uv_poll_t *) handle;
+	poll->fd = -1;
+
+    handle->flags |= UV_HANDLE_CLOSING;
+    loop->closing.push_back({(uv_handle_t *) handle, cb});
+}
+
+int uv_fileno(uv_poll_t *handle) {
+	if (uv_is_closing(handle))
+		return UV_EBADF;
+	else
+		return handle->fd;
+}
+
 void uv_timer_init(uv_loop_t *loop, uv_timer_t *timer) {
-    timer->type = UV_TIMER;
     timer->loopIndex = loop->index;
     loop->numEvents++;
     loop->timepoint = std::chrono::system_clock::now();
@@ -194,7 +229,17 @@ void uv_timer_enqueue(uv_timer_t *timer, int timeout) {
         loop->timers.push_back(timer);
 }
 void uv_timer_start(uv_timer_t *timer, uv_timer_cb cb, int timeout, int repeat) {
-    timer->cb = cb;
+    timer->cbIndex = timerCbHead;
+    for (int i = 0; i < timerCbHead; i++) {
+        if (timer_callbacks[i] == cb) {
+            timer->cbIndex = i;
+            break;
+        }
+    }
+    if (timer->cbIndex == timerCbHead) {
+        timer_callbacks[timerCbHead++] = cb;
+    }
+
     timer->repeat = repeat;
     timer->flags |= UV_HANDLE_RUNNING;
     uv_timer_enqueue(timer, timeout);
@@ -211,6 +256,12 @@ void uv_timer_stop(uv_timer_t *timer) {
         }
 }
 
+void uv_close(uv_timer_t *handle, uv_close_cb cb) {
+    uv_loop_t *loop = handle->get_loop();
+    handle->flags |= UV_HANDLE_CLOSING;
+    loop->closing.push_back({(uv_handle_t *) handle, cb});
+}
+
 void uv_run(uv_loop_t *loop, int mode) {
     loop->timepoint = std::chrono::system_clock::now();
     int loopIter = 0;
@@ -220,10 +271,10 @@ void uv_run(uv_loop_t *loop, int mode) {
         // Close any events that are ready to close
         if (loop->closing.size()) {
             // Make a copy so that its ok to call uv_close in the callbacks
-            std::vector<std::pair<uv_handle_t *, uv_handle_cb>> closingCopy = loop->closing;
+            std::vector<std::pair<uv_handle_t *, uv_close_cb>> closingCopy = loop->closing;
             loop->closing.clear();
             
-            for (std::pair<uv_handle_t *, uv_handle_cb> c : closingCopy) {
+            for (std::pair<uv_handle_t *, uv_close_cb> c : closingCopy) {
                 loop->numEvents--;
                 c.first->flags &= ~UV_HANDLE_CLOSING;
                 c.first->flags |= UV_HANDLE_CLOSED;
@@ -269,14 +320,14 @@ void uv_run(uv_loop_t *loop, int mode) {
                 }
             loop->async_mutex.unlock();
             for (uv_async_t *async : readyAsyncs)
-                async->cb(async);
+				async_callbacks[async->cbIndex](async);
         }
 
         // Handle idle events
         if (loop->idlers.size()) {
             std::unordered_set<uv_idle_t *> readyIdlers = loop->idlers;
             for (uv_idle_t *idle : readyIdlers)
-                idle->cb(idle);
+				idle_callbacks[idle->cbIndex](idle);
         }
 
         // Handle timer events
@@ -290,7 +341,7 @@ void uv_run(uv_loop_t *loop, int mode) {
             }
             for (uv_timer_t* timer : readyTimers) {
                 if (timer->flags & UV_HANDLE_RUNNING) {
-                    timer->cb(timer);
+					timer_callbacks[timer->cbIndex](timer);
                     // Have to check for running again in case timer was stopped in callback
                     if (timer->repeat && timer->flags & UV_HANDLE_RUNNING) {
                         uv_timer_enqueue(timer, timer->repeat);

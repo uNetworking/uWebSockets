@@ -85,7 +85,7 @@ void Group<isServer>::removeHttpSocket(UWS_UV uv_poll_t *httpSocket) {
         httpSocketHead = (UWS_UV uv_poll_t *) nullptr;
 
         UWS_UV uv_timer_stop(httpTimer);
-        UWS_UV uv_close((UWS_UV uv_handle_t *) httpTimer, [](UWS_UV uv_handle_t *handle) {
+        UWS_UV uv_close(httpTimer, [](UWS_UV uv_handle_t *handle) {
             delete (UWS_UV uv_timer_t *) handle;
         });
 
@@ -170,7 +170,7 @@ void Group<isServer>::stopListening() {
                     SSL_free(ssl);
                 }
 
-                UWS_UV uv_close((UWS_UV uv_handle_t *) &listenData->listenTimer, [](UWS_UV uv_handle_t *handle) {
+                UWS_UV uv_close(listenData->listenTimer, [](UWS_UV uv_handle_t *handle) {
                     delete handle;
                 });
             }
@@ -179,7 +179,7 @@ void Group<isServer>::stopListening() {
     }
 
     if (async) {
-        UWS_UV uv_close((UWS_UV uv_handle_t *) async, [](UWS_UV uv_handle_t *h) {
+        UWS_UV uv_close(async, [](UWS_UV uv_handle_t *h) {
             delete (UWS_UV uv_async_t *) h;
         });
     }
@@ -270,7 +270,7 @@ void Group<isServer>::close(int code, char *message, size_t length) {
     stopListening();
     if (timer) {
         UWS_UV uv_timer_stop(timer);
-        UWS_UV uv_close((UWS_UV uv_handle_t *) timer, [](UWS_UV uv_handle_t *handle) {
+        UWS_UV uv_close(timer, [](UWS_UV uv_handle_t *handle) {
             delete (UWS_UV uv_timer_t *) handle;
         });
     }
