@@ -53,6 +53,12 @@ public:
             delete p;
             return nullptr;
         }
+
+#ifdef __APPLE__
+        int noSigpipe = 1;
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
+#endif
+
         ::connect(fd, result->ai_addr, result->ai_addrlen);
         freeaddrinfo(result);
 
