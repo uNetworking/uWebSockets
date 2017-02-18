@@ -63,7 +63,7 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
 
     if (httpData->contentLength) {
         httpData->missedDeadline = false;
-        if (httpData->contentLength >= length) {
+		if (httpData->contentLength >= static_cast<size_t>(length)) {
             getGroup<isServer>(s)->httpDataHandler(httpData->outstandingResponsesTail, data, length, httpData->contentLength -= length);
             return;
         } else {

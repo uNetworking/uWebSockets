@@ -81,7 +81,7 @@ private:
     static int passwordCallback(char *buf, int size, int rwflag, void *u)
     {
         std::string *password = (std::string *) u;
-        int length = std::min<int>(size, password->length());
+		int length = std::min<int>(size, static_cast<int>(password->length()));
         memcpy(buf, password->data(), length);
         buf[length] = '\0';
         return length;
@@ -98,7 +98,7 @@ public:
     Context &operator=(const Context &other);
     ~Context();
     operator bool() {
-        return context;
+        return context != nullptr;
     }
 
     SSL_CTX *getNativeContext() {
@@ -145,7 +145,7 @@ struct WIN32_EXPORT NodeData {
     static void asyncCallback(uv_async_t *async);
 
     static int getMemoryBlockIndex(size_t length) {
-        return (length >> 4) + bool(length & 15);
+        return (length >> 4) + ((length & 15) != 0 ? 1 :0);
     }
 
     char *getSmallMemoryBlock(int index) {
