@@ -12,7 +12,8 @@
         'src/WebSocket.cpp',
         'src/HTTPSocket.cpp',
         'src/Socket.cpp',
-        'src/addon.cpp'
+        'src/addon.cpp',
+        'src/uUV.cpp'
       ],
       'conditions': [
         ['OS=="linux"', {
