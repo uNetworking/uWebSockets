@@ -1,16 +1,20 @@
-First check if your issue is a **frequently posted issue**:
-* You are not using NAN, use it!
-  * No, this project will never use NAN.
-* You are not using prebuild, use it!
-  * No.
-* The EventEmitter of uws is not 100% compatible with standard EventEmitters
-  * This is by design. EventEmitters are cancerous and uws does not aim to implement them in verbatim.
-* The project is completely broken and fundamental feature X does not work at all
-  * Chances are the issue is on your end. This project is used by more than you and we would have known if it was this broken.
-* I cannot compile or link the project \<insert compiler or linker error\>
-  * In 99% of cases this is issues on your end. In some cases I leave master in a broken state. Try a released version first.
+## Frequently posted issues
+**I cannot compile or link the project \<insert compiler or linker error\>**  
+Try a released version, master branch is where development happens. If you still have issues then you need to check your end very thoroughly before posting this issue. You are not the only one using µWS and it is probably not this broken.
+
+**Fundamental feature X is broken**  
+Again, check your end very thoroughly before posting such an issue. µWS is successfully used by many others.
+
+**You are not using NAN, prebuild or \<insert overrated project X\>**  
+I know, this is by design. Things like NAN would render this project a million times more bloated.
+
+**Feature X is not 100% identical to feature X of `ws`**  
+Things like EventEmitters differ in behavior between the two projects. Other differences are listed on the main README. This is by design.
+
+**Compilation of µWebSockets has failed and there is no pre-compiled binary available for your system**  
+This error message is more accurate than you might think. Install a C++11 compiler or update your distribution. You can also dig in uws.js yourself for more information before posting this issue.
   
-**Include the following information (where applicable)**:
+## Include the following information (where applicable):
 
 * What operating system are you running?
   * Linux
