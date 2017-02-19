@@ -53,6 +53,12 @@ public:
             delete p;
             return nullptr;
         }
+
+#ifdef __APPLE__
+        int noSigpipe = 1;
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
+#endif
+
         ::connect(fd, result->ai_addr, result->ai_addrlen);
         freeaddrinfo(result);
 
@@ -62,6 +68,7 @@ public:
             SSL_set_fd(socketData->ssl, fd);
             SSL_set_connect_state(socketData->ssl);
             SSL_set_mode(socketData->ssl, SSL_MODE_RELEASE_BUFFERS);
+            SSL_set_tlsext_host_name(socketData->ssl, hostname);
         } else {
             socketData->ssl = nullptr;
         }
@@ -119,7 +126,7 @@ public:
             uv_poll_init_socket(listenData->nodeData->loop, listenData->listenPoll, serverFd);
             uv_poll_start(listenData->listenPoll, UV_READABLE, accept_poll_cb<A>);
         }
-
+        do {
     #ifdef __APPLE__
         int noSigpipe = 1;
         setsockopt(clientFd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
@@ -146,8 +153,10 @@ public:
 
         socketData->poll = UV_READABLE;
         A(clientPoll);
+        } while ((clientFd = accept(serverFd, nullptr, nullptr)) != INVALID_SOCKET);
     }
 
+    // todo: hostname, backlog
     template <void A(Socket s)>
     bool listen(int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void *user) {
         addrinfo hints, *result;
@@ -196,7 +205,7 @@ public:
         int enabled = true;
         setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled));
 
-        if (bind(listenFd, listenAddr->ai_addr, listenAddr->ai_addrlen) || ::listen(listenFd, 10)) {
+        if (bind(listenFd, listenAddr->ai_addr, listenAddr->ai_addrlen) || ::listen(listenFd, 512)) {
             ::close(listenFd);
             freeaddrinfo(result);
             return true;
