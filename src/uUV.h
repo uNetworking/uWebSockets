@@ -7,9 +7,7 @@ void uv_close(uv_async_t *handle, uv_close_cb cb);
 void uv_close(uv_idle_t *handle, uv_close_cb cb);
 void uv_close(uv_poll_t *handle, uv_close_cb cb);
 void uv_close(uv_timer_t *handle, uv_close_cb cb);
-#define UWS_UV
 #else
-#define UWS_UV uUV::
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -30,7 +28,7 @@ void uv_close(uv_timer_t *handle, uv_close_cb cb);
 #include <vector>
 #include <unordered_set>
 
-namespace uUV {
+//namespace uUV {
 
 struct uv_handle_t;
 struct uv_loop_t;
@@ -151,7 +149,7 @@ void uv_close(uv_timer_t *handle, uv_close_cb cb);
 
 void uv_run(uv_loop_t *loop, int mode);
 
-} // namespace uUV
+//} // namespace uUV
 
 #endif
 #endif // UUV_H

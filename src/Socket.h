@@ -7,14 +7,14 @@ namespace uS {
 
 class WIN32_EXPORT Socket {
 protected:
-    UWS_UV uv_poll_t *p;
+    uv_poll_t *p;
 
 public:
-    Socket(UWS_UV uv_poll_t *p) : p(p) {
+    Socket(uv_poll_t *p) : p(p) {
 
     }
 
-    UWS_UV uv_poll_cb getPollCallback() {
+    uv_poll_cb getPollCallback() {
 #ifdef USE_MICRO_UV
         return p->get_poll_cb();
 #else
@@ -22,26 +22,26 @@ public:
 #endif
     }
 
-    void transfer(NodeData *nodeData, void (*cb)(UWS_UV uv_poll_t *)) {
+    void transfer(NodeData *nodeData, void (*cb)(uv_poll_t *)) {
         SocketData *socketData = getSocketData();
 
         nodeData->asyncMutex->lock();
-        nodeData->transferQueue.push_back({new UWS_UV uv_poll_t, getFd(), socketData, getPollCallback(), cb});
+        nodeData->transferQueue.push_back({new uv_poll_t, getFd(), socketData, getPollCallback(), cb});
         nodeData->asyncMutex->unlock();
 
         if (socketData->nodeData->tid != nodeData->tid) {
-            UWS_UV uv_async_send(nodeData->async);
+            uv_async_send(nodeData->async);
         } else {
             NodeData::asyncCallback(nodeData->async);
         }
 
-        UWS_UV uv_poll_stop(p);
-        UWS_UV uv_close(p, [](UWS_UV uv_handle_t *h) {
-            delete (UWS_UV uv_poll_t *) h;
+        uv_poll_stop(p);
+        uv_close(p, [](uv_handle_t *h) {
+            delete (uv_poll_t *) h;
         });
     }
 
-    static UWS_UV uv_poll_t *init(NodeData *nodeData, UWS_UV uv_os_sock_t fd, SSL *ssl) {
+    static uv_poll_t *init(NodeData *nodeData, uv_os_sock_t fd, SSL *ssl) {
         if (ssl) {
             SSL_set_fd(ssl, fd);
             SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
@@ -49,18 +49,18 @@ public:
 
         SocketData *socketData = new SocketData(nodeData);
         socketData->ssl = ssl;
-        socketData->poll = UWS_UV UV_READABLE;
+        socketData->poll = UV_READABLE;
 
-        UWS_UV uv_poll_t *p = new UWS_UV uv_poll_t;
-        UWS_UV uv_poll_init_socket(nodeData->loop, p, fd);
+        uv_poll_t *p = new uv_poll_t;
+        uv_poll_init_socket(nodeData->loop, p, fd);
         p->data = socketData;
         return p;
     }
 
-    UWS_UV uv_os_sock_t getFd() {
+    uv_os_sock_t getFd() {
 #ifdef _WIN32
-        UWS_UV uv_os_sock_t fd;
-        UWS_UV uv_fileno((UWS_UV uv_handle_t *) p, (UWS_UV uv_os_fd_t *) &fd);
+        uv_os_sock_t fd;
+        uv_fileno((uv_handle_t *) p, (uv_os_fd_t *) &fd);
         return fd;
 #else
 #ifdef USE_MICRO_UV
@@ -87,12 +87,12 @@ public:
         getSocketData()->user = user;
     }
 
-    operator UWS_UV uv_poll_t *() const {
+    operator uv_poll_t *() const {
         return p;
     }
 
     bool isClosed() {
-        return UWS_UV uv_is_closing((UWS_UV uv_handle_t *) p);
+        return uv_is_closing((uv_handle_t *) p);
     }
 
     bool isShuttingDown() {
@@ -141,11 +141,11 @@ public:
         SocketData *socketData = getSocketData();
         NodeData *nodeData = getNodeData(socketData);
 
-        UWS_UV uv_timer_t *timer = new UWS_UV uv_timer_t;
+        uv_timer_t *timer = new uv_timer_t;
         timer->data = p;
-        UWS_UV uv_timer_init(nodeData->loop, timer);
-        UWS_UV uv_timer_start(timer, [](UWS_UV uv_timer_t *timer) {
-            Socket s((UWS_UV uv_poll_t *) timer->data);
+        uv_timer_init(nodeData->loop, timer);
+        uv_timer_start(timer, [](uv_timer_t *timer) {
+            Socket s((uv_poll_t *) timer->data);
             s.cancelTimeout();
             onTimeout(s);
         }, timeoutMs, 0);
@@ -154,18 +154,18 @@ public:
     }
 
     void cancelTimeout() {
-        UWS_UV uv_timer_t *timer = (UWS_UV uv_timer_t *) getUserData();
+        uv_timer_t *timer = (uv_timer_t *) getUserData();
         if (timer) {
-            UWS_UV uv_timer_stop(timer);
-            UWS_UV uv_close(timer, [](UWS_UV uv_handle_t *handle) {
-                delete (UWS_UV uv_timer_t *) handle;
+            uv_timer_stop(timer);
+            uv_close(timer, [](uv_handle_t *handle) {
+                delete (uv_timer_t *) handle;
             });
             getSocketData()->user = nullptr;
         }
     }
 
     template <class STATE>
-    static void ssl_io_cb(UWS_UV uv_poll_t *p, int status, int events) {
+    static void ssl_io_cb(uv_poll_t *p, int status, int events) {
         SocketData *socketData = Socket(p).getSocketData();
         NodeData *nodeData = socketData->nodeData;
         SSL *ssl = socketData->ssl;
@@ -175,7 +175,7 @@ public:
             return;
         }
 
-        if (!socketData->messageQueue.empty() && ((events & UWS_UV UV_WRITABLE) || SSL_want(socketData->ssl) == SSL_READING)) {
+        if (!socketData->messageQueue.empty() && ((events & UV_WRITABLE) || SSL_want(socketData->ssl) == SSL_READING)) {
             Socket(p).cork(true);
             while (true) {
                 SocketData::Queue::Message *messagePtr = socketData->messageQueue.front();
@@ -186,10 +186,10 @@ public:
                     }
                     socketData->messageQueue.pop();
                     if (socketData->messageQueue.empty()) {
-                        if ((socketData->poll & UWS_UV UV_WRITABLE) && SSL_want(socketData->ssl) != SSL_WRITING) {
+                        if ((socketData->poll & UV_WRITABLE) && SSL_want(socketData->ssl) != SSL_WRITING) {
                             // todo, remove bit, don't set directly
-                            socketData->poll = UWS_UV UV_READABLE;
-                            UWS_UV uv_poll_start(p, UWS_UV UV_READABLE, Socket(p).getPollCallback());
+                            socketData->poll = UV_READABLE;
+                            uv_poll_start(p, UV_READABLE, Socket(p).getPollCallback());
                         }
                         break;
                     }
@@ -198,9 +198,9 @@ public:
                     case SSL_ERROR_WANT_READ:
                         break;
                     case SSL_ERROR_WANT_WRITE:
-                        if ((socketData->poll & UWS_UV UV_WRITABLE) == 0) {
-                            socketData->poll |= UWS_UV UV_WRITABLE;
-                            UWS_UV uv_poll_start(p, socketData->poll, Socket(p).getPollCallback());
+                        if ((socketData->poll & UV_WRITABLE) == 0) {
+                            socketData->poll |= UV_WRITABLE;
+                            uv_poll_start(p, socketData->poll, Socket(p).getPollCallback());
                         }
                         break;
                     default:
@@ -213,7 +213,7 @@ public:
             Socket(p).cork(false);
         }
 
-        if (events & UWS_UV UV_READABLE) {
+        if (events & UV_READABLE) {
             do {
                 int length = SSL_read(ssl, nodeData->recvBuffer, nodeData->recvLength);
                 if (length <= 0) {
@@ -221,9 +221,9 @@ public:
                     case SSL_ERROR_WANT_READ:
                         break;
                     case SSL_ERROR_WANT_WRITE:
-                        if ((socketData->poll & UWS_UV UV_WRITABLE) == 0) {
-                            socketData->poll |= UWS_UV UV_WRITABLE;
-                            UWS_UV uv_poll_start(p, socketData->poll, Socket(p).getPollCallback());
+                        if ((socketData->poll & UV_WRITABLE) == 0) {
+                            socketData->poll |= UV_WRITABLE;
+                            uv_poll_start(p, socketData->poll, Socket(p).getPollCallback());
                         }
                         break;
                     default:
@@ -242,7 +242,7 @@ public:
     }
 
     template <class STATE>
-    static void io_cb(UWS_UV uv_poll_t *p, int status, int events) {
+    static void io_cb(uv_poll_t *p, int status, int events) {
         SocketData *socketData = Socket(p).getSocketData();
         NodeData *nodeData = socketData->nodeData;
 
@@ -251,8 +251,8 @@ public:
             return;
         }
 
-        if (events & UWS_UV UV_WRITABLE) {
-            if (!socketData->messageQueue.empty() && (events & UWS_UV UV_WRITABLE)) {
+        if (events & UV_WRITABLE) {
+            if (!socketData->messageQueue.empty() && (events & UV_WRITABLE)) {
                 Socket(p).cork(true);
                 while (true) {
                     SocketData::Queue::Message *messagePtr = socketData->messageQueue.front();
@@ -264,8 +264,8 @@ public:
                         socketData->messageQueue.pop();
                         if (socketData->messageQueue.empty()) {
                             // todo, remove bit, don't set directly
-                            socketData->poll = UWS_UV UV_READABLE;
-                            UWS_UV uv_poll_start(p, UWS_UV UV_READABLE, Socket(p).getPollCallback());
+                            socketData->poll = UV_READABLE;
+                            uv_poll_start(p, UV_READABLE, Socket(p).getPollCallback());
                             break;
                         }
                     } else if (sent == SOCKET_ERROR) {
@@ -284,7 +284,7 @@ public:
             }
         }
 
-        if (events & UWS_UV UV_READABLE) {
+        if (events & UV_READABLE) {
             int length = recv(Socket(p).getFd(), nodeData->recvBuffer, nodeData->recvLength, 0);
             if (length > 0) {
                 STATE::onData(p, nodeData->recvBuffer, length);
@@ -299,29 +299,29 @@ public:
     void enterState(void *socketData) {
         p->data = socketData;
         if (Socket(p).getSocketData()->ssl) {
-            UWS_UV uv_poll_start(p, Socket(p).getSocketData()->poll, ssl_io_cb<STATE>);
+            uv_poll_start(p, Socket(p).getSocketData()->poll, ssl_io_cb<STATE>);
         } else {
-            UWS_UV uv_poll_start(p, Socket(p).getSocketData()->poll, io_cb<STATE>);
+            uv_poll_start(p, Socket(p).getSocketData()->poll, io_cb<STATE>);
         }
-        Socket(p).getSocketData()->poll = UWS_UV UV_READABLE;
+        Socket(p).getSocketData()->poll = UV_READABLE;
     }
 
-    /*void setPoll(int poll = UWS_UV UV_READABLE) {
+    /*void setPoll(int poll = UV_READABLE) {
         Socket(p).getSocketData()->poll = poll;
     }*/
 
     // does not change STATE, only poll for current state
     /*void addPollBit(int events) {
-        UWS_UV uv_poll_start(p, p->flags, p->poll_cb);
+        uv_poll_start(p, p->flags, p->poll_cb);
     }
 
     void removePollBit(int events) {
-        UWS_UV uv_poll_start(p, p->flags, p->poll_cb);
+        uv_poll_start(p, p->flags, p->poll_cb);
     }*/
 
     void close() {
-        UWS_UV uv_os_sock_t fd = getFd();
-        UWS_UV uv_poll_stop(p);
+        uv_os_sock_t fd = getFd();
+        uv_poll_stop(p);
         ::close(fd);
 
         SSL *ssl = getSocketData()->ssl;
@@ -329,8 +329,8 @@ public:
             SSL_free(ssl);
         }
 
-        UWS_UV uv_close(p, [](UWS_UV uv_handle_t *h) {
-            delete (UWS_UV uv_poll_t *) h;
+        uv_close(p, [](uv_handle_t *h) {
+            delete (uv_poll_t *) h;
         });
     }
 
@@ -364,9 +364,9 @@ public:
             socketData->nodeData->asyncMutex->lock();
             socketData->nodeData->changePollQueue.push_back(p);
             socketData->nodeData->asyncMutex->unlock();
-            UWS_UV uv_async_send(socketData->nodeData->async);
+            uv_async_send(socketData->nodeData->async);
         } else {
-            UWS_UV uv_poll_start(p, socketData->poll, getPollCallback());
+            uv_poll_start(p, socketData->poll, getPollCallback());
         }
     }
 
@@ -385,8 +385,8 @@ public:
                     case SSL_ERROR_WANT_READ:
                         break;
                     case SSL_ERROR_WANT_WRITE:
-                        if ((socketData->poll & UWS_UV UV_WRITABLE) == 0) {
-                            socketData->poll |= UWS_UV UV_WRITABLE;
+                        if ((socketData->poll & UV_WRITABLE) == 0) {
+                            socketData->poll |= UV_WRITABLE;
                             changePoll(socketData);
                         }
                         break;
@@ -408,8 +408,8 @@ public:
                     message->data += sent;
                 }
 
-                if ((socketData->poll & UWS_UV UV_WRITABLE) == 0) {
-                    socketData->poll |= UWS_UV UV_WRITABLE;
+                if ((socketData->poll & UV_WRITABLE) == 0) {
+                    socketData->poll |= UV_WRITABLE;
                     changePoll(socketData);
                 }
             }

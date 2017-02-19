@@ -14,7 +14,7 @@ enum ListenOptions : int {
 
 class WIN32_EXPORT Node {
 protected:
-    UWS_UV uv_loop_t *loop;
+    uv_loop_t *loop;
     NodeData *nodeData;
     std::mutex asyncMutex;
 
@@ -23,18 +23,18 @@ public:
     ~Node();
     void run();
 
-    UWS_UV uv_loop_t *getLoop() {
+    uv_loop_t *getLoop() {
         return loop;
     }
 
     template <void C(Socket p, bool error)>
-    static void connect_cb(UWS_UV uv_poll_t *p, int status, int events) {
+    static void connect_cb(uv_poll_t *p, int status, int events) {
         C(p, status < 0);
     }
 
     template <void C(Socket p, bool error)>
     uS::Socket connect(const char *hostname, int port, bool secure, uS::SocketData *socketData) {
-        UWS_UV uv_poll_t *p = new UWS_UV uv_poll_t;
+        uv_poll_t *p = new uv_poll_t;
         p->data = socketData;
 
         addrinfo hints, *result;
@@ -47,7 +47,7 @@ public:
             return nullptr;
         }
 
-        UWS_UV uv_os_sock_t fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+        uv_os_sock_t fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
         if (fd == -1) {
             C(p, true);
             delete p;
@@ -66,28 +66,28 @@ public:
             socketData->ssl = nullptr;
         }
 
-        socketData->poll = UWS_UV UV_READABLE;
-        UWS_UV uv_poll_init_socket(loop, p, fd);
-        UWS_UV uv_poll_start(p, UWS_UV UV_WRITABLE, connect_cb<C>);
+        socketData->poll = UV_READABLE;
+        uv_poll_init_socket(loop, p, fd);
+        uv_poll_start(p, UV_WRITABLE, connect_cb<C>);
         return p;
     }
 
     template <void A(Socket s)>
-    static void accept_poll_cb(UWS_UV uv_poll_t *p, int status, int events) {
+    static void accept_poll_cb(uv_poll_t *p, int status, int events) {
         ListenData *listenData = (ListenData *) p->data;
         accept_cb<A, false>(listenData);
     }
 
     template <void A(Socket s)>
-    static void accept_timer_cb(UWS_UV uv_timer_t *p) {
+    static void accept_timer_cb(uv_timer_t *p) {
         ListenData *listenData = (ListenData *) p->data;
         accept_cb<A, true>(listenData);
     }
 
     template <void A(Socket s), bool TIMER>
     static void accept_cb(ListenData *listenData) {
-        UWS_UV uv_os_sock_t serverFd = listenData->sock;
-        UWS_UV uv_os_sock_t clientFd = accept(serverFd, nullptr, nullptr);
+        uv_os_sock_t serverFd = listenData->sock;
+        uv_os_sock_t clientFd = accept(serverFd, nullptr, nullptr);
         if (clientFd == INVALID_SOCKET) {
             /*
             * If accept is failing, the pending connection won't be removed and the
@@ -95,29 +95,29 @@ public:
             * event instead to avoid this.
             */
             if (!TIMER && errno != EAGAIN && errno != EWOULDBLOCK) {
-                UWS_UV uv_poll_stop(listenData->listenPoll);
-                UWS_UV uv_close(listenData->listenPoll, [](UWS_UV uv_handle_t *handle) {
+                uv_poll_stop(listenData->listenPoll);
+                uv_close(listenData->listenPoll, [](uv_handle_t *handle) {
                     delete handle;
                 });
                 listenData->listenPoll = nullptr;
 
-                listenData->listenTimer = new UWS_UV uv_timer_t();
+                listenData->listenTimer = new uv_timer_t();
                 listenData->listenTimer->data = listenData;
-                UWS_UV uv_timer_init(listenData->nodeData->loop, listenData->listenTimer);
-                UWS_UV uv_timer_start(listenData->listenTimer, accept_timer_cb<A>, 1000, 1000);
+                uv_timer_init(listenData->nodeData->loop, listenData->listenTimer);
+                uv_timer_start(listenData->listenTimer, accept_timer_cb<A>, 1000, 1000);
             }
             return;
         } else if (TIMER) {
-            UWS_UV uv_timer_stop(listenData->listenTimer);
-            UWS_UV uv_close(listenData->listenTimer, [](UWS_UV uv_handle_t *handle) {
+            uv_timer_stop(listenData->listenTimer);
+            uv_close(listenData->listenTimer, [](uv_handle_t *handle) {
                 delete handle;
             });
             listenData->listenTimer = nullptr;
 
-            listenData->listenPoll = new UWS_UV uv_poll_t;
+            listenData->listenPoll = new uv_poll_t;
             listenData->listenPoll->data = listenData;
-            UWS_UV uv_poll_init_socket(listenData->nodeData->loop, listenData->listenPoll, serverFd);
-            UWS_UV uv_poll_start(listenData->listenPoll, UWS_UV UV_READABLE, accept_poll_cb<A>);
+            uv_poll_init_socket(listenData->nodeData->loop, listenData->listenPoll, serverFd);
+            uv_poll_start(listenData->listenPoll, UV_READABLE, accept_poll_cb<A>);
         }
 
     #ifdef __APPLE__
@@ -136,15 +136,15 @@ public:
         SocketData *socketData = new SocketData(listenData->nodeData);
         socketData->ssl = ssl;
 
-        UWS_UV uv_poll_t *clientPoll = new UWS_UV uv_poll_t;
+        uv_poll_t *clientPoll = new uv_poll_t;
 #ifdef USE_MICRO_UV
-        UWS_UV uv_poll_init_socket(listenData->listenPoll->get_loop(), clientPoll, clientFd);
+        uv_poll_init_socket(listenData->listenPoll->get_loop(), clientPoll, clientFd);
 #else
-        UWS_UV uv_poll_init_socket(listenData->listenPoll->loop, clientPoll, clientFd);
+        uv_poll_init_socket(listenData->listenPoll->loop, clientPoll, clientFd);
 #endif
         clientPoll->data = socketData;
 
-        socketData->poll = UWS_UV UV_READABLE;
+        socketData->poll = UV_READABLE;
         A(clientPoll);
     }
 
@@ -161,7 +161,7 @@ public:
             return true;
         }
 
-        UWS_UV uv_os_sock_t listenFd = SOCKET_ERROR;
+        uv_os_sock_t listenFd = SOCKET_ERROR;
         addrinfo *listenAddr;
         if ((options & uS::ONLY_IPV4) == 0) {
             for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
@@ -206,15 +206,15 @@ public:
         listenData->sslContext = sslContext;
         listenData->nodeData = nodeData;
 
-        UWS_UV uv_poll_t *listenPoll = new UWS_UV uv_poll_t;
+        uv_poll_t *listenPoll = new uv_poll_t;
         listenPoll->data = listenData;
 
         listenData->listenPoll = listenPoll;
         listenData->sock = listenFd;
         listenData->ssl = nullptr;
 
-        UWS_UV uv_poll_init_socket(loop, listenPoll, listenFd);
-        UWS_UV uv_poll_start(listenPoll, UWS_UV UV_READABLE, accept_poll_cb<A>);
+        uv_poll_init_socket(loop, listenPoll, listenFd);
+        uv_poll_start(listenPoll, UV_READABLE, accept_poll_cb<A>);
 
         // should be vector of listen data! one group can have many listeners!
         nodeData->user = listenData;

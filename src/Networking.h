@@ -107,33 +107,33 @@ struct WIN32_EXPORT NodeData {
     char *recvBufferMemoryBlock;
     char *recvBuffer;
     int recvLength;
-    UWS_UV uv_loop_t *loop;
+    uv_loop_t *loop;
     void *user = nullptr;
     static const int preAllocMaxSize = 1024;
     char **preAlloc;
     SSL_CTX *clientContext;
 
-    UWS_UV uv_async_t *async = nullptr;
+    uv_async_t *async = nullptr;
     pthread_t tid;
 
     struct TransferData {
-        UWS_UV uv_poll_t *p;
-        UWS_UV uv_os_sock_t fd;
+        uv_poll_t *p;
+        uv_os_sock_t fd;
         SocketData *socketData;
-        UWS_UV uv_poll_cb pollCb;
-        void (*cb)(UWS_UV uv_poll_t *);
+        uv_poll_cb pollCb;
+        void (*cb)(uv_poll_t *);
     };
 
     void addAsync() {
-        async = new UWS_UV uv_async_t;
+        async = new uv_async_t;
         async->data = this;
-        UWS_UV uv_async_init(loop, async, NodeData::asyncCallback);
+        uv_async_init(loop, async, NodeData::asyncCallback);
     }
 
     std::mutex *asyncMutex;
     std::vector<TransferData> transferQueue;
-    std::vector<UWS_UV uv_poll_t *> changePollQueue;
-    static void asyncCallback(UWS_UV uv_async_t *async);
+    std::vector<uv_poll_t *> changePollQueue;
+    static void asyncCallback(uv_async_t *async);
 
     static int getMemoryBlockIndex(size_t length) {
         return (length >> 4) + bool(length & 15);
@@ -209,7 +209,7 @@ struct SocketData {
         }
     } messageQueue;
 
-    UWS_UV uv_poll_t *next = nullptr, *prev = nullptr;
+    uv_poll_t *next = nullptr, *prev = nullptr;
 };
 
 struct ListenData : SocketData {
@@ -218,9 +218,9 @@ struct ListenData : SocketData {
 
     }
 
-    UWS_UV uv_poll_t *listenPoll = nullptr;
-    UWS_UV uv_timer_t *listenTimer = nullptr;
-    UWS_UV uv_os_sock_t sock;
+    uv_poll_t *listenPoll = nullptr;
+    uv_timer_t *listenTimer = nullptr;
+    uv_os_sock_t sock;
     uS::TLS::Context sslContext;
 };
 

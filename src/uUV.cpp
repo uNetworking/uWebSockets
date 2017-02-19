@@ -17,7 +17,7 @@ void uv_close(uv_timer_t *handle, uv_close_cb cb) {
 
 #include <sys/eventfd.h>
 
-namespace uUV {
+//namespace uUV {
 
 uv_loop_t *loops[128];
 int loopHead = 0;
@@ -352,5 +352,5 @@ void uv_run(uv_loop_t *loop, int mode) {
     }
 }
 
-}
+//}
 #endif
