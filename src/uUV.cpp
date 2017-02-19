@@ -170,7 +170,6 @@ int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *poll, uv_os_sock_t socket) {
 }
 
 int uv_poll_start(uv_poll_t *poll, int events, uv_poll_cb cb) {
-    poll->flags |= UV_HANDLE_RUNNING;
     poll->event.events = events;
     poll->cbIndex = pollCbHead;
     for (int i = 0; i < pollCbHead; i++) {
@@ -186,7 +185,6 @@ int uv_poll_start(uv_poll_t *poll, int events, uv_poll_cb cb) {
 }
 
 int uv_poll_stop(uv_poll_t *poll) {
-    poll->flags &= ~UV_HANDLE_RUNNING;
     return epoll_ctl(poll->get_loop()->efd, EPOLL_CTL_DEL, poll->fd, &poll->event);
 }
 
@@ -201,10 +199,7 @@ void uv_close(uv_poll_t *handle, uv_close_cb cb) {
 }
 
 int uv_fileno(uv_poll_t *handle) {
-    if (uv_is_closing(handle))
-        return UV_EBADF;
-    else
-        return handle->fd;
+	return handle->fd;
 }
 
 void uv_timer_init(uv_loop_t *loop, uv_timer_t *timer) {
@@ -241,7 +236,7 @@ void uv_timer_start(uv_timer_t *timer, uv_timer_cb cb, int timeout, int repeat) 
     }
 
     timer->repeat = repeat;
-    timer->flags |= UV_HANDLE_RUNNING;
+    timer->flags = UV_HANDLE_RUNNING;
     uv_timer_enqueue(timer, timeout);
 }
 
@@ -320,14 +315,14 @@ void uv_run(uv_loop_t *loop, int mode) {
                 }
             loop->async_mutex.unlock();
             for (uv_async_t *async : readyAsyncs)
-                async_callbacks[async->cbIndex](async);
+				async_callbacks[async->cbIndex](async);
         }
 
         // Handle idle events
         if (loop->idlers.size()) {
             std::unordered_set<uv_idle_t *> readyIdlers = loop->idlers;
             for (uv_idle_t *idle : readyIdlers)
-                idle_callbacks[idle->cbIndex](idle);
+				idle_callbacks[idle->cbIndex](idle);
         }
 
         // Handle timer events
