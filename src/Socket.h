@@ -36,7 +36,7 @@ public:
         }
 
         uv_poll_stop(p);
-        uv_close((uv_handle_t *) p, [](uv_handle_t *h) {
+        uv_close(p, [](uv_handle_t *h) {
             delete (uv_poll_t *) h;
         });
     }
@@ -92,7 +92,7 @@ public:
     }
 
     bool isClosed() {
-        return uv_is_closing((uv_handle_t *) p);
+        return uv_is_closing(p);
     }
 
     bool isShuttingDown() {
@@ -157,7 +157,7 @@ public:
         uv_timer_t *timer = (uv_timer_t *) getUserData();
         if (timer) {
             uv_timer_stop(timer);
-            uv_close((uv_handle_t *) timer, [](uv_handle_t *handle) {
+            uv_close(timer, [](uv_handle_t *handle) {
                 delete (uv_timer_t *) handle;
             });
             getSocketData()->user = nullptr;
@@ -329,7 +329,7 @@ public:
             SSL_free(ssl);
         }
 
-        uv_close((uv_handle_t *) p, [](uv_handle_t *h) {
+        uv_close(p, [](uv_handle_t *h) {
             delete (uv_poll_t *) h;
         });
     }
