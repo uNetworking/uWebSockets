@@ -4,6 +4,15 @@ set(CMAKE_CXX_STANDARD 11)
 project (µWebSockets)
 
 option(BUILD_SHARED_LIBS "Build shared libraries." ON)
+option(BUILD_STATIC_LIBS "Build static libraries." OFF)
+option(BUILD_EXAMPLES "Build the examples" ON)
+
+set(TARGET_NAME uWS)
+set(SOURCES src/Extensions.cpp src/Group.cpp src/WebSocketImpl.cpp src/Networking.cpp src/Hub.cpp src/Node.cpp src/WebSocket.cpp src/HTTPSocket.cpp src/Socket.cpp)
+
+if(NOT CMAKE_INSTALL_PREFIX)
+    set(CMAKE_INSTALL_PREFIX /usr)
+endif()
 
 find_package(OpenSSL REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -15,27 +24,67 @@ if(NOT LIBUV_LIBRARY)
     find_library(LIBUV_LIBRARY NAMES uv uv1)
 endif()
 
-add_library(uWS src/Extensions.cpp src/Group.cpp src/WebSocketImpl.cpp src/Networking.cpp src/Hub.cpp src/Node.cpp src/WebSocket.cpp src/HTTPSocket.cpp src/Socket.cpp)
 if(CMAKE_VERSION VERSION_LESS "3.1")
     # CMake 3.0 does not implement "CMAKE_CXX_STANDARD":
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         set(CMAKE_CXX_FLAGS "--std=gnu++11 ${CMAKE_CXX_FLAGS}")
     endif()
 endif()
-target_include_directories(uWS PUBLIC src)
 
-target_include_directories(uWS PUBLIC ${LIBUV_INCLUDE_DIR})
-target_include_directories(uWS PUBLIC ${ZLIB_INCLUDE_DIRS})
-target_include_directories(uWS PUBLIC ${OPENSSL_INCLUDE_DIR})
-target_link_libraries (uWS LINK_PUBLIC ${LIBUV_LIBRARY})
-target_link_libraries (uWS LINK_PUBLIC ${OPENSSL_SSL_LIBRARY})
-target_link_libraries (uWS LINK_PUBLIC ${OPENSSL_CRYPTO_LIBRARY})
-target_link_libraries (uWS LINK_PUBLIC ${ZLIB_LIBRARY})
+
+if (BUILD_SHARED_LIBS)
+    # Add the static library target
+    add_library(${TARGET_NAME} ${SOURCES})
+
+    # Include the source files
+    target_include_directories(${TARGET_NAME} PUBLIC src)
+
+    # Link against external libraries
+    target_include_directories(${TARGET_NAME} PUBLIC ${LIBUV_INCLUDE_DIR})
+    target_include_directories(${TARGET_NAME} PUBLIC ${ZLIB_INCLUDE_DIRS})
+    target_include_directories(${TARGET_NAME} PUBLIC ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries (${TARGET_NAME} LINK_PUBLIC ${LIBUV_LIBRARY})
+    target_link_libraries (${TARGET_NAME} LINK_PUBLIC ${OPENSSL_SSL_LIBRARY})
+    target_link_libraries (${TARGET_NAME} LINK_PUBLIC ${OPENSSL_CRYPTO_LIBRARY})
+    target_link_libraries (${TARGET_NAME} LINK_PUBLIC ${ZLIB_LIBRARY})
+
+    if (UNIX)
+        # Link against the pthread library
+        target_link_libraries (${TARGET_NAME} LINK_PUBLIC pthread)
+        # Install the resulting library into /usr/lib64 (by default)
+        install (TARGETS ${TARGET_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib64)
+    endif(UNIX)
+endif()
+
+
+if (BUILD_STATIC_LIBS)
+    # Add the static library target
+    add_library(${TARGET_NAME}_static STATIC ${SOURCES})
+
+    # Include the source files
+    target_include_directories(${TARGET_NAME}_static PUBLIC src)
+
+    # Link against external libraries
+    target_include_directories(${TARGET_NAME}_static PUBLIC ${LIBUV_INCLUDE_DIR})
+    target_include_directories(${TARGET_NAME}_static PUBLIC ${ZLIB_INCLUDE_DIRS})
+    target_include_directories(${TARGET_NAME}_static PUBLIC ${OPENSSL_INCLUDE_DIR})
+    target_link_libraries (${TARGET_NAME}_static LINK_PUBLIC ${LIBUV_LIBRARY})
+    target_link_libraries (${TARGET_NAME}_static LINK_PUBLIC ${OPENSSL_SSL_LIBRARY})
+    target_link_libraries (${TARGET_NAME}_static LINK_PUBLIC ${OPENSSL_CRYPTO_LIBRARY})
+    target_link_libraries (${TARGET_NAME}_static LINK_PUBLIC ${ZLIB_LIBRARY})
+
+    if (UNIX)
+        # Link against the pthread library
+        target_link_libraries (${TARGET_NAME}_static LINK_PUBLIC pthread)
+        # Install the resulting library into /usr/lib64 (by default)
+        install (TARGETS ${TARGET_NAME}_static DESTINATION ${CMAKE_INSTALL_PREFIX}/lib64)
+    endif(UNIX)
+endif()
 
 if (UNIX)
-target_link_libraries (uWS LINK_PUBLIC pthread)
-install (TARGETS uWS DESTINATION /usr/lib64)
-install (FILES src/Extensions.h src/WebSocketProtocol.h src/Networking.h src/WebSocket.h src/Hub.h src/Group.h src/Node.h src/Socket.h src/HTTPSocket.h src/uWS.h DESTINATION /usr/include/uWS)
+    install (FILES src/Extensions.h src/WebSocketProtocol.h src/Networking.h src/WebSocket.h src/Hub.h src/Group.h src/Node.h src/Socket.h src/HTTPSocket.h src/uWS.h DESTINATION ${CMAKE_INSTALL_PREFIX}/include/uWS)
 endif (UNIX)
 
-add_subdirectory(examples)
+if (BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
