@@ -7,6 +7,11 @@ void uv_close(uv_async_t *handle, uv_close_cb cb);
 void uv_close(uv_idle_t *handle, uv_close_cb cb);
 void uv_close(uv_poll_t *handle, uv_close_cb cb);
 void uv_close(uv_timer_t *handle, uv_close_cb cb);
+
+bool uv_is_closing(uv_async_t *handle);
+bool uv_is_closing(uv_idle_t *handle);
+bool uv_is_closing(uv_poll_t *handle);
+bool uv_is_closing(uv_timer_t *handle);
 #else
 
 #include <arpa/inet.h>
@@ -97,8 +102,6 @@ uv_loop_t *uv_default_loop();
 uv_loop_t *uv_loop_new();
 void uv_loop_delete(uv_loop_t *loop);
 
-void uv_close(uv_handle_t *handle, uv_close_cb cb);
-bool uv_is_closing(uv_handle_t *handle);
 
 // 16 bytes
 struct uv_async_t : uv_handle_t {
@@ -109,6 +112,7 @@ struct uv_async_t : uv_handle_t {
 void uv_async_init(uv_loop_t *loop, uv_async_t *async, uv_async_cb cb);
 void uv_async_send(uv_async_t *async);
 void uv_close(uv_async_t *handle, uv_close_cb cb);
+bool uv_is_closing(uv_async_t *handle);
 
 // 16 bytes
 struct uv_idle_t : uv_handle_t {
@@ -119,6 +123,7 @@ void uv_idle_init(uv_loop_t *loop, uv_idle_t *idle);
 void uv_idle_start(uv_idle_t *idle, uv_idle_cb cb);
 void uv_idle_stop(uv_idle_t *idle);
 void uv_close(uv_idle_t *handle, uv_close_cb cb);
+bool uv_is_closing(uv_idle_t *handle);
 
 // 32 bytes
 struct uv_poll_t : uv_handle_t {
@@ -133,6 +138,7 @@ int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *poll, uv_os_sock_t socket);
 int uv_poll_start(uv_poll_t *poll, int events, uv_poll_cb cb);
 int uv_poll_stop(uv_poll_t *poll);
 void uv_close(uv_poll_t *handle, uv_close_cb cb);
+bool uv_is_closing(uv_poll_t *handle);
 int uv_fileno(uv_poll_t *handle);
 
 // 24 bytes
@@ -146,6 +152,7 @@ void uv_timer_init(uv_loop_t *loop, uv_timer_t *timer);
 void uv_timer_start(uv_timer_t *timer, uv_timer_cb cb, int timeout, int repeat);
 void uv_timer_stop(uv_timer_t *timer);
 void uv_close(uv_timer_t *handle, uv_close_cb cb);
+bool uv_is_closing(uv_timer_t *handle);
 
 void uv_run(uv_loop_t *loop, int mode);
 

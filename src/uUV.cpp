@@ -76,10 +76,6 @@ void uv_loop_delete(uv_loop_t *loop) {
     delete loop;
 }
 
-bool uv_is_closing(uv_handle_t *handle) {
-    return handle->flags & (UV_HANDLE_CLOSING | UV_HANDLE_CLOSED);
-}
-
 void uv_async_init(uv_loop_t *loop, uv_async_t *async, uv_async_cb cb) {
     async->loopIndex = loop->index;
     loop->numEvents++;
@@ -116,6 +112,10 @@ void uv_close(uv_async_t *handle, uv_close_cb cb) {
     loop->closing.push_back({(uv_handle_t *) handle, cb});
 }
 
+bool uv_is_closing(uv_async_t *handle) {
+    return handle->flags & (UV_HANDLE_CLOSING | UV_HANDLE_CLOSED);
+}
+
 void uv_idle_init(uv_loop_t *loop, uv_idle_t *idle) {
     idle->loopIndex = loop->index;
     loop->numEvents++;
@@ -144,6 +144,10 @@ void uv_close(uv_idle_t *handle, uv_close_cb cb) {
     uv_loop_t *loop = handle->get_loop();
     handle->flags |= UV_HANDLE_CLOSING;
     loop->closing.push_back({(uv_handle_t *) handle, cb});
+}
+
+bool uv_is_closing(uv_idle_t *handle) {
+    return handle->flags & (UV_HANDLE_CLOSING | UV_HANDLE_CLOSED);
 }
 
 uv_poll_cb uv_poll_t::get_poll_cb() const {
@@ -194,8 +198,11 @@ void uv_close(uv_poll_t *handle, uv_close_cb cb) {
     uv_poll_t *poll = (uv_poll_t *) handle;
     poll->fd = -1;
 
-    handle->flags |= UV_HANDLE_CLOSING;
     loop->closing.push_back({(uv_handle_t *) handle, cb});
+}
+
+bool uv_is_closing(uv_poll_t *handle) {
+    return handle->fd == -1;
 }
 
 int uv_fileno(uv_poll_t *handle) {
@@ -255,6 +262,10 @@ void uv_close(uv_timer_t *handle, uv_close_cb cb) {
     uv_loop_t *loop = handle->get_loop();
     handle->flags |= UV_HANDLE_CLOSING;
     loop->closing.push_back({(uv_handle_t *) handle, cb});
+}
+
+bool uv_is_closing(uv_timer_t *handle) {
+    return handle->flags & (UV_HANDLE_CLOSING | UV_HANDLE_CLOSED);
 }
 
 void uv_run(uv_loop_t *loop, int mode) {

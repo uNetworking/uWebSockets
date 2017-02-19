@@ -92,7 +92,7 @@ public:
     }
 
     bool isClosed() {
-        return uv_is_closing((uv_handle_t *) p);
+        return uv_is_closing(p);
     }
 
     bool isShuttingDown() {
