@@ -2,16 +2,16 @@
 
 #ifndef USE_MICRO_UV
 void uv_close(uv_async_t *handle, uv_close_cb cb) {
-	uv_close((uv_handle_t *) handle, cb);
+    uv_close((uv_handle_t *) handle, cb);
 }
 void uv_close(uv_idle_t *handle, uv_close_cb cb) {
-	uv_close((uv_handle_t *) handle, cb);
+    uv_close((uv_handle_t *) handle, cb);
 }
 void uv_close(uv_poll_t *handle, uv_close_cb cb) {
-	uv_close((uv_handle_t *) handle, cb);
+    uv_close((uv_handle_t *) handle, cb);
 }
 void uv_close(uv_timer_t *handle, uv_close_cb cb) {
-	uv_close((uv_handle_t *) handle, cb);
+    uv_close((uv_handle_t *) handle, cb);
 }
 #else
 
@@ -110,7 +110,7 @@ void uv_async_send(uv_async_t *async) {
 void uv_close(uv_async_t *handle, uv_close_cb cb) {
     uv_loop_t *loop = handle->get_loop();
 
-	loop->asyncs.erase((uv_async_t *) handle);
+    loop->asyncs.erase((uv_async_t *) handle);
 
     handle->flags |= UV_HANDLE_CLOSING;
     loop->closing.push_back({(uv_handle_t *) handle, cb});
@@ -193,18 +193,18 @@ int uv_poll_stop(uv_poll_t *poll) {
 void uv_close(uv_poll_t *handle, uv_close_cb cb) {
     uv_loop_t *loop = handle->get_loop();
 
-	uv_poll_t *poll = (uv_poll_t *) handle;
-	poll->fd = -1;
+    uv_poll_t *poll = (uv_poll_t *) handle;
+    poll->fd = -1;
 
     handle->flags |= UV_HANDLE_CLOSING;
     loop->closing.push_back({(uv_handle_t *) handle, cb});
 }
 
 int uv_fileno(uv_poll_t *handle) {
-	if (uv_is_closing(handle))
-		return UV_EBADF;
-	else
-		return handle->fd;
+    if (uv_is_closing(handle))
+        return UV_EBADF;
+    else
+        return handle->fd;
 }
 
 void uv_timer_init(uv_loop_t *loop, uv_timer_t *timer) {
@@ -264,10 +264,10 @@ void uv_close(uv_timer_t *handle, uv_close_cb cb) {
 
 void uv_run(uv_loop_t *loop, int mode) {
     loop->timepoint = std::chrono::system_clock::now();
-    int loopIter = 0;
     signal(SIGPIPE, SIG_IGN);
-    while (loop->numEvents && loopIter < 1000000) {
-        ++loopIter;
+    int iter = 0;
+    while (loop->numEvents) {
+        ++iter;
         // Close any events that are ready to close
         if (loop->closing.size()) {
             // Make a copy so that its ok to call uv_close in the callbacks
@@ -290,8 +290,8 @@ void uv_run(uv_loop_t *loop, int mode) {
         } else if (loop->timers.size()) {
             delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(loop->timers.back()->timepoint - loop->timepoint).count(), 0);
         }
-        epoll_event readyEvents[64];
-        int numFdReady = epoll_wait(loop->efd, readyEvents, 64, delay);
+        epoll_event readyEvents[1024];
+        int numFdReady = epoll_wait(loop->efd, readyEvents, 1024, delay);
 
         // Handle polling events
         for (int i = 0; i < numFdReady; i++) {
@@ -320,14 +320,14 @@ void uv_run(uv_loop_t *loop, int mode) {
                 }
             loop->async_mutex.unlock();
             for (uv_async_t *async : readyAsyncs)
-				async_callbacks[async->cbIndex](async);
+                async_callbacks[async->cbIndex](async);
         }
 
         // Handle idle events
         if (loop->idlers.size()) {
             std::unordered_set<uv_idle_t *> readyIdlers = loop->idlers;
             for (uv_idle_t *idle : readyIdlers)
-				idle_callbacks[idle->cbIndex](idle);
+                idle_callbacks[idle->cbIndex](idle);
         }
 
         // Handle timer events
@@ -341,7 +341,7 @@ void uv_run(uv_loop_t *loop, int mode) {
             }
             for (uv_timer_t* timer : readyTimers) {
                 if (timer->flags & UV_HANDLE_RUNNING) {
-					timer_callbacks[timer->cbIndex](timer);
+                    timer_callbacks[timer->cbIndex](timer);
                     // Have to check for running again in case timer was stopped in callback
                     if (timer->repeat && timer->flags & UV_HANDLE_RUNNING) {
                         uv_timer_enqueue(timer, timer->repeat);

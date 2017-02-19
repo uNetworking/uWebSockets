@@ -94,7 +94,7 @@ public:
             * polling will cause the server to spin, using 100% cpu. Switch to a timer
             * event instead to avoid this.
             */
-            if (!TIMER) {
+            if (!TIMER && errno != EAGAIN && errno != EWOULDBLOCK) {
                 UWS_UV uv_poll_stop(listenData->listenPoll);
                 UWS_UV uv_close(listenData->listenPoll, [](UWS_UV uv_handle_t *handle) {
                     delete handle;
