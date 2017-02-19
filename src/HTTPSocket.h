@@ -14,7 +14,7 @@ struct Header {
     unsigned int keyLength, valueLength;
 
     operator bool() {
-        return key;
+		return key != nullptr;
     }
 
     // slow without string_view!

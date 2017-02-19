@@ -31,12 +31,12 @@ public:
 
 private:
     typedef uint16_t frameFormat;
-    static inline bool isFin(frameFormat &frame) {return frame & 128;}
+    static inline bool isFin(frameFormat &frame) {return (frame & 128) != 0;}
     static inline unsigned char getOpCode(frameFormat &frame) {return frame & 15;}
     static inline unsigned char payloadLength(frameFormat &frame) {return (frame >> 8) & 127;}
-    static inline bool rsv23(frameFormat &frame) {return frame & 48;}
-    static inline bool rsv1(frameFormat &frame) {return frame & 64;}
-    static inline bool getMask(frameFormat &frame) {return frame & 32768;}
+	static inline bool rsv23(frameFormat &frame) {return (frame & 48) != 0;}
+    static inline bool rsv1(frameFormat &frame) {return (frame & 64) != 0;}
+    static inline bool getMask(frameFormat &frame) {return (frame & 32768) != 0;}
 
     static inline void unmaskImprecise(char *dst, char *src, char *mask, unsigned int length)
     {
@@ -98,19 +98,19 @@ private:
         }
         lastFin = isFin(frame);
 
-        if (refusePayloadLength(user, payLength)) {
+        if (refusePayloadLength(user, static_cast<int>(payLength))) {
             forceClose(user);
             return true;
         }
 
         if (int(payLength) <= int(length - MESSAGE_HEADER)) {
             if (isServer) {
-                unmaskImpreciseCopyMask(src, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, payLength);
-                if (handleFragment(src, payLength, 0, opCode[(unsigned char) opStack], isFin(frame), user)) {
+				unmaskImpreciseCopyMask(src, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, static_cast<unsigned int>(payLength));
+                if (handleFragment(src, static_cast<size_t>(payLength), 0, opCode[(unsigned char) opStack], isFin(frame), user)) {
                     return true;
                 }
             } else {
-                if (handleFragment(src + MESSAGE_HEADER, payLength, 0, opCode[(unsigned char) opStack], isFin(frame), user)) {
+                if (handleFragment(src + MESSAGE_HEADER, static_cast<size_t>(payLength), 0, opCode[(unsigned char) opStack], isFin(frame), user)) {
                     return true;
                 }
             }
@@ -120,13 +120,13 @@ private:
             }
 
             src += payLength + MESSAGE_HEADER;
-            length -= payLength + MESSAGE_HEADER;
+            length -= static_cast<unsigned int>(payLength + MESSAGE_HEADER);
             spillLength = 0;
             return false;
         } else {
             spillLength = 0;
             state = READ_MESSAGE;
-            remainingBytes = payLength - length + MESSAGE_HEADER;
+            remainingBytes = static_cast<unsigned int>(payLength - length + MESSAGE_HEADER);
 
             if (isServer) {
                 memcpy(mask, src + MESSAGE_HEADER - 4, 4);
@@ -150,7 +150,7 @@ private:
                 }
             }
 
-            if (handleFragment(src, remainingBytes, 0, opCode[(unsigned char) opStack], lastFin, user)) {
+            if (handleFragment(src, remainingBytes, 0, opCode[(unsigned char) opStack], lastFin != 0, user)) {
                 return false;
             }
 
@@ -168,7 +168,7 @@ private:
             }
 
             remainingBytes -= length;
-            if (handleFragment(src, length, remainingBytes, opCode[(unsigned char) opStack], lastFin, user)) {
+            if (handleFragment(src, length, remainingBytes, opCode[(unsigned char) opStack], lastFin != 0, user)) {
                 return false;
             }
 
@@ -269,11 +269,11 @@ public:
         size_t headerLength;
         if (reportedLength < 126) {
             headerLength = 2;
-            dst[1] = reportedLength;
+            dst[1] = static_cast<char>(reportedLength);
         } else if (reportedLength <= UINT16_MAX) {
             headerLength = 4;
             dst[1] = 126;
-            *((uint16_t *) &dst[2]) = htons(reportedLength);
+            *((uint16_t *) &dst[2]) = htons(static_cast<u_short>(reportedLength));
         } else {
             headerLength = 10;
             dst[1] = 127;

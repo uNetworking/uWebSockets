@@ -187,8 +187,8 @@ inline void uv_close(uv_handle_t *handle, uv_handle_cb cb) {
     }
 }
 
-inline bool uv_is_closing(uv_handle_t *handle) {
-    return ((uv_poll_t *) handle)->fd == -1;
+inline int uv_is_closing(uv_handle_t *handle) {
+	return ((uv_poll_t *)handle)->fd == -1 ? 1 : 0;
 }
 
 inline void uv_run(uv_loop_t *loop, int mode) {
