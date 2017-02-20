@@ -346,7 +346,8 @@ void uv_run(uv_loop_t *loop, int mode) {
 
         // Handle idle events
         if (loop->idlers.size()) {
-            for (uv_idle_t *idle : loop->idlers)
+            const auto idlers = loop->idlers;
+            for (uv_idle_t *idle : idlers)
 				        idle_callbacks[idle->cbIndex](idle);
         }
 
