@@ -104,7 +104,7 @@ void uv_async_init(uv_loop_t *loop, uv_async_t *async, uv_async_cb cb) {
         async_callbacks[asyncCbHead++] = cb;
     }
 
-    loop->asyncs.insert(async);
+    loop->asyncs.push_back(async);
 }
 
 void uv_async_send(uv_async_t *async) {
@@ -119,7 +119,8 @@ void uv_async_send(uv_async_t *async) {
 void uv_close(uv_async_t *handle, uv_close_cb cb) {
     uv_loop_t *loop = handle->get_loop();
 
-    loop->asyncs.erase((uv_async_t *) handle);
+    *std::find(std::begin(loop->asyncs), std::end(loop->asyncs), handle) = loop->asyncs.back();
+    loop->asyncs.pop_back();
 
     handle->flags |= UV_HANDLE_CLOSING;
     loop->closing.push_back({(uv_handle_t *) handle, cb});
@@ -146,11 +147,12 @@ void uv_idle_start(uv_idle_t *idle, uv_idle_cb cb) {
         idle_callbacks[idleCbHead++] = cb;
     }
 
-    idle->get_loop()->idlers.insert(idle);
+    idle->get_loop()->idlers.push_back(idle);
 }
 
 void uv_idle_stop(uv_idle_t *idle) {
-    idle->get_loop()->idlers.erase(idle);
+    *std::find(std::begin(loop->idlers), std::end(loop->idlers), idle) = loop->idlers.back();
+    loop->idlers.pop_back();
 }
 
 void uv_close(uv_idle_t *handle, uv_close_cb cb) {
@@ -237,7 +239,7 @@ void uv_timer_enqueue(uv_timer_t *timer, int timeout) {
             std::upper_bound(loop->timers.begin(), loop->timers.end(), timer, [](uv_timer_t* a, uv_timer_t* b) {
                 return a->timepoint > b->timepoint;
             }),
-            timer   
+            timer
         );
     }
     else
@@ -292,7 +294,7 @@ void uv_run(uv_loop_t *loop, int mode) {
             // Make a copy so that its ok to call uv_close in the callbacks
             std::vector<std::pair<uv_handle_t *, uv_close_cb>> closingCopy = loop->closing;
             loop->closing.clear();
-            
+
             for (std::pair<uv_handle_t *, uv_close_cb> c : closingCopy) {
                 loop->numEvents--;
                 c.first->flags &= ~UV_HANDLE_CLOSING;
@@ -339,14 +341,14 @@ void uv_run(uv_loop_t *loop, int mode) {
                 }
             loop->async_mutex.unlock();
             for (uv_async_t *async : readyAsyncs)
-				async_callbacks[async->cbIndex](async);
+				        async_callbacks[async->cbIndex](async);
         }
 
         // Handle idle events
         if (loop->idlers.size()) {
-            std::unordered_set<uv_idle_t *> readyIdlers = loop->idlers;
-            for (uv_idle_t *idle : readyIdlers)
-				idle_callbacks[idle->cbIndex](idle);
+            const auto idlers = loop->idlers;
+            for (uv_idle_t *idle : idlers)
+				        idle_callbacks[idle->cbIndex](idle);
         }
 
         // Handle timer events
