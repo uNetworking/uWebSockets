@@ -39,6 +39,7 @@ struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<C
     static void onClientConnection(uS::Socket s, bool error);
 
     bool listen(int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
+    bool listen(const char *host, int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
     void connect(std::string uri, void *user, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr, std::string subprotocol = "");
     void upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup = nullptr);
 

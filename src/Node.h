@@ -158,7 +158,7 @@ public:
 
     // todo: hostname, backlog
     template <void A(Socket s)>
-    bool listen(int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void *user) {
+    bool listen(const char *host, int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void *user) {
         addrinfo hints, *result;
         memset(&hints, 0, sizeof(addrinfo));
 
@@ -166,7 +166,7 @@ public:
         hints.ai_family = AF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
 
-        if (getaddrinfo(nullptr, std::to_string(port).c_str(), &hints, &result)) {
+        if (getaddrinfo(host, std::to_string(port).c_str(), &hints, &result)) {
             return true;
         }
 
