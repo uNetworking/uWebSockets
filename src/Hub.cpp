@@ -63,16 +63,20 @@ void Hub::onClientConnection(uS::Socket s, bool error) {
     }
 }
 
-bool Hub::listen(int port, uS::TLS::Context sslContext, int options, Group<SERVER> *eh) {
+bool Hub::listen(const char *host, int port, uS::TLS::Context sslContext, int options, Group<SERVER> *eh) {
     if (!eh) {
         eh = (Group<SERVER> *) this;
     }
 
-    if (uS::Node::listen<onServerAccept>(port, sslContext, options, (uS::NodeData *) eh, nullptr)) {
+    if (uS::Node::listen<onServerAccept>(host, port, sslContext, options, (uS::NodeData *) eh, nullptr)) {
         eh->errorHandler(port);
         return false;
     }
     return true;
+}
+
+bool Hub::listen(int port, uS::TLS::Context sslContext, int options, Group<SERVER> *eh) {
+    return listen(nullptr, port, sslContext, options, eh);
 }
 
 void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh, std::string subprotocol) {
