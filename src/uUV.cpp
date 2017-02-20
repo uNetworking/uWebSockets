@@ -119,8 +119,8 @@ void uv_async_send(uv_async_t *async) {
 void uv_close(uv_async_t *handle, uv_close_cb cb) {
     uv_loop_t *loop = handle->get_loop();
 
-    const auto& asyncs = loop->asyncs;
-    asyncs.erase(std::remove(std::begin(asyncs), std::end(asyncs), handle), std::end(asyncs));
+    *std::find(std::begin(loop->asyncs), std::end(loop->asyncs), handle) = loop->asyncs.back();
+    loop->asyncs.pop_back();
 
     handle->flags |= UV_HANDLE_CLOSING;
     loop->closing.push_back({(uv_handle_t *) handle, cb});
@@ -151,8 +151,8 @@ void uv_idle_start(uv_idle_t *idle, uv_idle_cb cb) {
 }
 
 void uv_idle_stop(uv_idle_t *idle) {
-    const auto& idlers = idle->get_loop()->idlers;
-    idlers.erase(std::remove(std::begin(idlers), std::end(idlers), idle), std::end(idlers));
+    *std::find(std::begin(loop->idlers), std::end(loop->idlers), idle) = loop->idlers.back();
+    loop->idlers.pop_back();
 }
 
 void uv_close(uv_idle_t *handle, uv_close_cb cb) {
