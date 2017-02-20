@@ -117,11 +117,11 @@ struct WIN32_EXPORT NodeData {
     pthread_t tid;
 
     struct TransferData {
-        uv_poll_t *p;
+        Poll *p;
         uv_os_sock_t fd;
         SocketData *socketData;
-        uv_poll_cb pollCb;
-        void (*cb)(uv_poll_t *);
+        void (*pollCb)(Poll *, int, int);
+        void (*cb)(Poll *);
     };
 
     void addAsync() {
@@ -132,7 +132,7 @@ struct WIN32_EXPORT NodeData {
 
     std::mutex *asyncMutex;
     std::vector<TransferData> transferQueue;
-    std::vector<uv_poll_t *> changePollQueue;
+    std::vector<Poll *> changePollQueue;
     static void asyncCallback(uv_async_t *async);
 
     static int getMemoryBlockIndex(size_t length) {
@@ -209,7 +209,7 @@ struct SocketData {
         }
     } messageQueue;
 
-    uv_poll_t *next = nullptr, *prev = nullptr;
+    Poll *next = nullptr, *prev = nullptr;
 };
 
 struct ListenData : SocketData {
@@ -218,7 +218,7 @@ struct ListenData : SocketData {
 
     }
 
-    uv_poll_t *listenPoll = nullptr;
+    Poll *listenPoll = nullptr;
     uv_timer_t *listenTimer = nullptr;
     uv_os_sock_t sock;
     uS::TLS::Context sslContext;

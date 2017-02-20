@@ -127,7 +127,7 @@ struct WIN32_EXPORT HttpSocket : private uS::Socket {
     using uS::Socket::getAddress;
     using uS::Socket::Address;
 
-    uv_poll_t *getPollHandle() const {return p;}
+    Poll *getPollHandle() const {return p;}
 
     using uS::Socket::shutdown;
     using uS::Socket::close;

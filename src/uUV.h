@@ -3,6 +3,77 @@
 
 #ifndef USE_MICRO_UV
 #include <uv.h>
+
+// Poll implemented with uv_poll_t
+struct Poll {
+    uv_poll_t uv_poll;
+
+    Poll(uv_loop_t *loop, uv_os_sock_t fd) {
+        init(loop, fd);
+    }
+
+    void init(uv_loop_t *loop, uv_os_sock_t fd) {
+        uv_poll_init_socket(loop, &uv_poll, fd);
+    }
+
+    Poll() {
+
+    }
+
+    ~Poll() {
+    }
+
+    void setData(void *data) {
+        uv_poll.data = data;
+    }
+
+    bool isClosing() {
+        return uv_is_closing((uv_handle_t *) &uv_poll);
+    }
+
+    uv_os_sock_t getFd() {
+#ifdef _WIN32
+        uv_os_sock_t fd;
+        uv_fileno((uv_handle_t *) &uv_poll, (uv_os_fd_t *) &fd);
+        return fd;
+#else
+        return uv_poll.io_watcher.fd;
+#endif
+    }
+
+    void *getData() {
+        return uv_poll.data;
+    }
+
+    void setCb(void (*cb)(Poll *p, int status, int events)) {
+        uv_poll.poll_cb = (uv_poll_cb) cb;
+    }
+
+    void start(int events) {
+        uv_poll_start(&uv_poll, events, uv_poll.poll_cb);
+    }
+
+    void change(int events) {
+        uv_poll_start(&uv_poll, events, uv_poll.poll_cb);
+    }
+
+    void stop() {
+        uv_poll_stop(&uv_poll);
+    }
+
+    void close(uv_close_cb cb) {
+        uv_close((uv_handle_t *) &uv_poll, cb);
+    }
+
+    void (*getPollCb())(Poll *, int, int) {
+        return (void (*)(Poll *, int, int)) uv_poll.poll_cb;
+    }
+
+    uv_loop_t *getLoop() {
+        return uv_poll.loop;
+    }
+};
+
 void uv_close(uv_async_t *handle, uv_close_cb cb);
 void uv_close(uv_idle_t *handle, uv_close_cb cb);
 void uv_close(uv_poll_t *handle, uv_close_cb cb);

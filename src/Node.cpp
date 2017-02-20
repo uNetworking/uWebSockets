@@ -8,17 +8,17 @@ void NodeData::asyncCallback(uv_async_t *async)
 
     nodeData->asyncMutex->lock();
     for (TransferData transferData : nodeData->transferQueue) {
-        uv_poll_init_socket(nodeData->loop, transferData.p, transferData.fd);
-        transferData.p->data = transferData.socketData;
+        transferData.p->init(nodeData->loop, transferData.fd);
+        transferData.p->setCb(transferData.pollCb);
+        transferData.p->start(transferData.socketData->poll);
+        transferData.p->setData(transferData.socketData);
         transferData.socketData->nodeData = nodeData;
-        uv_poll_start(transferData.p, transferData.socketData->poll, transferData.pollCb);
-
         transferData.cb(transferData.p);
     }
 
-    for (uv_poll_t *p : nodeData->changePollQueue) {
-        SocketData *socketData = (SocketData *) p->data;
-        uv_poll_start(p, socketData->poll, /*p->poll_cb*/ Socket(p).getPollCallback());
+    for (Poll *p : nodeData->changePollQueue) {
+        SocketData *socketData = (SocketData *) p->getData();
+        p->change(socketData->poll);
     }
 
     nodeData->changePollQueue.clear();

@@ -7,9 +7,6 @@ void uv_close(uv_async_t *handle, uv_close_cb cb) {
 void uv_close(uv_idle_t *handle, uv_close_cb cb) {
     uv_close((uv_handle_t *) handle, cb);
 }
-void uv_close(uv_poll_t *handle, uv_close_cb cb) {
-    uv_close((uv_handle_t *) handle, cb);
-}
 void uv_close(uv_timer_t *handle, uv_close_cb cb) {
     uv_close((uv_handle_t *) handle, cb);
 }
@@ -18,9 +15,6 @@ bool uv_is_closing(uv_async_t *handle) {
     return uv_is_closing((uv_handle_t *) handle);
 }
 bool uv_is_closing(uv_idle_t *handle) {
-    return uv_is_closing((uv_handle_t *) handle);
-}
-bool uv_is_closing(uv_poll_t *handle) {
     return uv_is_closing((uv_handle_t *) handle);
 }
 bool uv_is_closing(uv_timer_t *handle) {

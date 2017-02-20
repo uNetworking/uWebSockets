@@ -4,7 +4,7 @@ namespace uWS {
 
 template <const bool isServer>
 bool WebSocketProtocol<isServer>::setCompressed(void *user) {
-    uS::Socket s((uv_poll_t *) user);
+    uS::Socket s((Poll *) user);
     typename WebSocket<isServer>::Data *webSocketData = (typename WebSocket<isServer>::Data *) s.getSocketData();
 
     if (webSocketData->compressionStatus == WebSocket<isServer>::Data::CompressionStatus::ENABLED) {
@@ -22,12 +22,12 @@ bool WebSocketProtocol<isServer>::refusePayloadLength(void *user, int length) {
 
 template <const bool isServer>
 void WebSocketProtocol<isServer>::forceClose(void *user) {
-    WebSocket<isServer>((uv_poll_t *) user).terminate();
+    WebSocket<isServer>((Poll *) user).terminate();
 }
 
 template <const bool isServer>
 bool WebSocketProtocol<isServer>::handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, void *user) {
-    uS::Socket s((uv_poll_t *) user);
+    uS::Socket s((Poll *) user);
     typename WebSocket<isServer>::Data *webSocketData = (typename WebSocket<isServer>::Data *) s.getSocketData();
 
     if (opCode < 3) {
