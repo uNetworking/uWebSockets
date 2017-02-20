@@ -237,7 +237,7 @@ void uv_timer_enqueue(uv_timer_t *timer, int timeout) {
             std::upper_bound(loop->timers.begin(), loop->timers.end(), timer, [](uv_timer_t* a, uv_timer_t* b) {
                 return a->timepoint > b->timepoint;
             }),
-            timer   
+            timer
         );
     }
     else
@@ -285,6 +285,7 @@ void uv_run(uv_loop_t *loop, int mode) {
     loop->timepoint = std::chrono::system_clock::now();
     signal(SIGPIPE, SIG_IGN);
     int iter = 0;
+    std::vector<uv_async_t *> readyAsyncs;
     while (loop->numEvents) {
         ++iter;
         // Close any events that are ready to close
@@ -292,7 +293,7 @@ void uv_run(uv_loop_t *loop, int mode) {
             // Make a copy so that its ok to call uv_close in the callbacks
             std::vector<std::pair<uv_handle_t *, uv_close_cb>> closingCopy = loop->closing;
             loop->closing.clear();
-            
+
             for (std::pair<uv_handle_t *, uv_close_cb> c : closingCopy) {
                 loop->numEvents--;
                 c.first->flags &= ~UV_HANDLE_CLOSING;
@@ -328,7 +329,6 @@ void uv_run(uv_loop_t *loop, int mode) {
 
         // Handle async events
         if (loop->asyncs.size()) {
-            std::vector<uv_async_t *> readyAsyncs;
             // Find ready asyncs first so we can safely modify the set inside callbacks
             loop->async_mutex.lock();
             for (uv_async_t *async : loop->asyncs)
@@ -339,14 +339,15 @@ void uv_run(uv_loop_t *loop, int mode) {
                 }
             loop->async_mutex.unlock();
             for (uv_async_t *async : readyAsyncs)
-				async_callbacks[async->cbIndex](async);
+				        async_callbacks[async->cbIndex](async);
+            readyAsyncs.clear();
         }
 
         // Handle idle events
         if (loop->idlers.size()) {
             std::unordered_set<uv_idle_t *> readyIdlers = loop->idlers;
             for (uv_idle_t *idle : readyIdlers)
-				idle_callbacks[idle->cbIndex](idle);
+				        idle_callbacks[idle->cbIndex](idle);
         }
 
         // Handle timer events
