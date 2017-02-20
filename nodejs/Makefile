@@ -12,6 +12,7 @@ default:
 	cp -r ../src dist/
 	cp addon.cpp dist/src/addon.cpp
 	cp addon.h dist/src/addon.h
+	cp http.h dist/src/http.h
 	for f in dist/*.node; do chmod +x $$f; done
 targets:
 	mkdir targets
