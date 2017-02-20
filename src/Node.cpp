@@ -53,10 +53,10 @@ Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop)
     SSL_CTX_set_options(nodeData->clientContext, SSL_OP_NO_SSLv3);
 }
 
-void Node::run() {
+int Node::run(uv_run_mode mode) {
     nodeData->tid = pthread_self();
 
-    uv_run(loop, UV_RUN_DEFAULT);
+    return uv_run(loop, mode);
 }
 
 Node::~Node() {
