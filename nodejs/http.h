@@ -306,12 +306,22 @@ struct HttpServer {
         }
     }
 
+    static void getResponsePrototype(const FunctionCallbackInfo<Value> &args) {
+        args.GetReturnValue().Set(Local<Object>::New(args.GetIsolate(), resTemplate)->GetPrototype());
+    }
+
+    static void getRequestPrototype(const FunctionCallbackInfo<Value> &args) {
+        args.GetReturnValue().Set(Local<Object>::New(args.GetIsolate(), reqTemplate)->GetPrototype());
+    }
+
     static Local<Function> getHttpServer(Isolate *isolate) {
         Local<FunctionTemplate> httpServer = FunctionTemplate::New(isolate, HttpServer::createServer);
         httpServer->InstanceTemplate()->SetInternalFieldCount(1);
 
         httpServer->Set(String::NewFromUtf8(isolate, "createServer"), FunctionTemplate::New(isolate, HttpServer::createServer));
         httpServer->Set(String::NewFromUtf8(isolate, "getExpressApp"), FunctionTemplate::New(isolate, HttpServer::getExpressApp));
+        httpServer->Set(String::NewFromUtf8(isolate, "getResponsePrototype"), FunctionTemplate::New(isolate, HttpServer::getResponsePrototype));
+        httpServer->Set(String::NewFromUtf8(isolate, "getRequestPrototype"), FunctionTemplate::New(isolate, HttpServer::getRequestPrototype));
         httpServer->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "listen"), FunctionTemplate::New(isolate, HttpServer::listen));
         httpServer->PrototypeTemplate()->Set(String::NewFromUtf8(isolate, "on"), FunctionTemplate::New(isolate, HttpServer::on));
 
