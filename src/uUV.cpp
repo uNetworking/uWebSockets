@@ -237,7 +237,7 @@ void uv_timer_enqueue(uv_timer_t *timer, int timeout) {
             std::upper_bound(loop->timers.begin(), loop->timers.end(), timer, [](uv_timer_t* a, uv_timer_t* b) {
                 return a->timepoint > b->timepoint;
             }),
-            timer   
+            timer
         );
     }
     else
@@ -290,9 +290,7 @@ void uv_run(uv_loop_t *loop, int mode) {
         // Close any events that are ready to close
         if (loop->closing.size()) {
             // Make a copy so that its ok to call uv_close in the callbacks
-            std::vector<std::pair<uv_handle_t *, uv_close_cb>> closingCopy = loop->closing;
-            loop->closing.clear();
-            
+            const auto closingCopy = std::move(loop->closing);
             for (std::pair<uv_handle_t *, uv_close_cb> c : closingCopy) {
                 loop->numEvents--;
                 c.first->flags &= ~UV_HANDLE_CLOSING;
