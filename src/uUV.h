@@ -31,7 +31,6 @@ bool uv_is_closing(uv_timer_t *handle);
 #include <algorithm>
 #include <chrono>
 #include <vector>
-#include <unordered_set>
 
 //namespace uUV {
 
@@ -71,7 +70,6 @@ typedef void (*uv_timer_cb)(uv_timer_t *handle);
  * std::mutex .................................... 40 bytes
  * std::chrono::system_clock::time_point ......... 8 bytes
  * std::vector ................................... 24 bytes
- * std::unordered_set ............................ 56 bytes
  * epoll_event ................................... 12 bytes
  */
 
@@ -86,8 +84,8 @@ struct uv_handle_t {
 
 // 224 bytes
 struct uv_loop_t {
-    std::unordered_set<uv_async_t *> asyncs;
-    std::unordered_set<uv_idle_t *> idlers;
+    std::vector<uv_async_t *> asyncs;
+    std::vector<uv_idle_t *> idlers;
     std::vector<uv_timer_t *> timers;
     std::vector<std::pair<uv_handle_t *, uv_close_cb>> closing;
     std::mutex async_mutex;
