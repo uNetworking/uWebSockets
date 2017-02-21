@@ -20,7 +20,7 @@ struct Loop : uv_loop_t {
         }
     }
 
-    void destroy() {
+    ~Loop() {
         if (this != uv_default_loop()) {
             uv_loop_delete(this);
         }
@@ -51,7 +51,9 @@ struct Async {
     }
 
     ~Async() {
-      close();
+      if (uv_async) {
+        uv_close(reinterpret_cast<uv_handle_t*>(uv_async.get()), [std::move(uv_async)]{});
+      }
     }
 
     explicit operator bool() const {
@@ -72,12 +74,6 @@ struct Async {
 
     void *getData() {
         return uv_async->data;
-    }
-
-    void close() {
-      if (uv_async) {
-        uv_close(reinterpret_cast<uv_handle_t*>(uv_async.get()), [std::move(uv_async)]{});
-      }
     }
 };
 
@@ -101,7 +97,9 @@ struct Timer {
     }
 
     ~Timer() {
-      close();
+        if (uv_timer) {
+          uv_close(reinterpret_cast<uv_handle_t*>(uv_timer.get()), [std::move(uv_timer)]{});
+        }
     }
 
     explicit operator bool() const {
@@ -123,20 +121,18 @@ struct Timer {
     void stop() {
         uv_timer_stop(uv_timer.get());
     }
-
-    void close() {
-      if (uv_timer) {
-        uv_close(reinterpret_cast<uv_handle_t*>(uv_timer.get()), [std::move(uv_timer)]{});
-      }
-    }
 };
 
+alignas(64)
 struct Poll {
     std::unique_ptr<uv_poll_t> uv_poll;
 
+    Poll() {
+
+    }
     Poll(Loop *loop, uv_os_sock_t fd)
       : uv_poll(new uv_poll_t()) {
-        init(loop, fd);
+        uv_poll_init_socket(loop, uv_poll, fd);
     }
     Poll(const Poll&) = delete;
     Poll(Poll&& other)
@@ -145,7 +141,9 @@ struct Poll {
     }
 
     ~Poll() {
-      close();
+      if (uv_poll) {
+        uv_close(reinterpret_cast<uv_handle_t*>(uv_poll.get()), [std::move(uv_poll)]{});
+      }
     }
 
     Poll& operator=(const Poll&) = delete;
@@ -155,10 +153,6 @@ struct Poll {
 
     explicit operator bool() const {
       return static_cast<bool>(uv_poll);
-    }
-
-    void init(Loop *loop, uv_os_sock_t fd) {
-      uv_poll_init_socket(loop, uv_poll, fd);
     }
 
     void setData(void *data) {
@@ -206,12 +200,6 @@ struct Poll {
     Loop *getLoop() {
         return (Loop *) uv_poll->loop;
     }
-
-    void close() {
-      if (uv_async) {
-        uv_close(reinterpret_cast<uv_handle_t*>(uv_async.get()), [std::move(uv_poll)]{});
-      }
-    }
 };
 
 // Raw epoll implementation
@@ -229,10 +217,6 @@ static const int UV_VERSION_MINOR = 5;
 struct Loop {
     static Loop *createLoop(bool defaultLoop = true) {
         return nullptr;
-    }
-
-    void destroy() {
-
     }
 
     void run() {
@@ -262,10 +246,6 @@ struct Async {
     void *getData() {
         return nullptr;
     }
-
-    void close() {
-
-    }
 };
 
 // medium prio, can be skipped for a while
@@ -290,10 +270,6 @@ struct Timer {
     void stop() {
 
     }
-
-    void close() {
-
-    }
 };
 
 // high prio, used everywhere
@@ -303,15 +279,8 @@ struct Poll {
 
     }
 
-    void init(Loop *loop, uv_os_sock_t fd) {
-
-    }
-
     Poll() {
 
-    }
-
-    ~Poll() {
     }
 
     void setData(void *data) {
@@ -352,10 +321,6 @@ struct Poll {
 
     Loop *getLoop() {
         return (Loop *) nullptr;
-    }
-
-    void close() {
-
     }
 };
 
