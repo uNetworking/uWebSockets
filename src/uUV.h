@@ -52,7 +52,9 @@ struct Async {
 
     ~Async() {
       if (uv_async) {
-        delete uv_async;
+        uv_close(reinterpret_cast<uv_handle_t*>(uv_async), [&]() {
+          delete uv_async;
+        });
       }
     }
 
@@ -66,14 +68,6 @@ struct Async {
 
     void send() {
         uv_async_send(uv_async);
-    }
-
-    void close(uv_close_cb cb) {
-        uv_close((uv_handle_t *) uv_async, cb);
-    }
-
-    void close() {
-      uv_close((uv_handle_t *) uv_async, nullptr);
     }
 
     void setData(void *data) {
@@ -106,7 +100,9 @@ struct Timer {
 
     ~Timer() {
       if (uv_timer) {
-        delete uv_timer;
+        uv_close(reinterpret_cast<uv_handle_t*>(uv_timer), [&]() {
+          delete uv_timer;
+        });
       }
     }
 
@@ -128,10 +124,6 @@ struct Timer {
 
     void stop() {
         uv_timer_stop(uv_timer);
-    }
-
-    void close(uv_close_cb cb) {
-        uv_close((uv_handle_t *) uv_timer, cb);
     }
 };
 
@@ -159,7 +151,9 @@ struct Poll {
 
     ~Poll() {
       if (uv_poll) {
-        delete uv_poll;
+        uv_close(reinterpret_cast<uv_handle_t*>(uv_poll), [&]() {
+          delete uv_poll;
+        });
       }
     }
 
@@ -177,7 +171,7 @@ struct Poll {
     }
 
     bool isClosing() {
-        return uv_is_closing((uv_handle_t *) uv_poll);
+        return uv_is_closing(reinterpret_cast(uv_handle_t*>(uv_poll));
     }
 
     uv_os_sock_t getFd() {
@@ -208,10 +202,6 @@ struct Poll {
 
     void stop() {
         uv_poll_stop(uv_poll);
-    }
-
-    void close(uv_close_cb cb) {
-        uv_close((uv_handle_t *) uv_poll, cb);
     }
 
     void (*getPollCb())(Poll *, int, int) {
