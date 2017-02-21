@@ -45,7 +45,10 @@ inline SOCKET dup(SOCKET socket) {
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <netdb.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 #include <cstring>
 #define SOCKET_ERROR -1
 #define INVALID_SOCKET -1
@@ -54,6 +57,7 @@ inline SOCKET dup(SOCKET socket) {
 
 #include "uUV.h"
 #include <openssl/ssl.h>
+#include <csignal>
 #include <vector>
 #include <string>
 #include <mutex>
@@ -113,7 +117,7 @@ struct WIN32_EXPORT NodeData {
     char **preAlloc;
     SSL_CTX *clientContext;
 
-    uv_async_t *async = nullptr;
+    Async *async = nullptr;
     pthread_t tid;
 
     struct TransferData {
@@ -125,15 +129,15 @@ struct WIN32_EXPORT NodeData {
     };
 
     void addAsync() {
-        async = new uv_async_t;
-        async->data = this;
-        uv_async_init(loop, async, NodeData::asyncCallback);
+        async = new Async(loop);
+        async->setData(this);
+        async->start(NodeData::asyncCallback);
     }
 
     std::mutex *asyncMutex;
     std::vector<TransferData> transferQueue;
     std::vector<Poll *> changePollQueue;
-    static void asyncCallback(uv_async_t *async);
+    static void asyncCallback(Async *async);
 
     static int getMemoryBlockIndex(size_t length) {
         return (length >> 4) + bool(length & 15);

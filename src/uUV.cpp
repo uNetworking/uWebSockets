@@ -1,22 +1,8 @@
 #include "uUV.h"
 
-#ifndef USE_MICRO_UV
-void uv_close(uv_async_t *handle, uv_close_cb cb) {
-    uv_close((uv_handle_t *) handle, cb);
-}
-void uv_close(uv_idle_t *handle, uv_close_cb cb) {
-    uv_close((uv_handle_t *) handle, cb);
-}
-
-bool uv_is_closing(uv_async_t *handle) {
-    return uv_is_closing((uv_handle_t *) handle);
-}
-
-#else
+#ifdef USE_MICRO_UV
 
 #include <sys/eventfd.h>
-
-//namespace uUV {
 
 uv_loop_t *loops[128];
 int loopHead = 0;
@@ -75,7 +61,7 @@ void uv_loop_delete(uv_loop_t *loop) {
     delete loop;
 }
 
-void uv_async_init(uv_loop_t *loop, uv_async_t *async, uv_async_cb cb) {
+void uv_async_init(uv_loop_t *loop, Async *async, uv_async_cb cb) {
     async->loopIndex = loop->index;
     loop->numEvents++;
 
@@ -93,7 +79,7 @@ void uv_async_init(uv_loop_t *loop, uv_async_t *async, uv_async_cb cb) {
     loop->asyncs.insert(async);
 }
 
-void uv_async_send(uv_async_t *async) {
+void uv_async_send(Async *async) {
     uv_loop_t *loop = async->get_loop();
     loop->async_mutex.lock();
     uint64_t val = 1;
@@ -102,16 +88,16 @@ void uv_async_send(uv_async_t *async) {
     loop->async_mutex.unlock();
 }
 
-void uv_close(uv_async_t *handle, uv_close_cb cb) {
+void uv_close(Async *handle, uv_close_cb cb) {
     uv_loop_t *loop = handle->get_loop();
 
-    loop->asyncs.erase((uv_async_t *) handle);
+    loop->asyncs.erase((Async *) handle);
 
     handle->flags |= UV_HANDLE_CLOSING;
     loop->closing.push_back({(uv_handle_t *) handle, cb});
 }
 
-bool uv_is_closing(uv_async_t *handle) {
+bool uv_is_closing(Async *handle) {
     return handle->flags & (UV_HANDLE_CLOSING | UV_HANDLE_CLOSED);
 }
 
@@ -314,17 +300,17 @@ void uv_run(uv_loop_t *loop, int mode) {
 
         // Handle async events
         if (loop->asyncs.size()) {
-            std::vector<uv_async_t *> readyAsyncs;
+            std::vector<Async *> readyAsyncs;
             // Find ready asyncs first so we can safely modify the set inside callbacks
             loop->async_mutex.lock();
-            for (uv_async_t *async : loop->asyncs)
+            for (Async *async : loop->asyncs)
                 if (async->run)
                 {
                     async->run = false;
                     readyAsyncs.push_back(async);
                 }
             loop->async_mutex.unlock();
-            for (uv_async_t *async : readyAsyncs)
+            for (Async *async : readyAsyncs)
 				async_callbacks[async->cbIndex](async);
         }
 
@@ -357,5 +343,4 @@ void uv_run(uv_loop_t *loop, int mode) {
     }
 }
 
-//}
 #endif

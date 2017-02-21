@@ -2,9 +2,9 @@
 
 namespace uS {
 
-void NodeData::asyncCallback(uv_async_t *async)
+void NodeData::asyncCallback(Async *async)
 {
-    NodeData *nodeData = (NodeData *) async->data;
+    NodeData *nodeData = (NodeData *) async->getData();
 
     nodeData->asyncMutex->lock();
     for (TransferData transferData : nodeData->transferQueue) {

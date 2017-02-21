@@ -177,8 +177,8 @@ void Group<isServer>::stopListening() {
     }
 
     if (async) {
-        uv_close(async, [](uv_handle_t *h) {
-            delete (uv_async_t *) h;
+        async->close([](uv_handle_t *h) {
+            delete (Async *) h;
         });
     }
 }

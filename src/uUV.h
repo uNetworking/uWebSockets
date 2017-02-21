@@ -1,10 +1,16 @@
+// Rename uUV.h / uUV.cpp -> Backend.h/.cpp
+
 #ifndef UUV_H
 #define UUV_H
 
-#ifndef USE_MICRO_UV
+// Use libuv by default
+#define USE_LIBUV
+
+// Libuv backend (should be moved out to libuv.h)
+#ifdef USE_LIBUV
+
 #include <uv.h>
 
-// Loop implemented with uv_loop_t
 struct Loop : uv_loop_t {
     static Loop *createLoop(bool defaultLoop = true) {
         if (defaultLoop) {
@@ -25,7 +31,34 @@ struct Loop : uv_loop_t {
     }
 };
 
-// Timer implemented with uv_timer_t
+struct Async {
+    uv_async_t uv_async;
+
+    Async(Loop *loop) {
+        uv_async.loop = loop;
+    }
+
+    void start(void (*cb)(Async *)) {
+        uv_async_init(uv_async.loop, &uv_async, (uv_async_cb) cb);
+    }
+
+    void send() {
+        uv_async_send(&uv_async);
+    }
+
+    void close(uv_close_cb cb) {
+        uv_close((uv_handle_t *) &uv_async, cb);
+    }
+
+    void setData(void *data) {
+        uv_async.data = data;
+    }
+
+    void *getData() {
+        return uv_async.data;
+    }
+};
+
 struct Timer {
     uv_timer_t uv_timer;
 
@@ -54,7 +87,6 @@ struct Timer {
     }
 };
 
-// Poll implemented with uv_poll_t
 struct Poll {
     uv_poll_t uv_poll;
 
@@ -124,10 +156,153 @@ struct Poll {
     }
 };
 
-void uv_close(uv_async_t *handle, uv_close_cb cb);
-bool uv_is_closing(uv_async_t *handle);
-
+// Raw epoll implementation
 #else
+
+// these should be renamed (don't add more than these, only these are used)
+typedef int uv_os_sock_t;
+typedef void uv_handle_t;
+typedef void (*uv_close_cb)(uv_handle_t *);
+static const int UV_READABLE = 1;
+static const int UV_WRITABLE = 2;
+static const int UV_VERSION_MINOR = 5;
+
+// obviously high prio
+struct Loop {
+    static Loop *createLoop(bool defaultLoop = true) {
+        return nullptr;
+    }
+
+    void destroy() {
+
+    }
+
+    void run() {
+
+    }
+};
+
+// low prio, not used very often
+struct Async {
+
+    Async(Loop *loop) {
+
+    }
+
+    void start(void (*cb)(Async *)) {
+
+    }
+
+    void send() {
+
+    }
+
+    void close(uv_close_cb cb) {
+
+    }
+
+    void setData(void *data) {
+
+    }
+
+    void *getData() {
+        return nullptr;
+    }
+};
+
+// medium prio, can be skipped for a while
+struct Timer {
+
+    Timer(Loop *loop) {
+
+    }
+
+    void start(void (*cb)(Timer *), int first, int repeat) {
+
+    }
+
+    void setData(void *data) {
+
+    }
+
+    void *getData() {
+        return nullptr;
+    }
+
+    void stop() {
+
+    }
+
+    void close(uv_close_cb cb) {
+
+    }
+};
+
+// high prio, used everywhere
+struct Poll {
+
+    Poll(Loop *loop, uv_os_sock_t fd) {
+
+    }
+
+    void init(Loop *loop, uv_os_sock_t fd) {
+
+    }
+
+    Poll() {
+
+    }
+
+    ~Poll() {
+    }
+
+    void setData(void *data) {
+
+    }
+
+    bool isClosing() {
+        return false;
+    }
+
+    uv_os_sock_t getFd() {
+        return 0;
+    }
+
+    void *getData() {
+        return nullptr;
+    }
+
+    void setCb(void (*cb)(Poll *p, int status, int events)) {
+
+    }
+
+    void start(int events) {
+
+    }
+
+    void change(int events) {
+
+    }
+
+    void stop() {
+
+    }
+
+    void close(uv_close_cb cb) {
+
+    }
+
+    void (*getPollCb())(Poll *, int, int) {
+        return (void (*)(Poll *, int, int)) nullptr;
+    }
+
+    Loop *getLoop() {
+        return (Loop *) nullptr;
+    }
+};
+
+// just listing some code never reached / to pick from
+#ifdef USE_MICRO_UV
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -148,12 +323,10 @@ bool uv_is_closing(uv_async_t *handle);
 #include <vector>
 #include <unordered_set>
 
-//namespace uUV {
-
 struct uv_handle_t;
 struct uv_loop_t;
 
-struct uv_async_t;
+struct Async;
 struct uv_idle_t;
 struct uv_poll_t;
 struct uv_timer_t;
@@ -173,7 +346,7 @@ const int UV_DISCONNECT = 4; // Not sure which epoll events correspond to discon
 const int UV_RUN_DEFAULT = 0;
 typedef int uv_os_sock_t;
 typedef void (*uv_close_cb)(uv_handle_t *handle);
-typedef void (*uv_async_cb)(uv_async_t *handle);
+typedef void (*uv_async_cb)(Async *handle);
 typedef void (*uv_idle_cb)(uv_idle_t *handle);
 typedef void (*uv_poll_cb)(uv_poll_t *poll, int status, int events);
 typedef void (*uv_timer_cb)(uv_timer_t *handle);
@@ -201,7 +374,7 @@ struct uv_handle_t {
 
 // 224 bytes
 struct uv_loop_t {
-    std::unordered_set<uv_async_t *> asyncs;
+    std::unordered_set<Async *> asyncs;
     std::unordered_set<uv_idle_t *> idlers;
     std::vector<uv_timer_t *> timers;
     std::vector<std::pair<uv_handle_t *, uv_close_cb>> closing;
@@ -219,15 +392,15 @@ void uv_loop_delete(uv_loop_t *loop);
 
 
 // 16 bytes
-struct uv_async_t : uv_handle_t {
+struct Async : uv_handle_t {
     unsigned char cbIndex;
     bool run = false;
 };
 
-void uv_async_init(uv_loop_t *loop, uv_async_t *async, uv_async_cb cb);
-void uv_async_send(uv_async_t *async);
-void uv_close(uv_async_t *handle, uv_close_cb cb);
-bool uv_is_closing(uv_async_t *handle);
+void uv_async_init(uv_loop_t *loop, Async *async, uv_async_cb cb);
+void uv_async_send(Async *async);
+void uv_close(Async *handle, uv_close_cb cb);
+bool uv_is_closing(Async *handle);
 
 // 16 bytes
 struct uv_idle_t : uv_handle_t {
@@ -270,8 +443,7 @@ void uv_close(uv_timer_t *handle, uv_close_cb cb);
 bool uv_is_closing(uv_timer_t *handle);
 
 void uv_run(uv_loop_t *loop, int mode);
-
-//} // namespace uUV
+#endif
 
 #endif
 #endif // UUV_H

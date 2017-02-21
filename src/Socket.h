@@ -27,7 +27,7 @@ public:
         nodeData->asyncMutex->unlock();
 
         if (socketData->nodeData->tid != nodeData->tid) {
-            uv_async_send(nodeData->async);
+            nodeData->async->send();
         } else {
             NodeData::asyncCallback(nodeData->async);
         }
@@ -343,7 +343,7 @@ public:
             socketData->nodeData->asyncMutex->lock();
             socketData->nodeData->changePollQueue.push_back(p);
             socketData->nodeData->asyncMutex->unlock();
-            uv_async_send(socketData->nodeData->async);
+            socketData->nodeData->async->send();
         } else {
             p->change(socketData->poll);
         }
