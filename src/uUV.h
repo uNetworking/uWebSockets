@@ -34,125 +34,192 @@ struct Loop : uv_loop_t {
 struct Async {
     uv_async_t uv_async;
 
-    Async(Loop *loop) {
-        uv_async.loop = loop;
+    Async(Loop *loop)
+      : uv_async(new uv_async_t()) {
+        uv_async->loop = loop;
+    }
+
+    Async(const Async&) = delete;
+    Async(Async&& other)
+      : uv_async(other.uv_async) {
+        other.uv_async = nullptr;
+    }
+
+    Async& operator=(const Async&) = delete;
+    Async& operator=(Async&& other) {
+      std::swap(uv_async, other.uv_async);
+    }
+
+    ~Async() {
+      if (uv_async) {
+        delete uv_async;
+      }
+    }
+
+    explicit operator bool() const {
+      return uv_async !== nullptr;
     }
 
     void start(void (*cb)(Async *)) {
-        uv_async_init(uv_async.loop, &uv_async, (uv_async_cb) cb);
+        uv_async_init(uv_async->loop, uv_async, (uv_async_cb) cb);
     }
 
     void send() {
-        uv_async_send(&uv_async);
+        uv_async_send(uv_async);
     }
 
     void close(uv_close_cb cb) {
-        uv_close((uv_handle_t *) &uv_async, cb);
+        uv_close((uv_handle_t *) uv_async, cb);
+    }
+
+    void close() {
+      uv_close((uv_handle_t *) uv_async, nullptr);
     }
 
     void setData(void *data) {
-        uv_async.data = data;
+        uv_async->data = data;
     }
 
     void *getData() {
-        return uv_async.data;
+        return uv_async->data;
     }
 };
 
 struct Timer {
     uv_timer_t uv_timer;
 
-    Timer(Loop *loop) {
-        uv_timer_init(loop, &uv_timer);
+    Timer(Loop *loop)
+      : uv_timer(new uv_timer_t()) {
+        uv_timer_init(loop, uv_timer);
+    }
+
+    Timer(const Timer&) = delete;
+    Timer(Timer&& other)
+      : uv_timer(other.uv_timer) {
+        other.uv_timer = nullptr;
+    }
+
+    Timer& operator=(const Timer&) = delete;
+    Timer& operator=(Timer&& other) {
+      std::swap(uv_timer, other.uv_timer);
+    }
+
+    ~Timer() {
+      if (uv_timer) {
+        delete uv_timer;
+      }
+    }
+
+    explicit operator bool() const {
+      return uv_timer !== nullptr;
     }
 
     void start(void (*cb)(Timer *), int first, int repeat) {
-        uv_timer_start(&uv_timer, (uv_timer_cb) cb, first, repeat);
+        uv_timer_start(uv_timer, (uv_timer_cb) cb, first, repeat);
     }
 
     void setData(void *data) {
-        uv_timer.data = data;
+        uv_timer->data = data;
     }
 
     void *getData() {
-        return uv_timer.data;
+        return uv_timer->data;
     }
 
     void stop() {
-        uv_timer_stop(&uv_timer);
+        uv_timer_stop(uv_timer);
     }
 
     void close(uv_close_cb cb) {
-        uv_close((uv_handle_t *) &uv_timer, cb);
+        uv_close((uv_handle_t *) uv_timer, cb);
     }
 };
 
 struct Poll {
-    uv_poll_t uv_poll;
+    uv_poll_t* uv_poll;
 
-    Poll(Loop *loop, uv_os_sock_t fd) {
+    Poll(Loop *loop, uv_os_sock_t fd)
+      : uv_poll(new uv_poll_t()) {
         init(loop, fd);
     }
 
     void init(Loop *loop, uv_os_sock_t fd) {
-        uv_poll_init_socket(loop, &uv_poll, fd);
+        uv_poll_init_socket(loop, uv_poll, fd);
     }
 
-    Poll() {
+    Poll(const Poll&) = delete;
+    Poll(Poll&& other)
+      : uv_poll(other.uv_poll) {
+        other.uv_poll = nullptr;
+    }
 
+    Poll()
+      : uv_poll(nullptr) {
     }
 
     ~Poll() {
+      if (uv_poll) {
+        delete uv_poll;
+      }
+    }
+
+    Poll& operator=(const Poll&) = delete;
+    Poll& operator=(Poll&& other) {
+      std::swap(uv_poll, other.uv_poll);
+    }
+
+    explicit operator bool() const {
+      return uv_poll !== nullptr;
     }
 
     void setData(void *data) {
-        uv_poll.data = data;
+        uv_poll->data = data;
     }
 
     bool isClosing() {
-        return uv_is_closing((uv_handle_t *) &uv_poll);
+        return uv_is_closing((uv_handle_t *) uv_poll);
     }
 
     uv_os_sock_t getFd() {
 #ifdef _WIN32
         uv_os_sock_t fd;
-        uv_fileno((uv_handle_t *) &uv_poll, (uv_os_fd_t *) &fd);
+        uv_fileno((uv_handle_t *) uv_poll, (uv_os_fd_t *) &fd);
         return fd;
 #else
-        return uv_poll.io_watcher.fd;
+        return uv_poll->io_watcher.fd;
 #endif
     }
 
     void *getData() {
-        return uv_poll.data;
+        return uv_poll->data;
     }
 
     void setCb(void (*cb)(Poll *p, int status, int events)) {
-        uv_poll.poll_cb = (uv_poll_cb) cb;
+        uv_poll->poll_cb = (uv_poll_cb) cb;
     }
 
     void start(int events) {
-        uv_poll_start(&uv_poll, events, uv_poll.poll_cb);
+        uv_poll_start(uv_poll, events, uv_poll->poll_cb);
     }
 
     void change(int events) {
-        uv_poll_start(&uv_poll, events, uv_poll.poll_cb);
+        uv_poll_start(uv_poll, events, uv_poll->poll_cb);
     }
 
     void stop() {
-        uv_poll_stop(&uv_poll);
+        uv_poll_stop(uv_poll);
     }
 
     void close(uv_close_cb cb) {
-        uv_close((uv_handle_t *) &uv_poll, cb);
+        uv_close((uv_handle_t *) uv_poll, cb);
     }
 
     void (*getPollCb())(Poll *, int, int) {
-        return (void (*)(Poll *, int, int)) uv_poll.poll_cb;
+        return (void (*)(Poll *, int, int)) uv_poll->poll_cb;
     }
 
     Loop *getLoop() {
-        return (Loop *) uv_poll.loop;
+        return (Loop *) uv_poll->loop;
     }
 };
 
