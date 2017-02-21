@@ -4,7 +4,7 @@
 #define UUV_H
 
 // Use libuv by default
-#define USE_LIBUV
+//#define USE_LIBUV
 
 // Libuv backend (should be moved out to libuv.h)
 #ifdef USE_LIBUV
@@ -159,26 +159,68 @@ struct Poll {
 // Raw epoll implementation
 #else
 
+#include <sys/epoll.h>
+#include <unistd.h>
+#include <fcntl.h>
+
 // these should be renamed (don't add more than these, only these are used)
 typedef int uv_os_sock_t;
 typedef void uv_handle_t;
 typedef void (*uv_close_cb)(uv_handle_t *);
-static const int UV_READABLE = 1;
-static const int UV_WRITABLE = 2;
+static const int UV_READABLE = EPOLLIN | EPOLLHUP;
+static const int UV_WRITABLE = EPOLLOUT;
 static const int UV_VERSION_MINOR = 5;
+
+struct Loop;
+struct Poll;
+struct Timer;
+
+extern Loop *loops[128];
+extern int loopHead;
+
+extern void (*callbacks[128])(Poll *, int, int);
+extern int cbHead;
+
+#include <iostream>
+#include <chrono>
+#include <algorithm>
+#include <vector>
+
+struct Timepoint {
+    void (*cb)(Timer *);
+    Timer *timer;
+    std::chrono::system_clock::time_point timepoint;
+    int nextDelay;
+};
 
 // obviously high prio
 struct Loop {
+
+    int epfd;
+    unsigned char index;
+    int numPolls = 0;
+    epoll_event readyEvents[1024];
+    std::chrono::system_clock::time_point timepoint;
+    std::vector<Timepoint> timers;
+
+    Loop(bool defaultLoop) {
+        std::cout << "Loop::Loop(bool)" << std::endl;
+        epfd = epoll_create(1);
+        loops[index = loopHead++] = this;
+    }
+
     static Loop *createLoop(bool defaultLoop = true) {
-        return nullptr;
+        return new Loop(defaultLoop);
     }
 
     void destroy() {
-
+        ::close(epfd);
     }
 
-    void run() {
+    void run();
 
+    int getEpollFd() {
+        return epfd;
     }
 };
 
@@ -213,83 +255,152 @@ struct Async {
 // medium prio, can be skipped for a while
 struct Timer {
 
-    Timer(Loop *loop) {
+    Loop *loop = nullptr;
+    void *data;
 
+    Timer(Loop *loop) {
+        std::cout << "Timer::init" << std::endl;
+        this->loop = loop;
     }
 
-    void start(void (*cb)(Timer *), int first, int repeat) {
+    void start(void (*cb)(Timer *), int timeout, int repeat) {
+        std::cout << "Timer::start" << std::endl;
+        std::chrono::system_clock::time_point timepoint = loop->timepoint + std::chrono::milliseconds(timeout);
 
+        loop->timers.push_back({cb, this, timepoint, repeat});
+        std::sort(loop->timers.begin(), loop->timers.end(), [](const Timepoint &a, const Timepoint &b) {
+            return a.timepoint < b.timepoint;
+        });
     }
 
     void setData(void *data) {
-
+        std::cout << "Timer::setData" << std::endl;
+        this->data = data;
     }
 
     void *getData() {
-        return nullptr;
+        std::cout << "Timer::getData" << std::endl;
+        return data;
     }
 
     void stop() {
-
+        std::cout << "Timer::stop" << std::endl;
+        auto pos = loop->timers.begin();
+        for (Timepoint &t : loop->timers) {
+            if (t.timer == this) {
+                loop->timers.erase(pos);
+                break;
+            }
+            pos++;
+        }
     }
 
     void close(uv_close_cb cb) {
-
+        std::cout << "Timer::close" << std::endl;
     }
 };
 
-// high prio, used everywhere
+// 32 bytes
 struct Poll {
+    epoll_event event; // 8 bytes
+    void *data; // 8 bytes
+
+    // 4 bytes
+    /*struct {
+        unsigned int fd : 23; // 23 bit is 8 million fds
+    };*/
+
+    int fd = -1; // 4 bytes
+
+
+    unsigned char loopIndex, cbIndex; // 2 bytes (leaves 2 bytes padding)
 
     Poll(Loop *loop, uv_os_sock_t fd) {
-
+        init(loop, fd);
     }
 
     void init(Loop *loop, uv_os_sock_t fd) {
+        std::cout << "Poll::init" << std::endl;
+        int flags = fcntl(fd, F_GETFL, 0);
+        if (flags == -1) {
+            std::cout << "Poll::init failure" << std::endl;
+            return;// -1;
+        }
+        flags |= O_NONBLOCK;
+        flags = fcntl (fd, F_SETFL, flags);
+        if (flags == -1) {
+            std::cout << "Poll::init failure" << std::endl;
+            return;// -1;
+        }
 
+        loopIndex = loop->index;
+        this->fd = fd;
+        event.events = 0;
+        event.data.ptr = this;
+        loop->numPolls++;
     }
 
     Poll() {
-
+        std::cout << "Poll::Poll()" << std::endl;
     }
 
     ~Poll() {
     }
 
     void setData(void *data) {
-
+        std::cout << "Poll::setData" << std::endl;
+        this->data = data;
     }
 
     bool isClosing() {
+        std::cout << "Poll::isClosing" << std::endl;
         return false;
     }
 
     uv_os_sock_t getFd() {
-        return 0;
+        std::cout << "Poll::getFd" << std::endl;
+        return fd;
     }
 
     void *getData() {
-        return nullptr;
+        std::cout << "Poll::getData" << std::endl;
+        return data;
     }
 
     void setCb(void (*cb)(Poll *p, int status, int events)) {
-
+        std::cout << "Poll::setCb" << std::endl;
+        cbIndex = cbHead;
+        for (int i = 0; i < cbHead; i++) {
+            if (callbacks[i] == cb) {
+                cbIndex = i;
+                break;
+            }
+        }
+        if (cbIndex == cbHead) {
+            callbacks[cbHead++] = cb;
+            std::cout << "Poll::setCb increases cbHead to " << cbHead << std::endl;
+        }
     }
 
     void start(int events) {
-
+        std::cout << "Poll::start" << std::endl;
+        event.events = events;
+        epoll_ctl(loops[loopIndex]->epfd, EPOLL_CTL_ADD, fd, &event);
     }
 
     void change(int events) {
-
+        std::cout << "Poll::change" << std::endl;
+        event.events = events;
+        epoll_ctl(loops[loopIndex]->epfd, EPOLL_CTL_MOD, fd, &event);
     }
 
     void stop() {
-
+        std::cout << "Poll::stop" << std::endl;
+        epoll_ctl(loops[loopIndex]->epfd, EPOLL_CTL_DEL, fd, &event);
     }
 
     void close(uv_close_cb cb) {
-
+        std::cout << "Poll::close" << std::endl;
     }
 
     void (*getPollCb())(Poll *, int, int) {
@@ -297,7 +408,8 @@ struct Poll {
     }
 
     Loop *getLoop() {
-        return (Loop *) nullptr;
+        std::cout << "Poll::getLoop" << std::endl;
+        return loops[loopIndex];
     }
 };
 

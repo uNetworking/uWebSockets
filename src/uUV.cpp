@@ -1,5 +1,62 @@
 #include "uUV.h"
 
+#ifndef USE_LIBUV
+Loop *loops[128];
+int loopHead = 0;
+
+void (*callbacks[128])(Poll *, int, int);
+int cbHead = 0;
+
+void Loop::run() {
+    std::cout << "Sizeof(Poll) = " << sizeof(Poll) << std::endl;
+    std::cout << "Loop::run" << std::endl;
+    timepoint = std::chrono::system_clock::now();
+    while (numPolls) {
+        /*for (std::pair<uv_handle_t *, uv_handle_cb> c : closing) {
+            polls--;
+            c.second(c.first);
+
+            if (!polls) {
+                closing.clear();
+                return;
+            }
+        }
+        closing.clear();*/
+
+        int delay = -1;
+        if (timers.size()) {
+            delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(timers[0].timepoint - timepoint).count(), 0);
+        }
+
+        int numFdReady = epoll_wait(epfd, readyEvents, 1024, delay);
+        for (int i = 0; i < numFdReady; i++) {
+            Poll *poll = (Poll *) readyEvents[i].data.ptr;
+            int status = -bool(readyEvents[i].events & EPOLLERR);
+            callbacks[poll->cbIndex](poll, status, readyEvents[i].events);
+        }
+
+        timepoint = std::chrono::system_clock::now();
+        while (timers.size() && timers[0].timepoint < timepoint) {
+            timers[0].cb(timers[0].timer);
+            Timer *timer = timers[0].timer;
+
+            if (timer->loop != this) {
+                std::cout << "This timer does not add up!" << std::endl;
+            }
+
+            int repeat = timers[0].nextDelay;
+            auto cb = timers[0].cb;
+            timers.erase(timers.begin());
+            if (repeat) {
+                std::cout << "Repeating timer now!" << std::endl;
+                timer->start(cb, repeat, repeat);
+            }
+        }
+    }
+    std::cout << "Loop::run falling through" << std::endl;
+}
+#endif
+
 #ifdef USE_MICRO_UV
 
 #include <sys/eventfd.h>
