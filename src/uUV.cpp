@@ -79,7 +79,7 @@ uv_loop_t *uv_handle_t::get_loop() const {
 }
 
 inline uv_loop_t *uv_loop_helper() {
-    uv_loop_t *loop = new uv_loop_t;
+    uv_loop_t *loop = new (aligned_alloc(64, sizeof(uv_loop_t))) uv_loop_t;
     loop->efd = epoll_create(1);
     loop->index = loopHead++;
     loop->numEvents = 0;
