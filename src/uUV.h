@@ -32,7 +32,7 @@ struct Loop : uv_loop_t {
 };
 
 struct Async {
-    uv_async_t uv_async;
+    std::unique_ptr<uv_async_t> uv_async;
 
     Async(Loop *loop)
       : uv_async(new uv_async_t()) {
@@ -51,23 +51,19 @@ struct Async {
     }
 
     ~Async() {
-      if (uv_async) {
-        uv_close(reinterpret_cast<uv_handle_t*>(uv_async), [&]() {
-          delete uv_async;
-        });
-      }
+      close();
     }
 
     explicit operator bool() const {
-      return uv_async !== nullptr;
+      return static_cast<bool>(uv_async);
     }
 
     void start(void (*cb)(Async *)) {
-        uv_async_init(uv_async->loop, uv_async, (uv_async_cb) cb);
+        uv_async_init(uv_async->loop, uv_async.get(), (uv_async_cb) cb);
     }
 
     void send() {
-        uv_async_send(uv_async);
+        uv_async_send(uv_async.get());
     }
 
     void setData(void *data) {
@@ -77,10 +73,16 @@ struct Async {
     void *getData() {
         return uv_async->data;
     }
+
+    void close() {
+      if (uv_async) {
+        uv_close(reinterpret_cast<uv_handle_t*>(uv_async.get()), [std::move(uv_async)]{});
+      }
+    }
 };
 
 struct Timer {
-    uv_timer_t uv_timer;
+    std::unqiue_ptr<uv_timer_t> uv_timer;
 
     Timer(Loop *loop)
       : uv_timer(new uv_timer_t()) {
@@ -99,19 +101,15 @@ struct Timer {
     }
 
     ~Timer() {
-      if (uv_timer) {
-        uv_close(reinterpret_cast<uv_handle_t*>(uv_timer), [&]() {
-          delete uv_timer;
-        });
-      }
+      close();
     }
 
     explicit operator bool() const {
-      return uv_timer !== nullptr;
+      return static_cast<bool>(uv_timer);
     }
 
     void start(void (*cb)(Timer *), int first, int repeat) {
-        uv_timer_start(uv_timer, (uv_timer_cb) cb, first, repeat);
+        uv_timer_start(uv_timer.get(), (uv_timer_cb) cb, first, repeat);
     }
 
     void setData(void *data) {
@@ -123,38 +121,31 @@ struct Timer {
     }
 
     void stop() {
-        uv_timer_stop(uv_timer);
+        uv_timer_stop(uv_timer.get());
+    }
+
+    void close() {
+      if (uv_timer) {
+        uv_close(reinterpret_cast<uv_handle_t*>(uv_timer.get()), [std::move(uv_timer)]{});
+      }
     }
 };
 
 struct Poll {
-    uv_poll_t* uv_poll;
+    std::unique_ptr<uv_poll_t> uv_poll;
 
     Poll(Loop *loop, uv_os_sock_t fd)
       : uv_poll(new uv_poll_t()) {
         init(loop, fd);
     }
-
-    void init(Loop *loop, uv_os_sock_t fd) {
-        uv_poll_init_socket(loop, uv_poll, fd);
-    }
-
     Poll(const Poll&) = delete;
     Poll(Poll&& other)
       : uv_poll(other.uv_poll) {
         other.uv_poll = nullptr;
     }
 
-    Poll()
-      : uv_poll(nullptr) {
-    }
-
     ~Poll() {
-      if (uv_poll) {
-        uv_close(reinterpret_cast<uv_handle_t*>(uv_poll), [&]() {
-          delete uv_poll;
-        });
-      }
+      close();
     }
 
     Poll& operator=(const Poll&) = delete;
@@ -163,7 +154,11 @@ struct Poll {
     }
 
     explicit operator bool() const {
-      return uv_poll !== nullptr;
+      return static_cast<bool>(uv_poll);
+    }
+
+    void init(Loop *loop, uv_os_sock_t fd) {
+      uv_poll_init_socket(loop, uv_poll, fd);
     }
 
     void setData(void *data) {
@@ -171,13 +166,13 @@ struct Poll {
     }
 
     bool isClosing() {
-        return uv_is_closing(reinterpret_cast(uv_handle_t*>(uv_poll));
+        return uv_is_closing(reinterpret_cast(uv_handle_t*>(uv_poll.get()));
     }
 
     uv_os_sock_t getFd() {
 #ifdef _WIN32
         uv_os_sock_t fd;
-        uv_fileno((uv_handle_t *) uv_poll, (uv_os_fd_t *) &fd);
+        uv_fileno((uv_handle_t *) uv_poll.get(), (uv_os_fd_t *) &fd);
         return fd;
 #else
         return uv_poll->io_watcher.fd;
@@ -193,15 +188,15 @@ struct Poll {
     }
 
     void start(int events) {
-        uv_poll_start(uv_poll, events, uv_poll->poll_cb);
+        uv_poll_start(uv_poll.get(), events, uv_poll->poll_cb);
     }
 
     void change(int events) {
-        uv_poll_start(uv_poll, events, uv_poll->poll_cb);
+        uv_poll_start(uv_poll.get(), events, uv_poll->poll_cb);
     }
 
     void stop() {
-        uv_poll_stop(uv_poll);
+        uv_poll_stop(uv_poll.get());
     }
 
     void (*getPollCb())(Poll *, int, int) {
@@ -210,6 +205,12 @@ struct Poll {
 
     Loop *getLoop() {
         return (Loop *) uv_poll->loop;
+    }
+
+    void close() {
+      if (uv_async) {
+        uv_close(reinterpret_cast<uv_handle_t*>(uv_async.get()), [std::move(uv_poll)]{});
+      }
     }
 };
 
@@ -254,16 +255,16 @@ struct Async {
 
     }
 
-    void close(uv_close_cb cb) {
-
-    }
-
     void setData(void *data) {
 
     }
 
     void *getData() {
         return nullptr;
+    }
+
+    void close() {
+
     }
 };
 
@@ -290,7 +291,7 @@ struct Timer {
 
     }
 
-    void close(uv_close_cb cb) {
+    void close() {
 
     }
 };
@@ -345,16 +346,16 @@ struct Poll {
 
     }
 
-    void close(uv_close_cb cb) {
-
-    }
-
     void (*getPollCb())(Poll *, int, int) {
         return (void (*)(Poll *, int, int)) nullptr;
     }
 
     Loop *getLoop() {
         return (Loop *) nullptr;
+    }
+
+    void close() {
+
     }
 };
 
