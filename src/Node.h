@@ -14,7 +14,7 @@ enum ListenOptions : int {
 
 class WIN32_EXPORT Node {
 protected:
-    uv_loop_t *loop;
+    Loop *loop;
     NodeData *nodeData;
     std::mutex asyncMutex;
 
@@ -23,7 +23,7 @@ public:
     ~Node();
     void run();
 
-    uv_loop_t *getLoop() {
+    Loop *getLoop() {
         return loop;
     }
 
@@ -87,8 +87,8 @@ public:
     }
 
     template <void A(Socket s)>
-    static void accept_timer_cb(uv_timer_t *p) {
-        ListenData *listenData = (ListenData *) p->data;
+    static void accept_timer_cb(Timer *p) {
+        ListenData *listenData = (ListenData *) p->getData();
         accept_cb<A, true>(listenData);
     }
 
@@ -109,15 +109,14 @@ public:
                 });
                 listenData->listenPoll = nullptr;
 
-                listenData->listenTimer = new uv_timer_t();
-                listenData->listenTimer->data = listenData;
-                uv_timer_init(listenData->nodeData->loop, listenData->listenTimer);
-                uv_timer_start(listenData->listenTimer, accept_timer_cb<A>, 1000, 1000);
+                listenData->listenTimer = new Timer(listenData->nodeData->loop);
+                listenData->listenTimer->setData(listenData);
+                listenData->listenTimer->start(accept_timer_cb<A>, 1000, 1000);
             }
             return;
         } else if (TIMER) {
-            uv_timer_stop(listenData->listenTimer);
-            uv_close(listenData->listenTimer, [](uv_handle_t *handle) {
+            listenData->listenTimer->stop();
+            listenData->listenTimer->close([](uv_handle_t *handle) {
                 delete handle;
             });
             listenData->listenTimer = nullptr;

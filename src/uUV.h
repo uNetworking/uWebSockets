@@ -4,15 +4,65 @@
 #ifndef USE_MICRO_UV
 #include <uv.h>
 
+// Loop implemented with uv_loop_t
+struct Loop : uv_loop_t {
+    static Loop *createLoop(bool defaultLoop = true) {
+        if (defaultLoop) {
+            return (Loop *) uv_default_loop();
+        } else {
+            return (Loop *) uv_loop_new();
+        }
+    }
+
+    void destroy() {
+        if (this != uv_default_loop()) {
+            uv_loop_delete(this);
+        }
+    }
+
+    void run() {
+        uv_run(this, UV_RUN_DEFAULT);
+    }
+};
+
+// Timer implemented with uv_timer_t
+struct Timer {
+    uv_timer_t uv_timer;
+
+    Timer(Loop *loop) {
+        uv_timer_init(loop, &uv_timer);
+    }
+
+    void start(void (*cb)(Timer *), int first, int repeat) {
+        uv_timer_start(&uv_timer, (uv_timer_cb) cb, first, repeat);
+    }
+
+    void setData(void *data) {
+        uv_timer.data = data;
+    }
+
+    void *getData() {
+        return uv_timer.data;
+    }
+
+    void stop() {
+        uv_timer_stop(&uv_timer);
+    }
+
+    void close(uv_close_cb cb) {
+        uv_close((uv_handle_t *) &uv_timer, cb);
+    }
+};
+
 // Poll implemented with uv_poll_t
 struct Poll {
     uv_poll_t uv_poll;
 
-    Poll(uv_loop_t *loop, uv_os_sock_t fd) {
+    Poll(Loop *loop, uv_os_sock_t fd) {
         init(loop, fd);
     }
 
-    void init(uv_loop_t *loop, uv_os_sock_t fd) {
+    void init(Loop *loop, uv_os_sock_t fd) {
         uv_poll_init_socket(loop, &uv_poll, fd);
     }
 
@@ -69,20 +119,14 @@ struct Poll {
         return (void (*)(Poll *, int, int)) uv_poll.poll_cb;
     }
 
-    uv_loop_t *getLoop() {
-        return uv_poll.loop;
+    Loop *getLoop() {
+        return (Loop *) uv_poll.loop;
     }
 };
 
 void uv_close(uv_async_t *handle, uv_close_cb cb);
-void uv_close(uv_idle_t *handle, uv_close_cb cb);
-void uv_close(uv_poll_t *handle, uv_close_cb cb);
-void uv_close(uv_timer_t *handle, uv_close_cb cb);
-
 bool uv_is_closing(uv_async_t *handle);
-bool uv_is_closing(uv_idle_t *handle);
-bool uv_is_closing(uv_poll_t *handle);
-bool uv_is_closing(uv_timer_t *handle);
+
 #else
 
 #include <arpa/inet.h>

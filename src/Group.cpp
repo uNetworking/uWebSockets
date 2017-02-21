@@ -14,8 +14,8 @@ void *Group<isServer>::getUserData() {
 }
 
 template <bool isServer>
-void Group<isServer>::timerCallback(uv_timer_t *timer) {
-    Group<isServer> *group = (Group<isServer> *) timer->data;
+void Group<isServer>::timerCallback(Timer *timer) {
+    Group<isServer> *group = (Group<isServer> *) timer->getData();
 
     group->forEach([](uWS::WebSocket<isServer> ws) {
         typename uWS::WebSocket<isServer>::Data *webSocketData = (typename uWS::WebSocket<isServer>::Data *) ws.getSocketData();
@@ -35,10 +35,9 @@ void Group<isServer>::timerCallback(uv_timer_t *timer) {
 
 template <bool isServer>
 void Group<isServer>::startAutoPing(int intervalMs, std::string userMessage) {
-    timer = new uv_timer_t;
-    uv_timer_init(loop, timer);
-    timer->data = this;
-    uv_timer_start(timer, timerCallback, intervalMs, intervalMs);
+    timer = new Timer(loop);
+    timer->setData(this);
+    timer->start(timerCallback, intervalMs, intervalMs);
     userPingMessage = userMessage;
 }
 
@@ -56,11 +55,10 @@ void Group<isServer>::addHttpSocket(Poll *httpSocket) {
         uS::SocketData *data = (uS::SocketData *) httpSocket->getData();
         data->next = httpSocketHead;
     } else {
-        httpTimer = new uv_timer_t;
-        uv_timer_init(hub->getLoop(), httpTimer);
-        httpTimer->data = this;
-        uv_timer_start(httpTimer, [](uv_timer_t *httpTimer) {
-            Group<isServer> *group = (Group<isServer> *) httpTimer->data;
+        httpTimer = new Timer(hub->getLoop());
+        httpTimer->setData(this);
+        httpTimer->start([](Timer *httpTimer) {
+            Group<isServer> *group = (Group<isServer> *) httpTimer->getData();
             group->forEachHttpSocket([](HttpSocket<isServer> httpSocket) {
                 if (httpSocket.getData()->missedDeadline) {
                     // recursive? don't think so!
@@ -84,9 +82,9 @@ void Group<isServer>::removeHttpSocket(Poll *httpSocket) {
     if (socketData->prev == socketData->next) {
         httpSocketHead = (Poll *) nullptr;
 
-        uv_timer_stop(httpTimer);
-        uv_close(httpTimer, [](uv_handle_t *handle) {
-            delete (uv_timer_t *) handle;
+        httpTimer->stop();
+        httpTimer->close([](uv_handle_t *handle) {
+            delete (Timer *) handle;
         });
 
     } else {
@@ -162,7 +160,7 @@ void Group<isServer>::stopListening() {
                 uS::Socket(listenData->listenPoll).close();
             else if (listenData->listenTimer) {
                 uv_os_sock_t fd = listenData->sock;
-                uv_timer_stop(listenData->listenTimer);
+                listenData->listenTimer->stop();
                 ::close(fd);
 
                 SSL *ssl = listenData->ssl;
@@ -170,7 +168,7 @@ void Group<isServer>::stopListening() {
                     SSL_free(ssl);
                 }
 
-                uv_close(listenData->listenTimer, [](uv_handle_t *handle) {
+                listenData->listenTimer->close([](uv_handle_t *handle) {
                     delete handle;
                 });
             }
@@ -269,9 +267,9 @@ void Group<isServer>::close(int code, char *message, size_t length) {
     });
     stopListening();
     if (timer) {
-        uv_timer_stop(timer);
-        uv_close(timer, [](uv_handle_t *handle) {
-            delete (uv_timer_t *) handle;
+        timer->stop();
+        timer->close([](uv_handle_t *handle) {
+            delete (Timer *) handle;
         });
     }
 }

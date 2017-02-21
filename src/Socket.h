@@ -127,11 +127,10 @@ public:
         SocketData *socketData = getSocketData();
         NodeData *nodeData = getNodeData(socketData);
 
-        uv_timer_t *timer = new uv_timer_t;
-        timer->data = p;
-        uv_timer_init(nodeData->loop, timer);
-        uv_timer_start(timer, [](uv_timer_t *timer) {
-            Socket s((Poll *) timer->data);
+        Timer *timer = new Timer(nodeData->loop);
+        timer->setData(p);
+        timer->start([](Timer *timer) {
+            Socket s((Poll *) timer->getData());
             s.cancelTimeout();
             onTimeout(s);
         }, timeoutMs, 0);
@@ -140,11 +139,11 @@ public:
     }
 
     void cancelTimeout() {
-        uv_timer_t *timer = (uv_timer_t *) getUserData();
+        Timer *timer = (Timer *) getUserData();
         if (timer) {
-            uv_timer_stop(timer);
-            uv_close(timer, [](uv_handle_t *handle) {
-                delete (uv_timer_t *) handle;
+            timer->stop();
+            timer->close([](uv_handle_t *handle) {
+                delete (Timer *) handle;
             });
             getSocketData()->user = nullptr;
         }

@@ -33,12 +33,7 @@ Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop)
     nodeData->recvLength = recvLength - prePadding - postPadding;
 
     nodeData->tid = pthread_self();
-
-    if (useDefaultLoop) {
-        loop = uv_default_loop();
-    } else {
-        loop = uv_loop_new();
-    }
+    loop = Loop::createLoop(useDefaultLoop);
 
     nodeData->loop = loop;
     nodeData->asyncMutex = &asyncMutex;
@@ -55,8 +50,7 @@ Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop)
 
 void Node::run() {
     nodeData->tid = pthread_self();
-
-    uv_run(loop, UV_RUN_DEFAULT);
+    loop->run();
 }
 
 Node::~Node() {
@@ -70,12 +64,8 @@ Node::~Node() {
         }
     }
     delete [] nodeData->preAlloc;
-
     delete nodeData;
-
-    if (loop != uv_default_loop()) {
-        uv_loop_delete(loop);
-    }
+    loop->destroy();
 }
 
 }

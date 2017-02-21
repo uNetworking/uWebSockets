@@ -107,7 +107,7 @@ struct WIN32_EXPORT NodeData {
     char *recvBufferMemoryBlock;
     char *recvBuffer;
     int recvLength;
-    uv_loop_t *loop;
+    Loop *loop;
     void *user = nullptr;
     static const int preAllocMaxSize = 1024;
     char **preAlloc;
@@ -219,7 +219,7 @@ struct ListenData : SocketData {
     }
 
     Poll *listenPoll = nullptr;
-    uv_timer_t *listenTimer = nullptr;
+    Timer *listenTimer = nullptr;
     uv_os_sock_t sock;
     uS::TLS::Context sslContext;
 };

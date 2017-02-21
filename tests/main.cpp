@@ -886,11 +886,11 @@ void serveEventSource() {
 
     // stop and delete the libuv timer on http disconnection
     h.onHttpDisconnection([](uWS::HttpSocket<uWS::SERVER> s) {
-        uv_timer_t *timer = (uv_timer_t *) s.getUserData();
+        Timer *timer = (Timer *) s.getUserData();
         if (timer) {
-            uv_timer_stop(timer);
-            uv_close((uv_handle_t *) timer, [](uv_handle_t *handle) {
-                delete (uv_timer_t *) handle;
+            timer->stop();
+            timer->close([](uv_handle_t *handle) {
+                delete (Timer *) handle;
             });
         }
     });
@@ -915,13 +915,12 @@ void serveEventSource() {
                 res->write((char *) header.data(), header.length());
 
                 // create and attach a libuv timer to the socket and let it send messages to the client each second
-                uv_timer_t *timer = new uv_timer_t;
-                uv_timer_init(h.getLoop(), timer);
-                timer->data = res;//s.getPollHandle();
-                uv_timer_start(timer, [](uv_timer_t *timer) {
+                Timer *timer = new Timer(h.getLoop());
+                timer->setData(res);
+                timer->start([](Timer *timer) {
                     // send a message to the browser
                     std::string message = "data: Clock sent from the server: " + std::to_string(clock()) + "\n\n";
-                    ((uWS::HttpResponse *) timer->data)->write((char *) message.data(), message.length());
+                    ((uWS::HttpResponse *) timer->getData())->write((char *) message.data(), message.length());
                 }, 1000, 1000);
                 res->setUserData(timer);
             } else {
