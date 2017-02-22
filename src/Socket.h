@@ -284,7 +284,7 @@ public:
     // this should not start, only change!
     // changeState
     template<class STATE>
-    void enterState(void *socketData) {
+    void enterState(void *socketData, bool initialState = false) {
         p->setData(socketData);
         if (Socket(p).getSocketData()->ssl) {
             p->setCb(ssl_io_cb<STATE>);
@@ -293,8 +293,11 @@ public:
         }
         Socket(p).getSocketData()->poll = UV_READABLE;
 
-        // move this out! enterState should not start!
-        p->start(UV_READABLE);
+        if (initialState) {
+            p->start(UV_READABLE);
+        } else {
+            p->change(UV_READABLE);
+        }
     }
 
     void close() {

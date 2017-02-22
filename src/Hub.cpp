@@ -44,7 +44,8 @@ char *Hub::inflate(char *data, size_t &length) {
 
 void Hub::onServerAccept(uS::Socket s) {
     uS::SocketData *socketData = s.getSocketData();
-    s.enterState<HttpSocket<SERVER>>(new HttpSocket<SERVER>::Data(socketData));
+    // initial state, need to start!
+    s.enterState<HttpSocket<SERVER>>(new HttpSocket<SERVER>::Data(socketData), true);
     ((Group<SERVER> *) socketData->nodeData)->addHttpSocket(s);
     ((Group<SERVER> *) socketData->nodeData)->httpConnectionHandler(s);
     s.setNoDelay(true);

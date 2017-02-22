@@ -13,7 +13,7 @@ SOURCES += tests/main.cpp \
     src/Socket.cpp \
     src/Group.cpp \
     src/Extensions.cpp \
-    src/uUV.cpp
+    src/Epoll.cpp
 
 HEADERS += \
     src/WebSocketProtocol.h \
@@ -26,7 +26,9 @@ HEADERS += \
     src/HTTPSocket.h \
     src/uWS.h \
     src/Extensions.h \
-    src/uUV.h
+    src/Libuv.h \
+    src/Backend.h \
+    src/Epoll.h
 
 LIBS += -lasan -lssl -lcrypto -lz -lpthread -luv
 

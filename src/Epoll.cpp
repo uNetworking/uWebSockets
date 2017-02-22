@@ -1,4 +1,4 @@
-#include "uUV.h"
+#include "Backend.h"
 
 #ifndef USE_LIBUV
 Loop *loops[128];
@@ -8,7 +8,6 @@ void (*callbacks[128])(Poll *, int, int);
 int cbHead = 0;
 
 void Loop::run() {
-    std::cout << "Sizeof(Poll) = " << sizeof(Poll) << std::endl;
     std::cout << "Loop::run" << std::endl;
     timepoint = std::chrono::system_clock::now();
     while (numPolls) {
@@ -37,11 +36,11 @@ void Loop::run() {
 
         timepoint = std::chrono::system_clock::now();
         while (timers.size() && timers[0].timepoint < timepoint) {
-            timers[0].cb(timers[0].timer);
             Timer *timer = timers[0].timer;
+            timers[0].cb(timers[0].timer);
 
-            if (timer->loop != this) {
-                std::cout << "This timer does not add up!" << std::endl;
+            if (!timer->loop) {
+                continue;
             }
 
             int repeat = timers[0].nextDelay;
