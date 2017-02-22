@@ -5,6 +5,7 @@
 * Significantly outperforms `WebSocket++`, `libwebsockets`, `Beast`, `Crow`, `Gorilla`, `Kaazing Gateway`, `ws` and `Socket.IO` in every tested dimension (see benchmark table below).
 * Outperforms `Apache`, `Node.js`, `NGINX` by at least 4x in HTTP requests per second.
 * Linux, OS X & Windows support.
+* Runs with raw epoll, libuv or ASIO (C++17-ready).
 * Valgrind / AddressSanitizer clean.
 * Built-in load balancing and multi-core scalability.
 * SSL/TLS support & integrates with foreign HTTPS servers.
