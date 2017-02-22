@@ -1,14 +1,16 @@
-// Rename uUV.h / uUV.cpp -> Backend.h/.cpp
+#ifndef BACKEND_H
+#define BACKEND_H
 
-#ifndef UUV_H
-#define UUV_H
-
-// Use libuv by default
 //#define USE_LIBUV
+#define USE_ASIO
 
-#ifdef USE_LIBUV
+// Default to Epoll if nothing specified and on Linux
+#ifdef USE_ASIO
+#include "Asio.h"
+#elif !defined(__linux__) || USE_LIBUV
 #include "Libuv.h"
 #else
+#define USE_EPOLL
 #include "Epoll.h"
 #endif
 

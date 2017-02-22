@@ -1,6 +1,6 @@
 #include "Backend.h"
 
-#ifndef USE_LIBUV
+#ifdef USE_EPOLL
 Loop *loops[128];
 int loopHead = 0;
 

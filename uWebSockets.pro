@@ -28,9 +28,10 @@ HEADERS += \
     src/Extensions.h \
     src/Libuv.h \
     src/Backend.h \
-    src/Epoll.h
+    src/Epoll.h \
+    src/Asio.h
 
-LIBS += -lasan -lssl -lcrypto -lz -lpthread -luv
+LIBS += -lasan -lssl -lcrypto -lz -lpthread -luv -lboost_system
 
 QMAKE_CXXFLAGS += -fsanitize=address -Wno-unused-parameter #-DUSE_MICRO_UV
 QMAKE_CXXFLAGS_RELEASE -= -O1
