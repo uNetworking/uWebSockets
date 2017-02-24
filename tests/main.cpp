@@ -168,7 +168,9 @@ void measureInternalThroughput(unsigned int payloadLength, int echoes, bool ssl)
     });
 
     // we need to update libuv internal timepoint!
+#ifndef USE_ASIO
     h.run();
+#endif
 
     if (ssl) {
         if (!h.listen(3000, c)) {
@@ -522,18 +524,25 @@ void testMultithreading() {
         });
 
         if (ssl) {
-            h.listen(3000, uS::TLS::createContext("ssl/cert.pem",
-                                                  "ssl/key.pem",
-                                                  "1234"));
+            if (!h.listen(3000,
+                          uS::TLS::createContext("ssl/cert.pem",
+                          "ssl/key.pem", "1234"))) {
+                std::cerr << "FAILURE: Cannot listen!" << std::endl;
+                exit(-1);
+            }
             h.connect("wss://localhost:3000", nullptr);
         } else {
-            h.listen(3000);
+            if (!h.listen(3000)) {
+                std::cerr << "FAILURE: Cannot listen!" << std::endl;
+                exit(-1);
+            }
             h.connect("ws://localhost:3000", nullptr);
         }
 
         h.run();
         t.join();
     }
+    std::cout << "Falling through testMultithreading" << std::endl;
 }
 
 void testSendCallback() {
@@ -952,7 +961,7 @@ void serveHttp() {
 int main(int argc, char *argv[])
 {
     //serveEventSource();
-    serveHttp();
+    //serveHttp();
 
     // falls through
     testHTTP();
