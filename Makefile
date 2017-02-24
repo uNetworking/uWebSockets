@@ -8,8 +8,12 @@ experimental:
 	g++ $(CPP_SHARED) $(CPP_EXPERIMENTAL) -s -o libuWS.so
 Linux:
 	g++ $(CPP_SHARED) -s -o libuWS.so
+	g++ $(CPP_SHARED) -s -c
+	ar rvs libuWS.a *.o
 Darwin:
 	g++ $(CPP_SHARED) $(CPP_OSX) -o libuWS.so
+	g++ $(CPP_SHARED) $(CPP_OSX) -s -c
+	ar rvs libuWS.a *.o
 .PHONY: install
 install:
 	if [ -d "/usr/lib64" ]; then cp libuWS.so /usr/lib64/; else cp libuWS.so /usr/lib/; fi
@@ -18,3 +22,4 @@ install:
 .PHONY: clean
 clean:
 	rm libuWS.so
+	rm *.o
