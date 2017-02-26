@@ -2,6 +2,7 @@
 #define EPOLL_H
 
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -42,6 +43,8 @@ struct Loop {
     epoll_event readyEvents[1024];
     std::chrono::system_clock::time_point timepoint;
     std::vector<Timepoint> timers;
+    std::vector<Poll *> closing;
+    std::vector<Timer *> closingTimers;
 
     Loop(bool defaultLoop) {
         epfd = epoll_create(1);
@@ -63,32 +66,6 @@ struct Loop {
 
     int getEpollFd() {
         return epfd;
-    }
-};
-
-struct Async {
-    Async(Loop *loop) {
-        std::terminate();
-    }
-
-    void start(void (*cb)(Async *)) {
-
-    }
-
-    void send() {
-
-    }
-
-    void close(uv_close_cb cb) {
-
-    }
-
-    void setData(void *data) {
-
-    }
-
-    void *getData() {
-        return nullptr;
     }
 };
 
@@ -132,6 +109,9 @@ struct Timer {
 
     void close(uv_close_cb cb) {
         //std::cout << "Timer::close" << std::endl;
+        //loop->closingTimers.push_back(this);
+
+        //delete this;
     }
 };
 
@@ -220,7 +200,9 @@ struct Poll {
     // all callbacks only hold deletes
     void close(uv_close_cb cb) {
         fd = -1;
-        loops[loopIndex]->numPolls--;
+        //loops[loopIndex]->numPolls--;
+
+        loops[loopIndex]->closing.push_back(this);
     }
 
     void (*getPollCb())(Poll *, int, int) {
@@ -229,6 +211,36 @@ struct Poll {
 
     Loop *getLoop() {
         return loops[loopIndex];
+    }
+};
+
+struct Async : Poll {
+    void (*cb)(Async *);
+
+    Async(Loop *loop) : Poll(loop, ::eventfd(0, 0)) {
+    }
+
+    void start(void (*cb)(Async *)) {
+        this->cb = cb;
+        Poll::setCb([](Poll *p, int, int) {
+            uint64_t val;
+            if (::read(p->fd, &val, 8) == 8) {
+                ((Async *) p)->cb((Async *) p);
+            }
+        });
+        Poll::start(UV_READABLE);
+    }
+
+    void send() {
+        uint64_t one = 1;
+        ::write(fd, &one, 8);
+    }
+
+    void close(uv_close_cb cb) {
+        Poll::close([](uv_handle_t *p) {
+            delete (Async *) ((Poll *) p);
+        });
+        ::close(fd);
     }
 };
 
