@@ -112,10 +112,11 @@ On installation, the module will be attempted to be build from source. If that f
 #### Dependencies
 First of all you need to install the required dependencies. On Unix systems this is typically done via package managers, like [homebrew](http://brew.sh) in the case of OS X or `dnf` in the case of Fedora Linux. On Windows you need to search the web for pre-compiled binaries or simply compile the dependencies yourself.
 
-* libuv 1.3+
 * OpenSSL 1.0.x
 * zlib 1.x
 * CMake 3.x
+
+On Linux systems you don't necessarily need any third party event-loop library, but can run directly on the high performance epoll backend (this gives by far the best performance and memory usage). If you run other platforms or wish to integrate with existing event-loops you can either define `USE_ASIO` or `USE_LIBUV` as a global compilation flag and then link to respective libraries.
 
 #### Compilation
 Obviously you will need to clone this repo to get the sources. We use CMake as build system.
@@ -123,7 +124,7 @@ Obviously you will need to clone this repo to get the sources. We use CMake as b
 * `git clone https://github.com/uWebSockets/uWebSockets.git && cd uWebSockets`
 * `cmake .`
 
-Now, on Unix systems it should work by simply running `make`. Run [sudo] `make install` as you wish.
+Now, on Unix systems it should work by simply running `make`. Run [sudo] `make install` as you wish. You can also skip the CMake step completely and use the already available Makefile by simply hitting `make` straight up.
 
 ##### Windows, in all its glory
 If you are running Windows you should now have a bunch of Visual Studio project files and one solution file. Open the solution file, now you need to make sure the header include paths and library paths are all set according to where you installed the dependencies. You might also need to change the names of the libraries being linked against, all according to the names of the installed library files. You know the drill.
