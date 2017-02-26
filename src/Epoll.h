@@ -40,11 +40,11 @@ struct Loop {
     int epfd;
     unsigned char index;
     int numPolls = 0;
+    bool cancelledLastTimer;
     epoll_event readyEvents[1024];
     std::chrono::system_clock::time_point timepoint;
     std::vector<Timepoint> timers;
     std::vector<Poll *> closing;
-    std::vector<Timer *> closingTimers;
 
     Loop(bool defaultLoop) {
         epfd = epoll_create(1);
@@ -60,6 +60,8 @@ struct Loop {
         ::close(epfd);
         // todo: proper removal
         loopHead--;
+
+        delete this;
     }
 
     void run();
@@ -83,6 +85,9 @@ struct Timer {
         std::sort(loop->timers.begin(), loop->timers.end(), [](const Timepoint &a, const Timepoint &b) {
             return a.timepoint < b.timepoint;
         });
+
+        // insertion sort
+
     }
 
     void setData(void *data) {
@@ -102,16 +107,12 @@ struct Timer {
             }
             pos++;
         }
-
-        // cannot start a timer again
-        loop = nullptr;
+        loop->cancelledLastTimer = true;
     }
 
     void close(uv_close_cb cb) {
-        //std::cout << "Timer::close" << std::endl;
-        //loop->closingTimers.push_back(this);
-
-        //delete this;
+        loop->cancelledLastTimer = true;
+        delete this;
     }
 };
 
@@ -121,6 +122,12 @@ struct Poll {
     void *data; // 8 bytes
     int fd = -1; // 4 bytes
     unsigned char loopIndex, cbIndex; // 2 bytes (leaves 2 bytes padding)
+
+    // up to 4k loops
+    /*struct {
+        int cbIndex : 4;
+        int loopIndex : 12;
+    };*/
 
     Poll(Loop *loop, uv_os_sock_t fd) {
         init(loop, fd);
@@ -147,7 +154,7 @@ struct Poll {
     }
 
     Poll() {
-        std::cout << "Poll::Poll()" << std::endl;
+        //std::cout << "Poll::Poll()" << std::endl;
     }
 
     ~Poll() {
@@ -179,7 +186,7 @@ struct Poll {
         }
         if (cbIndex == cbHead) {
             callbacks[cbHead++] = cb;
-            std::cout << "Poll::setCb increases cbHead to " << cbHead << std::endl;
+            //std::cout << "Poll::setCb increases cbHead to " << cbHead << std::endl;
         }
     }
 
@@ -200,8 +207,6 @@ struct Poll {
     // all callbacks only hold deletes
     void close(uv_close_cb cb) {
         fd = -1;
-        //loops[loopIndex]->numPolls--;
-
         loops[loopIndex]->closing.push_back(this);
     }
 

@@ -8,12 +8,10 @@ void (*callbacks[128])(Poll *, int, int);
 int cbHead = 0;
 
 void Loop::run() {
-    std::cout << "Loop::run" << std::endl;
     timepoint = std::chrono::system_clock::now();
     while (numPolls) {
         for (Poll *c : closing) {
             numPolls--;
-            //c.second(c.first);
 
             // probably not correct
             delete c;
@@ -24,13 +22,6 @@ void Loop::run() {
             }
         }
         closing.clear();
-
-        // timers should really allow immediate close!
-        for (Timer *c : closingTimers) {
-            // probably not correct
-            delete c;
-        }
-        closingTimers.clear();
 
         int delay = -1;
         if (timers.size()) {
@@ -47,10 +38,10 @@ void Loop::run() {
         timepoint = std::chrono::system_clock::now();
         while (timers.size() && timers[0].timepoint < timepoint) {
             Timer *timer = timers[0].timer;
+            cancelledLastTimer = false;
             timers[0].cb(timers[0].timer);
 
-            // stoppades den?
-            if (!timer->loop) {
+            if (cancelledLastTimer) {
                 continue;
             }
 
@@ -58,11 +49,9 @@ void Loop::run() {
             auto cb = timers[0].cb;
             timers.erase(timers.begin());
             if (repeat) {
-                std::cout << "Repeating timer now!" << std::endl;
                 timer->start(cb, repeat, repeat);
             }
         }
     }
-    std::cout << "Loop::run falling through" << std::endl;
 }
 #endif
