@@ -2,15 +2,13 @@
 #define ASIO_H
 
 #include <boost/asio.hpp>
-#include <iostream>
-#include <thread>
 
 // these should be renamed (don't add more than these, only these are used)
 typedef boost::asio::ip::tcp::socket::native_type uv_os_sock_t;
 typedef void uv_handle_t;
 typedef void (*uv_close_cb)(uv_handle_t *);
-static const int UV_READABLE = EPOLLIN | EPOLLHUP;
-static const int UV_WRITABLE = EPOLLOUT;
+static const int UV_READABLE = 1;
+static const int UV_WRITABLE = 2;
 static const int UV_VERSION_MINOR = 5;
 
 struct Loop : boost::asio::io_service {
@@ -20,7 +18,6 @@ struct Loop : boost::asio::io_service {
     }
 
     void destroy() {
-        std::cout << "Destroying loop of thread: " << std::this_thread::get_id() << std::endl;
         delete this;
     }
 
@@ -73,34 +70,25 @@ struct Async {
     void (*cb)(Async *);
     void *data;
 
-    // used to hold loop open!
-    Timer t;
+    boost::asio::io_service::work asio_work;
 
-    Async(Loop *loop) : loop(loop), t(loop) {
-        std::cout << "Creating from thread: " << std::this_thread::get_id() << std::endl;
+    Async(Loop *loop) : loop(loop), asio_work(*loop) {
     }
 
     void start(void (*cb)(Async *)) {
         this->cb = cb;
-
-        // hinder loop from closing!
-        t.start([](Timer *t) {}, 60000, 60000);
     }
 
     void send() {
-        std::cout << "Sending from thread: " << std::this_thread::get_id() << std::endl;
-        //loop->post([this]() {
-            std::cout << "Handling from thread: " << std::this_thread::get_id() << std::endl;
+        loop->post([this]() {
             cb(this);
-        //});
+        });
     }
 
     void close(uv_close_cb cb) {
-        t.stop();
-
-        /*loop->post([this]() {
+        loop->post([this]() {
             delete this;
-        });*/
+        });
     }
 
     void setData(void *data) {
@@ -113,7 +101,7 @@ struct Async {
 };
 
 struct Poll {
-    boost::asio::ip::tcp::socket *socket;
+    boost::asio::posix::stream_descriptor *socket;
     void *data;
     void (*cb)(Poll *p, int status, int events);
     Loop *loop;
@@ -126,8 +114,7 @@ struct Poll {
     void init(Loop *loop, uv_os_sock_t fd) {
         this->fd = fd;
         this->loop = loop;
-        socket = new boost::asio::ip::tcp::socket(*loop);
-        socket->assign(boost::asio::ip::tcp::v4(), fd);
+        socket = new boost::asio::posix::stream_descriptor(*loop, fd);
         socket->non_blocking(true);
     }
 
@@ -189,6 +176,7 @@ struct Poll {
 
     // delayed suicide
     void close(uv_close_cb cb) {
+        socket->release();
         socket->get_io_service().post([this]() {
             delete this;
         });

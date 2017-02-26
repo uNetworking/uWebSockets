@@ -968,7 +968,7 @@ int main(int argc, char *argv[])
     testSTL();
     testSmallSends();
     testSendCallback();
-    //testMultithreading();
+    testMultithreading();
     testReusePort();
     testRouting();
     testClosing();
