@@ -2,12 +2,12 @@
 #define BACKEND_H
 
 //#define USE_LIBUV
-#define USE_ASIO
+//#define USE_ASIO
 
 // Default to Epoll if nothing specified and on Linux
 #ifdef USE_ASIO
 #include "Asio.h"
-#elif !defined(__linux__) || USE_LIBUV
+#elif !defined(__linux__) || defined(USE_LIBUV)
 #include "Libuv.h"
 #else
 #define USE_EPOLL
