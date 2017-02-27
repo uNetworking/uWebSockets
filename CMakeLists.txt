@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 11)
 project (µWebSockets)
 
 option(BUILD_SHARED_LIBS "Build shared libraries." ON)
+option(BUILD_EXAMPLES "Build examples." ON)
 
 find_package(OpenSSL REQUIRED)
 find_package(ZLIB REQUIRED)
@@ -26,4 +27,6 @@ install (TARGETS uWS DESTINATION /usr/lib64)
 install (FILES src/Extensions.h src/WebSocketProtocol.h src/Networking.h src/WebSocket.h src/Hub.h src/Group.h src/Node.h src/Socket.h src/HTTPSocket.h src/uWS.h src/Epoll.h src/Asio.h src/Backend.h src/Libuv.h DESTINATION /usr/include/uWS)
 endif (UNIX)
 
-add_subdirectory(examples)
+if (BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
