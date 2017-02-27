@@ -33,9 +33,7 @@ public:
         }
 
         p->stop();
-        p->close([](uv_handle_t *h) {
-            delete (Poll *) h;
-        });
+        p->close();
     }
 
     static Poll *init(NodeData *nodeData, uv_os_sock_t fd, SSL *ssl) {
@@ -142,9 +140,7 @@ public:
         Timer *timer = (Timer *) getUserData();
         if (timer) {
             timer->stop();
-            timer->close([](uv_handle_t *handle) {
-                delete (Timer *) handle;
-            });
+            timer->close();
             getSocketData()->user = nullptr;
         }
     }
@@ -310,9 +306,7 @@ public:
             SSL_free(ssl);
         }
 
-        p->close([](uv_handle_t *h) {
-            delete (Poll *) h;
-        });
+        p->close();
     }
 
     bool hasEmptyQueue() {

@@ -3,13 +3,9 @@
 
 #include <boost/asio.hpp>
 
-// these should be renamed (don't add more than these, only these are used)
 typedef boost::asio::ip::tcp::socket::native_type uv_os_sock_t;
-typedef void uv_handle_t;
-typedef void (*uv_close_cb)(uv_handle_t *);
 static const int UV_READABLE = 1;
 static const int UV_WRITABLE = 2;
-static const int UV_VERSION_MINOR = 5;
 
 struct Loop : boost::asio::io_service {
 
@@ -58,7 +54,7 @@ struct Timer {
         asio_timer.cancel();
     }
 
-    void close(uv_close_cb cb) {
+    void close() {
         asio_timer.get_io_service().post([this]() {
             delete this;
         });
@@ -85,7 +81,7 @@ struct Async {
         });
     }
 
-    void close(uv_close_cb cb) {
+    void close() {
         loop->post([this]() {
             delete this;
         });
@@ -174,8 +170,7 @@ struct Poll {
         socket->cancel();
     }
 
-    // delayed suicide
-    void close(uv_close_cb cb) {
+    void close() {
         socket->release();
         socket->get_io_service().post([this]() {
             delete this;

@@ -23,11 +23,6 @@ void Loop::run() {
         }
         closing.clear();
 
-        int delay = -1;
-        if (timers.size()) {
-            delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(timers[0].timepoint - timepoint).count(), 0);
-        }
-
         int numFdReady = epoll_wait(epfd, readyEvents, 1024, delay);
         for (int i = 0; i < numFdReady; i++) {
             Poll *poll = (Poll *) readyEvents[i].data.ptr;

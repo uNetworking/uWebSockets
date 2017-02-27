@@ -2,6 +2,7 @@
 #define LIBUV_H
 
 #include <uv.h>
+static_assert (UV_VERSION_MINOR >= 3, "µWebSockets requires libuv >=1.3.0");
 
 struct Loop : uv_loop_t {
     static Loop *createLoop(bool defaultLoop = true) {
@@ -38,8 +39,10 @@ struct Async {
         uv_async_send(&uv_async);
     }
 
-    void close(uv_close_cb cb) {
-        uv_close((uv_handle_t *) &uv_async, cb);
+    void close() {
+        uv_close((uv_handle_t *) &uv_async, [](uv_handle_t *a) {
+            delete (Async *) a;
+        });
     }
 
     void setData(void *data) {
@@ -74,8 +77,15 @@ struct Timer {
         uv_timer_stop(&uv_timer);
     }
 
-    void close(uv_close_cb cb) {
-        uv_close((uv_handle_t *) &uv_timer, cb);
+    void close() {
+        uv_close((uv_handle_t *) &uv_timer, [](uv_handle_t *t) {
+            delete (Timer *) t;
+        });
+    }
+
+private:
+    ~Timer() {
+
     }
 };
 
@@ -135,8 +145,10 @@ struct Poll {
         uv_poll_stop(&uv_poll);
     }
 
-    void close(uv_close_cb cb) {
-        uv_close((uv_handle_t *) &uv_poll, cb);
+    void close() {
+        uv_close((uv_handle_t *) &uv_poll, [](uv_handle_t *p) {
+            delete (Poll *) p;
+        });
     }
 
     void (*getPollCb())(Poll *, int, int) {

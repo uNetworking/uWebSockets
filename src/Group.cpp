@@ -83,9 +83,7 @@ void Group<isServer>::removeHttpSocket(Poll *httpSocket) {
         httpSocketHead = (Poll *) nullptr;
 
         httpTimer->stop();
-        httpTimer->close([](uv_handle_t *handle) {
-            delete (Timer *) handle;
-        });
+        httpTimer->close();
 
     } else {
         if (socketData->prev) {
@@ -168,18 +166,14 @@ void Group<isServer>::stopListening() {
                     SSL_free(ssl);
                 }
 
-                listenData->listenTimer->close([](uv_handle_t *handle) {
-                    delete handle;
-                });
+                listenData->listenTimer->close();
             }
             delete listenData;
         }
     }
 
     if (async) {
-        async->close([](uv_handle_t *h) {
-            delete (Async *) h;
-        });
+        async->close();
     }
 }
 
@@ -268,9 +262,7 @@ void Group<isServer>::close(int code, char *message, size_t length) {
     stopListening();
     if (timer) {
         timer->stop();
-        timer->close([](uv_handle_t *handle) {
-            delete (Timer *) handle;
-        });
+        timer->close();
     }
 }
 

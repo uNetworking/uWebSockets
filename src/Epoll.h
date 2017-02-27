@@ -5,29 +5,21 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <chrono>
+#include <algorithm>
+#include <vector>
 
-// these should be renamed (don't add more than these, only these are used)
 typedef int uv_os_sock_t;
-typedef void uv_handle_t;
-typedef void (*uv_close_cb)(uv_handle_t *);
-static const int UV_READABLE = EPOLLIN | EPOLLHUP;
+static const int UV_READABLE = EPOLLIN;
 static const int UV_WRITABLE = EPOLLOUT;
-static const int UV_VERSION_MINOR = 5;
 
 struct Loop;
 struct Poll;
 struct Timer;
 
 extern Loop *loops[128];
-extern int loopHead;
-
 extern void (*callbacks[128])(Poll *, int, int);
-extern int cbHead;
-
-#include <iostream>
-#include <chrono>
-#include <algorithm>
-#include <vector>
+extern int loopHead, cbHead;
 
 struct Timepoint {
     void (*cb)(Timer *);
@@ -41,6 +33,7 @@ struct Loop {
     unsigned char index;
     int numPolls = 0;
     bool cancelledLastTimer;
+    int delay = -1;
     epoll_event readyEvents[1024];
     std::chrono::system_clock::time_point timepoint;
     std::vector<Timepoint> timers;
@@ -88,6 +81,11 @@ struct Timer {
 
         // insertion sort
 
+
+        loop->delay = -1;
+        if (loop->timers.size()) {
+            loop->delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(loop->timers[0].timepoint - loop->timepoint).count(), 0);
+        }
     }
 
     void setData(void *data) {
@@ -98,6 +96,7 @@ struct Timer {
         return data;
     }
 
+    // always called before destructor
     void stop() {
         auto pos = loop->timers.begin();
         for (Timepoint &t : loop->timers) {
@@ -108,10 +107,14 @@ struct Timer {
             pos++;
         }
         loop->cancelledLastTimer = true;
+
+        loop->delay = -1;
+        if (loop->timers.size()) {
+            loop->delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(loop->timers[0].timepoint - loop->timepoint).count(), 0);
+        }
     }
 
-    void close(uv_close_cb cb) {
-        loop->cancelledLastTimer = true;
+    void close() {
         delete this;
     }
 };
@@ -134,18 +137,7 @@ struct Poll {
     }
 
     void init(Loop *loop, uv_os_sock_t fd) {
-        int flags = fcntl(fd, F_GETFL, 0);
-        if (flags == -1) {
-            std::cout << "Poll::init failure" << std::endl;
-            return;// -1;
-        }
-        flags |= O_NONBLOCK;
-        flags = fcntl (fd, F_SETFL, flags);
-        if (flags == -1) {
-            std::cout << "Poll::init failure" << std::endl;
-            return;// -1;
-        }
-
+        fcntl (fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
         loopIndex = loop->index;
         this->fd = fd;
         event.events = 0;
@@ -153,8 +145,9 @@ struct Poll {
         loop->numPolls++;
     }
 
+    // todo: remove these, fix up connection callback
     Poll() {
-        //std::cout << "Poll::Poll()" << std::endl;
+
     }
 
     ~Poll() {
@@ -186,7 +179,6 @@ struct Poll {
         }
         if (cbIndex == cbHead) {
             callbacks[cbHead++] = cb;
-            //std::cout << "Poll::setCb increases cbHead to " << cbHead << std::endl;
         }
     }
 
@@ -204,8 +196,7 @@ struct Poll {
         epoll_ctl(loops[loopIndex]->epfd, EPOLL_CTL_DEL, fd, &event);
     }
 
-    // all callbacks only hold deletes
-    void close(uv_close_cb cb) {
+    void close() {
         fd = -1;
         loops[loopIndex]->closing.push_back(this);
     }
@@ -241,11 +232,10 @@ struct Async : Poll {
         ::write(fd, &one, 8);
     }
 
-    void close(uv_close_cb cb) {
-        Poll::close([](uv_handle_t *p) {
-            delete (Async *) ((Poll *) p);
-        });
+    void close() {
+        Poll::stop();
         ::close(fd);
+        Poll::close();
     }
 };
 

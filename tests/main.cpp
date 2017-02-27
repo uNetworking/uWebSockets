@@ -898,9 +898,7 @@ void serveEventSource() {
         Timer *timer = (Timer *) s.getUserData();
         if (timer) {
             timer->stop();
-            timer->close([](uv_handle_t *handle) {
-                delete (Timer *) handle;
-            });
+            timer->close();
         }
     });
 
