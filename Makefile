@@ -4,14 +4,23 @@ CPP_OSX := -stdlib=libc++ -mmacosx-version-min=10.7 -undefined dynamic_lookup
 default:
 	make `(uname -s)`
 Linux:
-	g++ $(CPP_SHARED) -s -o libuWS.so
+	g++ $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) -s -o libuWS.so
 Darwin:
-	g++ $(CPP_SHARED) $(CPP_OSX) -o libuWS.so
+	g++ $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) $(CPP_OSX) -o libuWS.dylib
 .PHONY: install
 install:
+	make install`(uname -s)`
+.PHONY: installLinux
+installLinux:
 	if [ -d "/usr/lib64" ]; then cp libuWS.so /usr/lib64/; else cp libuWS.so /usr/lib/; fi
 	mkdir -p /usr/include/uWS
 	cp src/*.h /usr/include/uWS/
+.PHONY: installDarwin
+installDarwin:
+	cp libuWS.dylib /usr/local/lib/
+	mkdir -p /usr/local/include/uWS
+	cp src/*.h /usr/local/include/uWS/
 .PHONY: clean
 clean:
-	rm libuWS.so
+	rm -f libuWS.so
+	rm -f libuWS.dylib
