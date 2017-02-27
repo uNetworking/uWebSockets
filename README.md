@@ -16,14 +16,14 @@
 ## Benchmarks table - [validate](https://github.com/alexhultman/uWebSockets/tree/master/benchmarks#websocket-echo-server-benchmarks)
 Implementation | User space memory scaling | Connection performance | Short message throughput | Huge message throughput
 --- | --- | --- | --- | ---
-Beast 1.0.0 b17 | µWS is **7x** as lightweight :+1: | µWS is **4x** as performant | µWS is **22x** as performant | µWS is **3x** as performant
-libwebsockets 2.0 | µWS is **11x** as lightweight | µWS is **equal** in performance :+1: | µWS is **6x** as performant | µWS is **4x** as performant
-Crow [Sep 21] | µWS is **13x** as lightweight | µWS is **2x** as performant | µWS is **12x** as performant | unable to measure
-Gorilla e8f0f8a | µWS is **46x** as lightweight | µWS is **3x** as performant | µWS is **5x** as performant :open_mouth: | data missing
-ws v1.1.0 + binary addons | µWS is **47x** as lightweight | µWS is **18x** as performant | µWS is **33x** as performant | µWS is **2x** as performant
-Kaazing Gateway Community 5.0.0 | µWS is **62x** as lightweight | µWS is **15x** as performant | µWS is **18x** as performant | unable to measure
-Socket.IO 1.5.1 | µWS is **62x** as lightweight | µWS is **42x** as performant :-1: | µWS is **61x** as performant :-1: | data missing
-WebSocket++ v0.7.0 | µWS is **63x** as lightweight :-1: | µWS is **4x** as performant | µWS is **3x** as performant :+1: | µWS is **2x** as performant :+1:
+Beast 1.0.0 b17 | µWS is **7x** more lightweight :+1: | µWS is **4x** more performant | µWS is **22x** more performant | µWS is **3x** more performant
+libwebsockets 2.0 | µWS is **11x** more lightweight | µWS is **equal** in performance :+1: | µWS is **6x** more performant | µWS is **4x** more performant
+Crow [Sep 21] | µWS is **13x** more lightweight | µWS is **2x** more performant | µWS is **12x** more performant | unable to measure
+Gorilla e8f0f8a | µWS is **46x** more lightweight | µWS is **3x** more performant | µWS is **5x** more performant :open_mouth: | data missing
+ws v1.1.0 + binary addons | µWS is **47x** more lightweight | µWS is **18x** more performant | µWS is **33x** more performant | µWS is **2x** more performant
+Kaazing Gateway Community 5.0.0 | µWS is **62x** more lightweight | µWS is **15x** more performant | µWS is **18x** more performant | unable to measure
+Socket.IO 1.5.1 | µWS is **62x** more lightweight | µWS is **42x** more performant :-1: | µWS is **61x** more performant :-1: | data missing
+WebSocket++ v0.7.0 | µWS is **63x** more lightweight :-1: | µWS is **4x** more performant | µWS is **3x** more performant :+1: | µWS is **2x** more performant :+1:
 
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. These results were achieved with the native C++ server, not the Node.js addon. Expect worse performance and scalability when using Node.js (don't worry, the Node.js addon will run circles around `ws`).*
 
