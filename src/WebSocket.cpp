@@ -98,6 +98,7 @@ void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMes
         if (callback) {
             callback(*this, preparedMessage, true, callbackData);
         }
+        getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
     }
 }
 
