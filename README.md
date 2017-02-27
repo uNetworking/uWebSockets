@@ -1,7 +1,7 @@
-<div align="center"><img src="images/logo.png"/></div>
+<div align="center"><img src="misc/images/logo.png"/></div>
 `µWS` is one of the most lightweight, efficient & scalable WebSocket & HTTP server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
-* Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/autobahn/index.html).
+* Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/misc/autobahn/index.html).
 * One million WebSockets require ~168mb of user space memory (~176 bytes per WebSocket).
 * By far one of the fastest in both HTTP and WebSocket throughput (see table below).
 * Linux, OS X & Windows support.
@@ -11,7 +11,7 @@
 * Multi-core friendly.
 * Has a Node.js binding (npm install uws).
 
-[![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](images/patreon.png)](https://www.patreon.com/uWebSockets)
+[![npm version](https://badge.fury.io/js/uws.svg)](https://badge.fury.io/js/uws) [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](misc/images/patreon.png)](https://www.patreon.com/uWebSockets)
 
 ## Benchmarks table - [validate](https://github.com/alexhultman/uWebSockets/tree/master/benchmarks#websocket-echo-server-benchmarks)
 Implementation | User space memory scaling | Connection performance | Short message throughput | Huge message throughput
@@ -28,16 +28,16 @@ WebSocket++ v0.7.0 | µWS is **63x** as lightweight :-1: | µWS is **4x** as per
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. These results were achieved with the native C++ server, not the Node.js addon. Expect worse performance and scalability when using Node.js (don't worry, the Node.js addon will run circles around `ws`).*
 
 ### HTTP benchmarks
-![](images/wrk_benchmark.png)
+![](misc/images/wrk_benchmark.png)
 
 *HTTP 1.1 benchmark using wrk. All servers but Apache are single threaded and all serve a static page with no PHP, database queries or similar. Apache performance is estimated by dividing its multi-process performance by number of CPU cores.*
 
-![](images/pipelining_benchmark.png)
+![](misc/images/pipelining_benchmark.png)
 
 *Experimental HTTP 1.1 benchmark using wrk + Japronto's own (ridiculous) pipeline script.*
 
 ## Built with µWS
-<div align="center"><img src="images/builtwithuws.png"/></div>
+<div align="center"><img src="misc/images/builtwithuws.png"/></div>
 
 ## Usage
 

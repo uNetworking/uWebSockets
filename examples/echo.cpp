@@ -1,4 +1,4 @@
-#include <uWS.h>
+#include <uWS/uWS.h>
 
 int main()
 {

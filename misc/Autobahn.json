@@ -1,6 +1,6 @@
 {
    "options": {"failByDrop": false},
-   "outdir": "./autobahn",
+   "outdir": "./misc/autobahn",
 
    "servers": [
                 {"agent": "&#181;WebSockets SSL",

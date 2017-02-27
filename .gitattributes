@@ -1,2 +1,2 @@
-autobahn/* linguist-vendored
+misc/* linguist-vendored
 *.h linguist-language=C++

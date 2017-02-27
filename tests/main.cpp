@@ -50,8 +50,8 @@ void serveAutobahn() {
         }
     });
 
-    uS::TLS::Context c = uS::TLS::createContext("ssl/cert.pem",
-                                                "ssl/key.pem",
+    uS::TLS::Context c = uS::TLS::createContext("misc/ssl/cert.pem",
+                                                "misc/ssl/key.pem",
                                                 "1234");
     if (!h.listen(3001, c, 0, sslGroup) || !h.listen(3000, nullptr, 0, group)) {
         std::cout << "FAILURE: Error listening for Autobahn connections!" << std::endl;
@@ -61,14 +61,14 @@ void serveAutobahn() {
     }
 
     std::thread t([]() {
-        system("wstest -m fuzzingclient -s Autobahn.json");
+        system("wstest -m fuzzingclient -s misc/Autobahn.json");
     });
 
     h.run();
     t.join();
 
     // "FAILED", "OK", "NON-STRICT"
-    std::ifstream fin("/home/alexhultman/uWebSockets/autobahn/index.json");
+    std::ifstream fin("misc/autobahn/index.json");
     fin.seekg (0, fin.end);
     int length = fin.tellg();
     fin.seekg (0, fin.beg);
@@ -109,8 +109,8 @@ void measureInternalThroughput(unsigned int payloadLength, int echoes, bool ssl)
     const char *closeMessage = "I'm closing now";
     size_t closeMessageLength = strlen(closeMessage);
 
-    uS::TLS::Context c = uS::TLS::createContext("ssl/cert.pem",
-                                                "ssl/key.pem",
+    uS::TLS::Context c = uS::TLS::createContext("misc/ssl/cert.pem",
+                                                "misc/ssl/key.pem",
                                                 "1234");
 
     h.onConnection([payload, payloadLength, echoes](uWS::WebSocket<uWS::CLIENT> ws, uWS::HttpRequest req) {
@@ -525,8 +525,8 @@ void testMultithreading() {
 
         if (ssl) {
             if (!h.listen(3000,
-                          uS::TLS::createContext("ssl/cert.pem",
-                          "ssl/key.pem", "1234"))) {
+                          uS::TLS::createContext("misc/ssl/cert.pem",
+                          "misc/ssl/key.pem", "1234"))) {
                 std::cerr << "FAILURE: Cannot listen!" << std::endl;
                 exit(-1);
             }
