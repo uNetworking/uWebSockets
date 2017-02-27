@@ -109,20 +109,30 @@ On installation, the module will be attempted to be build from source. If that f
 
 ### C++ developers
 #### Dependencies
-First of all you need to install the required dependencies. On Unix systems this is typically done via package managers, like [homebrew](http://brew.sh) in the case of OS X or `dnf` in the case of Fedora Linux. On Windows you need to search the web for pre-compiled binaries or simply compile the dependencies yourself.
+First of all you need to install the required dependencies. This is very easily done with a good open source package manager like [Homebrew](http://brew.sh) for OS X, [vcpkg](https://github.com/Microsoft/vcpkg) for Windows or your native Linux package manager.
 
+Always required:
 * OpenSSL 1.0.x
 * zlib 1.x
 
-On Linux systems you don't necessarily need any third party event-loop library, but can run directly on the high performance epoll backend (this gives by far the best performance and memory usage). If you run other platforms or wish to integrate with existing event-loops you can either define `USE_ASIO` or `USE_LIBUV` as a global compilation flag and then link to respective libraries.
+Not required on Linux systems:
+* libuv 1.3+
+* Boost.Asio 1.x
+
+On Linux systems you don't necessarily need any third party event-loop library, but can run directly on the high performance epoll backend (this gives by far the best performance and memory usage). Non-Linux systems will automatically fall back to libuv.
+
+If you wish to integrate with a specific event-loop you can define `USE_ASIO` or `USE_LIBUV` as a global compilation flag and then link to respective libraries.
 
 #### Compilation
-Obviously you will need to clone this repo to get the sources. We use Make as build system on Linux and OS X.
-
+Clone and enter the repo:
 * `git clone https://github.com/uWebSockets/uWebSockets.git && cd uWebSockets`
+
+###### OS X & Linux
+Compile with Make:
 * `make`
 * `sudo make install`
 
-##### Windows, in all its glory
-(outdated, todo: fix)
-If you are running Windows you should now have a bunch of Visual Studio project files and one solution file. Open the solution file, now you need to make sure the header include paths and library paths are all set according to where you installed the dependencies. You might also need to change the names of the libraries being linked against, all according to the names of the installed library files. You know the drill.
+###### Windows
+Compile with Visual C++ Community Edition 2015 or later. This workflow requires previous usage of vcpkg:
+* Open the VC++ project file
+* Click Build
