@@ -1,7 +1,16 @@
 cmake_minimum_required(VERSION 3.0)
-set(CMAKE_BUILD_TYPE Release)
+
+set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo;MinSizeRel;Debug" CACHE STRING "")
+set(CMAKE_BUILD_TYPE          "Release"                      CACHE STRING "")
+
 set(CMAKE_CXX_STANDARD 11)
 project (µWebSockets)
+
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${CMAKE_CONFIGURATION_TYPES})
+list(FIND CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} index)
+if(index EQUAL -1)
+    message(FATAL_ERROR "Invalid build type: ${CMAKE_BUILD_TYPE}")
+endif()
 
 option(BUILD_SHARED_LIBS "Build shared libraries." ON)
 
