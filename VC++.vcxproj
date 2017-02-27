@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{2CA70B30-89DC-48D6-8F67-7690C32F2611}</ProjectGuid>
+    <ProjectName>uWS</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
+  <PropertyGroup>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ItemGroup>
+    <ClCompile Include="src\Epoll.cpp" />
+    <ClCompile Include="src\Extensions.cpp" />
+    <ClCompile Include="src\Group.cpp" />
+    <ClCompile Include="src\HTTPSocket.cpp" />
+    <ClCompile Include="src\Hub.cpp" />
+    <ClCompile Include="src\Networking.cpp" />
+    <ClCompile Include="src\Node.cpp" />
+    <ClCompile Include="src\Socket.cpp" />
+    <ClCompile Include="src\WebSocket.cpp" />
+    <ClCompile Include="src\WebSocketImpl.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Asio.h" />
+    <ClInclude Include="src\Backend.h" />
+    <ClInclude Include="src\Epoll.h" />
+    <ClInclude Include="src\Extensions.h" />
+    <ClInclude Include="src\Group.h" />
+    <ClInclude Include="src\HTTPSocket.h" />
+    <ClInclude Include="src\Hub.h" />
+    <ClInclude Include="src\Libuv.h" />
+    <ClInclude Include="src\Networking.h" />
+    <ClInclude Include="src\Node.h" />
+    <ClInclude Include="src\Socket.h" />
+    <ClInclude Include="src\uWS.h" />
+    <ClInclude Include="src\WebSocket.h" />
+    <ClInclude Include="src\WebSocketProtocol.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Targets" />
+</Project>
