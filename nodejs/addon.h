@@ -13,7 +13,7 @@ uv_check_t check;
 Persistent<Function> noop;
 
 void registerCheck(Isolate *isolate) {
-    uv_check_init(hub.getLoop(), &check);
+    uv_check_init((uv_loop_t *) hub.getLoop(), &check);
     check.data = isolate;
     uv_check_start(&check, [](uv_check_t *check) {
         Isolate *isolate = (Isolate *) check->data;
@@ -95,7 +95,7 @@ inline Local<External> wrapSocket(uWS::WebSocket<isServer> webSocket, Isolate *i
 
 template <bool isServer>
 inline uWS::WebSocket<isServer> unwrapSocket(Local<External> number) {
-    return uWS::WebSocket<isServer>((uv_poll_t *) number->Value());
+    return uWS::WebSocket<isServer>((Poll *) number->Value());
 }
 
 inline Local<Value> wrapMessage(const char *message, size_t length, uWS::OpCode opCode, Isolate *isolate) {
