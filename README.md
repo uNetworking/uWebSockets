@@ -98,15 +98,6 @@ var primus = new Primus(server, { transformer: 'uws' });
 ```
 
 ## Installation
-### Node.js developers
-[![](https://nodei.co/npm/uws.png)](https://www.npmjs.com/package/uws)
-
-* Node.js 4.x, 5.x & 6.x supported (Windows version requires Node.js 6.4.0+)
-* Linux, Mac OS X & Windows supported
-* `gcc` >= 4.8.0 and `make` (or compatible) are required to build from source. This translates to Visual Studio >= 2015 on Windows and Clang >= 3.3 on macOS.
-
-On installation, the module will be attempted to be build from source. If that fails, it will attempt to fall back to prebuilt modules which are provided for most platforms. If that fails too, `uws` will throw on `require`.
-
 ### C++ developers
 #### Dependencies
 First of all you need to install the required dependencies. This is very easily done with a good open source package manager like [Homebrew](http://brew.sh) for OS X, [vcpkg](https://github.com/Microsoft/vcpkg) for Windows or your native Linux package manager.
@@ -136,3 +127,12 @@ Compile with Make:
 Compile with Visual C++ Community Edition 2015 or later. This workflow requires previous usage of vcpkg:
 * Open the VC++ project file
 * Click Build
+
+### Node.js developers
+[![](https://nodei.co/npm/uws.png)](https://www.npmjs.com/package/uws)
+
+* Node.js 4.x, 5.x & 6.x supported (Windows version requires Node.js 6.4.0+)
+* Linux, Mac OS X & Windows supported
+* `gcc` >= 4.8.0 and `make` (or compatible) are required to build from source. This translates to Visual Studio >= 2015 on Windows and Clang >= 3.3 on macOS.
+
+On installation, the module will be attempted to be build from source. If that fails, it will attempt to fall back to prebuilt modules which are provided for most platforms. If that fails too, `uws` will throw on `require`.
