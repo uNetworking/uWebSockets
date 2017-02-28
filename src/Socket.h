@@ -424,6 +424,7 @@ public:
                         callback(*this, callbackData, true, nullptr);
                     }
                 }
+                getSocketData()->nodeData->freeSmallMemoryBlock((char *)messagePtr, memoryIndex);
             } else {
                 uS::SocketData::Queue::Message *messagePtr = allocMessage(estimatedLength - sizeof(uS::SocketData::Queue::Message));
                 messagePtr->length = T::transform(message, (char *) messagePtr->data, length, transformData);
@@ -444,6 +445,7 @@ public:
                         callback(*this, callbackData, true, nullptr);
                     }
                 }
+                freeMessage(messagePtr);
             }
         } else {
             uS::SocketData::Queue::Message *messagePtr = allocMessage(estimatedLength - sizeof(uS::SocketData::Queue::Message));
