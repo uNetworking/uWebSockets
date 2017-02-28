@@ -4,12 +4,11 @@
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/misc/autobahn/index.html).
 * One million WebSockets require ~168mb of user space memory (~176 bytes per WebSocket).
 * By far one of the fastest in both HTTP and WebSocket throughput (see table below).
-* Linux, OS X & Windows support.
+* Linux, OS X, Windows & [Node.js](nodejs) support.
 * Runs with raw epoll, libuv or ASIO (C++17-ready).
 * Valgrind & AddressSanitizer clean.
 * Permessage-deflate, SSL/TLS support & integrates with foreign HTTP(S) servers.
 * Multi-core friendly.
-* Has a [Node.js binding](nodejs) on npm named uws.
 
 [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](misc/images/patreon.png)](https://www.patreon.com/uWebSockets)
 
@@ -33,7 +32,7 @@ int main() {
 ## Widely adopted
 <div align="center"><img src="misc/images/builtwithuws.png"/></div>
 
-## Something special
+## Not your average server
 Implementation | User space memory scaling | Connection performance | Short message throughput | Huge message throughput
 --- | --- | --- | --- | ---
 Beast 1.0.0 b17 | µWS is **7x** as lightweight | µWS is **4x** as performant | µWS is **22x** as performant | µWS is **3x** as performant
