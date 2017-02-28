@@ -24,10 +24,15 @@ int main() {
         ws.send(message, length, opCode);
     });
 
+    h.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
+        res->end(const char *, size_t);
+    });
+
     h.listen(3000);
     h.run();
 }
 ```
+Get the sources of the uws.chat server [here](https://github.com/uWebSockets/website/blob/master/main.cpp). Learn from the tests [here](tests/main.cpp).
 
 ## Widely adopted
 <div align="center"><img src="misc/images/builtwithuws.png"/></div>
