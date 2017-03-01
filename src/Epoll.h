@@ -13,13 +13,11 @@ typedef int uv_os_sock_t;
 static const int UV_READABLE = EPOLLIN;
 static const int UV_WRITABLE = EPOLLOUT;
 
-struct Loop;
 struct Poll;
 struct Timer;
 
-extern Loop *loops[128];
-extern void (*callbacks[128])(Poll *, int, int);
-extern int loopHead, cbHead;
+extern void (*callbacks[16])(Poll *, int, int);
+extern int cbHead;
 
 struct Timepoint {
     void (*cb)(Timer *);
@@ -30,7 +28,6 @@ struct Timepoint {
 
 struct Loop {
     int epfd;
-    unsigned char index;
     int numPolls = 0;
     bool cancelledLastTimer;
     int delay = -1;
@@ -41,7 +38,6 @@ struct Loop {
 
     Loop(bool defaultLoop) {
         epfd = epoll_create(1);
-        loops[index = loopHead++] = this;
         timepoint = std::chrono::system_clock::now();
     }
 
@@ -51,9 +47,6 @@ struct Loop {
 
     void destroy() {
         ::close(epfd);
-        // todo: proper removal
-        loopHead--;
-
         delete this;
     }
 
@@ -119,123 +112,103 @@ struct Timer {
     }
 };
 
-// 32 bytes
+// 4 bytes
 struct Poll {
-    epoll_event event; // 8 bytes
-    void *data; // 8 bytes
-    int fd = -1; // 4 bytes
-    unsigned char loopIndex, cbIndex; // 2 bytes (leaves 2 bytes padding)
-
-    // up to 4k loops
-    /*struct {
-        int cbIndex : 4;
-        int loopIndex : 12;
-    };*/
+    struct {
+        int fd : 28;
+        unsigned int cbIndex : 4;
+    } state = {-1, 0};
 
     Poll(Loop *loop, uv_os_sock_t fd) {
-        init(loop, fd);
-    }
-
-    void init(Loop *loop, uv_os_sock_t fd) {
-        fcntl (fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
-        loopIndex = loop->index;
-        this->fd = fd;
-        event.events = 0;
-        event.data.ptr = this;
+        fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+        state.fd = fd;
         loop->numPolls++;
     }
 
-    // todo: remove these, fix up connection callback
-    Poll() {
-
-    }
-
-    ~Poll() {
-    }
-
-    void setData(void *data) {
-        this->data = data;
-    }
-
     bool isClosing() {
-        return fd == -1;
+        return state.fd == -1;
     }
 
     uv_os_sock_t getFd() {
-        return fd;
-    }
-
-    void *getData() {
-        return data;
+        return state.fd;
     }
 
     void setCb(void (*cb)(Poll *p, int status, int events)) {
-        cbIndex = cbHead;
+        state.cbIndex = cbHead;
         for (int i = 0; i < cbHead; i++) {
             if (callbacks[i] == cb) {
-                cbIndex = i;
+                state.cbIndex = i;
                 break;
             }
         }
-        if (cbIndex == cbHead) {
+        if (state.cbIndex == cbHead) {
             callbacks[cbHead++] = cb;
         }
     }
 
-    void start(int events) {
+    // what you put in self is what comes in setCb
+    void start(Loop *loop, Poll *self, int events) {
+        epoll_event event;
         event.events = events;
-        epoll_ctl(loops[loopIndex]->epfd, EPOLL_CTL_ADD, fd, &event);
+        event.data.ptr = self;
+        epoll_ctl(loop->epfd, EPOLL_CTL_ADD, state.fd, &event);
     }
 
-    void change(int events) {
+    void change(Loop *loop, Poll *self, int events) {
+        epoll_event event;
         event.events = events;
-        epoll_ctl(loops[loopIndex]->epfd, EPOLL_CTL_MOD, fd, &event);
+        event.data.ptr = self;
+        epoll_ctl(loop->epfd, EPOLL_CTL_MOD, state.fd, &event);
     }
 
-    void stop() {
-        epoll_ctl(loops[loopIndex]->epfd, EPOLL_CTL_DEL, fd, &event);
+    void stop(Loop *loop) {
+        epoll_event event;
+        epoll_ctl(loop->epfd, EPOLL_CTL_DEL, state.fd, &event);
     }
 
-    void close() {
-        fd = -1;
-        loops[loopIndex]->closing.push_back(this);
-    }
-
-    void (*getPollCb())(Poll *, int, int) {
-        return (void (*)(Poll *, int, int)) callbacks[cbIndex];
-    }
-
-    Loop *getLoop() {
-        return loops[loopIndex];
+    void close(Loop *loop) {
+        state.fd = -1;
+        loop->closing.push_back(this);
     }
 };
 
 struct Async : Poll {
     void (*cb)(Async *);
+    Loop *loop;
+    void *data;
 
     Async(Loop *loop) : Poll(loop, ::eventfd(0, 0)) {
+        this->loop = loop;
     }
 
     void start(void (*cb)(Async *)) {
         this->cb = cb;
         Poll::setCb([](Poll *p, int, int) {
             uint64_t val;
-            if (::read(p->fd, &val, 8) == 8) {
+            if (::read(p->state.fd, &val, 8) == 8) {
                 ((Async *) p)->cb((Async *) p);
             }
         });
-        Poll::start(UV_READABLE);
+        Poll::start(loop, this, UV_READABLE);
     }
 
     void send() {
         uint64_t one = 1;
-        ::write(fd, &one, 8);
+        ::write(state.fd, &one, 8);
     }
 
     void close() {
-        Poll::stop();
-        ::close(fd);
-        Poll::close();
+        Poll::stop(loop);
+        ::close(state.fd);
+        Poll::close(loop);
+    }
+
+    void setData(void *data) {
+        this->data = data;
+    }
+
+    void *getData() {
+        return data;
     }
 };
 

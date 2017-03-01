@@ -163,16 +163,18 @@ struct WIN32_EXPORT NodeData {
     }
 };
 
-struct SocketData {
+// perfectly 64 bytes (4 + 60)
+struct SocketData : Poll {
+    struct {
+        int poll : 4;
+        int shuttingDown : 4;
+    } state = {0, false};
+
     NodeData *nodeData;
     SSL *ssl;
     void *user = nullptr;
 
-    // combine these two! state!
-    int poll;
-    bool shuttingDown = false;
-
-    SocketData(NodeData *nodeData) : nodeData(nodeData) {
+    SocketData(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : nodeData(nodeData), Poll(loop, fd) {
 
     }
 
@@ -215,15 +217,30 @@ struct SocketData {
     } messageQueue;
 
     Poll *next = nullptr, *prev = nullptr;
+
+    int getPoll() {
+        return state.poll;
+    }
+
+    void setPoll(int poll) {
+        state.poll = poll;
+    }
+
+    bool isShuttingDown() {
+        return state.shuttingDown;
+    }
+
+    void setShuttingDown(bool shuttingDown) {
+        state.shuttingDown = shuttingDown;
+    }
 };
 
 struct ListenData : SocketData {
 
-    ListenData(NodeData *nodeData) : SocketData(nodeData) {
+    ListenData(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : SocketData(nodeData, loop, fd) {
 
     }
 
-    Poll *listenPoll = nullptr;
     Timer *listenTimer = nullptr;
     uv_os_sock_t sock;
     uS::TLS::Context sslContext;

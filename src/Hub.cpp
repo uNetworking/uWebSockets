@@ -45,9 +45,29 @@ char *Hub::inflate(char *data, size_t &length) {
 void Hub::onServerAccept(uS::Socket s) {
     uS::SocketData *socketData = s.getSocketData();
     // initial state, need to start!
-    s.enterState<HttpSocket<SERVER>>(new HttpSocket<SERVER>::Data(socketData), true);
+    //s.enterState<HttpSocket<SERVER>>(new HttpSocket<SERVER>::Data(socketData), true);
+
+
+
+    // change state this way
+    HttpSocket<SERVER>::Data *httpData = new HttpSocket<SERVER>::Data(socketData);
+    //httpData->event.data.ptr = httpData;
+    httpData->setCb(uS::Socket::io_cb<HttpSocket<SERVER>>);
+    httpData->setPoll(UV_READABLE);
+    httpData->start(socketData->nodeData->loop, httpData, UV_READABLE);
+
+    s = uS::Socket(httpData);
+
+    //std::cout << "addHttpSocket" << std::endl;
+
+
     ((Group<SERVER> *) socketData->nodeData)->addHttpSocket(s);
+
+    //std::cout << "connection handler" << std::endl;
     ((Group<SERVER> *) socketData->nodeData)->httpConnectionHandler(s);
+
+    //std::cout << "no delay" << std::endl;
+
     s.setNoDelay(true);
     delete socketData;
 }
@@ -116,7 +136,7 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh,
             port = stoi(portStr);
         }
 
-        uS::SocketData socketData((uS::NodeData *) eh);
+        /*uS::SocketData socketData((uS::NodeData *) eh);
         HttpSocket<CLIENT>::Data *httpSocketData = new HttpSocket<CLIENT>::Data(&socketData);
 
         std::string optionalSubprotocol;
@@ -136,7 +156,7 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh,
         if (s) {
             s.startTimeout<HttpSocket<CLIENT>::onEnd>(timeoutMs);
             // getGroup<CLIENT>(s)->addHttpSocket(s);
-        }
+        }*/
     } else {
         eh->errorHandler(user);
     }

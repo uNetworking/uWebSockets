@@ -133,7 +133,7 @@ void WebSocket<isServer>::close(int code, const char *message, size_t length) {
     length = std::min<size_t>(MAX_CLOSE_PAYLOAD, length);
     getGroup<isServer>(*this)->removeWebSocket(*this);
     getGroup<isServer>(*this)->disconnectionHandler(*this, code, (char *) message, length);
-    getSocketData()->shuttingDown = true;
+    getSocketData()->setShuttingDown(true);
 
     // todo: using the shared timer in the group, we can skip creating a new timer per socket
     // only this line and the one in Hub::connect uses the timeout feature
@@ -169,7 +169,7 @@ void WebSocket<isServer>::onEnd(uS::Socket s) {
         webSocketData->messageQueue.pop();
     }
 
-    delete webSocketData;
+    //delete webSocketData;
 }
 
 template struct WebSocket<SERVER>;

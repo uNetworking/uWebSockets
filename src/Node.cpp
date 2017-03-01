@@ -8,17 +8,16 @@ void NodeData::asyncCallback(Async *async)
 
     nodeData->asyncMutex->lock();
     for (TransferData transferData : nodeData->transferQueue) {
-        transferData.p->init(nodeData->loop, transferData.fd);
+        //transferData.p->init(nodeData->loop, transferData.fd);
         transferData.p->setCb(transferData.pollCb);
-        transferData.p->start(transferData.socketData->poll);
-        transferData.p->setData(transferData.socketData);
+        //transferData.p->start(transferData.socketData->nodeData->loop, transferData.socketData->getPoll());
         transferData.socketData->nodeData = nodeData;
         transferData.cb(transferData.p);
     }
 
     for (Poll *p : nodeData->changePollQueue) {
-        SocketData *socketData = (SocketData *) p->getData();
-        p->change(socketData->poll);
+        SocketData *socketData = (SocketData *) p;
+        p->change(socketData->nodeData->loop, socketData, socketData->getPoll());
     }
 
     nodeData->changePollQueue.clear();

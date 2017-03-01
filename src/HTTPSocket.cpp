@@ -110,7 +110,25 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                             httpSocket.upgrade(secKey.value, extensions.value, extensions.valueLength,
                                                subprotocol.value, subprotocol.valueLength, &perMessageDeflate);
                             getGroup<SERVER>(s)->removeHttpSocket(s);
-                            s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
+
+
+
+
+                            //s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpData));
+
+                            // enter state, change s!
+                            WebSocket<SERVER>::Data *webSocketData = new WebSocket<SERVER>::Data(perMessageDeflate, httpData);
+                            webSocketData->setCb(uS::Socket::io_cb<WebSocket<SERVER>>);
+                            webSocketData->setPoll(UV_READABLE);
+                            webSocketData->change(httpData->nodeData->loop, webSocketData, UV_READABLE);
+                            s = uS::Socket(webSocketData);
+
+
+
+
+
+
+
                             getGroup<SERVER>(s)->addWebSocket(s);
                             s.cork(true);
                             getGroup<SERVER>(s)->connectionHandler(WebSocket<SERVER>(s), req);
@@ -291,7 +309,7 @@ void HttpSocket<isServer>::onEnd(uS::Socket s) {
         getGroup<CLIENT>(s)->errorHandler(httpSocketData->httpUser);
     }
 
-    delete httpSocketData;
+    //delete httpSocketData;
 }
 
 template struct HttpSocket<SERVER>;
