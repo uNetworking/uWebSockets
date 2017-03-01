@@ -904,7 +904,7 @@ void serveEventSource() {
 
     // terminate any upgrade attempt, this is http only
     h.onHttpUpgrade([](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req) {
-        s.terminate();
+        return false;
     });
 
     // httpRequest borde vara defaultsatt till att hantera upgrades, ta bort onupgrade! (sätter man request avsätts upgrade handlern)

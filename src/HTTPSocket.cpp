@@ -99,9 +99,10 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                 headers->valueLength = std::max<int>(0, headers->valueLength - 9);
                 httpData->missedDeadline = false;
                 if (req.getHeader("upgrade", 7)) {
-                    if (getGroup<SERVER>(s)->httpUpgradeHandler) {
-                        getGroup<SERVER>(s)->httpUpgradeHandler(HttpSocket<isServer>(s), req);
-                    } else {
+                    if (!getGroup<SERVER>(s)->httpUpgradeHandler || getGroup<SERVER>(s)->httpUpgradeHandler(HttpSocket<isServer>(s), req)) {
+                       if (s.isClosed() || s.isShuttingDown()) {
+                            return;
+                        }
                         Header secKey = req.getHeader("sec-websocket-key", 17);
                         Header extensions = req.getHeader("sec-websocket-extensions", 24);
                         Header subprotocol = req.getHeader("sec-websocket-protocol", 22);
@@ -119,6 +120,8 @@ void HttpSocket<isServer>::onData(uS::Socket s, char *data, int length) {
                         } else {
                             httpSocket.onEnd(s);
                         }
+                    } else {
+                        httpSocket.onEnd(s);
                     }
                     return;
                 } else {
