@@ -15,6 +15,7 @@ template <bool isServer>
 struct WIN32_EXPORT Group : uS::NodeData {
     friend struct Hub;
     std::function<void(WebSocket<isServer>, HttpRequest)> connectionHandler;
+    std::function<void(WebSocket<isServer>)> transferHandler;
     std::function<void(WebSocket<isServer>, char *message, size_t length, OpCode opCode)> messageHandler;
     std::function<void(WebSocket<isServer>, int code, char *message, size_t length)> disconnectionHandler;
     std::function<void(WebSocket<isServer>, char *, size_t)> pingHandler;
@@ -60,6 +61,7 @@ protected:
 
 public:
     void onConnection(std::function<void(WebSocket<isServer>, HttpRequest)> handler);
+    void onTransfer(std::function<void(WebSocket<isServer>)> handler);
     void onMessage(std::function<void(WebSocket<isServer>, char *, size_t, OpCode)> handler);
     void onDisconnection(std::function<void(WebSocket<isServer>, int code, char *message, size_t length)> handler);
     void onPing(std::function<void(WebSocket<isServer>, char *, size_t)> handler);

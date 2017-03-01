@@ -136,6 +136,7 @@ void Group<isServer>::removeWebSocket(Poll *webSocket) {
 template <bool isServer>
 Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) : uS::NodeData(*nodeData), hub(hub), extensionOptions(extensionOptions) {
     connectionHandler = [](WebSocket<isServer>, HttpRequest) {};
+    transferHandler = [](WebSocket<isServer>) {};
     messageHandler = [](WebSocket<isServer>, char *, size_t, OpCode) {};
     disconnectionHandler = [](WebSocket<isServer>, int, char *, size_t) {};
     pingHandler = pongHandler = [](WebSocket<isServer>, char *, size_t) {};
@@ -180,6 +181,11 @@ void Group<isServer>::stopListening() {
 template <bool isServer>
 void Group<isServer>::onConnection(std::function<void (WebSocket<isServer>, HttpRequest)> handler) {
     connectionHandler = handler;
+}
+
+template <bool isServer>
+void Group<isServer>::onTransfer(std::function<void (WebSocket<isServer>)> handler) {
+    transferHandler = handler;
 }
 
 template <bool isServer>

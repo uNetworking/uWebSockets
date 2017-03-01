@@ -46,6 +46,7 @@ struct WIN32_EXPORT WebSocket : protected uS::Socket {
         uS::Socket::transfer((uS::NodeData *) group, [](Poll *p) {
             uS::Socket s(p);
             ((Group<isServer> *) s.getSocketData()->nodeData)->addWebSocket(s);
+            ((Group<isServer> *) s.getSocketData()->nodeData)->transferHandler(s);
         });
     }
 

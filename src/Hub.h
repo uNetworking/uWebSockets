@@ -56,6 +56,7 @@ struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<C
     using uS::Node::getLoop;
     using Group<SERVER>::onConnection;
     using Group<CLIENT>::onConnection;
+    using Group<SERVER>::onTransfer;
     using Group<SERVER>::onMessage;
     using Group<CLIENT>::onMessage;
     using Group<SERVER>::onDisconnection;
