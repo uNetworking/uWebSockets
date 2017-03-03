@@ -251,7 +251,7 @@ public:
                             break;
                         }
                     } else if (sent == SOCKET_ERROR) {
-                        if (errno != EWOULDBLOCK) {
+                        if (UW_CHECK_SOCKETERROR != UW_EWOULDBLOCK) {
                             STATE::onEnd(p);
                             return;
                         }
@@ -270,7 +270,7 @@ public:
             int length = recv(Socket(p).getFd(), nodeData->recvBuffer, nodeData->recvLength, 0);
             if (length > 0) {
                 STATE::onData(p, nodeData->recvBuffer, length);
-            } else if (length <= 0 || (length == SOCKET_ERROR && errno != EWOULDBLOCK)) {
+            } else if (length <= 0 || (length == SOCKET_ERROR && UW_CHECK_SOCKETERROR != UW_EWOULDBLOCK)) {
                 STATE::onEnd(p);
             }
         }
@@ -376,7 +376,7 @@ public:
                     wasTransferred = false;
                     return true;
                 } else if (sent == SOCKET_ERROR) {
-                    if (errno != EWOULDBLOCK) {
+                    if (UW_CHECK_SOCKETERROR != UW_EWOULDBLOCK) {
                         return false;
                     }
                 } else {

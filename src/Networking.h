@@ -43,6 +43,8 @@ inline SOCKET dup(SOCKET socket) {
     }
     return WSASocketW(pi.iAddressFamily, pi.iSocketType, pi.iProtocol, &pi, 0, WSA_FLAG_OVERLAPPED);
 }
+#define UW_CHECK_SOCKETERROR WSAGetLastError()
+#define UW_EWOULDBLOCK WSAEWOULDBLOCK
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -54,6 +56,8 @@ inline SOCKET dup(SOCKET socket) {
 #define SOCKET_ERROR -1
 #define INVALID_SOCKET -1
 #define WIN32_EXPORT
+#define UW_CHECK_SOCKETERROR errno
+#define UW_EWOULDBLOCK EWOULDBLOCK
 #endif
 
 #include "Backend.h"

@@ -102,7 +102,7 @@ public:
             * polling will cause the server to spin, using 100% cpu. Switch to a timer
             * event instead to avoid this.
             */
-            if (!TIMER && errno != EAGAIN && errno != EWOULDBLOCK) {
+            if (!TIMER && errno != EAGAIN && UW_CHECK_SOCKETERROR != UW_EWOULDBLOCK) {
                 listenData->listenPoll->stop();
                 listenData->listenPoll->close();
                 listenData->listenPoll = nullptr;
