@@ -420,6 +420,7 @@ public:
                         messagePtr->callbackData = callbackData;
                     }
                 } else {
+                    getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
                     if (callback) {
                         callback(*this, callbackData, true, nullptr);
                     }
@@ -440,6 +441,7 @@ public:
                         messagePtr->callbackData = callbackData;
                     }
                 } else {
+                    freeMessage(messagePtr);
                     if (callback) {
                         callback(*this, callbackData, true, nullptr);
                     }
