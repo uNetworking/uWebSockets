@@ -1,0 +1,27 @@
+ws 2.2: [1 mil]
+Connection performance: 8.5615 connections/ms
+Memory usage: 7072.23 mb of user space
+Memory performance: 141.398 connections/mb
+
+µWS tinymem: [1 mil]
+Connection performance: 96.9556 connections/ms
+Memory usage: 127.801 mb of user space
+Memory performance: 7824.68 connections/mb
+
+ws++ 0.7.0: [500k]
+Connection performance: 17.1863 connections/ms
+Memory usage: 5630.26 mb of user space
+Memory performance: 88.8058 connections/mb
+
+crow 4e39b23: [1 mil]
+Connection performance: 15.6301 connections/ms
+Memory usage: 4494.36 mb of user space
+Memory performance: 222.501 connections/mb
+
+socket.io 1.7.3: [300k]
+Connection performance: 2.347 connections/ms
+Memory usage: 6855.52 mb of user space
+Memory performance: 43.7603 connections/mb
+
+gorilla:
+

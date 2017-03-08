@@ -46,8 +46,8 @@ Crow [Sep 21] | µWS is **13x** as lightweight | µWS is **2x** as performant | 
 Gorilla e8f0f8a | µWS is **46x** as lightweight | µWS is **3x** as performant | µWS is **5x** as performant | data missing
 ws v1.1.0 + binary addons | µWS is **47x** as lightweight | µWS is **18x** as performant | µWS is **33x** as performant | µWS is **2x** as performant
 Kaazing Gateway Community 5.0.0 | µWS is **62x** as lightweight | µWS is **15x** as performant | µWS is **18x** as performant | data missing
-Socket.IO 1.5.1 | µWS is **62x** as lightweight | µWS is **42x** as performant | µWS is **61x** as performant | data missing
 WebSocket++ v0.7.0 | µWS is **63x** as lightweight | µWS is **4x** as performant | µWS is **3x** as performant | µWS is **2x** as performant
+Socket.IO 1.5.1 | µWS is **179x** as lightweight | µWS is **42x** as performant | µWS is **61x** as performant | data missing
 
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. Read more about the benchmarks [here](benchmarks).*
 

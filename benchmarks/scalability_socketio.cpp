@@ -9,6 +9,7 @@
 #include <vector>
 #include <mutex>
 #include <thread>
+#include <fstream>
 using namespace std;
 using namespace chrono;
 
@@ -20,6 +21,20 @@ int port = 3000;
 
 int connections, address = 1;
 mutex m;
+
+int getKb(int pid) {
+    std::string line;
+    std::ifstream self((std::string("/proc/") + std::to_string(pid) + std::string("/status")).c_str());
+    int vmRSS;
+    while(!self.eof()) {
+        std::getline(self, line, ':');
+        if (line == "VmRSS") {
+            self >> vmRSS;
+        }
+        std::getline(self, line);
+    }
+    return vmRSS;
+}
 
 bool nextConnection(int tid)
 {
@@ -108,11 +123,8 @@ int main(int argc, char **argv)
     double connectionsPerMs = double(connections) / duration_cast<milliseconds>(high_resolution_clock::now() - startPoint).count();
     cout << "Connection performance: " << connectionsPerMs << " connections/ms" << endl;
 
-    pipe = popen(("pmap " + to_string(pid) + " | tail -1").c_str(), "r");
-    fgets(line, sizeof(line), pipe);
-    pclose(pipe);
-
-    unsigned long kbUsage = atoi(strrchr(line, ' '));
+    unsigned long kbUsage = getKb(pid);
+    cout << "Memory usage: " << (double(kbUsage) / 1024.0) << " mb of user space" << std::endl;
     cout << "Memory performance: " << 1024.0 * double(connections) / kbUsage << " connections/mb" << endl;
     return 0;
 }
