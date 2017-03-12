@@ -1,7 +1,7 @@
 websockets/ws 2.2: [1 mil]
-Connection performance: 8.5615 connections/ms
-Memory usage: 7072.23 mb of user space
-Memory performance: 141.398 connections/mb
+Connection performance: 8.52108 connections/ms
+Memory usage: 6394.27 mb of user space
+Memory performance: 156.39 connections/mb
 
 Echo performance: 74.2975 echoes/ms
 Echo performance: 74.5791 echoes/ms
