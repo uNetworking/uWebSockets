@@ -109,37 +109,27 @@ struct HttpResponse;
 
 template <const bool isServer>
 struct WIN32_EXPORT HttpSocket : private uS::Socket {
-    struct Data : uS::SocketData {
-        std::string httpBuffer;
-        size_t contentLength = 0;
-        void *httpUser;
-        bool missedDeadline = false;
+    std::string httpBuffer;
+    size_t contentLength = 0;
+    void *httpUser;
+    bool missedDeadline = false;
 
-        HttpResponse *outstandingResponsesHead = nullptr;
-        HttpResponse *outstandingResponsesTail = nullptr;
-        HttpResponse *preAllocatedResponse = nullptr;
+    HttpResponse *outstandingResponsesHead = nullptr;
+    HttpResponse *outstandingResponsesTail = nullptr;
+    HttpResponse *preAllocatedResponse = nullptr;
 
-        Data(uS::SocketData *socketData) : uS::SocketData(*socketData) {}
-    };
+    HttpSocket(uS::Socket *socket, bool areYouSure) : uS::Socket(*socket) {}
 
     using uS::Socket::getUserData;
     using uS::Socket::setUserData;
     using uS::Socket::getAddress;
     using uS::Socket::Address;
 
-    Poll *getPollHandle() const {return p;}
-
     using uS::Socket::shutdown;
     using uS::Socket::close;
 
     void terminate() {
-        onEnd(*this);
-    }
-
-    HttpSocket(uS::Socket s) : uS::Socket(s) {}
-
-    typename HttpSocket::Data *getData() {
-        return (HttpSocket::Data *) getSocketData();
+        onEnd(this);
     }
 
     void upgrade(const char *secKey, const char *extensions,
@@ -150,13 +140,13 @@ private:
     friend class uS::Socket;
     friend struct HttpResponse;
     friend struct Hub;
-    static void onData(uS::Socket s, char *data, int length);
-    static void onEnd(uS::Socket s);
+    static void onData(uS::Socket *s, char *data, int length);
+    static void onEnd(uS::Socket *s);
 };
 
 struct HttpResponse {
 
-    HttpSocket<true> httpSocket;
+    HttpSocket<true> *httpSocket;
     HttpResponse *next = nullptr;
     void *userData = nullptr;
     void *extraUserData = nullptr;
@@ -164,23 +154,23 @@ struct HttpResponse {
     bool hasEnded = false;
     bool hasHead = false;
 
-    HttpResponse(HttpSocket<true> httpSocket) : httpSocket(httpSocket) {
+    HttpResponse(HttpSocket<true> *httpSocket) : httpSocket(httpSocket) {
 
     }
 
     template <bool isServer>
-    static HttpResponse *allocateResponse(HttpSocket<isServer> httpSocket, typename HttpSocket<isServer>::Data *httpData) {
-        if (httpData->preAllocatedResponse) {
-            HttpResponse *ret = httpData->preAllocatedResponse;
-            httpData->preAllocatedResponse = nullptr;
+    static HttpResponse *allocateResponse(HttpSocket<isServer> *httpSocket) {
+        if (httpSocket->preAllocatedResponse) {
+            HttpResponse *ret = httpSocket->preAllocatedResponse;
+            httpSocket->preAllocatedResponse = nullptr;
             return ret;
         } else {
-            return new HttpResponse(httpSocket);
+            return new HttpResponse((HttpSocket<true> *) httpSocket);
         }
     }
 
     //template <bool isServer>
-    void freeResponse(typename HttpSocket<true>::Data *httpData) {
+    void freeResponse(HttpSocket<true> *httpData) {
         if (httpData->preAllocatedResponse) {
             delete this;
         } else {
@@ -203,7 +193,7 @@ struct HttpResponse {
             }
         };
 
-        httpSocket.sendTransformed<NoopTransformer>(message, length, callback, callbackData, 0);
+        httpSocket->sendTransformed<NoopTransformer>(message, length, callback, callbackData, 0);
         hasHead = true;
     }
 
@@ -231,8 +221,8 @@ struct HttpResponse {
             }
         };
 
-        if (httpSocket.getData()->outstandingResponsesHead != this) {
-            uS::SocketData::Queue::Message *messagePtr = httpSocket.allocMessage(HttpTransformer::estimate(message, length));
+        if (httpSocket->outstandingResponsesHead != this) {
+            uS::SocketData::Queue::Message *messagePtr = httpSocket->allocMessage(HttpTransformer::estimate(message, length));
             messagePtr->length = HttpTransformer::transform(message, (char *) messagePtr->data, length, transformData);
             messagePtr->callback = callback;
             messagePtr->callbackData = callbackData;
@@ -240,7 +230,7 @@ struct HttpResponse {
             messageQueue = messagePtr;
             hasEnded = true;
         } else {
-            httpSocket.sendTransformed<HttpTransformer>(message, length, callback, callbackData, transformData);
+            httpSocket->sendTransformed<HttpTransformer>(message, length, callback, callbackData, transformData);
             // move head as far as possible
             HttpResponse *head = next;
             while (head) {
@@ -250,9 +240,9 @@ struct HttpResponse {
                     uS::SocketData::Queue::Message *nextMessage = messagePtr->nextMessage;
 
                     bool wasTransferred;
-                    if (httpSocket.write(messagePtr, wasTransferred)) {
+                    if (httpSocket->write(messagePtr, wasTransferred)) {
                         if (!wasTransferred) {
-                            httpSocket.freeMessage(messagePtr);
+                            httpSocket->freeMessage(messagePtr);
                             if (callback) {
                                 callback(this, callbackData, false, nullptr);
                             }
@@ -261,7 +251,7 @@ struct HttpResponse {
                             messagePtr->callbackData = callbackData;
                         }
                     } else {
-                        httpSocket.freeMessage(messagePtr);
+                        httpSocket->freeMessage(messagePtr);
                         if (callback) {
                             callback(this, callbackData, true, nullptr);
                         }
@@ -274,17 +264,17 @@ struct HttpResponse {
                     break;
                 } else {
                     HttpResponse *next = head->next;
-                    head->freeResponse(httpSocket.getData());
+                    head->freeResponse(httpSocket);
                     head = next;
                 }
             }
             updateHead:
-            httpSocket.getData()->outstandingResponsesHead = head;
+            httpSocket->outstandingResponsesHead = head;
             if (!head) {
-                httpSocket.getData()->outstandingResponsesTail = nullptr;
+                httpSocket->outstandingResponsesTail = nullptr;
             }
 
-            freeResponse(httpSocket.getData());
+            freeResponse(httpSocket);
         }
     }
 
@@ -296,7 +286,7 @@ struct HttpResponse {
         return userData;
     }
 
-    HttpSocket<true> getHttpSocket() {
+    HttpSocket<true> *getHttpSocket() {
         return httpSocket;
     }
 };

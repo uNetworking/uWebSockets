@@ -7,31 +7,20 @@
 
 namespace uS {
 
-// should derive directly from poll?
-class WIN32_EXPORT Socket {
-protected:
-    Poll *p;
-
-public:
-    Socket(Poll *p) : p(p) {
-
-    }
-
+struct WIN32_EXPORT Socket : SocketData {
     void transfer(NodeData *nodeData, void (*cb)(Poll *)) {
-        SocketData *socketData = getSocketData();
-
         nodeData->asyncMutex->lock();
         //nodeData->transferQueue.push_back({new Poll, getFd(), socketData, getPollCallback(), cb});
         nodeData->asyncMutex->unlock();
 
-        if (socketData->nodeData->tid != nodeData->tid) {
+        if (nodeData->tid != nodeData->tid) {
             nodeData->async->send();
         } else {
             NodeData::asyncCallback(nodeData->async);
         }
 
-        p->stop(nodeData->loop);
-        p->close(nodeData->loop);
+        stop(nodeData->loop);
+        SocketData::close(nodeData->loop);
     }
 
     static Poll *init(NodeData *nodeData, uv_os_sock_t fd, SSL *ssl) {
@@ -47,35 +36,23 @@ public:
     }
 
     uv_os_sock_t getFd() {
-        return p->getFd();
-    }
-
-    SocketData *getSocketData() {
-        return (SocketData *) p;
-    }
-
-    NodeData *getNodeData(SocketData *socketData) {
-        return socketData->nodeData;
+        return Poll::getFd();
     }
 
     void *getUserData() {
-        return getSocketData()->user;
+        return user;
     }
 
     void setUserData(void *user) {
-        getSocketData()->user = user;
-    }
-
-    operator Poll *() const {
-        return p;
+        this->user = user;
     }
 
     bool isClosed() {
-        return p->isClosing();
+        return isClosing();
     }
 
     bool isShuttingDown() {
-        return getSocketData()->state.shuttingDown;
+        return state.shuttingDown;
     }
 
     struct Address {
@@ -105,7 +82,6 @@ public:
     }
 
     void shutdown() {
-        SSL *ssl = getSocketData()->ssl;
         if (ssl) {
             //todo: poll in/out - have the io_cb recall shutdown if failed
             SSL_shutdown(ssl);
@@ -115,20 +91,17 @@ public:
     }
 
     // clears user data!
-    template <void onTimeout(Socket)>
+    template <void onTimeout(Socket *)>
     void startTimeout(int timeoutMs = 15000) {
-        SocketData *socketData = getSocketData();
-        NodeData *nodeData = getNodeData(socketData);
-
         Timer *timer = new Timer(nodeData->loop);
-        timer->setData(p);
+        timer->setData(this);
         timer->start([](Timer *timer) {
-            Socket s((Poll *) timer->getData());
-            s.cancelTimeout();
+            Socket *s = (Socket *) timer->getData();
+            s->cancelTimeout();
             onTimeout(s);
         }, timeoutMs, 0);
 
-        socketData->user = timer;
+        user = timer;
     }
 
     void cancelTimeout() {
@@ -136,23 +109,24 @@ public:
         if (timer) {
             timer->stop();
             timer->close();
-            getSocketData()->user = nullptr;
+            user = nullptr;
         }
     }
 
     template <class STATE>
     static void ssl_io_cb(Poll *p, int status, int events) {
-        SocketData *socketData = Socket(p).getSocketData();
+        SocketData *socketData = (SocketData *) p;
         NodeData *nodeData = socketData->nodeData;
+        Socket *socket = (Socket *) p;
         SSL *ssl = socketData->ssl;
 
         if (status < 0) {
-            STATE::onEnd(p);
+            STATE::onEnd((Socket *) p);
             return;
         }
 
         if (!socketData->messageQueue.empty() && ((events & UV_WRITABLE) || SSL_want(socketData->ssl) == SSL_READING)) {
-            Socket(p).cork(true);
+            socket->cork(true);
             while (true) {
                 SocketData::Queue::Message *messagePtr = socketData->messageQueue.front();
                 int sent = SSL_write(socketData->ssl, messagePtr->data, messagePtr->length);
@@ -180,13 +154,13 @@ public:
                         }
                         break;
                     default:
-                        STATE::onEnd(p);
+                        STATE::onEnd((Socket *) p);
                         return;
                     }
                     break;
                 }
             }
-            Socket(p).cork(false);
+            socket->cork(false);
         }
 
         if (events & UV_READABLE) {
@@ -203,13 +177,13 @@ public:
                         }
                         break;
                     default:
-                        STATE::onEnd(p);
+                        STATE::onEnd((Socket *) p);
                         return;
                     }
                     break;
                 } else {
-                    STATE::onData(p, nodeData->recvBuffer, length);
-                    if (Socket(p).isClosed() || Socket(p).isShuttingDown()) {
+                    STATE::onData((Socket *) p, nodeData->recvBuffer, length);
+                    if (socket->isClosed() || socket->isShuttingDown()) {
                         return;
                     }
                 }
@@ -219,20 +193,21 @@ public:
 
     template <class STATE>
     static void io_cb(Poll *p, int status, int events) {
-        SocketData *socketData = Socket(p).getSocketData();
+        SocketData *socketData = (SocketData *) p;
         NodeData *nodeData = socketData->nodeData;
+        Socket *socket = (Socket *) p;
 
         if (status < 0) {
-            STATE::onEnd(p);
+            STATE::onEnd((Socket *) p);
             return;
         }
 
         if (events & UV_WRITABLE) {
             if (!socketData->messageQueue.empty() && (events & UV_WRITABLE)) {
-                Socket(p).cork(true);
+                socket->cork(true);
                 while (true) {
                     SocketData::Queue::Message *messagePtr = socketData->messageQueue.front();
-                    ssize_t sent = ::send(Socket(p).getFd(), messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
+                    ssize_t sent = ::send(socket->getFd(), messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
                     if (sent == (ssize_t) messagePtr->length) {
                         if (messagePtr->callback) {
                             messagePtr->callback(p, messagePtr->callbackData, false, messagePtr->reserved);
@@ -246,7 +221,7 @@ public:
                         }
                     } else if (sent == SOCKET_ERROR) {
                         if (errno != EWOULDBLOCK) {
-                            STATE::onEnd(p);
+                            STATE::onEnd((Socket *) p);
                             return;
                         }
                         break;
@@ -256,16 +231,16 @@ public:
                         break;
                     }
                 }
-                Socket(p).cork(false);
+                socket->cork(false);
             }
         }
 
         if (events & UV_READABLE) {
-            int length = recv(Socket(p).getFd(), nodeData->recvBuffer, nodeData->recvLength, 0);
+            int length = recv(socket->getFd(), nodeData->recvBuffer, nodeData->recvLength, 0);
             if (length > 0) {
-                STATE::onData(p, nodeData->recvBuffer, length);
+                STATE::onData((Socket *) p, nodeData->recvBuffer, length);
             } else if (length <= 0 || (length == SOCKET_ERROR && errno != EWOULDBLOCK)) {
-                STATE::onEnd(p);
+                STATE::onEnd((Socket *) p);
             }
         }
 
@@ -276,40 +251,39 @@ public:
     template<class STATE>
     void enterState(SocketData *socketData, bool initialState = false) {
         std::cout << "Entering state now!" << std::endl;
-        //p->setData(socketData);
+        //setData(socketData);
         if (socketData->ssl) {
-            p->setCb(ssl_io_cb<STATE>);
+            setCb(ssl_io_cb<STATE>);
         } else {
-            p->setCb(io_cb<STATE>);
+            setCb(io_cb<STATE>);
         }
         socketData->setPoll(UV_READABLE);
 
         if (initialState) {
-            p->start(socketData->nodeData->loop, socketData, UV_READABLE);
+            start(socketData->nodeData->loop, socketData, UV_READABLE);
         } else {
-            p->change(socketData->nodeData->loop, socketData, UV_READABLE);
+            change(socketData->nodeData->loop, socketData, UV_READABLE);
         }
     }
 
     void close() {
         uv_os_sock_t fd = getFd();
-        p->stop(getSocketData()->nodeData->loop);
+        stop(nodeData->loop);
         ::close(fd);
 
-        SSL *ssl = getSocketData()->ssl;
         if (ssl) {
             SSL_free(ssl);
         }
 
-        p->close(getSocketData()->nodeData->loop);
+        Poll::close(nodeData->loop);
     }
 
     bool hasEmptyQueue() {
-        return getSocketData()->messageQueue.empty();
+        return messageQueue.empty();
     }
 
     void enqueue(SocketData::Queue::Message *message) {
-        getSocketData()->messageQueue.push(message);
+        messageQueue.push(message);
     }
 
     SocketData::Queue::Message *allocMessage(size_t length, const char *data = 0) {
@@ -329,38 +303,37 @@ public:
         delete [] (char *) message;
     }
 
-    // p->threadSafeChange Linux epoll is thread safe!
+    // threadSafeChange Linux epoll is thread safe!
 
     // socketData is p!
     void changePoll(SocketData *socketData) {
         if (socketData->nodeData->tid != pthread_self()) {
             socketData->nodeData->asyncMutex->lock();
-            socketData->nodeData->changePollQueue.push_back(p);
+            socketData->nodeData->changePollQueue.push_back(socketData);
             socketData->nodeData->asyncMutex->unlock();
             socketData->nodeData->async->send();
         } else {
-            p->change(socketData->nodeData->loop, p, socketData->getPoll());
+            change(socketData->nodeData->loop, socketData, socketData->getPoll());
         }
     }
 
     bool write(SocketData::Queue::Message *message, bool &wasTransferred) {
         ssize_t sent = 0;
-        SocketData *socketData = getSocketData();
-        if (socketData->messageQueue.empty()) {
+        if (messageQueue.empty()) {
 
-            if (socketData->ssl) {
-                sent = SSL_write(socketData->ssl, message->data, message->length);
+            if (ssl) {
+                sent = SSL_write(ssl, message->data, message->length);
                 if (sent == (ssize_t) message->length) {
                     wasTransferred = false;
                     return true;
                 } else if (sent < 0) {
-                    switch (SSL_get_error(socketData->ssl, sent)) {
+                    switch (SSL_get_error(ssl, sent)) {
                     case SSL_ERROR_WANT_READ:
                         break;
                     case SSL_ERROR_WANT_WRITE:
-                        if ((socketData->getPoll() & UV_WRITABLE) == 0) {
-                            socketData->setPoll(socketData->getPoll() | UV_WRITABLE);
-                            changePoll(socketData);
+                        if ((getPoll() & UV_WRITABLE) == 0) {
+                            setPoll(getPoll() | UV_WRITABLE);
+                            changePoll(this);
                         }
                         break;
                     default:
@@ -381,36 +354,36 @@ public:
                     message->data += sent;
                 }
 
-                if ((socketData->getPoll() & UV_WRITABLE) == 0) {
-                    socketData->setPoll(socketData->getPoll() | UV_WRITABLE);
-                    changePoll(socketData);
+                if ((getPoll() & UV_WRITABLE) == 0) {
+                    setPoll(getPoll() | UV_WRITABLE);
+                    changePoll(this);
                 }
             }
         }
-        socketData->messageQueue.push(message);
+        messageQueue.push(message);
         wasTransferred = true;
         return true;
     }
 
     template <class T, class D>
-    void sendTransformed(const char *message, size_t length, void(*callback)(void *httpSocket, void *data, bool cancelled, void *reserved), void *callbackData, D transformData) {
+    void sendTransformed(const char *message, size_t length, void(*callback)(void *socket, void *data, bool cancelled, void *reserved), void *callbackData, D transformData) {
         size_t estimatedLength = T::estimate(message, length) + sizeof(uS::SocketData::Queue::Message);
 
         if (hasEmptyQueue()) {
             if (estimatedLength <= uS::NodeData::preAllocMaxSize) {
                 int memoryLength = estimatedLength;
-                int memoryIndex = getSocketData()->nodeData->getMemoryBlockIndex(memoryLength);
+                int memoryIndex = nodeData->getMemoryBlockIndex(memoryLength);
 
-                uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) getSocketData()->nodeData->getSmallMemoryBlock(memoryIndex);
+                uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) nodeData->getSmallMemoryBlock(memoryIndex);
                 messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
                 messagePtr->length = T::transform(message, (char *) messagePtr->data, length, transformData);
 
                 bool wasTransferred;
                 if (write(messagePtr, wasTransferred)) {
                     if (!wasTransferred) {
-                        getSocketData()->nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
+                        nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
                         if (callback) {
-                            callback(*this, callbackData, false, nullptr);
+                            callback(this, callbackData, false, nullptr);
                         }
                     } else {
                         messagePtr->callback = callback;
@@ -418,7 +391,7 @@ public:
                     }
                 } else {
                     if (callback) {
-                        callback(*this, callbackData, true, nullptr);
+                        callback(this, callbackData, true, nullptr);
                     }
                 }
             } else {
@@ -430,7 +403,7 @@ public:
                     if (!wasTransferred) {
                         freeMessage(messagePtr);
                         if (callback) {
-                            callback(*this, callbackData, false, nullptr);
+                            callback(this, callbackData, false, nullptr);
                         }
                     } else {
                         messagePtr->callback = callback;
@@ -438,7 +411,7 @@ public:
                     }
                 } else {
                     if (callback) {
-                        callback(*this, callbackData, true, nullptr);
+                        callback(this, callbackData, true, nullptr);
                     }
                 }
             }

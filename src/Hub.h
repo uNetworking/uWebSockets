@@ -33,8 +33,8 @@ struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<C
     std::string dynamicInflationBuffer;
     static const int LARGE_BUFFER_SIZE = 300 * 1024;
 
-    static void onServerAccept(uS::Socket s);
-    static void onClientConnection(uS::Socket s, bool error);
+    static void onServerAccept(uS::Socket *s);
+    static void onClientConnection(uS::Socket *s, bool error);
 
     bool listen(int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
     bool listen(const char *host, int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);

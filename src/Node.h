@@ -27,12 +27,12 @@ public:
         return loop;
     }
 
-    template <void C(Socket p, bool error)>
+    template <void C(Socket *p, bool error)>
     static void connect_cb(Poll *p, int status, int events) {
         C(p, status < 0);
     }
 
-    template <void C(Socket p, bool error)>
+    template <void C(Socket *p, bool error)>
     uS::Socket connect(const char *hostname, int port, bool secure, uS::SocketData *socketData) {
         Poll *p;// = new Poll;
 
@@ -83,19 +83,19 @@ public:
         return p;
     }
 
-    template <void A(Socket s)>
+    template <void A(Socket *s)>
     static void accept_poll_cb(Poll *p, int status, int events) {
         ListenData *listenData = (ListenData *) p;
         accept_cb<A, false>(listenData);
     }
 
-    template <void A(Socket s)>
+    template <void A(Socket *s)>
     static void accept_timer_cb(Timer *p) {
         ListenData *listenData = (ListenData *) p->getData();
         accept_cb<A, true>(listenData);
     }
 
-    template <void A(Socket s), bool TIMER>
+    template <void A(Socket *s), bool TIMER>
     static void accept_cb(ListenData *listenData) {
         uv_os_sock_t serverFd = listenData->sock;
         uv_os_sock_t clientFd = accept(serverFd, nullptr, nullptr);
@@ -144,12 +144,12 @@ public:
         SocketData *socketData = new SocketData(listenData->nodeData, listenData->nodeData->loop, clientFd);
         socketData->ssl = ssl;
         socketData->setPoll(UV_READABLE);
-        A(socketData);
+        A((Socket *) socketData);
         } while ((clientFd = accept(serverFd, nullptr, nullptr)) != INVALID_SOCKET);
     }
 
     // todo: hostname, backlog
-    template <void A(Socket s)>
+    template <void A(Socket *s)>
     bool listen(const char *host, int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void *user) {
         addrinfo hints, *result;
         memset(&hints, 0, sizeof(addrinfo));

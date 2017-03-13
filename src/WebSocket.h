@@ -10,23 +10,17 @@ template <bool isServer>
 struct Group;
 
 template <const bool isServer>
-struct WIN32_EXPORT WebSocket : protected uS::Socket {
-    struct Data : uS::SocketData, WebSocketProtocol<isServer> {
-        enum CompressionStatus : char {
-            DISABLED,
-            ENABLED,
-            COMPRESSED_FRAME
-        } compressionStatus;
-        char hasOutstandingPong = false;
-        std::string fragmentBuffer, controlBuffer;
+struct WIN32_EXPORT WebSocket : uS::Socket, WebSocketProtocol<isServer> {
+    enum CompressionStatus : char {
+        DISABLED,
+        ENABLED,
+        COMPRESSED_FRAME
+    } compressionStatus;
+    char hasOutstandingPong = false;
+    std::string fragmentBuffer, controlBuffer;
 
-        Data(bool perMessageDeflate, uS::SocketData *socketData) : uS::SocketData(*socketData) {
-            compressionStatus = perMessageDeflate ? CompressionStatus::ENABLED : CompressionStatus::DISABLED;
-        }
-    };
-
-    WebSocket(uS::Socket s = nullptr) : uS::Socket(s) {
-
+    WebSocket(bool perMessageDeflate, uS::Socket *socket) : uS::Socket(*socket) {
+        compressionStatus = perMessageDeflate ? CompressionStatus::ENABLED : CompressionStatus::DISABLED;
     }
 
     struct PreparedMessage {
@@ -42,31 +36,32 @@ struct WIN32_EXPORT WebSocket : protected uS::Socket {
     using uS::Socket::Address;
 
     void transfer(Group<isServer> *group) {
-        ((Group<isServer> *) getSocketData()->nodeData)->removeWebSocket(p);
+        ((Group<isServer> *) nodeData)->removeWebSocket(this);
         uS::Socket::transfer((uS::NodeData *) group, [](Poll *p) {
-            uS::Socket s(p);
-            ((Group<isServer> *) s.getSocketData()->nodeData)->addWebSocket(s);
+            uS::Socket *s = (uS::Socket *) p;
+            ((Group<isServer> *) s->nodeData)->addWebSocket(s);
         });
     }
 
-    Poll *getPollHandle() const {return p;}
+    //Poll *getPollHandle() const {return p;}
     void terminate();
     void close(int code = 1000, const char *message = nullptr, size_t length = 0);
     void ping(const char *message) {send(message, OpCode::PING);}
     void send(const char *message, OpCode opCode = OpCode::TEXT) {send(message, strlen(message), opCode);}
     void send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
     static PreparedMessage *prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
-    static PreparedMessage *prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages, OpCode opCode, bool compressed, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
+    static PreparedMessage *prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages,
+                                                OpCode opCode, bool compressed, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
     void sendPrepared(PreparedMessage *preparedMessage, void *callbackData = nullptr);
     static void finalizeMessage(PreparedMessage *preparedMessage);
-    bool operator==(const WebSocket &other) const {return p == other.p;}
-    bool operator<(const WebSocket &other) const {return p < other.p;}
+    /*bool operator==(const WebSocket &other) const {return p == other.p;}
+    bool operator<(const WebSocket &other) const {return p < other.p;}*/
 
 private:
     friend class uS::Socket;
     template <bool> friend struct Group;
-    static void onData(uS::Socket s, char *data, int length);
-    static void onEnd(uS::Socket s);
+    static void onData(uS::Socket *s, char *data, int length);
+    static void onEnd(uS::Socket *s);
 };
 
 }

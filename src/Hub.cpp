@@ -42,45 +42,29 @@ char *Hub::inflate(char *data, size_t &length) {
     return inflationBuffer;
 }
 
-void Hub::onServerAccept(uS::Socket s) {
-    uS::SocketData *socketData = s.getSocketData();
-    // initial state, need to start!
-    //s.enterState<HttpSocket<SERVER>>(new HttpSocket<SERVER>::Data(socketData), true);
-
-
-
+void Hub::onServerAccept(uS::Socket *s) {
     // change state this way
-    HttpSocket<SERVER>::Data *httpData = new HttpSocket<SERVER>::Data(socketData);
-    //httpData->event.data.ptr = httpData;
-    httpData->setCb(uS::Socket::io_cb<HttpSocket<SERVER>>);
-    httpData->setPoll(UV_READABLE);
-    httpData->start(socketData->nodeData->loop, httpData, UV_READABLE);
+    HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(s, true);
+    httpSocket->setCb(uS::Socket::io_cb<HttpSocket<SERVER>>);
+    httpSocket->setPoll(UV_READABLE);
+    httpSocket->start(s->nodeData->loop, httpSocket, UV_READABLE);
 
-    s = uS::Socket(httpData);
+    ((Group<SERVER> *) s->nodeData)->addHttpSocket(httpSocket);
+    ((Group<SERVER> *) s->nodeData)->httpConnectionHandler(httpSocket);
+    httpSocket->setNoDelay(true);
 
-    //std::cout << "addHttpSocket" << std::endl;
-
-
-    ((Group<SERVER> *) socketData->nodeData)->addHttpSocket(s);
-
-    //std::cout << "connection handler" << std::endl;
-    ((Group<SERVER> *) socketData->nodeData)->httpConnectionHandler(s);
-
-    //std::cout << "no delay" << std::endl;
-
-    s.setNoDelay(true);
-    delete socketData;
+    delete s;
 }
 
-void Hub::onClientConnection(uS::Socket s, bool error) {
-    HttpSocket<CLIENT>::Data *httpSocketData = (HttpSocket<CLIENT>::Data *) s.getSocketData();
+void Hub::onClientConnection(uS::Socket *s, bool error) {
+    HttpSocket<CLIENT> *httpSocket = (HttpSocket<CLIENT> *) s;
 
     if (error) {
-        ((Group<CLIENT> *) httpSocketData->nodeData)->errorHandler(httpSocketData->httpUser);
-        delete httpSocketData;
+        ((Group<CLIENT> *) httpSocket->nodeData)->errorHandler(httpSocket->httpUser);
+        delete httpSocket;
     } else {
-        s.enterState<HttpSocket<CLIENT>>(s.getSocketData());
-        HttpSocket<CLIENT>(s).upgrade(nullptr, nullptr, 0, nullptr, 0, nullptr);
+        s->enterState<HttpSocket<CLIENT>>(s);
+        httpSocket->upgrade(nullptr, nullptr, 0, nullptr, 0, nullptr);
     }
 }
 
@@ -167,18 +151,18 @@ void Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
         serverGroup = &getDefaultGroup<SERVER>();
     }
 
-    uS::Socket s = uS::Socket::init((uS::NodeData *) serverGroup, fd, ssl);
-    uS::SocketData *socketData = s.getSocketData();
-    HttpSocket<SERVER>::Data *temporaryHttpData = new HttpSocket<SERVER>::Data(socketData);
-    delete socketData;
-    s.enterState<HttpSocket<SERVER>>(temporaryHttpData);
+//    uS::Socket s = uS::Socket::init((uS::NodeData *) serverGroup, fd, ssl);
+//    uS::SocketData *socketData = s.getSocketData();
+//    HttpSocket<SERVER>::Data *temporaryHttpData = new HttpSocket<SERVER>::Data(socketData);
+//    delete socketData;
+//    s.enterState<HttpSocket<SERVER>>(temporaryHttpData);
 
-    bool perMessageDeflate;
-    HttpSocket<SERVER>(s).upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate);
-    s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
-    serverGroup->addWebSocket(s);
-    serverGroup->connectionHandler(WebSocket<SERVER>(s), HttpRequest({}));
-    delete temporaryHttpData;
+//    bool perMessageDeflate;
+//    HttpSocket<SERVER>(s).upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate);
+//    s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
+//    serverGroup->addWebSocket(s);
+//    serverGroup->connectionHandler(WebSocket<SERVER>(s), HttpRequest({}));
+//    delete temporaryHttpData;
 }
 
 }
