@@ -47,7 +47,7 @@ public:
             return nullptr;
         }
 
-        uv_os_sock_t fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+        uv_os_sock_t fd = socket(result->ai_family, result->ai_socktype|SOCK_CLOEXEC, result->ai_protocol);
         if (fd == -1) {
             C(p, true);
             delete p;
@@ -165,7 +165,7 @@ public:
         if ((options & uS::ONLY_IPV4) == 0) {
             for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
                 if (a->ai_family == AF_INET6) {
-                    listenFd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+                    listenFd = socket(a->ai_family, a->ai_socktype|SOCK_CLOEXEC, a->ai_protocol);
                     listenAddr = a;
                 }
             }
@@ -173,7 +173,7 @@ public:
 
         for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
             if (a->ai_family == AF_INET) {
-                listenFd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+                listenFd = socket(a->ai_family, a->ai_socktype|SOCK_CLOEXEC, a->ai_protocol);
                 listenAddr = a;
             }
         }
