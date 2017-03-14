@@ -549,7 +549,7 @@ void testSendCallback() {
     uWS::Hub h;
 
     h.onConnection([&h](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
-        ws->send("1234", 4, uWS::OpCode::TEXT, [](void *webSocket, void *data, bool cancelled, void *reserved) {
+        ws->send("1234", 4, uWS::OpCode::TEXT, [](uWS::WebSocket<uWS::SERVER> *webSocket, void *data, bool cancelled, void *reserved) {
             if (data) {
                 if (data != (void *) 13) {
                     std::cout << "FAILURE: invalid data passed to send callback!" << std::endl;
@@ -561,7 +561,7 @@ void testSendCallback() {
                 std::cout << "FAILURE: No data was passed along!" << std::endl;
                 exit(-1);
             }
-        }, (void *) 13);
+        }, (uWS::WebSocket<uWS::SERVER> *) 13);
         h.getDefaultGroup<uWS::SERVER>().close();
     });
 
@@ -611,20 +611,6 @@ void testSmallSends() {
     h.connect("ws://localhost:3000", nullptr);
 
     h.run();
-}
-
-void testSTL() {
-    std::vector<uWS::WebSocket<uWS::SERVER>> v;
-    std::set<uWS::WebSocket<uWS::SERVER>> s;
-    std::unordered_set<uWS::WebSocket<uWS::SERVER>> us;
-    std::map<uWS::WebSocket<uWS::SERVER>, uWS::WebSocket<uWS::SERVER>> m;
-    std::unordered_map<uWS::WebSocket<uWS::SERVER>, uWS::WebSocket<uWS::SERVER>> um;
-
-    /*v.push_back(uWS::WebSocket<uWS::SERVER>());
-    s.insert(uWS::WebSocket<uWS::SERVER>());
-    us.insert(uWS::WebSocket<uWS::SERVER>());
-    m[uWS::WebSocket<uWS::SERVER>()] = uWS::WebSocket<uWS::SERVER>();
-    um[uWS::WebSocket<uWS::SERVER>()] = uWS::WebSocket<uWS::SERVER>();*/
 }
 
 // WIP - add excluded messages!
@@ -964,7 +950,6 @@ int main(int argc, char *argv[])
 
     // falls through
     testHTTP();
-    testSTL();
     testSmallSends();
     testSendCallback();
     testMultithreading();

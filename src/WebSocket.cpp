@@ -4,7 +4,7 @@
 namespace uWS {
 
 template <bool isServer>
-void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
+void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
     const int HEADER_LENGTH = WebSocketProtocol<!isServer>::LONG_MESSAGE_HEADER;
 
     struct TransformData {
@@ -21,21 +21,21 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
         }
     };
 
-    sendTransformed<WebSocketTransformer>((char *) message, length, callback, callbackData, transformData);
+    sendTransformed<WebSocketTransformer>((char *) message, length, (void(*)(void *, void *, bool, void *)) callback, callbackData, transformData);
 }
 
 template <bool isServer>
-typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved)) {
+typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved)) {
     PreparedMessage *preparedMessage = new PreparedMessage;
     preparedMessage->buffer = new char[length + 10];
     preparedMessage->length = WebSocketProtocol<isServer>::formatMessage(preparedMessage->buffer, data, length, opCode, length, compressed);
     preparedMessage->references = 1;
-    preparedMessage->callback = callback;
+    preparedMessage->callback = (void(*)(void *, void *, bool, void *)) callback;
     return preparedMessage;
 }
 
 template <bool isServer>
-typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages, OpCode opCode, bool compressed, void (*callback)(void *, void *, bool, void *))
+typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages, OpCode opCode, bool compressed, void (*callback)(WebSocket<isServer> *, void *, bool, void *))
 {
     // should be sent in!
     size_t batchLength = 0;
@@ -52,7 +52,7 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
     }
     preparedMessage->length = offset;
     preparedMessage->references = 1;
-    preparedMessage->callback = callback;
+    preparedMessage->callback = (void(*)(void *, void *, bool, void *)) callback;
     return preparedMessage;
 }
 
@@ -142,9 +142,9 @@ void WebSocket<isServer>::close(int code, const char *message, size_t length) {
 
     char closePayload[MAX_CLOSE_PAYLOAD + 2];
     int closePayloadLength = WebSocketProtocol<isServer>::formatClosePayload(closePayload, code, message, length);
-    send(closePayload, closePayloadLength, OpCode::CLOSE, [](void *p, void *data, bool cancelled, void *reserved) {
+    send(closePayload, closePayloadLength, OpCode::CLOSE, [](WebSocket<isServer> *p, void *data, bool cancelled, void *reserved) {
         if (!cancelled) {
-            ((Socket *) p)->shutdown();
+            p->shutdown();
         }
     });
 }
@@ -160,7 +160,7 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
         webSocket->cancelTimeout();
     }
 
-    webSocket->close();
+    s->close();
 
     while (!webSocket->messageQueue.empty()) {
         uS::SocketData::Queue::Message *message = webSocket->messageQueue.front();

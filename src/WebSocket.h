@@ -43,37 +43,22 @@ struct WIN32_EXPORT WebSocket : uS::Socket, WebSocketProtocol<isServer> {
         });
     }
 
-    //Poll *getPollHandle() const {return p;}
     void terminate();
     void close(int code = 1000, const char *message = nullptr, size_t length = 0);
     void ping(const char *message) {send(message, OpCode::PING);}
     void send(const char *message, OpCode opCode = OpCode::TEXT) {send(message, strlen(message), opCode);}
-    void send(const char *message, size_t length, OpCode opCode, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
-    static PreparedMessage *prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
+    void send(const char *message, size_t length, OpCode opCode, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
+    static PreparedMessage *prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
     static PreparedMessage *prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages,
-                                                OpCode opCode, bool compressed, void(*callback)(void *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
+                                                OpCode opCode, bool compressed, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
     void sendPrepared(PreparedMessage *preparedMessage, void *callbackData = nullptr);
     static void finalizeMessage(PreparedMessage *preparedMessage);
-    /*bool operator==(const WebSocket &other) const {return p == other.p;}
-    bool operator<(const WebSocket &other) const {return p < other.p;}*/
 
 private:
     friend class uS::Socket;
     template <bool> friend struct Group;
     static void onData(uS::Socket *s, char *data, int length);
     static void onEnd(uS::Socket *s);
-};
-
-}
-
-namespace std {
-
-template <bool isServer>
-struct hash<uWS::WebSocket<isServer>> {
-    std::size_t operator()(const uWS::WebSocket<isServer> &webSocket) const
-    {
-        return std::hash<Poll *>()(webSocket.getPollHandle());
-    }
 };
 
 }

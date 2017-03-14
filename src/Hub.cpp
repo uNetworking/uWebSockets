@@ -120,6 +120,8 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh,
             port = stoi(portStr);
         }
 
+        std::cout << "Hub::connect not implemented" << std::endl;
+
         /*uS::SocketData socketData((uS::NodeData *) eh);
         HttpSocket<CLIENT>::Data *httpSocketData = new HttpSocket<CLIENT>::Data(&socketData);
 
