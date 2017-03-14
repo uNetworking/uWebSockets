@@ -108,30 +108,19 @@ void HttpSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
                             bool perMessageDeflate;
                             httpSocket->upgrade(secKey.value, extensions.value, extensions.valueLength,
                                                subprotocol.value, subprotocol.valueLength, &perMessageDeflate);
-                            getGroup<SERVER>(s)->removeHttpSocket(s);
+                            getGroup<SERVER>(httpSocket)->removeHttpSocket(httpSocket);
 
+                            WebSocket<SERVER> *webSocket = new WebSocket<SERVER>(perMessageDeflate, httpSocket);
+                            webSocket->setState<WebSocket<SERVER>>();
+                            webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
 
+                            // same here! we need to signal the loop that the poll has changed address!
+                            //delete httpSocket;
 
-
-                            //s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, httpSocket));
-
-                            // enter state, change s!
-                            WebSocket<SERVER> *webSocketData = new WebSocket<SERVER>(perMessageDeflate, httpSocket);
-                            webSocketData->setCb(uS::Socket::io_cb<WebSocket<SERVER>>);
-                            webSocketData->setPoll(UV_READABLE);
-                            webSocketData->change(httpSocket->nodeData->loop, webSocketData, UV_READABLE);
-
-
-
-
-
-
-
-                            getGroup<SERVER>(webSocketData)->addWebSocket(webSocketData);
-                            webSocketData->cork(true);
-                            getGroup<SERVER>(webSocketData)->connectionHandler(webSocketData, req);
-                            webSocketData->cork(false);
-                            delete httpSocket;
+                            getGroup<SERVER>(webSocket)->addWebSocket(webSocket);
+                            webSocket->cork(true);
+                            getGroup<SERVER>(webSocket)->connectionHandler(webSocket, req);
+                            webSocket->cork(false);
                         } else {
                             httpSocket->onEnd(s);
                         }
@@ -167,25 +156,28 @@ void HttpSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
                     }
                 }
             } else {
-//                if (req.getHeader("upgrade", 7)) {
-//                    httpSocket->enterState<WebSocket<CLIENT>>(new WebSocket<CLIENT>(false, httpSocket));
+                if (req.getHeader("upgrade", 7)) {
+                    WebSocket<CLIENT> *webSocket = new WebSocket<CLIENT>(false, httpSocket);
+                    httpSocket->cancelTimeout();
+                    webSocket->setUserData(httpSocket->httpUser);
 
-//                    httpSocket->cancelTimeout();
-//                    httpSocket->setUserData(httpSocket->httpUser);
-//                    getGroup<CLIENT>(s)->addWebSocket(s);
-//                    s.cork(true);
-//                    getGroup<CLIENT>(s)->connectionHandler(WebSocket<CLIENT>(s), req);
-//                    s.cork(false);
+                    // if we delete the httpSocket we delete the poll! need to signal to the loop that the poll has changed address!
+                    //delete httpSocket;
 
-//                    if (!(s.isClosed() || s.isShuttingDown())) {
-//                        WebSocketProtocol<CLIENT> *kws = (WebSocketProtocol<CLIENT> *) ((WebSocket<CLIENT>::Data *) s.getSocketData());
-//                        kws->consume(cursor, end - cursor, s);
-//                    }
+                    webSocket->setState<WebSocket<CLIENT>>();
+                    webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
 
-//                    delete httpSocket;
-//                } else {
-//                    httpSocket->onEnd(s);
-//                }
+                    getGroup<CLIENT>(webSocket)->addWebSocket(webSocket);
+                    webSocket->cork(true);
+                    getGroup<CLIENT>(webSocket)->connectionHandler(webSocket, req);
+                    webSocket->cork(false);
+
+                    if (!(webSocket->isClosed() || webSocket->isShuttingDown())) {
+                        webSocket->consume(cursor, end - cursor, webSocket);
+                    }
+                } else {
+                    httpSocket->onEnd(s);
+                }
                 return;
             }
         } else {

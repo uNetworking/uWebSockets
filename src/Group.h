@@ -19,12 +19,10 @@ struct WIN32_EXPORT Group : uS::NodeData {
     std::function<void(WebSocket<isServer> *, int code, char *message, size_t length)> disconnectionHandler;
     std::function<void(WebSocket<isServer> *, char *, size_t)> pingHandler;
     std::function<void(WebSocket<isServer> *, char *, size_t)> pongHandler;
-
     std::function<void(HttpSocket<isServer> *)> httpConnectionHandler;
     std::function<void(HttpResponse *, HttpRequest, char *, size_t, size_t)> httpRequestHandler;
     std::function<void(HttpResponse *, char *, size_t, size_t)> httpDataHandler;
     std::function<void(HttpResponse *)> httpCancelledRequestHandler;
-
     std::function<void(HttpSocket<isServer> *)> httpDisconnectionHandler;
     std::function<void(HttpSocket<isServer> *, HttpRequest)> httpUpgradeHandler;
 
@@ -51,7 +49,6 @@ struct WIN32_EXPORT Group : uS::NodeData {
     void addHttpSocket(Poll *httpSocket);
     void removeHttpSocket(Poll *httpSocket);
 
-
     std::stack<Poll *> iterators;
 
 protected:
@@ -65,14 +62,12 @@ public:
     void onPing(std::function<void(WebSocket<isServer> *, char *, size_t)> handler);
     void onPong(std::function<void(WebSocket<isServer> *, char *, size_t)> handler);
     void onError(std::function<void(errorType)> handler);
-
     void onHttpConnection(std::function<void(HttpSocket<isServer> *)> handler);
     void onHttpRequest(std::function<void(HttpResponse *, HttpRequest, char *data, size_t length, size_t remainingBytes)> handler);
     void onHttpData(std::function<void(HttpResponse *, char *data, size_t length, size_t remainingBytes)> handler);
     void onHttpDisconnection(std::function<void(HttpSocket<isServer> *)> handler);
     void onCancelledHttpRequest(std::function<void(HttpResponse *)> handler);
     void onHttpUpgrade(std::function<void(HttpSocket<isServer> *, HttpRequest)> handler);
-
 
     void broadcast(const char *message, size_t length, OpCode opCode);
     void terminate();

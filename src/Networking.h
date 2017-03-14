@@ -178,6 +178,7 @@ struct SocketData : Poll {
 
     }
 
+    // this is not needed by HttpSocket!
     struct Queue {
         struct Message {
             const char *data;
@@ -222,8 +223,9 @@ struct SocketData : Poll {
         return state.poll;
     }
 
-    void setPoll(int poll) {
+    int setPoll(int poll) {
         state.poll = poll;
+        return poll;
     }
 
     bool isShuttingDown() {

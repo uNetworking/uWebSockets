@@ -43,17 +43,14 @@ char *Hub::inflate(char *data, size_t &length) {
 }
 
 void Hub::onServerAccept(uS::Socket *s) {
-    // change state this way
     HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(s, true);
-    httpSocket->setCb(uS::Socket::io_cb<HttpSocket<SERVER>>);
-    httpSocket->setPoll(UV_READABLE);
-    httpSocket->start(s->nodeData->loop, httpSocket, UV_READABLE);
-
-    ((Group<SERVER> *) s->nodeData)->addHttpSocket(httpSocket);
-    ((Group<SERVER> *) s->nodeData)->httpConnectionHandler(httpSocket);
-    httpSocket->setNoDelay(true);
-
     delete s;
+
+    httpSocket->setState<HttpSocket<SERVER>>();
+    httpSocket->start(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
+    httpSocket->setNoDelay(true);
+    getGroup<SERVER>(httpSocket)->addHttpSocket(httpSocket);
+    getGroup<SERVER>(httpSocket)->httpConnectionHandler(httpSocket);
 }
 
 void Hub::onClientConnection(uS::Socket *s, bool error) {
@@ -63,7 +60,9 @@ void Hub::onClientConnection(uS::Socket *s, bool error) {
         ((Group<CLIENT> *) httpSocket->nodeData)->errorHandler(httpSocket->httpUser);
         delete httpSocket;
     } else {
-        s->enterState<HttpSocket<CLIENT>>(s);
+        httpSocket->setState<HttpSocket<CLIENT>>();
+        httpSocket->change(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
+        httpSocket->setNoDelay(true);
         httpSocket->upgrade(nullptr, nullptr, 0, nullptr, 0, nullptr);
     }
 }
@@ -82,6 +81,10 @@ bool Hub::listen(const char *host, int port, uS::TLS::Context sslContext, int op
 
 bool Hub::listen(int port, uS::TLS::Context sslContext, int options, Group<SERVER> *eh) {
     return listen(nullptr, port, sslContext, options, eh);
+}
+
+uS::Socket *allocateHttpSocket(uS::Socket *s) {
+    return (uS::Socket *) new HttpSocket<CLIENT>(s, true);
 }
 
 void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh, std::string subprotocol) {
@@ -120,29 +123,27 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh,
             port = stoi(portStr);
         }
 
-        std::cout << "Hub::connect not implemented" << std::endl;
+        HttpSocket<CLIENT> *httpSocket = (HttpSocket<CLIENT> *) uS::Node::connect<allocateHttpSocket, onClientConnection>(hostname.c_str(), port, secure, eh);
+        if (httpSocket) {
+            // startTimeout occupies the user
+            httpSocket->startTimeout<HttpSocket<CLIENT>::onEnd>(timeoutMs);
+            httpSocket->httpUser = user;
 
-        /*uS::SocketData socketData((uS::NodeData *) eh);
-        HttpSocket<CLIENT>::Data *httpSocketData = new HttpSocket<CLIENT>::Data(&socketData);
-
-        std::string optionalSubprotocol;
-        if (!subprotocol.empty()) {
-            optionalSubprotocol = "Sec-WebSocket-Protocol: " + subprotocol + "\r\n";
-        }
-        httpSocketData->httpUser = user;
-        httpSocketData->httpBuffer = "GET /" + path + " HTTP/1.1\r\n"
+            std::string optionalSubprotocol;
+            if (!subprotocol.empty()) {
+                optionalSubprotocol = "Sec-WebSocket-Protocol: " + subprotocol + "\r\n";
+            }
+            // we should randomize the key
+            httpSocket->httpBuffer = "GET /" + path + " HTTP/1.1\r\n"
                                      "Upgrade: websocket\r\n"
                                      "Connection: Upgrade\r\n"
                                      "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"
                                      "Host: " + hostname + "\r\n"
                                      + optionalSubprotocol +
                                      "Sec-WebSocket-Version: 13\r\n\r\n";
-
-        uS::Socket s = uS::Node::connect<onClientConnection>(hostname.c_str(), port, secure, httpSocketData);
-        if (s) {
-            s.startTimeout<HttpSocket<CLIENT>::onEnd>(timeoutMs);
-            // getGroup<CLIENT>(s)->addHttpSocket(s);
-        }*/
+        } else {
+            eh->errorHandler(user);
+        }
     } else {
         eh->errorHandler(user);
     }

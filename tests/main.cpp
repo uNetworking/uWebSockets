@@ -244,11 +244,11 @@ void testConnections() {
 
     h.onConnection([](uWS::WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
         switch ((long) ws->getUserData()) {
-        case 4:
+        case 8:
             std::cout << "Client established a remote connection over non-SSL" << std::endl;
             ws->close(1000);
             break;
-        case 5:
+        case 9:
             std::cout << "Client established a remote connection over SSL" << std::endl;
             ws->close(1000);
             break;
@@ -265,13 +265,14 @@ void testConnections() {
     h.connect("invalid URI", (void *) 1);
     h.connect("ws://validButUnknown.yolo", (void *) 2);
     h.connect("ws://echo.websocket.org", (void *) 3, 10);
-    h.connect("ws://echo.websocket.org", (void *) 4);
+    h.connect("ws://echo.websocket.org", (void *) 8);
     h.connect("wss://echo.websocket.org", (void *) 5, 10);
-    h.connect("wss://echo.websocket.org", (void *) 5);
+    h.connect("wss://echo.websocket.org", (void *) 9);
     h.connect("ws://google.com", (void *) 6);
     h.connect("wss://google.com", (void *) 7);
 
     h.run();
+    std::cout << "Falling through testConnections" << std::endl;
 }
 
 void testListening() {
@@ -549,7 +550,7 @@ void testSendCallback() {
     uWS::Hub h;
 
     h.onConnection([&h](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
-        ws->send("1234", 4, uWS::OpCode::TEXT, [](uWS::WebSocket<uWS::SERVER> *webSocket, void *data, bool cancelled, void *reserved) {
+        ws->send("1234", 4, uWS::OpCode::TEXT, [](uWS::WebSocket<uWS::SERVER> *ws, void *data, bool cancelled, void *reserved) {
             if (data) {
                 if (data != (void *) 13) {
                     std::cout << "FAILURE: invalid data passed to send callback!" << std::endl;
@@ -561,7 +562,7 @@ void testSendCallback() {
                 std::cout << "FAILURE: No data was passed along!" << std::endl;
                 exit(-1);
             }
-        }, (uWS::WebSocket<uWS::SERVER> *) 13);
+        }, (void *) 13);
         h.getDefaultGroup<uWS::SERVER>().close();
     });
 
@@ -597,6 +598,7 @@ void testSmallSends() {
 
     int length = 0;
     h.onConnection([&h, &length](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+        std::cout << "Connected, will send small messages now" << std::endl;
         while (length < 2048) {
             char *message = new char[length];
             memset(message, 0, length);
@@ -611,6 +613,7 @@ void testSmallSends() {
     h.connect("ws://localhost:3000", nullptr);
 
     h.run();
+    std::cout << "Falling through testSmallSends" << std::endl;
 }
 
 // WIP - add excluded messages!
@@ -952,7 +955,7 @@ int main(int argc, char *argv[])
     testHTTP();
     testSmallSends();
     testSendCallback();
-    testMultithreading();
+//    //testMultithreading();
     testReusePort();
     testRouting();
     testClosing();

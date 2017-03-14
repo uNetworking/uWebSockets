@@ -8,6 +8,11 @@
 namespace uS {
 
 struct WIN32_EXPORT Socket : SocketData {
+
+    Socket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : SocketData(nodeData, loop, fd) {
+
+    }
+
     void transfer(NodeData *nodeData, void (*cb)(Poll *)) {
         nodeData->asyncMutex->lock();
         //nodeData->transferQueue.push_back({new Poll, getFd(), socketData, getPollCallback(), cb});
@@ -33,10 +38,6 @@ struct WIN32_EXPORT Socket : SocketData {
         socketData->ssl = ssl;
         socketData->state.poll = UV_READABLE;
         return socketData;
-    }
-
-    uv_os_sock_t getFd() {
-        return Poll::getFd();
     }
 
     void *getUserData() {
@@ -114,7 +115,7 @@ struct WIN32_EXPORT Socket : SocketData {
     }
 
     template <class STATE>
-    static void ssl_io_cb(Poll *p, int status, int events) {
+    static void sslIoHandler(Poll *p, int status, int events) {
         SocketData *socketData = (SocketData *) p;
         NodeData *nodeData = socketData->nodeData;
         Socket *socket = (Socket *) p;
@@ -192,7 +193,7 @@ struct WIN32_EXPORT Socket : SocketData {
     }
 
     template <class STATE>
-    static void io_cb(Poll *p, int status, int events) {
+    static void ioHandler(Poll *p, int status, int events) {
         SocketData *socketData = (SocketData *) p;
         NodeData *nodeData = socketData->nodeData;
         Socket *socket = (Socket *) p;
@@ -215,8 +216,7 @@ struct WIN32_EXPORT Socket : SocketData {
                         socketData->messageQueue.pop();
                         if (socketData->messageQueue.empty()) {
                             // todo, remove bit, don't set directly
-                            socketData->setPoll(UV_READABLE);
-                            p->change(socketData->nodeData->loop, socketData, socketData->getPoll());
+                            p->change(socketData->nodeData->loop, socketData, socketData->setPoll(UV_READABLE));
                             break;
                         }
                     } else if (sent == SOCKET_ERROR) {
@@ -246,23 +246,12 @@ struct WIN32_EXPORT Socket : SocketData {
 
     }
 
-    // this should not start, only change!
-    // changeState
     template<class STATE>
-    void enterState(SocketData *socketData, bool initialState = false) {
-        std::cout << "Entering state now!" << std::endl;
-        //setData(socketData);
-        if (socketData->ssl) {
-            setCb(ssl_io_cb<STATE>);
+    void setState() {
+        if (ssl) {
+            setCb(sslIoHandler<STATE>);
         } else {
-            setCb(io_cb<STATE>);
-        }
-        socketData->setPoll(UV_READABLE);
-
-        if (initialState) {
-            start(socketData->nodeData->loop, socketData, UV_READABLE);
-        } else {
-            change(socketData->nodeData->loop, socketData, UV_READABLE);
+            setCb(ioHandler<STATE>);
         }
     }
 

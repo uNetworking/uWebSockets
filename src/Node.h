@@ -29,30 +29,21 @@ public:
 
     template <void C(Socket *p, bool error)>
     static void connect_cb(Poll *p, int status, int events) {
-        C(p, status < 0);
+        C((Socket *) p, status < 0);
     }
 
-    template <void C(Socket *p, bool error)>
-    uS::Socket connect(const char *hostname, int port, bool secure, uS::SocketData *socketData) {
-        Poll *p;// = new Poll;
-
-        // todo: broken
-        //p->setData(socketData);
-
+    template <uS::Socket *I(Socket *s), void C(Socket *p, bool error)>
+    Socket *connect(const char *hostname, int port, bool secure, NodeData *nodeData) {
         addrinfo hints, *result;
         memset(&hints, 0, sizeof(addrinfo));
         hints.ai_family = AF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
         if (getaddrinfo(hostname, std::to_string(port).c_str(), &hints, &result) != 0) {
-            C(p, true);
-            delete p;
             return nullptr;
         }
 
         uv_os_sock_t fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
         if (fd == -1) {
-            C(p, true);
-            delete p;
             return nullptr;
         }
 
@@ -64,23 +55,21 @@ public:
         ::connect(fd, result->ai_addr, result->ai_addrlen);
         freeaddrinfo(result);
 
-        NodeData *nodeData = socketData->nodeData;
+        Socket initialSocket(nodeData, getLoop(), fd);
+        uS::Socket *socket = I(&initialSocket);
         if (secure) {
-            socketData->ssl = SSL_new(nodeData->clientContext);
-            SSL_set_fd(socketData->ssl, fd);
-            SSL_set_connect_state(socketData->ssl);
-            SSL_set_mode(socketData->ssl, SSL_MODE_RELEASE_BUFFERS);
-            SSL_set_tlsext_host_name(socketData->ssl, hostname);
+            socket->ssl = SSL_new(nodeData->clientContext);
+            SSL_set_fd(socket->ssl, fd);
+            SSL_set_connect_state(socket->ssl);
+            SSL_set_mode(socket->ssl, SSL_MODE_RELEASE_BUFFERS);
+            SSL_set_tlsext_host_name(socket->ssl, hostname);
         } else {
-            socketData->ssl = nullptr;
+            socket->ssl = nullptr;
         }
 
-        socketData->setPoll(UV_READABLE);
-
-        //p->init(loop, fd);
-        p->setCb(connect_cb<C>);
-        p->start(loop, socketData, UV_WRITABLE);
-        return p;
+        socket->setCb(connect_cb<C>);
+        socket->start(loop, socket, socket->setPoll(UV_WRITABLE));
+        return socket;
     }
 
     template <void A(Socket *s)>

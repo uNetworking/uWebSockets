@@ -109,14 +109,14 @@ struct HttpResponse;
 
 template <const bool isServer>
 struct WIN32_EXPORT HttpSocket : private uS::Socket {
-    std::string httpBuffer;
-    size_t contentLength = 0;
-    void *httpUser;
-    bool missedDeadline = false;
-
+    void *httpUser; // remove this later, setTimeout occupies user for now
     HttpResponse *outstandingResponsesHead = nullptr;
     HttpResponse *outstandingResponsesTail = nullptr;
     HttpResponse *preAllocatedResponse = nullptr;
+
+    std::string httpBuffer;
+    size_t contentLength = 0;
+    bool missedDeadline = false;
 
     HttpSocket(uS::Socket *socket, bool areYouSure) : uS::Socket(*socket) {}
 
@@ -145,7 +145,6 @@ private:
 };
 
 struct HttpResponse {
-
     HttpSocket<true> *httpSocket;
     HttpResponse *next = nullptr;
     void *userData = nullptr;
