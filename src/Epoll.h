@@ -125,7 +125,7 @@ struct Poll {
         loop->numPolls++;
     }
 
-    bool isClosing() {
+    bool isClosed() {
         return state.fd == -1;
     }
 
@@ -146,7 +146,6 @@ struct Poll {
         }
     }
 
-    // what you put in self is what comes in setCb
     void start(Loop *loop, Poll *self, int events) {
         epoll_event event;
         event.events = events;
@@ -166,12 +165,25 @@ struct Poll {
         epoll_ctl(loop->epfd, EPOLL_CTL_DEL, state.fd, &event);
     }
 
+    bool threadSafeTransfer(Loop *loop, Loop *newLoop, int events) {
+        stop(loop);
+        start(newLoop, this, events);
+        loop->numPolls--;
+        return true;
+    }
+
+    bool threadSafeChange(Loop *loop, Poll *self, int events) {
+        change(loop, self, events);
+        return true;
+    }
+
     void close(Loop *loop) {
         state.fd = -1;
         loop->closing.push_back(this);
     }
 };
 
+// this should be put in the Loop as a general "post" function always available
 struct Async : Poll {
     void (*cb)(Async *);
     Loop *loop;

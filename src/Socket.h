@@ -14,31 +14,52 @@ struct WIN32_EXPORT Socket : SocketData {
     }
 
     void transfer(NodeData *nodeData, void (*cb)(Poll *)) {
-        nodeData->asyncMutex->lock();
-        //nodeData->transferQueue.push_back({new Poll, getFd(), socketData, getPollCallback(), cb});
-        nodeData->asyncMutex->unlock();
-
-        if (nodeData->tid != nodeData->tid) {
-            nodeData->async->send();
+        if (threadSafeTransfer(this->nodeData->loop, nodeData->loop, getPoll())) {
+            this->nodeData = nodeData;
+            cb(this);
         } else {
-            NodeData::asyncCallback(nodeData->async);
-        }
+//            // todo: libuv is not thread safe
+//            nodeData->asyncMutex->lock();
+//            //nodeData->transferQueue.push_back({new Poll, getFd(), socketData, getPollCallback(), cb});
+//            nodeData->asyncMutex->unlock();
 
-        stop(nodeData->loop);
-        SocketData::close(nodeData->loop);
+//            if (nodeData->tid != nodeData->tid) {
+//                nodeData->async->send();
+//            } else {
+//                NodeData::asyncCallback(nodeData->async);
+//            }
+
+//            stop(nodeData->loop);
+//            SocketData::close(nodeData->loop);
+        }
     }
 
-    static Poll *init(NodeData *nodeData, uv_os_sock_t fd, SSL *ssl) {
-        if (ssl) {
-            SSL_set_fd(ssl, fd);
-            SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
-        }
+    void changePoll(SocketData *socketData) {
+        if (!threadSafeChange(nodeData->loop, this, socketData->getPoll())) {
 
-        SocketData *socketData = new SocketData(nodeData, nodeData->loop, fd);
-        socketData->ssl = ssl;
-        socketData->state.poll = UV_READABLE;
-        return socketData;
+//            if (socketData->nodeData->tid != pthread_self()) {
+//                socketData->nodeData->asyncMutex->lock();
+//                socketData->nodeData->changePollQueue.push_back(socketData);
+//                socketData->nodeData->asyncMutex->unlock();
+//                socketData->nodeData->async->send();
+//            } else {
+//                change(socketData->nodeData->loop, socketData, socketData->getPoll());
+//            }
+        }
     }
+
+    // this is not used?
+//    static Poll *init(NodeData *nodeData, uv_os_sock_t fd, SSL *ssl) {
+//        if (ssl) {
+//            SSL_set_fd(ssl, fd);
+//            SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
+//        }
+
+//        SocketData *socketData = new SocketData(nodeData, nodeData->loop, fd);
+//        socketData->ssl = ssl;
+//        socketData->state.poll = UV_READABLE;
+//        return socketData;
+//    }
 
     void *getUserData() {
         return user;
@@ -46,10 +67,6 @@ struct WIN32_EXPORT Socket : SocketData {
 
     void setUserData(void *user) {
         this->user = user;
-    }
-
-    bool isClosed() {
-        return isClosing();
     }
 
     bool isShuttingDown() {
@@ -290,20 +307,6 @@ struct WIN32_EXPORT Socket : SocketData {
 
     void freeMessage(SocketData::Queue::Message *message) {
         delete [] (char *) message;
-    }
-
-    // threadSafeChange Linux epoll is thread safe!
-
-    // socketData is p!
-    void changePoll(SocketData *socketData) {
-        if (socketData->nodeData->tid != pthread_self()) {
-            socketData->nodeData->asyncMutex->lock();
-            socketData->nodeData->changePollQueue.push_back(socketData);
-            socketData->nodeData->asyncMutex->unlock();
-            socketData->nodeData->async->send();
-        } else {
-            change(socketData->nodeData->loop, socketData, socketData->getPoll());
-        }
     }
 
     bool write(SocketData::Queue::Message *message, bool &wasTransferred) {

@@ -174,7 +174,7 @@ struct SocketData : Poll {
     SSL *ssl;
     void *user = nullptr;
 
-    SocketData(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : nodeData(nodeData), Poll(loop, fd) {
+    SocketData(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : Poll(loop, fd), nodeData(nodeData) {
 
     }
 
