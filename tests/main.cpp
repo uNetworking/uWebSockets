@@ -955,7 +955,7 @@ int main(int argc, char *argv[])
     testHTTP();
     testSmallSends();
     testSendCallback();
-//    //testMultithreading();
+    testMultithreading();
     testReusePort();
     testRouting();
     testClosing();
