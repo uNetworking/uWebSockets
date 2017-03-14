@@ -95,6 +95,7 @@ void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMes
             messagePtr->reserved = callbackData;
         }
     } else {
+        nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
         if (callback) {
             callback(this, preparedMessage, true, callbackData);
         }

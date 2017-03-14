@@ -1,0 +1,91 @@
+websockets/ws 2.2: [1 mil]
+Connection performance: 8.52108 connections/ms
+Memory usage: 6394.27 mb of user space
+Memory performance: 156.39 connections/mb
+
+Echo performance: 74.2975 echoes/ms
+Echo performance: 74.5791 echoes/ms
+Echo performance: 74.7897 echoes/ms
+Echo performance: 75.0071 echoes/ms
+Echo performance: 75.1932 echoes/ms
+Echo performance: 75.3075 echoes/ms
+Echo performance: 75.4512 echoes/ms
+
+µWS tinymem: [1 mil]
+Connection performance: 96.9556 connections/ms
+Memory usage: 127.801 mb of user space
+Memory performance: 7824.68 connections/mb
+
+Echo performance: 1181.06 echoes/ms
+Echo performance: 1181.04 echoes/ms
+Echo performance: 1181.3 echoes/ms
+Echo performance: 1180.91 echoes/ms
+Echo performance: 1180.31 echoes/ms
+Echo performance: 1180.03 echoes/ms
+
+WebSocket++ 0.7.0: [500k]
+Connection performance: 17.1863 connections/ms
+Memory usage: 5630.26 mb of user space
+Memory performance: 88.8058 connections/mb
+
+Echo performance: 422.7 echoes/ms
+Echo performance: 422.488 echoes/ms
+Echo performance: 423.483 echoes/ms
+Echo performance: 424.896 echoes/ms
+Echo performance: 425.622 echoes/ms
+Echo performance: 423.962 echoes/ms
+Echo performance: 425.42 echoes/ms
+
+Crow 4e39b23: [1 mil]
+Connection performance: 42.4574 connections/ms
+Memory usage: 4501.24 mb of user space
+Memory performance: 222.161 connections/mb
+
+Echo performance: 104.888 echoes/ms
+Echo performance: 104.704 echoes/ms
+Echo performance: 105.31 echoes/ms
+Echo performance: 105.888 echoes/ms
+Echo performance: 106.118 echoes/ms
+
+Socket.IO 1.7.3: [300k]
+Connection performance: 2.347 connections/ms
+Memory usage: 6855.52 mb of user space
+Memory performance: 43.7603 connections/mb
+
+Echo performance: 21.0409 echoes/ms
+Echo performance: 21.0985 echoes/ms
+Echo performance: 21.1504 echoes/ms
+Echo performance: 21.1946 echoes/ms
+Echo performance: 21.2157 echoes/ms
+Echo performance: 21.2431 echoes/ms
+Echo performance: 21.2698 echoes/ms
+Echo performance: 21.295 echoes/ms
+Echo performance: 21.2704 echoes/ms
+
+Gorilla v1.1.0: [500k]
+Connection performance: 21.2603 connections/ms
+Memory usage: 7928.88 mb of user space
+Memory performance: 63.0606 connections/mb
+
+Echo performance: 132.658 echoes/ms
+Echo performance: 132.117 echoes/ms
+Echo performance: 131.655 echoes/ms
+Echo performance: 131.347 echoes/ms
+Echo performance: 131.1 echoes/ms
+Echo performance: 131.046 echoes/ms
+Echo performance: 130.952 echoes/ms
+Echo performance: 130.807 echoes/ms
+Echo performance: 130.703 echoes/ms
+
+Beast 1.0.0 b30: [1 mil]
+Connection performance: 35.9273 connections/ms
+Memory usage: 2862.71 mb of user space
+Memory performance: 349.32 connections/mb
+
+Echo performance: 75.6672 echoes/ms
+Echo performance: 75.6229 echoes/ms
+Echo performance: 75.2184 echoes/ms
+Echo performance: 75.1823 echoes/ms
+Echo performance: 75.1925 echoes/ms
+Echo performance: 75.1871 echoes/ms
+Echo performance: 75.2273 echoes/ms

@@ -1,7 +1,9 @@
-var io = require('socket.io')();
+var io = require('socket.io')(3000, { pingInterval: 60 * 60 * 1000 });
+
+function incoming(message) {
+    this.send(message);
+}
+
 io.on('connection', function(client){
-    client.on('message', function (message) {
-        client.send(message);
-    });
+    client.on('message', incoming);
 });
-io.listen(3000);

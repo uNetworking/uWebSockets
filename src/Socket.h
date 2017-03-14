@@ -382,6 +382,7 @@ struct WIN32_EXPORT Socket : SocketData {
                         messagePtr->callbackData = callbackData;
                     }
                 } else {
+                    nodeData->freeSmallMemoryBlock((char *) messagePtr, memoryIndex);
                     if (callback) {
                         callback(this, callbackData, true, nullptr);
                     }
@@ -402,6 +403,7 @@ struct WIN32_EXPORT Socket : SocketData {
                         messagePtr->callbackData = callbackData;
                     }
                 } else {
+                    freeMessage(messagePtr);
                     if (callback) {
                         callback(this, callbackData, true, nullptr);
                     }

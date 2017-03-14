@@ -24,11 +24,17 @@
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
 #define SHUT_WR SD_SEND
-#define htobe64(x) htonll(x)
-#define be64toh(x) ntohll(x)
-#define __thread __declspec(thread)
-#define pthread_t DWORD
-#define pthread_self GetCurrentThreadId
+#ifdef __MINGW32__
+    // Windows has always been tied to LE
+    #define htobe64(x) __builtin_bswap64(x)
+    #define be64toh(x) __builtin_bswap64(x)
+#else
+    #define __thread __declspec(thread)
+    #define htobe64(x) htonll(x)
+    #define be64toh(x) ntohll(x)
+    #define pthread_t DWORD
+    #define pthread_self GetCurrentThreadId
+#endif
 #define WIN32_EXPORT __declspec(dllexport)
 
 inline void close(SOCKET fd) {closesocket(fd);}
