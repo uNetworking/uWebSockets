@@ -71,5 +71,8 @@ Compile with Make:
 
 ###### Windows
 Compile with Visual C++ Community Edition 2015 or later. This workflow requires previous usage of vcpkg:
+* `vcpkg integrate install`
+* `vcpkg install libuv:x64-windows boost:x64-windows openssl:x64-windows zlib:x64-windows`
 * Open the VC++ project file
+* If you see a toolset upgrade prompt (i.e. you're using VS 2017), accept it
 * Click Build
