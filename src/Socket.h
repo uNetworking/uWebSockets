@@ -13,10 +13,14 @@ struct WIN32_EXPORT Socket : SocketData {
 
     }
 
+    // todo: needs to lock newLoop's numPolls when doing fastTransfer
     void transfer(NodeData *nodeData, void (*cb)(Poll *)) {
-        if (threadSafeTransfer(this->nodeData->loop, nodeData->loop, getPoll())) {
+        //nodeData->asyncMutex->lock();
+        if (fastTransfer(this->nodeData->loop, nodeData->loop, getPoll())) {
+            //nodeData->asyncMutex->unlock();
             this->nodeData = nodeData;
             cb(this);
+            //return;
         } else {
 //            // todo: libuv is not thread safe
 //            nodeData->asyncMutex->lock();
@@ -32,8 +36,10 @@ struct WIN32_EXPORT Socket : SocketData {
 //            stop(nodeData->loop);
 //            SocketData::close(nodeData->loop);
         }
+        //nodeData->asyncMutex->unlock();
     }
 
+    // todo: non-epoll implementations
     void changePoll(SocketData *socketData) {
         if (!threadSafeChange(nodeData->loop, this, socketData->getPoll())) {
 

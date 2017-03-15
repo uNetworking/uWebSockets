@@ -165,10 +165,12 @@ struct Poll {
         epoll_ctl(loop->epfd, EPOLL_CTL_DEL, state.fd, &event);
     }
 
-    bool threadSafeTransfer(Loop *loop, Loop *newLoop, int events) {
+    bool fastTransfer(Loop *loop, Loop *newLoop, int events) {
         stop(loop);
         start(newLoop, this, events);
         loop->numPolls--;
+        // needs to lock the newLoop's numPolls!
+        newLoop->numPolls++;
         return true;
     }
 

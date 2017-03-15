@@ -21,7 +21,7 @@ int countOccurrences(std::string word, std::string &document) {
     return count;
 }
 
-void serveAutobahn() {
+void testAutobahn() {
     uWS::Hub h;
 
     uWS::Group<uWS::SERVER> *sslGroup = h.createGroup<uWS::SERVER>(uWS::PERMESSAGE_DEFLATE);
@@ -202,7 +202,7 @@ void measureInternalThroughput(unsigned int payloadLength, int echoes, bool ssl)
     delete [] payload;
 }
 
-void stressTest() {
+void testStress() {
     for (int i = 0; i < 25; i++) {
         int payloadLength = std::pow(2, i);
         int echoes = 1;//std::max<int>(std::pow(2, 24 - i) / 50, 1);
@@ -576,8 +576,11 @@ void testSendCallback() {
 void testAutoPing() {
     uWS::Hub h;
 
-    h.onPing([](uWS::WebSocket<uWS::CLIENT> *ws, char *message, size_t length) {
+    int pongs = 0, pings = 0;
+
+    h.onPing([&pings](uWS::WebSocket<uWS::CLIENT> *ws, char *message, size_t length) {
         std::cout << "PING" << std::endl;
+        pings++;
     });
 
     h.onMessage([](uWS::WebSocket<uWS::CLIENT> *ws, char *message, size_t length, uWS::OpCode opCode) {
@@ -585,8 +588,17 @@ void testAutoPing() {
         ws->send(message, length, opCode);
     });
 
-    h.onPong([](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length) {
+    h.onPong([&pings, &pongs, &h](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length) {
         std::cout << "PONG" << std::endl;
+        pongs++;
+
+        if (pongs == 3) {
+            if (pings != pongs) {
+                std::cout << "FAILURE: mismatching ping/pongs" << std::endl;
+                exit(-1);
+            }
+            h.getDefaultGroup<uWS::SERVER>().close();
+        }
     });
 
     h.getDefaultGroup<uWS::SERVER>().startAutoPing(1000);
@@ -631,7 +643,27 @@ void testMessageBatch() {
         ws->finalizeMessage(prepared);
     });
 
+    int receivedMessages = 0;
+
+    h.onMessage([&receivedMessages, &h](uWS::WebSocket<uWS::CLIENT> *ws, char *message, size_t length, uWS::OpCode opCode) {
+        std::cout << "Received message from batch: " << std::string(message, length) << std::endl;
+        if (receivedMessages == 0) {
+            if (!strncmp(message, "hello", length)) {
+                receivedMessages++;
+            }
+        } else {
+            if (!strncmp(message, "world", length)) {
+                receivedMessages++;
+            }
+        }
+
+        if (receivedMessages == 2) {
+            h.getDefaultGroup<uWS::SERVER>().close();
+        }
+    });
+
     h.listen(3000);
+    h.connect("ws://localhost:3000", nullptr);
     h.run();
 }
 
@@ -957,18 +989,16 @@ int main(int argc, char *argv[])
     testHTTP();
     testSmallSends();
     testSendCallback();
-    //testMultithreading();
+    testMultithreading();
     testReusePort();
+    testStress();
     testRouting();
     testClosing();
     testConnections();
     testListening();
     testBroadcast();
-    stressTest();
-    serveAutobahn();
+    testMessageBatch();
+    testAutoPing();
 
-
-    //testAutoPing();
-    //serveBenchmark();
-    //testMessageBatch();
+    //testAutobahn();
 }

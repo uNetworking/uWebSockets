@@ -7,8 +7,6 @@
 #define MAX_HEADER_BUFFER_SIZE 4096
 #define FORCE_SLOW_PATH false
 
-#include <iostream>
-
 namespace uWS {
 
 // UNSAFETY NOTE: assumes *end == '\r' (might unref end pointer)
@@ -110,20 +108,20 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s_, char *data, size_t leng
                                                subprotocol.value, subprotocol.valueLength, &perMessageDeflate);
                             getGroup<SERVER>(httpSocket)->removeHttpSocket(httpSocket);
 
+                            // Warning: changes socket, needs to inform the stack of Poll address change!
                             WebSocket<SERVER> *webSocket = new WebSocket<SERVER>(perMessageDeflate, httpSocket);
                             webSocket->setState<WebSocket<SERVER>>();
                             webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
-
                             getGroup<SERVER>(webSocket)->addWebSocket(webSocket);
+
                             webSocket->cork(true);
                             getGroup<SERVER>(webSocket)->connectionHandler(webSocket, req);
+
+                            // cannot do this if closed!
                             webSocket->cork(false);
-
-                            // same here! we need to signal the loop that the poll has changed address!
                             delete httpSocket;
-                            // we changed state! return new socket pointer!
-                            return webSocket;
 
+                            return webSocket;
                         } else {
                             httpSocket->onEnd(httpSocket);
                         }
@@ -160,27 +158,24 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s_, char *data, size_t leng
                 }
             } else {
                 if (req.getHeader("upgrade", 7)) {
+
+                    // Warning: changes socket, needs to inform the stack of Poll address change!
                     WebSocket<CLIENT> *webSocket = new WebSocket<CLIENT>(false, httpSocket);
                     httpSocket->cancelTimeout();
                     webSocket->setUserData(httpSocket->httpUser);
-
-                    // if we delete the httpSocket we delete the poll! need to signal to the loop that the poll has changed address!
-                    delete httpSocket;
-
                     webSocket->setState<WebSocket<CLIENT>>();
                     webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
-
                     getGroup<CLIENT>(webSocket)->addWebSocket(webSocket);
+
                     webSocket->cork(true);
                     getGroup<CLIENT>(webSocket)->connectionHandler(webSocket, req);
-                    webSocket->cork(false);
-
                     if (!(webSocket->isClosed() || webSocket->isShuttingDown())) {
                         webSocket->consume(cursor, end - cursor, webSocket);
                     }
+                    webSocket->cork(false);
+                    delete httpSocket;
 
                     return webSocket;
-
                 } else {
                     httpSocket->onEnd(httpSocket);
                 }
