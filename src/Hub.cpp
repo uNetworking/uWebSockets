@@ -87,7 +87,7 @@ uS::Socket *allocateHttpSocket(uS::Socket *s) {
     return (uS::Socket *) new HttpSocket<CLIENT>(s, true);
 }
 
-void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh, std::string subprotocol) {
+void Hub::connect(std::string uri, void *user, std::map<std::string, std::string> extraHeaders, int timeoutMs, Group<CLIENT> *eh) {
     if (!eh) {
         eh = (Group<CLIENT> *) this;
     }
@@ -129,18 +129,23 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh,
             httpSocket->startTimeout<HttpSocket<CLIENT>::onEnd>(timeoutMs);
             httpSocket->httpUser = user;
 
-            std::string optionalSubprotocol;
-            if (!subprotocol.empty()) {
-                optionalSubprotocol = "Sec-WebSocket-Protocol: " + subprotocol + "\r\n";
-            }
-            // we should randomize the key
+            std::string randomKey = "x3JJHMbDL1EzLkh9GBhXDw==";
+//            for (int i = 0; i < 22; i++) {
+//                randomKey[i] = rand() %
+//            }
+
             httpSocket->httpBuffer = "GET /" + path + " HTTP/1.1\r\n"
                                      "Upgrade: websocket\r\n"
                                      "Connection: Upgrade\r\n"
-                                     "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"
-                                     "Host: " + hostname + "\r\n"
-                                     + optionalSubprotocol +
-                                     "Sec-WebSocket-Version: 13\r\n\r\n";
+                                     "Sec-WebSocket-Key: " + randomKey + "\r\n"
+                                     "Host: " + hostname + "\r\n" +
+                                     "Sec-WebSocket-Version: 13\r\n";
+
+            for (std::pair<std::string, std::string> header : extraHeaders) {
+                httpSocket->httpBuffer += header.first + ": " + header.second + "\r\n";
+            }
+
+            httpSocket->httpBuffer += "\r\n";
         } else {
             eh->errorHandler(user);
         }

@@ -266,9 +266,9 @@ void testConnections() {
 
     h.connect("invalid URI", (void *) 1);
     h.connect("ws://validButUnknown.yolo", (void *) 2);
-    h.connect("ws://echo.websocket.org", (void *) 3, 10);
+    h.connect("ws://echo.websocket.org", (void *) 3, {}, 10);
     h.connect("ws://echo.websocket.org", (void *) 8);
-    h.connect("wss://echo.websocket.org", (void *) 5, 10);
+    h.connect("wss://echo.websocket.org", (void *) 5, {}, 10);
     h.connect("wss://echo.websocket.org", (void *) 9);
     h.connect("ws://google.com", (void *) 6);
     h.connect("wss://google.com", (void *) 7);
@@ -410,13 +410,27 @@ void testBroadcast() {
 void testRouting() {
     uWS::Hub h;
 
-    h.onConnection([](uWS::WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
-        std::cout << "[Client] Connection, path: " << req.getUrl().toString() << ", subprotocol: " << req.getHeader("sec-websocket-subprotocol").toString() << std::endl;
+    int correctStrings = 0;
+
+    h.onConnection([&correctStrings](uWS::WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
+        if (req.getHeader("sec-websocket-protocol").toString() == "someSubProtocolHere") {
+            correctStrings++;
+        }
         ws->close();
     });
 
-    h.onConnection([](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
-        std::cout << "[Server] Connection, path: " << req.getUrl().toString() << ", subprotocol: " << req.getHeader("sec-websocket-subprotocol").toString() << std::endl;
+    h.onConnection([&correctStrings](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+        if (req.getHeader("sec-websocket-protocol").toString() == "someSubProtocolHere") {
+            correctStrings++;
+        }
+
+        if (req.getHeader("some-random-header").toString() == "someRandomValue") {
+            correctStrings++;
+        }
+
+        if (req.getUrl().toString() == "/somePathHere") {
+            correctStrings++;
+        }
     });
 
     h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> *ws, int code, char *message, size_t length) {
@@ -424,9 +438,16 @@ void testRouting() {
     });
 
     h.listen(3000);
-    h.connect("ws://localhost:3000/somePathHere", nullptr);
+    h.connect("ws://localhost:3000/somePathHere", nullptr, {{"sec-websocket-protocol", "someSubProtocolHere"}, {"some-random-header", "someRandomValue"}});
 
     h.run();
+
+    if (correctStrings != 4) {
+        std::cout << "FAILURE: incorrect paths or subprotocols " << correctStrings << std::endl;
+        exit(-1);
+    } else {
+        std::cout << "testRouting passed, falling through" << std::endl;
+    }
 }
 
 void testReusePort() {
