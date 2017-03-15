@@ -140,7 +140,7 @@ private:
     friend class uS::Socket;
     friend struct HttpResponse;
     friend struct Hub;
-    static void onData(uS::Socket *s, char *data, int length);
+    static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
     static void onEnd(uS::Socket *s);
 };
 

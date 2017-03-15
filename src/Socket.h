@@ -133,42 +133,36 @@ struct WIN32_EXPORT Socket : SocketData {
 
     template <class STATE>
     static void sslIoHandler(Poll *p, int status, int events) {
-        SocketData *socketData = (SocketData *) p;
-        NodeData *nodeData = socketData->nodeData;
         Socket *socket = (Socket *) p;
-        SSL *ssl = socketData->ssl;
 
         if (status < 0) {
             STATE::onEnd((Socket *) p);
             return;
         }
 
-        if (!socketData->messageQueue.empty() && ((events & UV_WRITABLE) || SSL_want(socketData->ssl) == SSL_READING)) {
+        if (!socket->messageQueue.empty() && ((events & UV_WRITABLE) || SSL_want(socket->ssl) == SSL_READING)) {
             socket->cork(true);
             while (true) {
-                SocketData::Queue::Message *messagePtr = socketData->messageQueue.front();
-                int sent = SSL_write(socketData->ssl, messagePtr->data, messagePtr->length);
+                SocketData::Queue::Message *messagePtr = socket->messageQueue.front();
+                int sent = SSL_write(socket->ssl, messagePtr->data, messagePtr->length);
                 if (sent == (ssize_t) messagePtr->length) {
                     if (messagePtr->callback) {
                         messagePtr->callback(p, messagePtr->callbackData, false, messagePtr->reserved);
                     }
-                    socketData->messageQueue.pop();
-                    if (socketData->messageQueue.empty()) {
-                        if ((socketData->state.poll & UV_WRITABLE) && SSL_want(socketData->ssl) != SSL_WRITING) {
-                            // todo, remove bit, don't set directly
-                            socketData->setPoll(UV_READABLE);
-                            p->change(socketData->nodeData->loop, socketData, socketData->getPoll());
+                    socket->messageQueue.pop();
+                    if (socket->messageQueue.empty()) {
+                        if ((socket->state.poll & UV_WRITABLE) && SSL_want(socket->ssl) != SSL_WRITING) {
+                            p->change(socket->nodeData->loop, socket, socket->setPoll(UV_READABLE));
                         }
                         break;
                     }
                 } else if (sent <= 0) {
-                    switch (SSL_get_error(socketData->ssl, sent)) {
+                    switch (SSL_get_error(socket->ssl, sent)) {
                     case SSL_ERROR_WANT_READ:
                         break;
                     case SSL_ERROR_WANT_WRITE:
-                        if ((socketData->getPoll() & UV_WRITABLE) == 0) {
-                            socketData->setPoll(socketData->getPoll() | UV_WRITABLE);
-                            p->change(socketData->nodeData->loop, socketData, socketData->getPoll());
+                        if ((socket->getPoll() & UV_WRITABLE) == 0) {
+                            p->change(socket->nodeData->loop, socket, socket->setPoll(socket->getPoll() | UV_WRITABLE));
                         }
                         break;
                     default:
@@ -183,15 +177,14 @@ struct WIN32_EXPORT Socket : SocketData {
 
         if (events & UV_READABLE) {
             do {
-                int length = SSL_read(ssl, nodeData->recvBuffer, nodeData->recvLength);
+                int length = SSL_read(socket->ssl, socket->nodeData->recvBuffer, socket->nodeData->recvLength);
                 if (length <= 0) {
-                    switch (SSL_get_error(ssl, length)) {
+                    switch (SSL_get_error(socket->ssl, length)) {
                     case SSL_ERROR_WANT_READ:
                         break;
                     case SSL_ERROR_WANT_WRITE:
-                        if ((socketData->getPoll() & UV_WRITABLE) == 0) {
-                            socketData->setPoll(socketData->getPoll() | UV_WRITABLE);
-                            p->change(socketData->nodeData->loop, socketData, socketData->getPoll());
+                        if ((socket->getPoll() & UV_WRITABLE) == 0) {
+                            p->change(socket->nodeData->loop, socket, socket->setPoll(socket->getPoll() | UV_WRITABLE));
                         }
                         break;
                     default:
@@ -200,12 +193,13 @@ struct WIN32_EXPORT Socket : SocketData {
                     }
                     break;
                 } else {
-                    STATE::onData((Socket *) p, nodeData->recvBuffer, length);
+                    // Warning: onData can delete the socket! Happens when HttpSocket upgrades
+                    socket = STATE::onData((Socket *) p, socket->nodeData->recvBuffer, length);
                     if (socket->isClosed() || socket->isShuttingDown()) {
                         return;
                     }
                 }
-            } while (SSL_pending(ssl));
+            } while (SSL_pending(socket->ssl));
         }
     }
 
@@ -272,7 +266,8 @@ struct WIN32_EXPORT Socket : SocketData {
         }
     }
 
-    void close() {
+    template <class T>
+    void closeSocket() {
         uv_os_sock_t fd = getFd();
         stop(nodeData->loop);
         ::close(fd);
@@ -281,7 +276,9 @@ struct WIN32_EXPORT Socket : SocketData {
             SSL_free(ssl);
         }
 
-        Poll::close(nodeData->loop);
+        Poll::close(nodeData->loop, [](Poll *p) {
+            delete (T *) p;
+        });
     }
 
     bool hasEmptyQueue() {

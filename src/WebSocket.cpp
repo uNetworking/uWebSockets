@@ -111,7 +111,7 @@ void WebSocket<isServer>::finalizeMessage(typename WebSocket<isServer>::Prepared
 }
 
 template <bool isServer>
-void WebSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
+uS::Socket *WebSocket<isServer>::onData(uS::Socket *s, char *data, size_t length) {
     WebSocket<isServer> *webSocket = (WebSocket<isServer> *) s;
 
     webSocket->hasOutstandingPong = false;
@@ -122,6 +122,8 @@ void WebSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
             webSocket->cork(false);
         }
     }
+
+    return webSocket;
 }
 
 template <bool isServer>
@@ -161,7 +163,7 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
         webSocket->cancelTimeout();
     }
 
-    s->close();
+    webSocket->closeSocket<WebSocket<isServer>>();
 
     while (!webSocket->messageQueue.empty()) {
         uS::SocketData::Queue::Message *message = webSocket->messageQueue.front();
@@ -170,8 +172,6 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
         }
         webSocket->messageQueue.pop();
     }
-
-    //delete webSocketData;
 }
 
 template struct WebSocket<SERVER>;

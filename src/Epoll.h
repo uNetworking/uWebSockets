@@ -34,7 +34,7 @@ struct Loop {
     epoll_event readyEvents[1024];
     std::chrono::system_clock::time_point timepoint;
     std::vector<Timepoint> timers;
-    std::vector<Poll *> closing;
+    std::vector<std::pair<Poll *, void (*)(Poll *)>> closing;
 
     Loop(bool defaultLoop) {
         epfd = epoll_create(1);
@@ -177,9 +177,9 @@ struct Poll {
         return true;
     }
 
-    void close(Loop *loop) {
+    void close(Loop *loop, void (*cb)(Poll *)) {
         state.fd = -1;
-        loop->closing.push_back(this);
+        loop->closing.push_back({this, cb});
     }
 };
 
@@ -212,7 +212,9 @@ struct Async : Poll {
     void close() {
         Poll::stop(loop);
         ::close(state.fd);
-        Poll::close(loop);
+        Poll::close(loop, [](Poll *p) {
+            delete p;
+        });
     }
 
     void setData(void *data) {

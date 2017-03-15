@@ -8,11 +8,10 @@ int cbHead = 0;
 void Loop::run() {
     timepoint = std::chrono::system_clock::now();
     while (numPolls) {
-        for (Poll *c : closing) {
+        for (std::pair<Poll *, void (*)(Poll *)> c : closing) {
             numPolls--;
 
-            // probably not correct
-            delete c;
+            c.second(c.first);
 
             if (!numPolls) {
                 closing.clear();

@@ -155,7 +155,7 @@ void Group<isServer>::stopListening() {
         if (listenData) {
             if (listenData) {
                 uS::Socket *s = (uS::Socket *) listenData;
-                s->close();
+                s->closeSocket<uS::ListenData>();
             } else if (listenData->listenTimer) {
                 uv_os_sock_t fd = listenData->sock;
                 listenData->listenTimer->stop();

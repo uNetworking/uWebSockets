@@ -55,8 +55,8 @@ static void base64(unsigned char *src, char *dst) {
 }
 
 template <bool isServer>
-void HttpSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
-    HttpSocket<isServer> *httpSocket = (HttpSocket<isServer> *) s;
+uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s_, char *data, size_t length) {
+    HttpSocket<isServer> *httpSocket = (HttpSocket<isServer> *) s_;
 
     httpSocket->cork(true);
 
@@ -64,7 +64,7 @@ void HttpSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
         httpSocket->missedDeadline = false;
         if (httpSocket->contentLength >= length) {
             getGroup<isServer>(httpSocket)->httpDataHandler(httpSocket->outstandingResponsesTail, data, length, httpSocket->contentLength -= length);
-            return;
+            return httpSocket;
         } else {
             getGroup<isServer>(httpSocket)->httpDataHandler(httpSocket->outstandingResponsesTail, data, httpSocket->contentLength, 0);
             data += httpSocket->contentLength;
@@ -75,8 +75,8 @@ void HttpSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
 
     if (FORCE_SLOW_PATH || httpSocket->httpBuffer.length()) {
         if (httpSocket->httpBuffer.length() + length > MAX_HEADER_BUFFER_SIZE) {
-            httpSocket->onEnd(s);
-            return;
+            httpSocket->onEnd(httpSocket);
+            return httpSocket;
         }
 
         httpSocket->httpBuffer.reserve(httpSocket->httpBuffer.length() + length + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
@@ -114,20 +114,23 @@ void HttpSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
                             webSocket->setState<WebSocket<SERVER>>();
                             webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
 
-                            // same here! we need to signal the loop that the poll has changed address!
-                            //delete httpSocket;
-
                             getGroup<SERVER>(webSocket)->addWebSocket(webSocket);
                             webSocket->cork(true);
                             getGroup<SERVER>(webSocket)->connectionHandler(webSocket, req);
                             webSocket->cork(false);
+
+                            // same here! we need to signal the loop that the poll has changed address!
+                            delete httpSocket;
+                            // we changed state! return new socket pointer!
+                            return webSocket;
+
                         } else {
-                            httpSocket->onEnd(s);
+                            httpSocket->onEnd(httpSocket);
                         }
                     }
-                    return;
+                    return httpSocket;
                 } else {
-                    if (getGroup<SERVER>(s)->httpRequestHandler) {
+                    if (getGroup<SERVER>(httpSocket)->httpRequestHandler) {
 
                         HttpResponse *res = HttpResponse::allocateResponse(httpSocket);
                         if (httpSocket->outstandingResponsesTail) {
@@ -141,18 +144,18 @@ void HttpSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
                         if (req.getMethod() != HttpMethod::METHOD_GET && (contentLength = req.getHeader("content-length", 14))) {
                             httpSocket->contentLength = atoi(contentLength.value);
                             size_t bytesToRead = std::min<int>(httpSocket->contentLength, end - cursor);
-                            getGroup<SERVER>(s)->httpRequestHandler(res, req, cursor, bytesToRead, httpSocket->contentLength -= bytesToRead);
+                            getGroup<SERVER>(httpSocket)->httpRequestHandler(res, req, cursor, bytesToRead, httpSocket->contentLength -= bytesToRead);
                             cursor += bytesToRead;
                         } else {
-                            getGroup<SERVER>(s)->httpRequestHandler(res, req, nullptr, 0, 0);
+                            getGroup<SERVER>(httpSocket)->httpRequestHandler(res, req, nullptr, 0, 0);
                         }
 
                         if (httpSocket->isClosed() || httpSocket->isShuttingDown()) {
-                            return;
+                            return httpSocket;
                         }
                     } else {
                         httpSocket->onEnd(httpSocket);
-                        return;
+                        return httpSocket;
                     }
                 }
             } else {
@@ -162,7 +165,7 @@ void HttpSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
                     webSocket->setUserData(httpSocket->httpUser);
 
                     // if we delete the httpSocket we delete the poll! need to signal to the loop that the poll has changed address!
-                    //delete httpSocket;
+                    delete httpSocket;
 
                     webSocket->setState<WebSocket<CLIENT>>();
                     webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
@@ -175,25 +178,30 @@ void HttpSocket<isServer>::onData(uS::Socket *s, char *data, int length) {
                     if (!(webSocket->isClosed() || webSocket->isShuttingDown())) {
                         webSocket->consume(cursor, end - cursor, webSocket);
                     }
+
+                    return webSocket;
+
                 } else {
-                    httpSocket->onEnd(s);
+                    httpSocket->onEnd(httpSocket);
                 }
-                return;
+                return httpSocket;
             }
         } else {
             if (!httpSocket->httpBuffer.length()) {
                 if (length > MAX_HEADER_BUFFER_SIZE) {
-                    httpSocket->onEnd(s);
+                    httpSocket->onEnd(httpSocket);
                 } else {
                     httpSocket->httpBuffer.append(lastCursor, end - lastCursor);
                 }
             }
-            return;
+            return httpSocket;
         }
     } while(cursor != end);
 
     httpSocket->cork(false);
     httpSocket->httpBuffer.clear();
+
+    return httpSocket;
 }
 
 // todo: make this into a transformer and make use of sendTransformed
@@ -273,7 +281,7 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
         s->cancelTimeout();
     }
 
-    s->close();
+    s->closeSocket<HttpSocket<isServer>>();
 
     while (!httpSocket->messageQueue.empty()) {
         uS::SocketData::Queue::Message *message = httpSocket->messageQueue.front();
@@ -298,8 +306,6 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
         s->cancelTimeout();
         getGroup<CLIENT>(s)->errorHandler(httpSocket->httpUser);
     }
-
-    //delete httpSocketData;
 }
 
 template struct HttpSocket<SERVER>;
