@@ -117,23 +117,23 @@ public:
 //            listenData->listenPoll->start(listenData->nodeData->loop, listenData, UV_READABLE);
 //        }
         do {
-    #ifdef __APPLE__
-        int noSigpipe = 1;
-        setsockopt(clientFd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
-    #endif
+#ifdef __APPLE__
+            int noSigpipe = 1;
+            setsockopt(clientFd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
+#endif
 
-        SSL *ssl = nullptr;
-        if (listenData->sslContext) {
-            ssl = SSL_new(listenData->sslContext.getNativeContext());
-            SSL_set_fd(ssl, clientFd);
-            SSL_set_accept_state(ssl);
-            SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
-        }
+            SSL *ssl = nullptr;
+            if (listenData->sslContext) {
+                ssl = SSL_new(listenData->sslContext.getNativeContext());
+                SSL_set_fd(ssl, clientFd);
+                SSL_set_accept_state(ssl);
+                SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
+            }
 
-        SocketData *socketData = new SocketData(listenData->nodeData, listenData->nodeData->loop, clientFd);
-        socketData->ssl = ssl;
-        socketData->setPoll(UV_READABLE);
-        A((Socket *) socketData);
+            Socket *socket = new Socket(listenData->nodeData, listenData->nodeData->loop, clientFd);
+            socket->ssl = ssl;
+            socket->setPoll(UV_READABLE);
+            A(socket);
         } while ((clientFd = accept(serverFd, nullptr, nullptr)) != INVALID_SOCKET);
     }
 

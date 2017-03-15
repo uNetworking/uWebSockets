@@ -38,9 +38,9 @@ struct WIN32_EXPORT WebSocket : uS::Socket, WebSocketProtocol<isServer> {
     void transfer(Group<isServer> *group) {
         ((Group<isServer> *) nodeData)->removeWebSocket(this);
         uS::Socket::transfer((uS::NodeData *) group, [](Poll *p) {
-            uS::Socket *s = (uS::Socket *) p;
-            ((Group<isServer> *) s->nodeData)->addWebSocket(s);
-            ((Group<isServer> *) s->nodeData)->transferHandler((uWS::WebSocket<isServer> *) s);
+            WebSocket<isServer> *webSocket = (WebSocket<isServer> *) p;
+            ((Group<isServer> *) webSocket->nodeData)->addWebSocket(webSocket);
+            ((Group<isServer> *) webSocket->nodeData)->transferHandler(webSocket);
         });
     }
 

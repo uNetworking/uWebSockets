@@ -108,7 +108,7 @@ struct HttpRequest {
 struct HttpResponse;
 
 template <const bool isServer>
-struct WIN32_EXPORT HttpSocket : private uS::Socket {
+struct WIN32_EXPORT HttpSocket : uS::Socket {
     void *httpUser; // remove this later, setTimeout occupies user for now
     HttpResponse *outstandingResponsesHead = nullptr;
     HttpResponse *outstandingResponsesTail = nullptr;
@@ -149,7 +149,7 @@ struct HttpResponse {
     HttpResponse *next = nullptr;
     void *userData = nullptr;
     void *extraUserData = nullptr;
-    uS::SocketData::Queue::Message *messageQueue = nullptr;
+    HttpSocket<true>::Queue::Message *messageQueue = nullptr;
     bool hasEnded = false;
     bool hasHead = false;
 

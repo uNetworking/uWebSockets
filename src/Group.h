@@ -32,8 +32,9 @@ struct WIN32_EXPORT Group : uS::NodeData {
 
     Hub *hub;
     int extensionOptions;
-    Timer *timer = nullptr;
+    Timer *timer = nullptr, *httpTimer = nullptr;
     std::string userPingMessage;
+    std::stack<Poll *> iterators;
 
     // todo: cannot be named user, collides with parent!
     void *userData = nullptr;
@@ -42,15 +43,15 @@ struct WIN32_EXPORT Group : uS::NodeData {
     void startAutoPing(int intervalMs, std::string userMessage = "");
     static void timerCallback(Timer *timer);
 
-    Poll *webSocketHead = nullptr, *httpSocketHead = nullptr;
-    void addWebSocket(Poll *webSocket);
-    void removeWebSocket(Poll *webSocket);
+    WebSocket<isServer> *webSocketHead = nullptr;
+    HttpSocket<isServer> *httpSocketHead = nullptr;
 
-    Timer *httpTimer = nullptr;
-    void addHttpSocket(Poll *httpSocket);
-    void removeHttpSocket(Poll *httpSocket);
+    void addWebSocket(WebSocket<isServer> *webSocket);
+    void removeWebSocket(WebSocket<isServer> *webSocket);
 
-    std::stack<Poll *> iterators;
+    // todo: remove these, template
+    void addHttpSocket(HttpSocket<isServer> *httpSocket);
+    void removeHttpSocket(HttpSocket<isServer> *httpSocket);
 
 protected:
     Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData);

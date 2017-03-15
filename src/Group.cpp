@@ -40,20 +40,14 @@ void Group<isServer>::startAutoPing(int intervalMs, std::string userMessage) {
     userPingMessage = userMessage;
 }
 
-// WIP
 template <bool isServer>
-void Group<isServer>::addHttpSocket(Poll *httpSocket) {
-
-    // always clear last chain!
-    ((uS::SocketData *) httpSocket)->next = nullptr;
-    ((uS::SocketData *) httpSocket)->prev = nullptr;
-
+void Group<isServer>::addHttpSocket(HttpSocket<isServer> *httpSocket) {
     if (httpSocketHead) {
-        uS::SocketData *nextData = (uS::SocketData *) httpSocketHead;
-        nextData->prev = httpSocket;
-        uS::SocketData *data = (uS::SocketData *) httpSocket;
-        data->next = httpSocketHead;
+        httpSocketHead->prev = httpSocket;
+        httpSocket->next = httpSocketHead;
     } else {
+        httpSocket->next = nullptr;
+        // start timer
         httpTimer = new Timer(hub->getLoop());
         httpTimer->setData(this);
         httpTimer->start([](Timer *httpTimer) {
@@ -68,65 +62,57 @@ void Group<isServer>::addHttpSocket(Poll *httpSocket) {
         }, 1000, 1000);
     }
     httpSocketHead = httpSocket;
+    httpSocket->prev = nullptr;
 }
 
-// WIP
 template <bool isServer>
-void Group<isServer>::removeHttpSocket(Poll *httpSocket) {
-    uS::SocketData *socketData = (uS::SocketData *) httpSocket;
+void Group<isServer>::removeHttpSocket(HttpSocket<isServer> *httpSocket) {
     if (iterators.size()) {
-        iterators.top() = socketData->next;
+        iterators.top() = httpSocket->next;
     }
-    if (socketData->prev == socketData->next) {
-        httpSocketHead = (Poll *) nullptr;
-
+    if (httpSocket->prev == httpSocket->next) {
+        httpSocketHead = nullptr;
         httpTimer->stop();
         httpTimer->close();
-
     } else {
-        if (socketData->prev) {
-            ((uS::SocketData *) socketData->prev)->next = socketData->next;
+        if (httpSocket->prev) {
+            ((HttpSocket<isServer> *) httpSocket->prev)->next = httpSocket->next;
         } else {
-            httpSocketHead = socketData->next;
+            httpSocketHead = (HttpSocket<isServer> *) httpSocket->next;
         }
-        if (socketData->next) {
-            ((uS::SocketData *) socketData->next)->prev = socketData->prev;
+        if (httpSocket->next) {
+            ((HttpSocket<isServer> *) httpSocket->next)->prev = httpSocket->prev;
         }
     }
 }
 
 template <bool isServer>
-void Group<isServer>::addWebSocket(Poll *webSocket) {
-
-    // always clear last chain!
-    ((uS::SocketData *) webSocket)->next = nullptr;
-    ((uS::SocketData *) webSocket)->prev = nullptr;
-
+void Group<isServer>::addWebSocket(WebSocket<isServer> *webSocket) {
     if (webSocketHead) {
-        uS::SocketData *nextData = (uS::SocketData *) webSocketHead;
-        nextData->prev = webSocket;
-        uS::SocketData *data = (uS::SocketData *) webSocket;
-        data->next = webSocketHead;
+        webSocketHead->prev = webSocket;
+        webSocket->next = webSocketHead;
+    } else {
+        webSocket->next = nullptr;
     }
     webSocketHead = webSocket;
+    webSocket->prev = nullptr;
 }
 
 template <bool isServer>
-void Group<isServer>::removeWebSocket(Poll *webSocket) {
-    uS::SocketData *socketData = (uS::SocketData *) webSocket;
+void Group<isServer>::removeWebSocket(WebSocket<isServer> *webSocket) {
     if (iterators.size()) {
-        iterators.top() = socketData->next;
+        iterators.top() = webSocket->next;
     }
-    if (socketData->prev == socketData->next) {
-        webSocketHead = (Poll *) nullptr;
+    if (webSocket->prev == webSocket->next) {
+        webSocketHead = nullptr;
     } else {
-        if (socketData->prev) {
-            ((uS::SocketData *) socketData->prev)->next = socketData->next;
+        if (webSocket->prev) {
+            ((WebSocket<isServer> *) webSocket->prev)->next = webSocket->next;
         } else {
-            webSocketHead = socketData->next;
+            webSocketHead = (WebSocket<isServer> *) webSocket->next;
         }
-        if (socketData->next) {
-            ((uS::SocketData *) socketData->next)->prev = socketData->prev;
+        if (webSocket->next) {
+            ((WebSocket<isServer> *) webSocket->next)->prev = webSocket->prev;
         }
     }
 }

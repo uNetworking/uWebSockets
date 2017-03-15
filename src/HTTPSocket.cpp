@@ -53,8 +53,8 @@ static void base64(unsigned char *src, char *dst) {
 }
 
 template <bool isServer>
-uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s_, char *data, size_t length) {
-    HttpSocket<isServer> *httpSocket = (HttpSocket<isServer> *) s_;
+uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t length) {
+    HttpSocket<isServer> *httpSocket = (HttpSocket<isServer> *) s;
 
     httpSocket->cork(true);
 
@@ -106,7 +106,7 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s_, char *data, size_t leng
                             bool perMessageDeflate;
                             httpSocket->upgrade(secKey.value, extensions.value, extensions.valueLength,
                                                subprotocol.value, subprotocol.valueLength, &perMessageDeflate);
-                            getGroup<SERVER>(httpSocket)->removeHttpSocket(httpSocket);
+                            getGroup<isServer>(httpSocket)->removeHttpSocket(httpSocket);
 
                             // Warning: changes socket, needs to inform the stack of Poll address change!
                             WebSocket<SERVER> *webSocket = new WebSocket<SERVER>(perMessageDeflate, httpSocket);
@@ -116,8 +116,7 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s_, char *data, size_t leng
 
                             webSocket->cork(true);
                             getGroup<SERVER>(webSocket)->connectionHandler(webSocket, req);
-
-                            // cannot do this if closed!
+                            // todo: should not uncork if closed!
                             webSocket->cork(false);
                             delete httpSocket;
 
@@ -204,7 +203,7 @@ template <bool isServer>
 void HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, size_t extensionsLength,
                                    const char *subprotocol, size_t subprotocolLength, bool *perMessageDeflate) {
 
-    uS::SocketData::Queue::Message *messagePtr;
+    Queue::Message *messagePtr;
 
     if (isServer) {
         *perMessageDeflate = false;
@@ -269,8 +268,8 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
 
     if (!s->isShuttingDown()) {
         if (isServer) {
-            getGroup<isServer>(s)->removeHttpSocket(s);
-            getGroup<isServer>(s)->httpDisconnectionHandler(httpSocket);
+            getGroup<isServer>(httpSocket)->removeHttpSocket(httpSocket);
+            getGroup<isServer>(httpSocket)->httpDisconnectionHandler(httpSocket);
         }
     } else {
         s->cancelTimeout();
@@ -279,7 +278,7 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
     s->closeSocket<HttpSocket<isServer>>();
 
     while (!httpSocket->messageQueue.empty()) {
-        uS::SocketData::Queue::Message *message = httpSocket->messageQueue.front();
+        Queue::Message *message = httpSocket->messageQueue.front();
         if (message->callback) {
             message->callback(nullptr, message->callbackData, true, nullptr);
         }
