@@ -239,7 +239,7 @@ void Group<isServer>::onCancelledHttpRequest(std::function<void (HttpResponse *)
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpUpgrade(std::function<void(HttpSocket<isServer>, HttpRequest)> handler) {
+void Group<isServer>::onHttpUpgrade(std::function<bool(HttpSocket<isServer>, HttpRequest)> handler) {
     httpUpgradeHandler = handler;
 }
 

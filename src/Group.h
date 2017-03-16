@@ -27,7 +27,7 @@ struct WIN32_EXPORT Group : uS::NodeData {
     std::function<void(HttpResponse *)> httpCancelledRequestHandler;
 
     std::function<void(HttpSocket<isServer>)> httpDisconnectionHandler;
-    std::function<void(HttpSocket<isServer>, HttpRequest)> httpUpgradeHandler;
+    std::function<bool(HttpSocket<isServer>, HttpRequest)> httpUpgradeHandler;
 
     using errorType = typename std::conditional<isServer, int, void *>::type;
     std::function<void(errorType)> errorHandler;
@@ -73,7 +73,7 @@ public:
     void onHttpData(std::function<void(HttpResponse *, char *data, size_t length, size_t remainingBytes)> handler);
     void onHttpDisconnection(std::function<void(HttpSocket<isServer>)> handler);
     void onCancelledHttpRequest(std::function<void(HttpResponse *)> handler);
-    void onHttpUpgrade(std::function<void(HttpSocket<isServer>, HttpRequest)> handler);
+    void onHttpUpgrade(std::function<bool(HttpSocket<isServer>, HttpRequest)> handler);
 
 
     void broadcast(const char *message, size_t length, OpCode opCode);
