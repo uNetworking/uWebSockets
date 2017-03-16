@@ -1,3 +1,21 @@
+ws-rs 0.6.0: [1 mil]
+Connection performance: 35.4723 connections/ms
+Memory usage: 990.016 mb of user space
+Memory performance: 1010.09 connections/mb
+
+Echo performance: 554.128 echoes/ms
+Echo performance: 554.198 echoes/ms
+Echo performance: 554.404 echoes/ms
+Echo performance: 554.375 echoes/ms
+Echo performance: 554.483 echoes/ms
+Echo performance: 554.454 echoes/ms
+Echo performance: 554.821 echoes/ms
+Echo performance: 555.134 echoes/ms
+Echo performance: 555.141 echoes/ms
+Echo performance: 555.02 echoes/ms
+Echo performance: 554.819 echoes/ms
+Echo performance: 554.787 echoes/ms
+
 websockets/ws 2.2: [1 mil]
 Connection performance: 8.52108 connections/ms
 Memory usage: 6394.27 mb of user space
