@@ -7,10 +7,77 @@
 
 namespace uS {
 
-struct WIN32_EXPORT Socket : SocketData {
+// perfectly 64 bytes (4 + 60)
+struct WIN32_EXPORT Socket : Poll {
+    struct {
+        int poll : 4;
+        int shuttingDown : 4;
+    } state = {0, false};
 
-    Socket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : SocketData(nodeData, loop, fd) {
+    NodeData *nodeData;
+    SSL *ssl;
+    void *user = nullptr;
 
+    Socket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : Poll(loop, fd), nodeData(nodeData) {
+
+    }
+
+    // this is not needed by HttpSocket!
+    struct Queue {
+        struct Message {
+            const char *data;
+            size_t length;
+            Message *nextMessage = nullptr;
+            void (*callback)(void *socket, void *data, bool cancelled, void *reserved) = nullptr;
+            void *callbackData = nullptr, *reserved = nullptr;
+        };
+
+        Message *head = nullptr, *tail = nullptr;
+        void pop()
+        {
+            Message *nextMessage;
+            if ((nextMessage = head->nextMessage)) {
+                delete [] (char *) head;
+                head = nextMessage;
+            } else {
+                delete [] (char *) head;
+                head = tail = nullptr;
+            }
+        }
+
+        bool empty() {return head == nullptr;}
+        Message *front() {return head;}
+
+        void push(Message *message)
+        {
+            message->nextMessage = nullptr;
+            if (tail) {
+                tail->nextMessage = message;
+                tail = message;
+            } else {
+                head = message;
+                tail = message;
+            }
+        }
+    } messageQueue;
+
+    Poll *next = nullptr, *prev = nullptr;
+
+    int getPoll() {
+        return state.poll;
+    }
+
+    int setPoll(int poll) {
+        state.poll = poll;
+        return poll;
+    }
+
+    bool isShuttingDown() {
+        return state.shuttingDown;
+    }
+
+    void setShuttingDown(bool shuttingDown) {
+        state.shuttingDown = shuttingDown;
     }
 
     // todo: needs to lock newLoop's numPolls when doing fastTransfer
@@ -34,20 +101,20 @@ struct WIN32_EXPORT Socket : SocketData {
 //            }
 
 //            stop(nodeData->loop);
-//            SocketData::close(nodeData->loop);
+//            close(nodeData->loop);
         }
         //nodeData->asyncMutex->unlock();
     }
 
-    void changePoll(SocketData *socketData) {
-        if (!threadSafeChange(nodeData->loop, this, socketData->getPoll())) {
-            if (socketData->nodeData->tid != pthread_self()) {
-                socketData->nodeData->asyncMutex->lock();
-                socketData->nodeData->changePollQueue.push_back(socketData);
-                socketData->nodeData->asyncMutex->unlock();
-                socketData->nodeData->async->send();
+    void changePoll(Socket *socket) {
+        if (!threadSafeChange(nodeData->loop, this, socket->getPoll())) {
+            if (socket->nodeData->tid != pthread_self()) {
+                socket->nodeData->asyncMutex->lock();
+                socket->nodeData->changePollQueue.push_back(socket);
+                socket->nodeData->asyncMutex->unlock();
+                socket->nodeData->async->send();
             } else {
-                change(socketData->nodeData->loop, socketData, socketData->getPoll());
+                change(socket->nodeData->loop, socket, socket->getPoll());
             }
         }
     }
@@ -71,10 +138,6 @@ struct WIN32_EXPORT Socket : SocketData {
 
     void setUserData(void *user) {
         this->user = user;
-    }
-
-    bool isShuttingDown() {
-        return state.shuttingDown;
     }
 
     struct Address {
@@ -147,7 +210,7 @@ struct WIN32_EXPORT Socket : SocketData {
         if (!socket->messageQueue.empty() && ((events & UV_WRITABLE) || SSL_want(socket->ssl) == SSL_READING)) {
             socket->cork(true);
             while (true) {
-                SocketData::Queue::Message *messagePtr = socket->messageQueue.front();
+                Queue::Message *messagePtr = socket->messageQueue.front();
                 int sent = SSL_write(socket->ssl, messagePtr->data, messagePtr->length);
                 if (sent == (ssize_t) messagePtr->length) {
                     if (messagePtr->callback) {
@@ -209,9 +272,8 @@ struct WIN32_EXPORT Socket : SocketData {
 
     template <class STATE>
     static void ioHandler(Poll *p, int status, int events) {
-        SocketData *socketData = (SocketData *) p;
-        NodeData *nodeData = socketData->nodeData;
         Socket *socket = (Socket *) p;
+        NodeData *nodeData = socket->nodeData;
 
         if (status < 0) {
             STATE::onEnd((Socket *) p);
@@ -219,19 +281,19 @@ struct WIN32_EXPORT Socket : SocketData {
         }
 
         if (events & UV_WRITABLE) {
-            if (!socketData->messageQueue.empty() && (events & UV_WRITABLE)) {
+            if (!socket->messageQueue.empty() && (events & UV_WRITABLE)) {
                 socket->cork(true);
                 while (true) {
-                    SocketData::Queue::Message *messagePtr = socketData->messageQueue.front();
+                    Queue::Message *messagePtr = socket->messageQueue.front();
                     ssize_t sent = ::send(socket->getFd(), messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
                     if (sent == (ssize_t) messagePtr->length) {
                         if (messagePtr->callback) {
                             messagePtr->callback(p, messagePtr->callbackData, false, messagePtr->reserved);
                         }
-                        socketData->messageQueue.pop();
-                        if (socketData->messageQueue.empty()) {
+                        socket->messageQueue.pop();
+                        if (socket->messageQueue.empty()) {
                             // todo, remove bit, don't set directly
-                            p->change(socketData->nodeData->loop, socketData, socketData->setPoll(UV_READABLE));
+                            p->change(socket->nodeData->loop, socket, socket->setPoll(UV_READABLE));
                             break;
                         }
                     } else if (sent == SOCKET_ERROR) {
@@ -289,14 +351,14 @@ struct WIN32_EXPORT Socket : SocketData {
         return messageQueue.empty();
     }
 
-    void enqueue(SocketData::Queue::Message *message) {
+    void enqueue(Queue::Message *message) {
         messageQueue.push(message);
     }
 
-    SocketData::Queue::Message *allocMessage(size_t length, const char *data = 0) {
-        SocketData::Queue::Message *messagePtr = (SocketData::Queue::Message *) new char[sizeof(SocketData::Queue::Message) + length];
+    Queue::Message *allocMessage(size_t length, const char *data = 0) {
+        Queue::Message *messagePtr = (Queue::Message *) new char[sizeof(Queue::Message) + length];
         messagePtr->length = length;
-        messagePtr->data = ((char *) messagePtr) + sizeof(SocketData::Queue::Message);
+        messagePtr->data = ((char *) messagePtr) + sizeof(Queue::Message);
         messagePtr->nextMessage = nullptr;
 
         if (data) {
@@ -306,11 +368,11 @@ struct WIN32_EXPORT Socket : SocketData {
         return messagePtr;
     }
 
-    void freeMessage(SocketData::Queue::Message *message) {
+    void freeMessage(Queue::Message *message) {
         delete [] (char *) message;
     }
 
-    bool write(SocketData::Queue::Message *message, bool &wasTransferred) {
+    bool write(Queue::Message *message, bool &wasTransferred) {
         ssize_t sent = 0;
         if (messageQueue.empty()) {
 
@@ -360,15 +422,15 @@ struct WIN32_EXPORT Socket : SocketData {
 
     template <class T, class D>
     void sendTransformed(const char *message, size_t length, void(*callback)(void *socket, void *data, bool cancelled, void *reserved), void *callbackData, D transformData) {
-        size_t estimatedLength = T::estimate(message, length) + sizeof(uS::SocketData::Queue::Message);
+        size_t estimatedLength = T::estimate(message, length) + sizeof(Queue::Message);
 
         if (hasEmptyQueue()) {
             if (estimatedLength <= uS::NodeData::preAllocMaxSize) {
                 int memoryLength = estimatedLength;
                 int memoryIndex = nodeData->getMemoryBlockIndex(memoryLength);
 
-                uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) nodeData->getSmallMemoryBlock(memoryIndex);
-                messagePtr->data = ((char *) messagePtr) + sizeof(uS::SocketData::Queue::Message);
+                Queue::Message *messagePtr = (Queue::Message *) nodeData->getSmallMemoryBlock(memoryIndex);
+                messagePtr->data = ((char *) messagePtr) + sizeof(Queue::Message);
                 messagePtr->length = T::transform(message, (char *) messagePtr->data, length, transformData);
 
                 bool wasTransferred;
@@ -389,7 +451,7 @@ struct WIN32_EXPORT Socket : SocketData {
                     }
                 }
             } else {
-                uS::SocketData::Queue::Message *messagePtr = allocMessage(estimatedLength - sizeof(uS::SocketData::Queue::Message));
+                Queue::Message *messagePtr = allocMessage(estimatedLength - sizeof(Queue::Message));
                 messagePtr->length = T::transform(message, (char *) messagePtr->data, length, transformData);
 
                 bool wasTransferred;
@@ -411,13 +473,24 @@ struct WIN32_EXPORT Socket : SocketData {
                 }
             }
         } else {
-            uS::SocketData::Queue::Message *messagePtr = allocMessage(estimatedLength - sizeof(uS::SocketData::Queue::Message));
+            Queue::Message *messagePtr = allocMessage(estimatedLength - sizeof(Queue::Message));
             messagePtr->length = T::transform(message, (char *) messagePtr->data, length, transformData);
             messagePtr->callback = callback;
             messagePtr->callbackData = callbackData;
             enqueue(messagePtr);
         }
     }
+};
+
+struct ListenData : Socket {
+
+    ListenData(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : Socket(nodeData, loop, fd) {
+
+    }
+
+    Timer *listenTimer = nullptr;
+    uv_os_sock_t sock;
+    uS::TLS::Context sslContext;
 };
 
 }

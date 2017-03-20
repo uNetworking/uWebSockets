@@ -87,7 +87,7 @@ public:
             cb((WebSocket<isServer> *) iterator);
             iterator = iterators.top();
             if (lastIterator == iterator) {
-                iterator = ((uS::SocketData *) iterator)->next;
+                iterator = ((uS::Socket *) iterator)->next;
                 iterators.top() = iterator;
             }
         }
@@ -104,7 +104,7 @@ public:
             cb((HttpSocket<isServer> *) iterator);
             iterator = iterators.top();
             if (lastIterator == iterator) {
-                iterator = ((uS::SocketData *) iterator)->next;
+                iterator = ((uS::Socket *) iterator)->next;
                 iterators.top() = iterator;
             }
         }

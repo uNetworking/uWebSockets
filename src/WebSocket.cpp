@@ -75,10 +75,10 @@ void WebSocket<isServer>::sendPrepared(typename WebSocket<isServer>::PreparedMes
     };
 
     // candidate for fixed size pool allocator
-    int memoryLength = sizeof(uS::SocketData::Queue::Message);
+    int memoryLength = sizeof(Queue::Message);
     int memoryIndex = nodeData->getMemoryBlockIndex(memoryLength);
 
-    uS::SocketData::Queue::Message *messagePtr = (uS::SocketData::Queue::Message *) nodeData->getSmallMemoryBlock(memoryIndex);
+    Queue::Message *messagePtr = (Queue::Message *) nodeData->getSmallMemoryBlock(memoryIndex);
     messagePtr->data = preparedMessage->buffer;
     messagePtr->length = preparedMessage->length;
 
@@ -166,7 +166,7 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
     webSocket->closeSocket<WebSocket<isServer>>();
 
     while (!webSocket->messageQueue.empty()) {
-        uS::SocketData::Queue::Message *message = webSocket->messageQueue.front();
+        Queue::Message *message = webSocket->messageQueue.front();
         if (message->callback) {
             message->callback(nullptr, message->callbackData, true, nullptr);
         }

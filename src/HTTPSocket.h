@@ -221,7 +221,7 @@ struct HttpResponse {
         };
 
         if (httpSocket->outstandingResponsesHead != this) {
-            uS::SocketData::Queue::Message *messagePtr = httpSocket->allocMessage(HttpTransformer::estimate(message, length));
+            uS::Socket::Queue::Message *messagePtr = httpSocket->allocMessage(HttpTransformer::estimate(message, length));
             messagePtr->length = HttpTransformer::transform(message, (char *) messagePtr->data, length, transformData);
             messagePtr->callback = callback;
             messagePtr->callbackData = callbackData;
@@ -234,9 +234,9 @@ struct HttpResponse {
             HttpResponse *head = next;
             while (head) {
                 // empty message queue
-                uS::SocketData::Queue::Message *messagePtr = head->messageQueue;
+                uS::Socket::Queue::Message *messagePtr = head->messageQueue;
                 while (messagePtr) {
-                    uS::SocketData::Queue::Message *nextMessage = messagePtr->nextMessage;
+                    uS::Socket::Queue::Message *nextMessage = messagePtr->nextMessage;
 
                     bool wasTransferred;
                     if (httpSocket->write(messagePtr, wasTransferred)) {

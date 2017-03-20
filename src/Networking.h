@@ -25,15 +25,15 @@
 #include <Ws2tcpip.h>
 #define SHUT_WR SD_SEND
 #ifdef __MINGW32__
-    // Windows has always been tied to LE
-    #define htobe64(x) __builtin_bswap64(x)
-    #define be64toh(x) __builtin_bswap64(x)
+// Windows has always been tied to LE
+#define htobe64(x) __builtin_bswap64(x)
+#define be64toh(x) __builtin_bswap64(x)
 #else
-    #define __thread __declspec(thread)
-    #define htobe64(x) htonll(x)
-    #define be64toh(x) ntohll(x)
-    #define pthread_t DWORD
-    #define pthread_self GetCurrentThreadId
+#define __thread __declspec(thread)
+#define htobe64(x) htonll(x)
+#define be64toh(x) ntohll(x)
+#define pthread_t DWORD
+#define pthread_self GetCurrentThreadId
 #endif
 #define WIN32_EXPORT __declspec(dllexport)
 
@@ -112,7 +112,7 @@ Context createContext(std::string certChainFileName, std::string keyFileName, st
 
 }
 
-struct SocketData;
+struct Socket;
 
 struct WIN32_EXPORT NodeData {
     char *recvBufferMemoryBlock;
@@ -130,7 +130,7 @@ struct WIN32_EXPORT NodeData {
     struct TransferData {
         Poll *p;
         uv_os_sock_t fd;
-        SocketData *socketData;
+        Socket *socketData;
         void (*pollCb)(Poll *, int, int);
         void (*cb)(Poll *);
     };
@@ -167,97 +167,6 @@ struct WIN32_EXPORT NodeData {
             delete [] memory;
         }
     }
-};
-
-// perfectly 64 bytes (4 + 60)
-struct SocketData : Poll {
-    struct {
-        int poll : 4;
-        int shuttingDown : 4;
-    } state = {0, false};
-
-    NodeData *nodeData;
-    SSL *ssl;
-    void *user = nullptr;
-
-    SocketData(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : Poll(loop, fd), nodeData(nodeData) {
-
-    }
-
-    // this is not needed by HttpSocket!
-    struct Queue {
-        struct Message {
-            const char *data;
-            size_t length;
-            Message *nextMessage = nullptr;
-            void (*callback)(void *socket, void *data, bool cancelled, void *reserved) = nullptr;
-            void *callbackData = nullptr, *reserved = nullptr;
-        };
-
-        Message *head = nullptr, *tail = nullptr;
-        void pop()
-        {
-            Message *nextMessage;
-            if ((nextMessage = head->nextMessage)) {
-                delete [] (char *) head;
-                head = nextMessage;
-            } else {
-                delete [] (char *) head;
-                head = tail = nullptr;
-            }
-        }
-
-        bool empty() {return head == nullptr;}
-        Message *front() {return head;}
-
-        void push(Message *message)
-        {
-            message->nextMessage = nullptr;
-            if (tail) {
-                tail->nextMessage = message;
-                tail = message;
-            } else {
-                head = message;
-                tail = message;
-            }
-        }
-    } messageQueue;
-
-    Poll *next = nullptr, *prev = nullptr;
-
-    int getPoll() {
-        return state.poll;
-    }
-
-    int setPoll(int poll) {
-        state.poll = poll;
-        return poll;
-    }
-
-    bool isShuttingDown() {
-        return state.shuttingDown;
-    }
-
-    void setShuttingDown(bool shuttingDown) {
-        state.shuttingDown = shuttingDown;
-    }
-};
-
-struct ListenData : SocketData {
-
-    ListenData(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : SocketData(nodeData, loop, fd) {
-
-    }
-
-    Timer *listenTimer = nullptr;
-    uv_os_sock_t sock;
-    uS::TLS::Context sslContext;
-};
-
-enum SocketState : unsigned char {
-    CLOSED,
-    POLL_READ,
-    POLL_WRITE
 };
 
 }

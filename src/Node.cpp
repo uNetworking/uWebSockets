@@ -16,7 +16,7 @@ void NodeData::asyncCallback(Async *async)
     }
 
     for (Poll *p : nodeData->changePollQueue) {
-        SocketData *socketData = (SocketData *) p;
+        Socket *socketData = (Socket *) p;
         p->change(socketData->nodeData->loop, socketData, socketData->getPoll());
     }
 
