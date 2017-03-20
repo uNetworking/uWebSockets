@@ -17,8 +17,8 @@ non_ssl.on('connection', function(ws) {
 });
 
 const options = {
-    key: fs.readFileSync('../../ssl/key.pem'),
-    cert: fs.readFileSync('../../ssl/cert.pem'),
+    key: fs.readFileSync('../../misc/ssl/key.pem'),
+    cert: fs.readFileSync('../../misc/ssl/cert.pem'),
     passphrase: '1234'
 };
 
