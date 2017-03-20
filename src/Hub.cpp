@@ -159,18 +159,23 @@ void Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
         serverGroup = &getDefaultGroup<SERVER>();
     }
 
-//    uS::Socket s = uS::Socket::init((uS::NodeData *) serverGroup, fd, ssl);
-//    uS::SocketData *socketData = s.getSocketData();
-//    HttpSocket<SERVER>::Data *temporaryHttpData = new HttpSocket<SERVER>::Data(socketData);
-//    delete socketData;
-//    s.enterState<HttpSocket<SERVER>>(temporaryHttpData);
+    uS::Socket s((uS::NodeData *) serverGroup, serverGroup->loop, fd);
+    s.setNoDelay(true);
+    s.ssl = ssl;
 
-//    bool perMessageDeflate;
-//    HttpSocket<SERVER>(s).upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate);
-//    s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
-//    serverGroup->addWebSocket(s);
-//    serverGroup->connectionHandler(WebSocket<SERVER>(s), HttpRequest({}));
-//    delete temporaryHttpData;
+    // todo: skip httpSocket -> it cannot fail anyways!
+    HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(&s, true);
+    httpSocket->setState<HttpSocket<SERVER>>();
+    httpSocket->change(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
+    bool perMessageDeflate;
+    httpSocket->upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate);
+
+    WebSocket<SERVER> *webSocket = new WebSocket<SERVER>(perMessageDeflate, httpSocket);
+    delete httpSocket;
+    webSocket->setState<WebSocket<SERVER>>();
+    webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
+    serverGroup->addWebSocket(webSocket);
+    serverGroup->connectionHandler(webSocket, {});
 }
 
 }
