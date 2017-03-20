@@ -98,93 +98,70 @@ struct Async {
 
 struct Poll {
     boost::asio::posix::stream_descriptor *socket;
-    void *data;
     void (*cb)(Poll *p, int status, int events);
-    Loop *loop;
-    boost::asio::ip::tcp::socket::native_type fd;
 
     Poll(Loop *loop, uv_os_sock_t fd) {
-        init(loop, fd);
-    }
-
-    void init(Loop *loop, uv_os_sock_t fd) {
-        this->fd = fd;
-        this->loop = loop;
         socket = new boost::asio::posix::stream_descriptor(*loop, fd);
         socket->non_blocking(true);
     }
 
-    Poll() {
-
-    }
-
-    ~Poll() {
-    }
-
-    void setData(void *data) {
-        this->data = data;
-    }
-
-    bool isClosing() {
+    bool isClosed() {
         return !socket;
     }
 
     boost::asio::ip::tcp::socket::native_type getFd() {
-        return fd;//socket->native_handle();
-    }
-
-    void *getData() {
-        return data;
+        return socket ? socket->native_handle() : -1;
     }
 
     void setCb(void (*cb)(Poll *p, int status, int events)) {
         this->cb = cb;
     }
 
-    void start(int events) {
+    void start(Loop *, Poll *self, int events) {
         if (events & UV_READABLE) {
-            socket->async_read_some(boost::asio::null_buffers(), [this](boost::system::error_code ec, std::size_t) {
+            socket->async_read_some(boost::asio::null_buffers(), [self](boost::system::error_code ec, std::size_t) {
                 if (ec != boost::asio::error::operation_aborted) {
-                    start(UV_READABLE);
-                    cb(this, ec ? -1 : 0, UV_READABLE);
+                    self->start(nullptr, self, UV_READABLE);
+                    self->cb(self, ec ? -1 : 0, UV_READABLE);
                 }
             });
         }
 
         if (events & UV_WRITABLE) {
-            socket->async_write_some(boost::asio::null_buffers(), [this](boost::system::error_code ec, std::size_t) {
+            socket->async_write_some(boost::asio::null_buffers(), [self](boost::system::error_code ec, std::size_t) {
                 if (ec != boost::asio::error::operation_aborted) {
-                    start(UV_WRITABLE);
-                    cb(this, ec ? -1 : 0, UV_WRITABLE);
+                    self->start(nullptr, self, UV_WRITABLE);
+                    self->cb(self, ec ? -1 : 0, UV_WRITABLE);
                 }
             });
         }
     }
 
-    void change(int events) {
+    void change(Loop *, Poll *self, int events) {
         socket->cancel();
-        start(events);
+        start(nullptr, self, events);
     }
 
-    void stop() {
+    bool fastTransfer(Loop *loop, Loop *newLoop, int events) {
+        return false;
+    }
+
+    // todo: asio is thread safe, use it!
+    bool threadSafeChange(Loop *loop, Poll *self, int events) {
+        return false;
+    }
+
+    void stop(Loop *) {
         socket->cancel();
     }
 
-    void close() {
+    void close(Loop *loop, void (*cb)(Poll *)) {
         socket->release();
-        socket->get_io_service().post([this]() {
-            delete this;
+        socket->get_io_service().post([cb, this]() {
+            cb(this);
         });
         delete socket;
         socket = nullptr;
-    }
-
-    void (*getPollCb())(Poll *, int, int) {
-        return (void (*)(Poll *, int, int)) cb;
-    }
-
-    Loop *getLoop() {
-        return loop;//(Loop *) &socket->get_io_service();
     }
 };
 
