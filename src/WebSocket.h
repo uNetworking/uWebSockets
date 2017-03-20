@@ -19,7 +19,7 @@ struct WIN32_EXPORT WebSocket : uS::Socket, WebSocketProtocol<isServer> {
     char hasOutstandingPong = false;
     std::string fragmentBuffer, controlBuffer;
 
-    WebSocket(bool perMessageDeflate, uS::Socket *socket) : uS::Socket(*socket) {
+    WebSocket(bool perMessageDeflate, uS::Socket *socket) : uS::Socket(std::move(*socket)) {
         compressionStatus = perMessageDeflate ? CompressionStatus::ENABLED : CompressionStatus::DISABLED;
     }
 

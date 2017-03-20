@@ -39,18 +39,16 @@ struct WIN32_EXPORT Socket : SocketData {
         //nodeData->asyncMutex->unlock();
     }
 
-    // todo: non-epoll implementations
     void changePoll(SocketData *socketData) {
         if (!threadSafeChange(nodeData->loop, this, socketData->getPoll())) {
-
-//            if (socketData->nodeData->tid != pthread_self()) {
-//                socketData->nodeData->asyncMutex->lock();
-//                socketData->nodeData->changePollQueue.push_back(socketData);
-//                socketData->nodeData->asyncMutex->unlock();
-//                socketData->nodeData->async->send();
-//            } else {
-//                change(socketData->nodeData->loop, socketData, socketData->getPoll());
-//            }
+            if (socketData->nodeData->tid != pthread_self()) {
+                socketData->nodeData->asyncMutex->lock();
+                socketData->nodeData->changePollQueue.push_back(socketData);
+                socketData->nodeData->asyncMutex->unlock();
+                socketData->nodeData->async->send();
+            } else {
+                change(socketData->nodeData->loop, socketData, socketData->getPoll());
+            }
         }
     }
 

@@ -90,73 +90,75 @@ private:
 };
 
 struct Poll {
-    uv_poll_t uv_poll;
+    uv_poll_t *uv_poll;
+    void (*cb)(Poll *p, int status, int events);
 
     Poll(Loop *loop, uv_os_sock_t fd) {
-        init(loop, fd);
+        uv_poll = new uv_poll_t;
+        uv_poll_init_socket(loop, uv_poll, fd);
     }
 
-    void init(Loop *loop, uv_os_sock_t fd) {
-        uv_poll_init_socket(loop, &uv_poll, fd);
+    Poll(Poll &&other) {
+        uv_poll = other.uv_poll;
+        cb = other.cb;
+        other.uv_poll = nullptr;
     }
 
-    Poll() {
-
-    }
+    Poll(const Poll &other) = delete;
 
     ~Poll() {
+        delete uv_poll;
     }
 
-    void setData(void *data) {
-        uv_poll.data = data;
-    }
-
-    bool isClosing() {
-        return uv_is_closing((uv_handle_t *) &uv_poll);
+    bool isClosed() {
+        return uv_is_closing((uv_handle_t *) uv_poll);
     }
 
     uv_os_sock_t getFd() {
 #ifdef _WIN32
         uv_os_sock_t fd;
-        uv_fileno((uv_handle_t *) &uv_poll, (uv_os_fd_t *) &fd);
+        uv_fileno((uv_handle_t *) uv_poll, (uv_os_fd_t *) &fd);
         return fd;
 #else
-        return uv_poll.io_watcher.fd;
+        return uv_poll->io_watcher.fd;
 #endif
     }
 
-    void *getData() {
-        return uv_poll.data;
-    }
-
     void setCb(void (*cb)(Poll *p, int status, int events)) {
-        uv_poll.poll_cb = (uv_poll_cb) cb;
+        this->cb = cb;
     }
 
-    void start(int events) {
-        uv_poll_start(&uv_poll, events, uv_poll.poll_cb);
-    }
-
-    void change(int events) {
-        uv_poll_start(&uv_poll, events, uv_poll.poll_cb);
-    }
-
-    void stop() {
-        uv_poll_stop(&uv_poll);
-    }
-
-    void close() {
-        uv_close((uv_handle_t *) &uv_poll, [](uv_handle_t *p) {
-            delete (Poll *) p;
+    void start(Loop *, Poll *self, int events) {
+        uv_poll->data = self;
+        uv_poll_start(uv_poll, events, [](uv_poll_t *p, int status, int events) {
+            Poll *self = (Poll *) p->data;
+            self->cb(self, status, events);
         });
     }
 
-    void (*getPollCb())(Poll *, int, int) {
-        return (void (*)(Poll *, int, int)) uv_poll.poll_cb;
+    void change(Loop *, Poll *self, int events) {
+        start(nullptr, self, events);
     }
 
-    Loop *getLoop() {
-        return (Loop *) uv_poll.loop;
+    void stop(Loop *loop) {
+        uv_poll_stop(uv_poll);
+    }
+
+    bool fastTransfer(Loop *loop, Loop *newLoop, int events) {
+        return false;
+    }
+
+    bool threadSafeChange(Loop *, Poll *self, int events) {
+        return false;
+    }
+
+    void close(Loop *loop, void (*cb)(Poll *)) {
+        this->cb = (void(*)(Poll *, int, int)) cb;
+        uv_close((uv_handle_t *) uv_poll, [](uv_handle_t *p) {
+            Poll *poll = (Poll *) p->data;
+            void (*cb)(Poll *) = (void(*)(Poll *)) poll->cb;
+            cb(poll);
+        });
     }
 };
 

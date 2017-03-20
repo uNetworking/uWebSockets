@@ -118,7 +118,7 @@ struct WIN32_EXPORT HttpSocket : uS::Socket {
     size_t contentLength = 0;
     bool missedDeadline = false;
 
-    HttpSocket(uS::Socket *socket, bool areYouSure) : uS::Socket(*socket) {}
+    HttpSocket(uS::Socket *socket, bool areYouSure) : uS::Socket(std::move(*socket)) {}
 
     using uS::Socket::getUserData;
     using uS::Socket::setUserData;
