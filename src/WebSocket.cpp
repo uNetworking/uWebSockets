@@ -163,7 +163,7 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
         webSocket->cancelTimeout();
     }
 
-    webSocket->closeSocket<WebSocket<isServer>>();
+    webSocket->template closeSocket<WebSocket<isServer>>();
 
     while (!webSocket->messageQueue.empty()) {
         Queue::Message *message = webSocket->messageQueue.front();

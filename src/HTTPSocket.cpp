@@ -266,16 +266,16 @@ template <bool isServer>
 void HttpSocket<isServer>::onEnd(uS::Socket *s) {
     HttpSocket<isServer> *httpSocket = (HttpSocket<isServer> *) s;
 
-    if (!s->isShuttingDown()) {
+    if (!httpSocket->isShuttingDown()) {
         if (isServer) {
             getGroup<isServer>(httpSocket)->removeHttpSocket(httpSocket);
             getGroup<isServer>(httpSocket)->httpDisconnectionHandler(httpSocket);
         }
     } else {
-        s->cancelTimeout();
+        httpSocket->cancelTimeout();
     }
 
-    s->closeSocket<HttpSocket<isServer>>();
+    httpSocket->template closeSocket<HttpSocket<isServer>>();
 
     while (!httpSocket->messageQueue.empty()) {
         Queue::Message *message = httpSocket->messageQueue.front();
@@ -286,7 +286,7 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
     }
 
     while (httpSocket->outstandingResponsesHead) {
-        getGroup<isServer>(s)->httpCancelledRequestHandler(httpSocket->outstandingResponsesHead);
+        getGroup<isServer>(httpSocket)->httpCancelledRequestHandler(httpSocket->outstandingResponsesHead);
         HttpResponse *next = httpSocket->outstandingResponsesHead->next;
         delete httpSocket->outstandingResponsesHead;
         httpSocket->outstandingResponsesHead = next;
@@ -297,8 +297,8 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
     }
 
     if (!isServer) {
-        s->cancelTimeout();
-        getGroup<CLIENT>(s)->errorHandler(httpSocket->httpUser);
+        httpSocket->cancelTimeout();
+        getGroup<CLIENT>(httpSocket)->errorHandler(httpSocket->httpUser);
     }
 }
 
