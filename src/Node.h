@@ -42,7 +42,13 @@ public:
             return nullptr;
         }
 
+#ifdef SOCK_CLOEXEC
+        uv_os_sock_t fd = socket(result->ai_family, result->ai_socktype|SOCK_CLOEXEC, result->ai_protocol);
+#else
         uv_os_sock_t fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+        if (fd != -1)
+            fcntl(fd, F_SETFD, FD_CLOEXEC);
+#endif
         if (fd == -1) {
             return nullptr;
         }
@@ -151,7 +157,13 @@ public:
         if ((options & uS::ONLY_IPV4) == 0) {
             for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
                 if (a->ai_family == AF_INET6) {
+#ifdef SOCK_CLOEXEC
+                    listenFd = socket(a->ai_family, a->ai_socktype|SOCK_CLOEXEC, a->ai_protocol);
+#else
                     listenFd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+                    if (listenFd != -1)
+                        fcntl(listenFd, F_SETFD, FD_CLOEXEC);
+#endif
                     listenAddr = a;
                 }
             }
@@ -159,7 +171,13 @@ public:
 
         for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
             if (a->ai_family == AF_INET) {
+#ifdef SOCK_CLOEXEC
+                listenFd = socket(a->ai_family, a->ai_socktype|SOCK_CLOEXEC, a->ai_protocol);
+#else
                 listenFd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+                if (listenFd != -1)
+                    fcntl(listenFd, F_SETFD, FD_CLOEXEC);
+#endif
                 listenAddr = a;
             }
         }
