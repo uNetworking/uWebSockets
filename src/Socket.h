@@ -3,8 +3,6 @@
 
 #include "Networking.h"
 
-#include <iostream>
-
 namespace uS {
 
 // perfectly 64 bytes (4 + 60)
@@ -18,8 +16,12 @@ struct WIN32_EXPORT Socket : Poll {
     SSL *ssl;
     void *user = nullptr;
 
-    Socket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : Poll(loop, fd), nodeData(nodeData) {
-
+    Socket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, SSL *ssl) : Poll(loop, fd), nodeData(nodeData) {
+        if (ssl) {
+            SSL_set_fd(ssl, fd);
+            SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
+        }
+        this->ssl = ssl;
     }
 
     // this is not needed by HttpSocket!
@@ -118,19 +120,6 @@ struct WIN32_EXPORT Socket : Poll {
             }
         }
     }
-
-    // this is not used?
-//    static Poll *init(NodeData *nodeData, uv_os_sock_t fd, SSL *ssl) {
-//        if (ssl) {
-//            SSL_set_fd(ssl, fd);
-//            SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
-//        }
-
-//        SocketData *socketData = new SocketData(nodeData, nodeData->loop, fd);
-//        socketData->ssl = ssl;
-//        socketData->state.poll = UV_READABLE;
-//        return socketData;
-//    }
 
     void *getUserData() {
         return user;
@@ -484,7 +473,7 @@ struct WIN32_EXPORT Socket : Poll {
 
 struct ListenData : Socket {
 
-    ListenData(NodeData *nodeData, Loop *loop, uv_os_sock_t fd) : Socket(nodeData, loop, fd) {
+    ListenData(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, SSL *ssl) : Socket(nodeData, loop, fd, ssl) {
 
     }
 

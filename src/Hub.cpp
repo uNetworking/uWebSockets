@@ -159,9 +159,8 @@ void Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
         serverGroup = &getDefaultGroup<SERVER>();
     }
 
-    uS::Socket s((uS::NodeData *) serverGroup, serverGroup->loop, fd);
+    uS::Socket s((uS::NodeData *) serverGroup, serverGroup->loop, fd, ssl);
     s.setNoDelay(true);
-    s.ssl = ssl;
 
     // todo: skip httpSocket -> it cannot fail anyways!
     HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(&s, true);

@@ -55,17 +55,15 @@ public:
         ::connect(fd, result->ai_addr, result->ai_addrlen);
         freeaddrinfo(result);
 
-        Socket initialSocket(nodeData, getLoop(), fd);
-        uS::Socket *socket = I(&initialSocket);
+        SSL *ssl = nullptr;
         if (secure) {
-            socket->ssl = SSL_new(nodeData->clientContext);
-            SSL_set_fd(socket->ssl, fd);
-            SSL_set_connect_state(socket->ssl);
-            SSL_set_mode(socket->ssl, SSL_MODE_RELEASE_BUFFERS);
-            SSL_set_tlsext_host_name(socket->ssl, hostname);
-        } else {
-            socket->ssl = nullptr;
+            ssl = SSL_new(nodeData->clientContext);
+            SSL_set_connect_state(ssl);
+            SSL_set_tlsext_host_name(ssl, hostname);
         }
+
+        Socket initialSocket(nodeData, getLoop(), fd, ssl);
+        uS::Socket *socket = I(&initialSocket);
 
         socket->setCb(connect_cb<C>);
         socket->start(loop, socket, socket->setPoll(UV_WRITABLE));
@@ -125,13 +123,10 @@ public:
             SSL *ssl = nullptr;
             if (listenData->sslContext) {
                 ssl = SSL_new(listenData->sslContext.getNativeContext());
-                SSL_set_fd(ssl, clientFd);
                 SSL_set_accept_state(ssl);
-                SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
             }
 
-            Socket *socket = new Socket(listenData->nodeData, listenData->nodeData->loop, clientFd);
-            socket->ssl = ssl;
+            Socket *socket = new Socket(listenData->nodeData, listenData->nodeData->loop, clientFd, ssl);
             socket->setPoll(UV_READABLE);
             A(socket);
         } while ((clientFd = accept(serverFd, nullptr, nullptr)) != INVALID_SOCKET);
@@ -192,7 +187,7 @@ public:
             return true;
         }
 
-        ListenData *listenData = new ListenData(nodeData, loop, listenFd);
+        ListenData *listenData = new ListenData(nodeData, loop, listenFd, nullptr);
         listenData->sslContext = sslContext;
         listenData->nodeData = nodeData;
 
