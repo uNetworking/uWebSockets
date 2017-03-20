@@ -42,25 +42,28 @@ char *Hub::inflate(char *data, size_t &length) {
     return inflationBuffer;
 }
 
-void Hub::onServerAccept(uS::Socket s) {
-    uS::SocketData *socketData = s.getSocketData();
-    // initial state, need to start!
-    s.enterState<HttpSocket<SERVER>>(new HttpSocket<SERVER>::Data(socketData), true);
-    ((Group<SERVER> *) socketData->nodeData)->addHttpSocket(s);
-    ((Group<SERVER> *) socketData->nodeData)->httpConnectionHandler(s);
-    s.setNoDelay(true);
-    delete socketData;
+void Hub::onServerAccept(uS::Socket *s) {
+    HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(s, true);
+    delete s;
+
+    httpSocket->setState<HttpSocket<SERVER>>();
+    httpSocket->start(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
+    httpSocket->setNoDelay(true);
+    getGroup<SERVER>(httpSocket)->addHttpSocket(httpSocket);
+    getGroup<SERVER>(httpSocket)->httpConnectionHandler(httpSocket);
 }
 
-void Hub::onClientConnection(uS::Socket s, bool error) {
-    HttpSocket<CLIENT>::Data *httpSocketData = (HttpSocket<CLIENT>::Data *) s.getSocketData();
+void Hub::onClientConnection(uS::Socket *s, bool error) {
+    HttpSocket<CLIENT> *httpSocket = (HttpSocket<CLIENT> *) s;
 
     if (error) {
-        ((Group<CLIENT> *) httpSocketData->nodeData)->errorHandler(httpSocketData->httpUser);
-        delete httpSocketData;
+        ((Group<CLIENT> *) httpSocket->nodeData)->errorHandler(httpSocket->httpUser);
+        delete httpSocket;
     } else {
-        s.enterState<HttpSocket<CLIENT>>(s.getSocketData());
-        HttpSocket<CLIENT>(s).upgrade(nullptr, nullptr, 0, nullptr, 0, nullptr);
+        httpSocket->setState<HttpSocket<CLIENT>>();
+        httpSocket->change(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
+        httpSocket->setNoDelay(true);
+        httpSocket->upgrade(nullptr, nullptr, 0, nullptr, 0, nullptr);
     }
 }
 
@@ -80,7 +83,11 @@ bool Hub::listen(int port, uS::TLS::Context sslContext, int options, Group<SERVE
     return listen(nullptr, port, sslContext, options, eh);
 }
 
-void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh, std::string subprotocol) {
+uS::Socket *allocateHttpSocket(uS::Socket *s) {
+    return (uS::Socket *) new HttpSocket<CLIENT>(s, true);
+}
+
+void Hub::connect(std::string uri, void *user, std::map<std::string, std::string> extraHeaders, int timeoutMs, Group<CLIENT> *eh) {
     if (!eh) {
         eh = (Group<CLIENT> *) this;
     }
@@ -116,26 +123,31 @@ void Hub::connect(std::string uri, void *user, int timeoutMs, Group<CLIENT> *eh,
             port = stoi(portStr);
         }
 
-        uS::SocketData socketData((uS::NodeData *) eh);
-        HttpSocket<CLIENT>::Data *httpSocketData = new HttpSocket<CLIENT>::Data(&socketData);
+        HttpSocket<CLIENT> *httpSocket = (HttpSocket<CLIENT> *) uS::Node::connect<allocateHttpSocket, onClientConnection>(hostname.c_str(), port, secure, eh);
+        if (httpSocket) {
+            // startTimeout occupies the user
+            httpSocket->startTimeout<HttpSocket<CLIENT>::onEnd>(timeoutMs);
+            httpSocket->httpUser = user;
 
-        std::string optionalSubprotocol;
-        if (!subprotocol.empty()) {
-            optionalSubprotocol = "Sec-WebSocket-Protocol: " + subprotocol + "\r\n";
-        }
-        httpSocketData->httpUser = user;
-        httpSocketData->httpBuffer = "GET /" + path + " HTTP/1.1\r\n"
+            std::string randomKey = "x3JJHMbDL1EzLkh9GBhXDw==";
+//            for (int i = 0; i < 22; i++) {
+//                randomKey[i] = rand() %
+//            }
+
+            httpSocket->httpBuffer = "GET /" + path + " HTTP/1.1\r\n"
                                      "Upgrade: websocket\r\n"
                                      "Connection: Upgrade\r\n"
-                                     "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"
-                                     "Host: " + hostname + "\r\n"
-                                     + optionalSubprotocol +
-                                     "Sec-WebSocket-Version: 13\r\n\r\n";
+                                     "Sec-WebSocket-Key: " + randomKey + "\r\n"
+                                     "Host: " + hostname + "\r\n" +
+                                     "Sec-WebSocket-Version: 13\r\n";
 
-        uS::Socket s = uS::Node::connect<onClientConnection>(hostname.c_str(), port, secure, httpSocketData);
-        if (s) {
-            s.startTimeout<HttpSocket<CLIENT>::onEnd>(timeoutMs);
-            // getGroup<CLIENT>(s)->addHttpSocket(s);
+            for (std::pair<std::string, std::string> header : extraHeaders) {
+                httpSocket->httpBuffer += header.first + ": " + header.second + "\r\n";
+            }
+
+            httpSocket->httpBuffer += "\r\n";
+        } else {
+            eh->errorHandler(user);
         }
     } else {
         eh->errorHandler(user);
@@ -147,18 +159,22 @@ void Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
         serverGroup = &getDefaultGroup<SERVER>();
     }
 
-    uS::Socket s = uS::Socket::init((uS::NodeData *) serverGroup, fd, ssl);
-    uS::SocketData *socketData = s.getSocketData();
-    HttpSocket<SERVER>::Data *temporaryHttpData = new HttpSocket<SERVER>::Data(socketData);
-    delete socketData;
-    s.enterState<HttpSocket<SERVER>>(temporaryHttpData);
+    uS::Socket s((uS::NodeData *) serverGroup, serverGroup->loop, fd, ssl);
+    s.setNoDelay(true);
 
+    // todo: skip httpSocket -> it cannot fail anyways!
+    HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(&s, true);
+    httpSocket->setState<HttpSocket<SERVER>>();
+    httpSocket->change(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
     bool perMessageDeflate;
-    HttpSocket<SERVER>(s).upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate);
-    s.enterState<WebSocket<SERVER>>(new WebSocket<SERVER>::Data(perMessageDeflate, s.getSocketData()));
-    serverGroup->addWebSocket(s);
-    serverGroup->connectionHandler(WebSocket<SERVER>(s), HttpRequest({}));
-    delete temporaryHttpData;
+    httpSocket->upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate);
+
+    WebSocket<SERVER> *webSocket = new WebSocket<SERVER>(perMessageDeflate, httpSocket);
+    delete httpSocket;
+    webSocket->setState<WebSocket<SERVER>>();
+    webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
+    serverGroup->addWebSocket(webSocket);
+    serverGroup->connectionHandler(webSocket, {});
 }
 
 }

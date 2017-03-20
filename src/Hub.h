@@ -6,6 +6,7 @@
 #include <string>
 #include <zlib.h>
 #include <mutex>
+#include <map>
 
 namespace uWS {
 
@@ -33,12 +34,12 @@ struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<C
     std::string dynamicInflationBuffer;
     static const int LARGE_BUFFER_SIZE = 300 * 1024;
 
-    static void onServerAccept(uS::Socket s);
-    static void onClientConnection(uS::Socket s, bool error);
+    static void onServerAccept(uS::Socket *s);
+    static void onClientConnection(uS::Socket *s, bool error);
 
     bool listen(int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
     bool listen(const char *host, int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
-    void connect(std::string uri, void *user, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr, std::string subprotocol = "");
+    void connect(std::string uri, void *user = nullptr, std::map<std::string, std::string> extraHeaders = {}, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr);
     void upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup = nullptr);
 
     Hub(int extensionOptions = 0, bool useDefaultLoop = false) : uS::Node(LARGE_BUFFER_SIZE, WebSocketProtocol<SERVER>::CONSUME_PRE_PADDING, WebSocketProtocol<SERVER>::CONSUME_POST_PADDING, useDefaultLoop),

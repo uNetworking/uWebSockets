@@ -17,12 +17,11 @@ template <bool isServer>
 void Group<isServer>::timerCallback(Timer *timer) {
     Group<isServer> *group = (Group<isServer> *) timer->getData();
 
-    group->forEach([](uWS::WebSocket<isServer> ws) {
-        typename uWS::WebSocket<isServer>::Data *webSocketData = (typename uWS::WebSocket<isServer>::Data *) ws.getSocketData();
-        if (webSocketData->hasOutstandingPong) {
-            ws.terminate();
+    group->forEach([](uWS::WebSocket<isServer> *webSocket) {
+        if (webSocket->hasOutstandingPong) {
+            webSocket->terminate();
         } else {
-            webSocketData->hasOutstandingPong = true;
+            webSocket->hasOutstandingPong = true;
         }
     });
 
@@ -41,109 +40,94 @@ void Group<isServer>::startAutoPing(int intervalMs, std::string userMessage) {
     userPingMessage = userMessage;
 }
 
-// WIP
 template <bool isServer>
-void Group<isServer>::addHttpSocket(Poll *httpSocket) {
-
-    // always clear last chain!
-    ((uS::SocketData *) httpSocket->getData())->next = nullptr;
-    ((uS::SocketData *) httpSocket->getData())->prev = nullptr;
-
+void Group<isServer>::addHttpSocket(HttpSocket<isServer> *httpSocket) {
     if (httpSocketHead) {
-        uS::SocketData *nextData = (uS::SocketData *) httpSocketHead->getData();
-        nextData->prev = httpSocket;
-        uS::SocketData *data = (uS::SocketData *) httpSocket->getData();
-        data->next = httpSocketHead;
+        httpSocketHead->prev = httpSocket;
+        httpSocket->next = httpSocketHead;
     } else {
+        httpSocket->next = nullptr;
+        // start timer
         httpTimer = new Timer(hub->getLoop());
         httpTimer->setData(this);
         httpTimer->start([](Timer *httpTimer) {
             Group<isServer> *group = (Group<isServer> *) httpTimer->getData();
-            group->forEachHttpSocket([](HttpSocket<isServer> httpSocket) {
-                if (httpSocket.getData()->missedDeadline) {
-                    // recursive? don't think so!
-                    httpSocket.terminate();
-                } else if (!httpSocket.getData()->outstandingResponsesHead) {
-                    httpSocket.getData()->missedDeadline = true;
+            group->forEachHttpSocket([](HttpSocket<isServer> *httpSocket) {
+                if (httpSocket->missedDeadline) {
+                    httpSocket->terminate();
+                } else if (!httpSocket->outstandingResponsesHead) {
+                    httpSocket->missedDeadline = true;
                 }
             });
         }, 1000, 1000);
     }
     httpSocketHead = httpSocket;
+    httpSocket->prev = nullptr;
 }
 
-// WIP
 template <bool isServer>
-void Group<isServer>::removeHttpSocket(Poll *httpSocket) {
-    uS::SocketData *socketData = (uS::SocketData *) httpSocket->getData();
+void Group<isServer>::removeHttpSocket(HttpSocket<isServer> *httpSocket) {
     if (iterators.size()) {
-        iterators.top() = socketData->next;
+        iterators.top() = httpSocket->next;
     }
-    if (socketData->prev == socketData->next) {
-        httpSocketHead = (Poll *) nullptr;
-
+    if (httpSocket->prev == httpSocket->next) {
+        httpSocketHead = nullptr;
         httpTimer->stop();
         httpTimer->close();
-
     } else {
-        if (socketData->prev) {
-            ((uS::SocketData *) socketData->prev->getData())->next = socketData->next;
+        if (httpSocket->prev) {
+            ((HttpSocket<isServer> *) httpSocket->prev)->next = httpSocket->next;
         } else {
-            httpSocketHead = socketData->next;
+            httpSocketHead = (HttpSocket<isServer> *) httpSocket->next;
         }
-        if (socketData->next) {
-            ((uS::SocketData *) socketData->next->getData())->prev = socketData->prev;
+        if (httpSocket->next) {
+            ((HttpSocket<isServer> *) httpSocket->next)->prev = httpSocket->prev;
         }
     }
 }
 
 template <bool isServer>
-void Group<isServer>::addWebSocket(Poll *webSocket) {
-
-    // always clear last chain!
-    ((uS::SocketData *) webSocket->getData())->next = nullptr;
-    ((uS::SocketData *) webSocket->getData())->prev = nullptr;
-
+void Group<isServer>::addWebSocket(WebSocket<isServer> *webSocket) {
     if (webSocketHead) {
-        uS::SocketData *nextData = (uS::SocketData *) webSocketHead->getData();
-        nextData->prev = webSocket;
-        uS::SocketData *data = (uS::SocketData *) webSocket->getData();
-        data->next = webSocketHead;
+        webSocketHead->prev = webSocket;
+        webSocket->next = webSocketHead;
+    } else {
+        webSocket->next = nullptr;
     }
     webSocketHead = webSocket;
+    webSocket->prev = nullptr;
 }
 
 template <bool isServer>
-void Group<isServer>::removeWebSocket(Poll *webSocket) {
-    uS::SocketData *socketData = (uS::SocketData *) webSocket->getData();
+void Group<isServer>::removeWebSocket(WebSocket<isServer> *webSocket) {
     if (iterators.size()) {
-        iterators.top() = socketData->next;
+        iterators.top() = webSocket->next;
     }
-    if (socketData->prev == socketData->next) {
-        webSocketHead = (Poll *) nullptr;
+    if (webSocket->prev == webSocket->next) {
+        webSocketHead = nullptr;
     } else {
-        if (socketData->prev) {
-            ((uS::SocketData *) socketData->prev->getData())->next = socketData->next;
+        if (webSocket->prev) {
+            ((WebSocket<isServer> *) webSocket->prev)->next = webSocket->next;
         } else {
-            webSocketHead = socketData->next;
+            webSocketHead = (WebSocket<isServer> *) webSocket->next;
         }
-        if (socketData->next) {
-            ((uS::SocketData *) socketData->next->getData())->prev = socketData->prev;
+        if (webSocket->next) {
+            ((WebSocket<isServer> *) webSocket->next)->prev = webSocket->prev;
         }
     }
 }
 
 template <bool isServer>
 Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) : uS::NodeData(*nodeData), hub(hub), extensionOptions(extensionOptions) {
-    connectionHandler = [](WebSocket<isServer>, HttpRequest) {};
-    transferHandler = [](WebSocket<isServer>) {};
-    messageHandler = [](WebSocket<isServer>, char *, size_t, OpCode) {};
-    disconnectionHandler = [](WebSocket<isServer>, int, char *, size_t) {};
-    pingHandler = pongHandler = [](WebSocket<isServer>, char *, size_t) {};
+    connectionHandler = [](WebSocket<isServer> *, HttpRequest) {};
+    transferHandler = [](WebSocket<isServer> *) {};
+    messageHandler = [](WebSocket<isServer> *, char *, size_t, OpCode) {};
+    disconnectionHandler = [](WebSocket<isServer> *, int, char *, size_t) {};
+    pingHandler = pongHandler = [](WebSocket<isServer> *, char *, size_t) {};
     errorHandler = [](errorType) {};
     httpRequestHandler = [](HttpResponse *, HttpRequest, char *, size_t, size_t) {};
-    httpConnectionHandler = [](HttpSocket<isServer>) {};
-    httpDisconnectionHandler = [](HttpSocket<isServer>) {};
+    httpConnectionHandler = [](HttpSocket<isServer> *) {};
+    httpDisconnectionHandler = [](HttpSocket<isServer> *) {};
     httpCancelledRequestHandler = [](HttpResponse *) {};
     httpDataHandler = [](HttpResponse *, char *, size_t, size_t) {};
 
@@ -155,9 +139,10 @@ void Group<isServer>::stopListening() {
     if (isServer) {
         uS::ListenData *listenData = (uS::ListenData *) user;
         if (listenData) {
-            if (listenData->listenPoll)
-                uS::Socket(listenData->listenPoll).close();
-            else if (listenData->listenTimer) {
+            if (listenData) {
+                uS::Socket *s = (uS::Socket *) listenData;
+                s->closeSocket<uS::ListenData>();
+            } else if (listenData->listenTimer) {
                 uv_os_sock_t fd = listenData->sock;
                 listenData->listenTimer->stop();
                 ::close(fd);
@@ -169,7 +154,6 @@ void Group<isServer>::stopListening() {
 
                 listenData->listenTimer->close();
             }
-            delete listenData;
         }
     }
 
@@ -179,32 +163,32 @@ void Group<isServer>::stopListening() {
 }
 
 template <bool isServer>
-void Group<isServer>::onConnection(std::function<void (WebSocket<isServer>, HttpRequest)> handler) {
+void Group<isServer>::onConnection(std::function<void (WebSocket<isServer> *, HttpRequest)> handler) {
     connectionHandler = handler;
 }
 
 template <bool isServer>
-void Group<isServer>::onTransfer(std::function<void (WebSocket<isServer>)> handler) {
+void Group<isServer>::onTransfer(std::function<void (WebSocket<isServer> *)> handler) {
     transferHandler = handler;
 }
 
 template <bool isServer>
-void Group<isServer>::onMessage(std::function<void (WebSocket<isServer>, char *, size_t, OpCode)> handler) {
+void Group<isServer>::onMessage(std::function<void (WebSocket<isServer> *, char *, size_t, OpCode)> handler) {
     messageHandler = handler;
 }
 
 template <bool isServer>
-void Group<isServer>::onDisconnection(std::function<void (WebSocket<isServer>, int, char *, size_t)> handler) {
+void Group<isServer>::onDisconnection(std::function<void (WebSocket<isServer> *, int, char *, size_t)> handler) {
     disconnectionHandler = handler;
 }
 
 template <bool isServer>
-void Group<isServer>::onPing(std::function<void (WebSocket<isServer>, char *, size_t)> handler) {
+void Group<isServer>::onPing(std::function<void (WebSocket<isServer> *, char *, size_t)> handler) {
     pingHandler = handler;
 }
 
 template <bool isServer>
-void Group<isServer>::onPong(std::function<void (WebSocket<isServer>, char *, size_t)> handler) {
+void Group<isServer>::onPong(std::function<void (WebSocket<isServer> *, char *, size_t)> handler) {
     pongHandler = handler;
 }
 
@@ -214,7 +198,7 @@ void Group<isServer>::onError(std::function<void (typename Group::errorType)> ha
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpConnection(std::function<void (HttpSocket<isServer>)> handler) {
+void Group<isServer>::onHttpConnection(std::function<void (HttpSocket<isServer> *)> handler) {
     httpConnectionHandler = handler;
 }
 
@@ -229,7 +213,7 @@ void Group<isServer>::onHttpData(std::function<void(HttpResponse *, char *, size
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpDisconnection(std::function<void (HttpSocket<isServer>)> handler) {
+void Group<isServer>::onHttpDisconnection(std::function<void (HttpSocket<isServer> *)> handler) {
     httpDisconnectionHandler = handler;
 }
 
@@ -239,31 +223,31 @@ void Group<isServer>::onCancelledHttpRequest(std::function<void (HttpResponse *)
 }
 
 template <bool isServer>
-void Group<isServer>::onHttpUpgrade(std::function<void(HttpSocket<isServer>, HttpRequest)> handler) {
+void Group<isServer>::onHttpUpgrade(std::function<void(HttpSocket<isServer> *, HttpRequest)> handler) {
     httpUpgradeHandler = handler;
 }
 
 template <bool isServer>
 void Group<isServer>::broadcast(const char *message, size_t length, OpCode opCode) {
     typename WebSocket<isServer>::PreparedMessage *preparedMessage = WebSocket<isServer>::prepareMessage((char *) message, length, opCode, false);
-    forEach([preparedMessage](uWS::WebSocket<isServer> ws) {
-        ws.sendPrepared(preparedMessage);
+    forEach([preparedMessage](uWS::WebSocket<isServer> *ws) {
+        ws->sendPrepared(preparedMessage);
     });
     WebSocket<isServer>::finalizeMessage(preparedMessage);
 }
 
 template <bool isServer>
 void Group<isServer>::terminate() {
-    forEach([](uWS::WebSocket<isServer> ws) {
-        ws.terminate();
+    forEach([](uWS::WebSocket<isServer> *ws) {
+        ws->terminate();
     });
     stopListening();
 }
 
 template <bool isServer>
 void Group<isServer>::close(int code, char *message, size_t length) {
-    forEach([code, message, length](uWS::WebSocket<isServer> ws) {
-        ws.close(code, message, length);
+    forEach([code, message, length](uWS::WebSocket<isServer> *ws) {
+        ws->close(code, message, length);
     });
     stopListening();
     if (timer) {

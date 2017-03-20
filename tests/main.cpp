@@ -21,20 +21,20 @@ int countOccurrences(std::string word, std::string &document) {
     return count;
 }
 
-void serveAutobahn() {
+void testAutobahn() {
     uWS::Hub h;
 
     uWS::Group<uWS::SERVER> *sslGroup = h.createGroup<uWS::SERVER>(uWS::PERMESSAGE_DEFLATE);
     uWS::Group<uWS::SERVER> *group = h.createGroup<uWS::SERVER>(uWS::PERMESSAGE_DEFLATE);
 
-    auto messageHandler = [](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode) {
-        ws.send(message, length, opCode);
+    auto messageHandler = [](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
+        ws->send(message, length, opCode);
     };
 
     sslGroup->onMessage(messageHandler);
     group->onMessage(messageHandler);
 
-    sslGroup->onDisconnection([sslGroup](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
+    sslGroup->onDisconnection([sslGroup](uWS::WebSocket<uWS::SERVER> *ws, int code, char *message, size_t length) {
         static int disconnections = 0;
         if (++disconnections == 519) {
             std::cout << "SSL server done with Autobahn, shutting down!" << std::endl;
@@ -42,7 +42,7 @@ void serveAutobahn() {
         }
     });
 
-    group->onDisconnection([group](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
+    group->onDisconnection([group](uWS::WebSocket<uWS::SERVER> *ws, int code, char *message, size_t length) {
         static int disconnections = 0;
         if (++disconnections == 519) {
             std::cout << "Non-SSL server done with Autobahn, shutting down!" << std::endl;
@@ -61,7 +61,9 @@ void serveAutobahn() {
     }
 
     std::thread t([]() {
-        system("wstest -m fuzzingclient -s misc/Autobahn.json");
+        if (!system("wstest -m fuzzingclient -s misc/Autobahn.json")) {
+
+        }
     });
 
     h.run();
@@ -89,11 +91,11 @@ void serveAutobahn() {
 void serveBenchmark() {
     uWS::Hub h;
 
-    h.onMessage([&h](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode) {
-        ws.send(message, length, opCode);
+    h.onMessage([&h](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
+        ws->send(message, length, opCode);
     });
 
-    h.getDefaultGroup<uWS::SERVER>().startAutoPing(1000);
+    //h.getDefaultGroup<uWS::SERVER>().startAutoPing(1000);
     h.listen(3000);
     h.run();
 }
@@ -113,9 +115,9 @@ void measureInternalThroughput(unsigned int payloadLength, int echoes, bool ssl)
                                                 "misc/ssl/key.pem",
                                                 "1234");
 
-    h.onConnection([payload, payloadLength, echoes](uWS::WebSocket<uWS::CLIENT> ws, uWS::HttpRequest req) {
+    h.onConnection([payload, payloadLength, echoes](uWS::WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
         for (int i = 0; i < echoes; i++) {
-            ws.send(payload, payloadLength, uWS::OpCode::BINARY);
+            ws->send(payload, payloadLength, uWS::OpCode::BINARY);
         }
     });
 
@@ -124,7 +126,7 @@ void measureInternalThroughput(unsigned int payloadLength, int echoes, bool ssl)
         exit(-1);
     });
 
-    h.onMessage([payload, payloadLength, closeMessage, closeMessageLength, echoes](uWS::WebSocket<uWS::CLIENT> ws, char *message, size_t length, uWS::OpCode opCode) {
+    h.onMessage([payload, payloadLength, closeMessage, closeMessageLength, echoes](uWS::WebSocket<uWS::CLIENT> *ws, char *message, size_t length, uWS::OpCode opCode) {
         if (strncmp(message, payload, payloadLength) || payloadLength != length) {
             std::cout << "FAIL: Messages differ!" << std::endl;
             exit(-1);
@@ -133,21 +135,21 @@ void measureInternalThroughput(unsigned int payloadLength, int echoes, bool ssl)
         static int echoesPerformed = 0;
         if (echoesPerformed++ == echoes) {
             echoesPerformed = 0;
-            ws.close(1000, closeMessage, closeMessageLength);
+            ws->close(1000, closeMessage, closeMessageLength);
         } else {
-            ws.send(payload, payloadLength, opCode);
+            ws->send(payload, payloadLength, opCode);
         }
     });
 
-    h.onDisconnection([](uWS::WebSocket<uWS::CLIENT> ws, int code, char *message, size_t length) {
+    h.onDisconnection([](uWS::WebSocket<uWS::CLIENT> *ws, int code, char *message, size_t length) {
         std::cout << "CLIENT CLOSE: " << code << std::endl;
     });
 
-    h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode) {
-        ws.send(message, length, opCode);
+    h.onMessage([](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
+        ws->send(message, length, opCode);
     });
 
-    h.onDisconnection([&h, closeMessage, closeMessageLength](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
+    h.onDisconnection([&h, closeMessage, closeMessageLength](uWS::WebSocket<uWS::SERVER> *ws, int code, char *message, size_t length) {
         std::cout << "SERVER CLOSE: " << code << std::endl;
         if (!length) {
             std::cout << "FAIL: No close message! Code: " << code << std::endl;
@@ -200,7 +202,7 @@ void measureInternalThroughput(unsigned int payloadLength, int echoes, bool ssl)
     delete [] payload;
 }
 
-void stressTest() {
+void testStress() {
     for (int i = 0; i < 25; i++) {
         int payloadLength = std::pow(2, i);
         int echoes = 1;//std::max<int>(std::pow(2, 24 - i) / 50, 1);
@@ -242,36 +244,37 @@ void testConnections() {
         }
     });
 
-    h.onConnection([](uWS::WebSocket<uWS::CLIENT> ws, uWS::HttpRequest req) {
-        switch ((long) ws.getUserData()) {
-        case 4:
+    h.onConnection([](uWS::WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
+        switch ((long) ws->getUserData()) {
+        case 8:
             std::cout << "Client established a remote connection over non-SSL" << std::endl;
-            ws.close(1000);
+            ws->close(1000);
             break;
-        case 5:
+        case 9:
             std::cout << "Client established a remote connection over SSL" << std::endl;
-            ws.close(1000);
+            ws->close(1000);
             break;
         default:
-            std::cout << "FAILURE: " << ws.getUserData() << " should not connect!" << std::endl;
+            std::cout << "FAILURE: " << ws->getUserData() << " should not connect!" << std::endl;
             exit(-1);
         }
     });
 
-    h.onDisconnection([](uWS::WebSocket<uWS::CLIENT> ws, int code, char *message, size_t length) {
-        std::cout << "Client got disconnected with data: " << ws.getUserData() << ", code: " << code << ", message: <" << std::string(message, length) << ">" << std::endl;
+    h.onDisconnection([](uWS::WebSocket<uWS::CLIENT> *ws, int code, char *message, size_t length) {
+        std::cout << "Client got disconnected with data: " << ws->getUserData() << ", code: " << code << ", message: <" << std::string(message, length) << ">" << std::endl;
     });
 
     h.connect("invalid URI", (void *) 1);
     h.connect("ws://validButUnknown.yolo", (void *) 2);
-    h.connect("ws://echo.websocket.org", (void *) 3, 10);
-    h.connect("ws://echo.websocket.org", (void *) 4);
-    h.connect("wss://echo.websocket.org", (void *) 5, 10);
-    h.connect("wss://echo.websocket.org", (void *) 5);
+    h.connect("ws://echo.websocket.org", (void *) 3, {}, 10);
+    h.connect("ws://echo.websocket.org", (void *) 8);
+    h.connect("wss://echo.websocket.org", (void *) 5, {}, 10);
+    h.connect("wss://echo.websocket.org", (void *) 9);
     h.connect("ws://google.com", (void *) 6);
     h.connect("wss://google.com", (void *) 7);
 
     h.run();
+    std::cout << "Falling through testConnections" << std::endl;
 }
 
 void testListening() {
@@ -305,16 +308,16 @@ void testClosing() {
     uWS::Hub h;
     const char *closeMessage = "Closing you down!";
 
-    h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
-        ws.terminate();
-        h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
-            ws.close(1000, closeMessage, strlen(closeMessage));
+    h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+        ws->terminate();
+        h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+            ws->close(1000, closeMessage, strlen(closeMessage));
         });
         h.connect("ws://localhost:3000", (void *) 2);
     });
 
-    h.onDisconnection([closeMessage](uWS::WebSocket<uWS::CLIENT> ws, int code, char *message, size_t length) {
-        switch ((long) ws.getUserData()) {
+    h.onDisconnection([closeMessage](uWS::WebSocket<uWS::CLIENT> *ws, int code, char *message, size_t length) {
+        switch ((long) ws->getUserData()) {
         case 1:
             if (code == 1006) {
                 std::cout << "Client gets terminated on first connection" << std::endl;
@@ -334,7 +337,7 @@ void testClosing() {
         }
     });
 
-    h.onDisconnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
+    h.onDisconnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> *ws, int code, char *message, size_t length) {
         if (code == 1006) {
             std::cout << "Server recives terminate close code after terminating" << std::endl;
         } else if (code != 1000) {
@@ -363,7 +366,7 @@ void testBroadcast() {
     size_t broadcastMessageLength = strlen(broadcastMessage);
 
     int connections = 14;
-    h.onConnection([&h, &connections, broadcastMessage, broadcastMessageLength](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
+    h.onConnection([&h, &connections, broadcastMessage, broadcastMessageLength](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
         if (!--connections) {
             std::cout << "Broadcasting & closing now!" << std::endl;
             h.getDefaultGroup<uWS::SERVER>().broadcast(broadcastMessage, broadcastMessageLength, uWS::OpCode::TEXT);
@@ -372,7 +375,7 @@ void testBroadcast() {
     });
 
     int broadcasts = connections;
-    h.onMessage([&broadcasts, broadcastMessage, broadcastMessageLength](uWS::WebSocket<uWS::CLIENT> ws, char *message, size_t length, uWS::OpCode opCode) {
+    h.onMessage([&broadcasts, broadcastMessage, broadcastMessageLength](uWS::WebSocket<uWS::CLIENT> *ws, char *message, size_t length, uWS::OpCode opCode) {
         if (length != broadcastMessageLength || strncmp(message, broadcastMessage, broadcastMessageLength)) {
             std::cout << "FAILURE: bad broadcast message!" << std::endl;
             exit(-1);
@@ -381,7 +384,7 @@ void testBroadcast() {
         }
     });
 
-    h.onDisconnection([](uWS::WebSocket<uWS::CLIENT> ws, int code, char *message, size_t length) {
+    h.onDisconnection([](uWS::WebSocket<uWS::CLIENT> *ws, int code, char *message, size_t length) {
         if (code != 1000) {
             std::cout << "FAILURE: Invalid close code!" << std::endl;
             exit(-1);
@@ -407,23 +410,44 @@ void testBroadcast() {
 void testRouting() {
     uWS::Hub h;
 
-    h.onConnection([](uWS::WebSocket<uWS::CLIENT> ws, uWS::HttpRequest req) {
-        std::cout << "[Client] Connection, path: " << req.getUrl().toString() << ", subprotocol: " << req.getHeader("sec-websocket-subprotocol").toString() << std::endl;
-        ws.close();
+    int correctStrings = 0;
+
+    h.onConnection([&correctStrings](uWS::WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
+        if (req.getHeader("sec-websocket-protocol").toString() == "someSubProtocolHere") {
+            correctStrings++;
+        }
+        ws->close();
     });
 
-    h.onConnection([](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
-        std::cout << "[Server] Connection, path: " << req.getUrl().toString() << ", subprotocol: " << req.getHeader("sec-websocket-subprotocol").toString() << std::endl;
+    h.onConnection([&correctStrings](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+        if (req.getHeader("sec-websocket-protocol").toString() == "someSubProtocolHere") {
+            correctStrings++;
+        }
+
+        if (req.getHeader("some-random-header").toString() == "someRandomValue") {
+            correctStrings++;
+        }
+
+        if (req.getUrl().toString() == "/somePathHere") {
+            correctStrings++;
+        }
     });
 
-    h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
+    h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> *ws, int code, char *message, size_t length) {
         h.getDefaultGroup<uWS::SERVER>().close();
     });
 
     h.listen(3000);
-    h.connect("ws://localhost:3000/somePathHere", nullptr);
+    h.connect("ws://localhost:3000/somePathHere", nullptr, {{"sec-websocket-protocol", "someSubProtocolHere"}, {"some-random-header", "someRandomValue"}});
 
     h.run();
+
+    if (correctStrings != 4) {
+        std::cout << "FAILURE: incorrect paths or subprotocols " << correctStrings << std::endl;
+        exit(-1);
+    } else {
+        std::cout << "testRouting passed, falling through" << std::endl;
+    }
 }
 
 void testReusePort() {
@@ -456,17 +480,17 @@ void testMultithreading() {
         int receivedMessages = 0;
 
         std::mutex m;
-        uWS::WebSocket<uWS::CLIENT> client;
+        uWS::WebSocket<uWS::CLIENT> *client;
 
         std::thread t([&tServerGroup, &client, &receivedMessages, &clientGroup, &m]{
             uWS::Hub th;
             tServerGroup = &th.getDefaultGroup<uWS::SERVER>();
 
-            th.onMessage([&tServerGroup, &client, &receivedMessages, &clientGroup, &m](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode) {
+            th.onMessage([&tServerGroup, &client, &receivedMessages, &clientGroup, &m](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
                 switch(++receivedMessages) {
                 case 1:
                     m.lock();
-                    client.send("second message");
+                    client->send("second message");
                     m.unlock();
                     break;
                 case 2: {
@@ -478,7 +502,7 @@ void testMultithreading() {
                     usleep(10000);
                     char *tmp = new char[1024 * 1024 * 16];
                     memset(tmp, 0, 1024 * 1024 * 16);
-                    client.send(tmp, 1024 * 1024 * 16, uWS::OpCode::BINARY);
+                    client->send(tmp, 1024 * 1024 * 16, uWS::OpCode::BINARY);
                     delete [] tmp;
                     break;
                 }
@@ -507,18 +531,18 @@ void testMultithreading() {
 
         clientGroup->addAsync();
 
-        h.onConnection([&tServerGroup](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
-            ws.transfer(tServerGroup);
+        h.onConnection([&tServerGroup](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+            ws->transfer(tServerGroup);
         });
 
-        h.onConnection([&client, &m](uWS::WebSocket<uWS::CLIENT> ws, uWS::HttpRequest req) {
+        h.onConnection([&client, &m](uWS::WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
             m.lock();
             client = ws;
-            ws.send("first message here");
+            ws->send("first message here");
             m.unlock();
         });
 
-        h.onDisconnection([&h](uWS::WebSocket<uWS::CLIENT> ws, int code, char *message, size_t length) {
+        h.onDisconnection([&h](uWS::WebSocket<uWS::CLIENT> *ws, int code, char *message, size_t length) {
             h.getDefaultGroup<uWS::SERVER>().close();
             h.getDefaultGroup<uWS::CLIENT>().close();
         });
@@ -548,8 +572,8 @@ void testMultithreading() {
 void testSendCallback() {
     uWS::Hub h;
 
-    h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
-        ws.send("1234", 4, uWS::OpCode::TEXT, [](void *webSocket, void *data, bool cancelled, void *reserved) {
+    h.onConnection([&h](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+        ws->send("1234", 4, uWS::OpCode::TEXT, [](uWS::WebSocket<uWS::SERVER> *ws, void *data, bool cancelled, void *reserved) {
             if (data) {
                 if (data != (void *) 13) {
                     std::cout << "FAILURE: invalid data passed to send callback!" << std::endl;
@@ -573,17 +597,29 @@ void testSendCallback() {
 void testAutoPing() {
     uWS::Hub h;
 
-    h.onPing([](uWS::WebSocket<uWS::CLIENT> ws, char *message, size_t length) {
+    int pongs = 0, pings = 0;
+
+    h.onPing([&pings](uWS::WebSocket<uWS::CLIENT> *ws, char *message, size_t length) {
         std::cout << "PING" << std::endl;
+        pings++;
     });
 
-    h.onMessage([](uWS::WebSocket<uWS::CLIENT> ws, char *message, size_t length, uWS::OpCode opCode) {
+    h.onMessage([](uWS::WebSocket<uWS::CLIENT> *ws, char *message, size_t length, uWS::OpCode opCode) {
         std::cout << std::string(message, length) << std::endl;
-        ws.send(message, length, opCode);
+        ws->send(message, length, opCode);
     });
 
-    h.onPong([](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length) {
+    h.onPong([&pings, &pongs, &h](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length) {
         std::cout << "PONG" << std::endl;
+        pongs++;
+
+        if (pongs == 3) {
+            if (pings != pongs) {
+                std::cout << "FAILURE: mismatching ping/pongs" << std::endl;
+                exit(-1);
+            }
+            h.getDefaultGroup<uWS::SERVER>().close();
+        }
     });
 
     h.getDefaultGroup<uWS::SERVER>().startAutoPing(1000);
@@ -596,11 +632,12 @@ void testSmallSends() {
     uWS::Hub h;
 
     int length = 0;
-    h.onConnection([&h, &length](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
+    h.onConnection([&h, &length](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+        std::cout << "Connected, will send small messages now" << std::endl;
         while (length < 2048) {
             char *message = new char[length];
             memset(message, 0, length);
-            ws.send(message, length, uWS::OpCode::TEXT);
+            ws->send(message, length, uWS::OpCode::TEXT);
             delete [] message;
             length++;
         }
@@ -611,20 +648,7 @@ void testSmallSends() {
     h.connect("ws://localhost:3000", nullptr);
 
     h.run();
-}
-
-void testSTL() {
-    std::vector<uWS::WebSocket<uWS::SERVER>> v;
-    std::set<uWS::WebSocket<uWS::SERVER>> s;
-    std::unordered_set<uWS::WebSocket<uWS::SERVER>> us;
-    std::map<uWS::WebSocket<uWS::SERVER>, uWS::WebSocket<uWS::SERVER>> m;
-    std::unordered_map<uWS::WebSocket<uWS::SERVER>, uWS::WebSocket<uWS::SERVER>> um;
-
-    v.push_back(uWS::WebSocket<uWS::SERVER>());
-    s.insert(uWS::WebSocket<uWS::SERVER>());
-    us.insert(uWS::WebSocket<uWS::SERVER>());
-    m[uWS::WebSocket<uWS::SERVER>()] = uWS::WebSocket<uWS::SERVER>();
-    um[uWS::WebSocket<uWS::SERVER>()] = uWS::WebSocket<uWS::SERVER>();
+    std::cout << "Falling through testSmallSends" << std::endl;
 }
 
 // WIP - add excluded messages!
@@ -634,13 +658,33 @@ void testMessageBatch() {
     std::vector<std::string> messages = {"hello", "world"};
     std::vector<int> excludes;
 
-    h.onConnection([&messages, &excludes](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
-        uWS::WebSocket<uWS::SERVER>::PreparedMessage *prepared = ws.prepareMessageBatch(messages, excludes, uWS::OpCode::TEXT, false, nullptr);
-        ws.sendPrepared(prepared, nullptr);
-        ws.finalizeMessage(prepared);
+    h.onConnection([&messages, &excludes](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+        uWS::WebSocket<uWS::SERVER>::PreparedMessage *prepared = ws->prepareMessageBatch(messages, excludes, uWS::OpCode::TEXT, false, nullptr);
+        ws->sendPrepared(prepared, nullptr);
+        ws->finalizeMessage(prepared);
+    });
+
+    int receivedMessages = 0;
+
+    h.onMessage([&receivedMessages, &h](uWS::WebSocket<uWS::CLIENT> *ws, char *message, size_t length, uWS::OpCode opCode) {
+        std::cout << "Received message from batch: " << std::string(message, length) << std::endl;
+        if (receivedMessages == 0) {
+            if (!strncmp(message, "hello", length)) {
+                receivedMessages++;
+            }
+        } else {
+            if (!strncmp(message, "world", length)) {
+                receivedMessages++;
+            }
+        }
+
+        if (receivedMessages == 2) {
+            h.getDefaultGroup<uWS::SERVER>().close();
+        }
     });
 
     h.listen(3000);
+    h.connect("ws://localhost:3000", nullptr);
     h.run();
 }
 
@@ -649,15 +693,15 @@ void testHTTP() {
     std::atomic<int> expectedRequests(0);
 
     auto controlData = [&h, &expectedRequests](uWS::HttpResponse *res, char *data, size_t length, size_t remainingBytes) {
-        std::string *buffer = (std::string *) res->httpSocket.getUserData();
+        std::string *buffer = (std::string *) res->httpSocket->getUserData();
         buffer->append(data, length);
 
         std::cout << "HTTP POST, chunk: " << length << ", total: " << buffer->length() << ", remainingBytes: " << remainingBytes << std::endl;
 
         if (!remainingBytes) {
             // control the contents
-            for (int i = 0; i < buffer->length(); i++) {
-                if ((*buffer)[i] != '0' + i % 10) {
+            for (unsigned int i = 0; i < buffer->length(); i++) {
+                if ((*buffer)[i] != char('0' + i % 10)) {
                     std::cout << "FAILURE: corrupt data received in HTTP post!" << std::endl;
                     exit(-1);
                 }
@@ -665,7 +709,7 @@ void testHTTP() {
 
             expectedRequests++;
 
-            delete (std::string *) res->httpSocket.getUserData();
+            delete (std::string *) res->httpSocket->getUserData();
             res->end();
         }
     };
@@ -694,7 +738,7 @@ void testHTTP() {
             }
         } else if (req.getUrl().toString() == "/postTest") {
             if (req.getMethod() == uWS::HttpMethod::METHOD_POST) {
-                res->httpSocket.setUserData(new std::string);
+                res->httpSocket->setUserData(new std::string);
                 controlData(res, data, length, remainingBytes);
                 return;
             }
@@ -706,14 +750,14 @@ void testHTTP() {
             }
         } else if (req.getUrl().toString() == "/firstRequest") {
             // store response in user data
-            res->httpSocket.setUserData(res);
+            res->httpSocket->setUserData(res);
             return;
         } else if (req.getUrl().toString() == "/secondRequest") {
             // respond to request out of order
             std::string secondResponse = "Second request responded to";
             res->end(secondResponse.data(), secondResponse.length());
             std::string firstResponse = "First request responded to";
-            ((uWS::HttpResponse *) res->httpSocket.getUserData())->end(firstResponse.data(), firstResponse.length());
+            ((uWS::HttpResponse *) res->httpSocket->getUserData())->end(firstResponse.data(), firstResponse.length());
             return;
         }
 
@@ -731,7 +775,7 @@ void testHTTP() {
         }
     });
 
-    h.onConnection([&expectedRequests](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
+    h.onConnection([&expectedRequests](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
         if (req.getUrl().toString() == "/upgradeUrl") {
             if (req.getMethod() == uWS::HttpMethod::METHOD_GET && req.getHeader("upgrade").toString() == "websocket") {
                 expectedRequests++;
@@ -743,8 +787,8 @@ void testHTTP() {
         exit(-1);
     });
 
-    h.onDisconnection([](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
-        delete (std::string *) ws.getUserData();
+    h.onDisconnection([](uWS::WebSocket<uWS::SERVER> *ws, int code, char *message, size_t length) {
+        delete (std::string *) ws->getUserData();
     });
 
     h.listen(3000);
@@ -894,8 +938,8 @@ void serveEventSource() {
     std::string header = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n";
 
     // stop and delete the libuv timer on http disconnection
-    h.onHttpDisconnection([](uWS::HttpSocket<uWS::SERVER> s) {
-        Timer *timer = (Timer *) s.getUserData();
+    h.onHttpDisconnection([](uWS::HttpSocket<uWS::SERVER> *s) {
+        Timer *timer = (Timer *) s->getUserData();
         if (timer) {
             timer->stop();
             timer->close();
@@ -903,8 +947,8 @@ void serveEventSource() {
     });
 
     // terminate any upgrade attempt, this is http only
-    h.onHttpUpgrade([](uWS::HttpSocket<uWS::SERVER> s, uWS::HttpRequest req) {
-        s.terminate();
+    h.onHttpUpgrade([](uWS::HttpSocket<uWS::SERVER> *s, uWS::HttpRequest req) {
+        s->terminate();
     });
 
     // httpRequest borde vara defaultsatt till att hantera upgrades, ta bort onupgrade! (sätter man request avsätts upgrade handlern)
@@ -932,10 +976,10 @@ void serveEventSource() {
                 res->setUserData(timer);
             } else {
                 // why would the client send a new request at this point?
-                res->getHttpSocket().terminate();
+                res->getHttpSocket()->terminate();
             }
         } else {
-            res->getHttpSocket().terminate();
+            res->getHttpSocket()->terminate();
         }
     });
 
@@ -960,24 +1004,22 @@ int main(int argc, char *argv[])
 {
     //serveEventSource();
     //serveHttp();
+    //serveBenchmark();
 
     // falls through
     testHTTP();
-    testSTL();
     testSmallSends();
     testSendCallback();
     testMultithreading();
     testReusePort();
+    testStress();
     testRouting();
     testClosing();
     testConnections();
     testListening();
     testBroadcast();
-    stressTest();
-    //serveAutobahn();
+    testMessageBatch();
+    testAutoPing();
 
-
-    //testAutoPing();
-    //serveBenchmark();
-    //testMessageBatch();
+    //testAutobahn();
 }

@@ -1,20 +1,17 @@
 #include "Backend.h"
 
 #ifdef USE_EPOLL
-Loop *loops[128];
-int loopHead = 0;
 
-void (*callbacks[128])(Poll *, int, int);
+void (*callbacks[16])(Poll *, int, int);
 int cbHead = 0;
 
 void Loop::run() {
     timepoint = std::chrono::system_clock::now();
     while (numPolls) {
-        for (Poll *c : closing) {
+        for (std::pair<Poll *, void (*)(Poll *)> c : closing) {
             numPolls--;
 
-            // probably not correct
-            delete c;
+            c.second(c.first);
 
             if (!numPolls) {
                 closing.clear();
@@ -27,7 +24,7 @@ void Loop::run() {
         for (int i = 0; i < numFdReady; i++) {
             Poll *poll = (Poll *) readyEvents[i].data.ptr;
             int status = -bool(readyEvents[i].events & EPOLLERR);
-            callbacks[poll->cbIndex](poll, status, readyEvents[i].events);
+            callbacks[poll->state.cbIndex](poll, status, readyEvents[i].events);
         }
 
         timepoint = std::chrono::system_clock::now();
