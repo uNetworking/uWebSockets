@@ -23,7 +23,7 @@ enum {
 };
 
 template <const bool isServer>
-class WebSocketProtocol {
+class WIN32_EXPORT WebSocketProtocol {
 public:
     static const int SHORT_MESSAGE_HEADER = isServer ? 6 : 2;
     static const int MEDIUM_MESSAGE_HEADER = isServer ? 8 : 4;

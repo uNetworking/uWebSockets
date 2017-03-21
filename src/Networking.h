@@ -23,7 +23,7 @@
 #define NOMINMAX
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
-#pargma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "ws2_32.lib")
 #define SHUT_WR SD_SEND
 #ifdef __MINGW32__
 // Windows has always been tied to LE
