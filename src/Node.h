@@ -85,7 +85,7 @@ public:
     template <void A(Socket *s), bool TIMER>
     static void accept_cb(ListenData *listenData) {
         uv_os_sock_t serverFd = listenData->sock;
-        uv_os_sock_t clientFd = accept(serverFd, nullptr, nullptr);
+        uv_os_sock_t clientFd = Networking::acceptSocket(serverFd);
 //        if (clientFd == INVALID_SOCKET) {
 //            /*
 //            * If accept is failing, the pending connection won't be removed and the
@@ -129,7 +129,7 @@ public:
             Socket *socket = new Socket(listenData->nodeData, listenData->nodeData->loop, clientFd, ssl);
             socket->setPoll(UV_READABLE);
             A(socket);
-        } while ((clientFd = accept(serverFd, nullptr, nullptr)) != INVALID_SOCKET);
+        } while ((clientFd = Networking::acceptSocket(serverFd)) != INVALID_SOCKET);
     }
 
     // todo: hostname, backlog
@@ -151,7 +151,7 @@ public:
         if ((options & uS::ONLY_IPV4) == 0) {
             for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
                 if (a->ai_family == AF_INET6) {
-                    listenFd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+                    listenFd = Networking::createSocket(a->ai_family, a->ai_socktype, a->ai_protocol);
                     listenAddr = a;
                 }
             }
@@ -159,7 +159,7 @@ public:
 
         for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
             if (a->ai_family == AF_INET) {
-                listenFd = socket(a->ai_family, a->ai_socktype, a->ai_protocol);
+                listenFd = Networking::createSocket(a->ai_family, a->ai_socktype, a->ai_protocol);
                 listenAddr = a;
             }
         }
@@ -182,7 +182,7 @@ public:
         setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled));
 
         if (bind(listenFd, listenAddr->ai_addr, listenAddr->ai_addrlen) || ::listen(listenFd, 512)) {
-            ::close(listenFd);
+            Networking::closeSocket(listenFd);
             freeaddrinfo(result);
             return true;
         }

@@ -23,6 +23,7 @@
 #define NOMINMAX
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
+#pargma comment(lib, "ws2_32.lib")
 #define SHUT_WR SD_SEND
 #ifdef __MINGW32__
 // Windows has always been tied to LE
@@ -72,6 +73,38 @@ inline SOCKET dup(SOCKET socket) {
 #include <memory>
 
 namespace uS {
+
+// todo: mark sockets nonblocking in these functions
+struct Networking {
+    // returns INVALID_SOCKET on error
+    static uv_os_sock_t acceptSocket(uv_os_sock_t fd) {
+#if defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
+        // Linux, FreeBSD
+        return accept4(fd, nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK);
+#else
+        // Windows, OS X
+        return accept(fd, nullptr, nullptr);
+#endif
+    }
+
+    // returns INVALID_SOCKET on error
+    static uv_os_sock_t createSocket(int domain, int type, int protocol) {
+        int flags = 0;
+#if defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
+        flags = SOCK_CLOEXEC | SOCK_NONBLOCK;
+#endif
+
+        return socket(domain, type | flags, protocol);
+    }
+
+    static void closeSocket(uv_os_sock_t fd) {
+#ifdef _WIN32
+        closesocket(fd);
+#else
+        close(fd);
+#endif
+    }
+};
 
 namespace TLS {
 
