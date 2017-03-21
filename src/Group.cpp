@@ -145,7 +145,7 @@ void Group<isServer>::stopListening() {
             } else if (listenData->listenTimer) {
                 uv_os_sock_t fd = listenData->sock;
                 listenData->listenTimer->stop();
-                uS::Networking::closeSocket(fd);
+                listenData->nodeData->netContext->closeSocket(fd);
 
                 SSL *ssl = listenData->ssl;
                 if (ssl) {

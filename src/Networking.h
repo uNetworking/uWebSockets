@@ -75,9 +75,27 @@ inline SOCKET dup(SOCKET socket) {
 namespace uS {
 
 // todo: mark sockets nonblocking in these functions
-struct Networking {
+struct Context {
+
+#ifdef USE_MTCP
+    mtcp_context *mctx;
+#endif
+
+    Context() {
+        // mtcp_create_context
+#ifdef USE_MTCP
+        mctx = mtcp_create_context(0); // cpu index?
+#endif
+    }
+
+    ~Context() {
+#ifdef USE_MTCP
+        mtcp_destroy_context(mctx);
+#endif
+    }
+
     // returns INVALID_SOCKET on error
-    static uv_os_sock_t acceptSocket(uv_os_sock_t fd) {
+    uv_os_sock_t acceptSocket(uv_os_sock_t fd) {
 #if defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
         // Linux, FreeBSD
         return accept4(fd, nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK);
@@ -88,7 +106,7 @@ struct Networking {
     }
 
     // returns INVALID_SOCKET on error
-    static uv_os_sock_t createSocket(int domain, int type, int protocol) {
+    uv_os_sock_t createSocket(int domain, int type, int protocol) {
         int flags = 0;
 #if defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
         flags = SOCK_CLOEXEC | SOCK_NONBLOCK;
@@ -97,7 +115,7 @@ struct Networking {
         return socket(domain, type | flags, protocol);
     }
 
-    static void closeSocket(uv_os_sock_t fd) {
+    void closeSocket(uv_os_sock_t fd) {
 #ifdef _WIN32
         closesocket(fd);
 #else
@@ -152,6 +170,7 @@ struct WIN32_EXPORT NodeData {
     char *recvBuffer;
     int recvLength;
     Loop *loop;
+    uS::Context *netContext;
     void *user = nullptr;
     static const int preAllocMaxSize = 1024;
     char **preAlloc;

@@ -85,7 +85,8 @@ public:
     template <void A(Socket *s), bool TIMER>
     static void accept_cb(ListenData *listenData) {
         uv_os_sock_t serverFd = listenData->sock;
-        uv_os_sock_t clientFd = Networking::acceptSocket(serverFd);
+        Context *netContext = listenData->nodeData->netContext;
+        uv_os_sock_t clientFd = netContext->acceptSocket(serverFd);
 //        if (clientFd == INVALID_SOCKET) {
 //            /*
 //            * If accept is failing, the pending connection won't be removed and the
@@ -129,7 +130,7 @@ public:
             Socket *socket = new Socket(listenData->nodeData, listenData->nodeData->loop, clientFd, ssl);
             socket->setPoll(UV_READABLE);
             A(socket);
-        } while ((clientFd = Networking::acceptSocket(serverFd)) != INVALID_SOCKET);
+        } while ((clientFd = netContext->acceptSocket(serverFd)) != INVALID_SOCKET);
     }
 
     // todo: hostname, backlog
@@ -142,6 +143,8 @@ public:
         hints.ai_family = AF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
 
+        Context *netContext = nodeData->netContext;
+
         if (getaddrinfo(host, std::to_string(port).c_str(), &hints, &result)) {
             return true;
         }
@@ -151,7 +154,7 @@ public:
         if ((options & uS::ONLY_IPV4) == 0) {
             for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
                 if (a->ai_family == AF_INET6) {
-                    listenFd = Networking::createSocket(a->ai_family, a->ai_socktype, a->ai_protocol);
+                    listenFd = netContext->createSocket(a->ai_family, a->ai_socktype, a->ai_protocol);
                     listenAddr = a;
                 }
             }
@@ -159,7 +162,7 @@ public:
 
         for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
             if (a->ai_family == AF_INET) {
-                listenFd = Networking::createSocket(a->ai_family, a->ai_socktype, a->ai_protocol);
+                listenFd = netContext->createSocket(a->ai_family, a->ai_socktype, a->ai_protocol);
                 listenAddr = a;
             }
         }
@@ -182,7 +185,7 @@ public:
         setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled));
 
         if (bind(listenFd, listenAddr->ai_addr, listenAddr->ai_addrlen) || ::listen(listenFd, 512)) {
-            Networking::closeSocket(listenFd);
+            netContext->closeSocket(listenFd);
             freeaddrinfo(result);
             return true;
         }

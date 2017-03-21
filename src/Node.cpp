@@ -34,6 +34,9 @@ Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop)
     nodeData->tid = pthread_self();
     loop = Loop::createLoop(useDefaultLoop);
 
+    // each node has a context
+    nodeData->netContext = new Context();
+
     nodeData->loop = loop;
     nodeData->asyncMutex = &asyncMutex;
 
@@ -63,6 +66,7 @@ Node::~Node() {
         }
     }
     delete [] nodeData->preAlloc;
+    delete nodeData->netContext;
     delete nodeData;
     loop->destroy();
 }

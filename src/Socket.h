@@ -324,8 +324,9 @@ struct WIN32_EXPORT Socket : Poll {
     template <class T>
     void closeSocket() {
         uv_os_sock_t fd = getFd();
+        Context *netContext = nodeData->netContext;
         stop(nodeData->loop);
-        Networking::closeSocket(fd);
+        netContext->closeSocket(fd);
 
         if (ssl) {
             SSL_free(ssl);
