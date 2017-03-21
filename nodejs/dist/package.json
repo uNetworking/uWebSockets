@@ -1,24 +1,17 @@
 {
   "name": "uws",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "scripts": {
     "install": "node-gyp rebuild > build_log.txt 2>&1 || exit 0"
   },
   "main": "uws.js",
-  "description": "Highly efficient WebSocket & HTTP library",
+  "description": "Tiny WebSockets",
   "engines": {
     "node": ">=4"
   },
   "keywords": [
-    "websockets",
-    "µWS",
-    "µWebSockets",
-    "uws",
-    "microWS",
-    "lightweight",
-    "fast",
-    "http",
-    "uhttp"
+    "tiny",
+    "websockets"
   ],
   "homepage": "https://github.com/uWebSockets/uWebSockets",
   "license": "Zlib",

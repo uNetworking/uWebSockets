@@ -12,12 +12,11 @@
         'src/WebSocket.cpp',
         'src/HTTPSocket.cpp',
         'src/Socket.cpp',
-        'src/addon.cpp',
-        'src/uUV.cpp'
+        'src/addon.cpp'
       ],
       'conditions': [
         ['OS=="linux"', {
-          'cflags_cc': [ '-std=c++11' ],
+          'cflags_cc': [ '-std=c++11', '-DUSE_LIBUV' ],
           'cflags_cc!': [ '-fno-exceptions', '-std=gnu++0x', '-fno-rtti' ],
           'cflags!': [ '-fno-omit-frame-pointer' ],
           'ldflags!': [ '-rdynamic' ],
@@ -33,11 +32,12 @@
             'GCC_THREADSAFE_STATICS': 'YES',
             'GCC_OPTIMIZATION_LEVEL': '3',
             'GCC_ENABLE_CPP_RTTI': 'YES',
-            'OTHER_CFLAGS!': [ '-fno-strict-aliasing' ]
+            'OTHER_CFLAGS!': [ '-fno-strict-aliasing' ],
+            'OTHER_CPLUSPLUSFLAGS': [ '-DUSE_LIBUV' ]
           }
         }],
         ['OS=="win"', {
-          'cflags_cc': [],
+          'cflags_cc': [ '/DUSE_LIBUV' ],
           'cflags_cc!': []
         }]
        ]
