@@ -3,7 +3,7 @@
 namespace uWS {
 
 template <const bool isServer>
-bool WebSocketProtocol<isServer>::setCompressed(void *user) {  
+bool WebSocketProtocol<isServer>::setCompressed(void *user) {
     WebSocket<isServer> *webSocket = (WebSocket<isServer> *) user;
 
     if (webSocket->compressionStatus == WebSocket<isServer>::CompressionStatus::ENABLED) {
@@ -80,28 +80,53 @@ bool WebSocketProtocol<isServer>::handleFragment(char *data, size_t length, unsi
             }
         }
     } else {
-        // todo: we don't need to buffer up in most cases!
-        webSocket->controlBuffer.append(data, length);
-        if (!remainingBytes && fin) {
+        if (!remainingBytes && fin && !webSocket->controlTipLength) {
             if (opCode == CLOSE) {
-                CloseFrame closeFrame = parseClosePayload((char *) webSocket->controlBuffer.data(), webSocket->controlBuffer.length());
+                CloseFrame closeFrame = parseClosePayload(data, length);
                 webSocket->close(closeFrame.code, closeFrame.message, closeFrame.length);
                 return true;
             } else {
                 if (opCode == PING) {
-                    webSocket->send(webSocket->controlBuffer.data(), webSocket->controlBuffer.length(), (OpCode) OpCode::PONG);
-                    ((Group<isServer> *) webSocket->nodeData)->pingHandler(webSocket, (char *) webSocket->controlBuffer.data(), webSocket->controlBuffer.length());
+                    webSocket->send(data, length, (OpCode) OpCode::PONG);
+                    ((Group<isServer> *) webSocket->nodeData)->pingHandler(webSocket, data, length);
                     if (webSocket->isClosed() || webSocket->isShuttingDown()) {
                         return true;
                     }
                 } else if (opCode == PONG) {
-                    ((Group<isServer> *) webSocket->nodeData)->pongHandler(webSocket, (char *) webSocket->controlBuffer.data(), webSocket->controlBuffer.length());
+                    ((Group<isServer> *) webSocket->nodeData)->pongHandler(webSocket, data, length);
                     if (webSocket->isClosed() || webSocket->isShuttingDown()) {
                         return true;
                     }
                 }
             }
-            webSocket->controlBuffer.clear();
+        } else {
+            webSocket->fragmentBuffer.append(data, length);
+            webSocket->controlTipLength += length;
+
+            if (!remainingBytes && fin) {
+                char *controlBuffer = (char *) webSocket->fragmentBuffer.data() + webSocket->fragmentBuffer.length() - webSocket->controlTipLength;
+                if (opCode == CLOSE) {
+                    CloseFrame closeFrame = parseClosePayload(controlBuffer, webSocket->controlTipLength);
+                    webSocket->close(closeFrame.code, closeFrame.message, closeFrame.length);
+                    return true;
+                } else {
+                    if (opCode == PING) {
+                        webSocket->send(controlBuffer, webSocket->controlTipLength, (OpCode) OpCode::PONG);
+                        ((Group<isServer> *) webSocket->nodeData)->pingHandler(webSocket, controlBuffer, webSocket->controlTipLength);
+                        if (webSocket->isClosed() || webSocket->isShuttingDown()) {
+                            return true;
+                        }
+                    } else if (opCode == PONG) {
+                        ((Group<isServer> *) webSocket->nodeData)->pongHandler(webSocket, controlBuffer, webSocket->controlTipLength);
+                        if (webSocket->isClosed() || webSocket->isShuttingDown()) {
+                            return true;
+                        }
+                    }
+                }
+
+                webSocket->fragmentBuffer.resize(webSocket->fragmentBuffer.length() - webSocket->controlTipLength);
+                webSocket->controlTipLength = 0;
+            }
         }
     }
 

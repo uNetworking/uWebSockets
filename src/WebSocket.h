@@ -11,13 +11,14 @@ struct Group;
 
 template <const bool isServer>
 struct WIN32_EXPORT WebSocket : uS::Socket, WebSocketProtocol<isServer> {
+    std::string fragmentBuffer;
     enum CompressionStatus : char {
         DISABLED,
         ENABLED,
         COMPRESSED_FRAME
     } compressionStatus;
     char hasOutstandingPong = false;
-    std::string fragmentBuffer, controlBuffer;
+    unsigned char controlTipLength = 0;
 
     WebSocket(bool perMessageDeflate, uS::Socket *socket) : uS::Socket(std::move(*socket)) {
         compressionStatus = perMessageDeflate ? CompressionStatus::ENABLED : CompressionStatus::DISABLED;
