@@ -1,0 +1,30 @@
+{
+  "name": "uws",
+  "version": "0.13.0",
+  "scripts": {
+    "install": "node-gyp rebuild > build_log.txt 2>&1 || exit 0"
+  },
+  "main": "uws.js",
+  "description": "Highly efficient WebSocket & HTTP library",
+  "engines": {
+    "node": ">=4"
+  },
+  "keywords": [
+    "websockets",
+    "µWS",
+    "µWebSockets",
+    "uws",
+    "microWS",
+    "lightweight",
+    "fast",
+    "http",
+    "uhttp"
+  ],
+  "homepage": "https://github.com/uWebSockets/uWebSockets",
+  "license": "Zlib",
+  "author": "Alex Hultman <alexhultman@gmail.com> (https://github.com/alexhultman)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uWebSockets/uWebSockets.git"
+  }
+}

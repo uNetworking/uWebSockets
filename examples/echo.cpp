@@ -1,32 +1,13 @@
-/* this is an echo server that properly passes every supported Autobahn test */
-
-#include <iostream>
-#include <string>
-using namespace std;
-
-#include <uWS.h>
-using namespace uWS;
+#include <uWS/uWS.h>
 
 int main()
 {
-    try {
-        Server server(3000);
-        server.onConnection([](Socket socket) {
+    uWS::Hub h;
 
-        });
+    h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode) {
+        ws.send(message, length, opCode);
+    });
 
-        server.onMessage([](Socket socket, const char *message, size_t length, OpCode opCode) {
-            socket.send((char *) message, length, opCode);
-        });
-
-        server.onDisconnection([](Socket socket) {
-
-        });
-
-        server.run();
-    } catch (...) {
-        cout << "ERR_LISTEN" << endl;
-    }
-
-    return 0;
+    h.listen(3000);
+    h.run();
 }

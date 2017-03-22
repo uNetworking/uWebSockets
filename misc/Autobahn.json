@@ -1,0 +1,17 @@
+{
+   "options": {"failByDrop": false},
+   "outdir": "./misc/autobahn",
+
+   "servers": [
+                {"agent": "&#181;WebSockets SSL",
+                 "url": "wss://localhost:3001",
+                 "options": {"version": 18}},
+                 {"agent": "&#181;WebSockets non-SSL",
+                  "url": "ws://localhost:3000",
+                  "options": {"version": 18}}
+              ],
+
+   "cases": ["1.*", "2.*", "3.*", "4.*", "5.*", "6.*", "7.*", "9.*", "10.*", "12.*", "13.*"],
+   "exclude-cases": [],
+   "exclude-agent-cases": {}
+}

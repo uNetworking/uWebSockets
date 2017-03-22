@@ -1,1 +1,2 @@
-*.html linguist-language=C++
+misc/* linguist-vendored
+*.h linguist-language=C++

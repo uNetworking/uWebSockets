@@ -82,7 +82,7 @@ bool nextConnection(int tid)
 int main(int argc, char **argv)
 {
     if (argc != 3) {
-        cout << "Usage: bench1 numberOfConnections port" << endl;
+        cout << "Usage: scalability numberOfConnections port" << endl;
         return -1;
     }
 
