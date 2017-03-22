@@ -345,6 +345,12 @@ class Server extends EventEmitter {
     constructor(options, callback) {
         super();
 
+        if (!options)
+            throw new TypeError('missing options');
+
+        if (options.port == null && !options.server && !options.noServer)
+            throw new TypeError('invalid options');
+
         var nativeOptions = WebSocketClient.PERMESSAGE_DEFLATE;
         if (options.perMessageDeflate !== undefined) {
             if (options.perMessageDeflate === false) {
@@ -437,18 +443,16 @@ class Server extends EventEmitter {
             _upgradeReq = null;
         });
 
-        if (options.port) {
-            if (options.host) {
-                this.httpServer.listen(options.port, options.host, ()=> {
-                      this.emit('listening');
-                      callback && callback();
-                });
-            } else {
-                this.httpServer.listen(options.port,  ()=> {
-                      this.emit('listening');
-                      callback && callback();
-                });
-            }
+        if (options.host) {
+            this.httpServer.listen(options.port, options.host, ()=> {
+                  this.emit('listening');
+                  callback && callback();
+            });
+        } else {
+            this.httpServer.listen(options.port,  ()=> {
+                  this.emit('listening');
+                  callback && callback();
+            });
         }
     }
 
