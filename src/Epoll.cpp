@@ -21,13 +21,13 @@ void Loop::run() {
         closing.clear();
 
         int numFdReady = epoll_wait(epfd, readyEvents, 1024, delay);
+        timepoint = std::chrono::system_clock::now();
         for (int i = 0; i < numFdReady; i++) {
             Poll *poll = (Poll *) readyEvents[i].data.ptr;
             int status = -bool(readyEvents[i].events & EPOLLERR);
             callbacks[poll->state.cbIndex](poll, status, readyEvents[i].events);
         }
 
-        timepoint = std::chrono::system_clock::now();
         while (timers.size() && timers[0].timepoint < timepoint) {
             Timer *timer = timers[0].timer;
             cancelledLastTimer = false;
