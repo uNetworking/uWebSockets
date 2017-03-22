@@ -30,9 +30,9 @@ HEADERS += ../src/WebSocketProtocol.h \
     ../src/Epoll.h \
     ../src/Asio.h
 
-LIBS += -lssl -lcrypto -lz -lpthread -luv -lboost_system
+LIBS += -lasan -lssl -lcrypto -lz -lpthread -luv -lboost_system
 
-QMAKE_CXXFLAGS += -Wno-unused-parameter
+QMAKE_CXXFLAGS += -fsanitize=address -Wno-unused-parameter
 QMAKE_CXXFLAGS_RELEASE -= -O1
 QMAKE_CXXFLAGS_RELEASE -= -O2
 QMAKE_CXXFLAGS_RELEASE *= -O3 -g
