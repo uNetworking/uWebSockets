@@ -1000,26 +1000,83 @@ void serveHttp() {
     h.run();
 }
 
+void testReceivePerformance() {
+    // "Rock it with HTML5 WebSockets!"
+    unsigned char webSocketMessage[] = {0x81, 0x9c, 0x37, 0x22, 0x79, 0xa5, 0x65, 0x4d, 0x1a, 0xce, 0x17, 0x4b, 0x0d, 0x85, 0x40, 0x4b
+    ,0x0d, 0xcd, 0x17, 0x6a, 0x2d, 0xe8, 0x7b, 0x17, 0x59, 0xf2, 0x52, 0x40, 0x2a, 0xca, 0x54, 0x49
+    ,0x1c, 0xd1};
+
+    // time this!
+    int messages = 1000000;
+    size_t bufferLength = sizeof(webSocketMessage) * messages;
+    char *buffer = new char[bufferLength + 4];
+    char *originalBuffer = new char[bufferLength];
+    for (int i = 0; i < messages; i++) {
+        memcpy(originalBuffer + sizeof(webSocketMessage) * i, webSocketMessage, sizeof(webSocketMessage));
+    }
+
+    uWS::Hub h;
+
+    h.onError([](void *user) {
+        std::cout << "FAILURE: " << user << " should not emit error!" << std::endl;
+        exit(-1);
+    });
+
+    struct TestWebSocket : uWS::WebSocket<uWS::SERVER> {
+        void onData(char *data, size_t length) {
+            consume(data, length, this);
+        }
+    };
+
+    h.onConnection([originalBuffer, buffer, bufferLength, messages, &h](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+        for (int i = 0; i < 100; i++) {
+            memcpy(buffer, originalBuffer, bufferLength);
+
+            auto now = std::chrono::high_resolution_clock::now();
+            ((TestWebSocket *) ws)->onData(buffer, bufferLength);
+            int us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - now).count();
+
+            std::cout << "Messages per microsecond: " << (double(messages) / double(us)) << std::endl;
+        }
+
+        h.getDefaultGroup<uWS::SERVER>().close();
+    });
+
+    h.onMessage([](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
+
+    });
+
+    h.listen(3000);
+    h.connect("ws://localhost:3000", nullptr);
+    h.run();
+
+    delete [] buffer;
+    delete [] originalBuffer;
+}
+
 int main(int argc, char *argv[])
 {
     //serveEventSource();
     //serveHttp();
     //serveBenchmark();
 
+    // performance tests (run without asan!)
+    testReceivePerformance();
+
     // falls through
-    testHTTP();
-    testSmallSends();
-    testSendCallback();
-    testMultithreading();
-    testReusePort();
-    testStress();
-    testRouting();
-    testClosing();
-    testConnections();
-    testListening();
-    testBroadcast();
-    testMessageBatch();
-    testAutoPing();
+//    testHTTP();
+//    testSmallSends();
+//    testSendCallback();
+//    testMultithreading();
+//    testReusePort();
+//    testStress();
+//    testRouting();
+//    testClosing();
+//    testConnections();
+//    testListening();
+//    testBroadcast();
+//    testMessageBatch();
+//    testAutoPing();
 
     //testAutobahn();
 }

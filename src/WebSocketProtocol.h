@@ -105,8 +105,8 @@ private:
 
         if (int(payLength) <= int(length - MESSAGE_HEADER)) {
             if (isServer) {
-                unmaskImpreciseCopyMask(src, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, payLength);
-                if (handleFragment(src, payLength, 0, opCode[(unsigned char) opStack], isFin(frame), user)) {
+                unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, payLength);
+                if (handleFragment(src + MESSAGE_HEADER - 4, payLength, 0, opCode[(unsigned char) opStack], isFin(frame), user)) {
                     return true;
                 }
             } else {
