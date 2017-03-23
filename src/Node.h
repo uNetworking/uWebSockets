@@ -34,6 +34,8 @@ public:
 
     template <uS::Socket *I(Socket *s), void C(Socket *p, bool error)>
     Socket *connect(const char *hostname, int port, bool secure, NodeData *nodeData) {
+        Context *netContext = nodeData->netContext;
+
         addrinfo hints, *result;
         memset(&hints, 0, sizeof(addrinfo));
         hints.ai_family = AF_UNSPEC;
@@ -42,15 +44,10 @@ public:
             return nullptr;
         }
 
-        uv_os_sock_t fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-        if (fd == -1) {
+        uv_os_sock_t fd = netContext->createSocket(result->ai_family, result->ai_socktype, result->ai_protocol);
+        if (fd == INVALID_SOCKET) {
             return nullptr;
         }
-
-#ifdef __APPLE__
-        int noSigpipe = 1;
-        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
-#endif
 
         ::connect(fd, result->ai_addr, result->ai_addrlen);
         freeaddrinfo(result);
@@ -72,62 +69,51 @@ public:
 
     template <void A(Socket *s)>
     static void accept_poll_cb(Poll *p, int status, int events) {
-        ListenData *listenData = (ListenData *) p;
+        ListenSocket *listenData = (ListenSocket *) p;
         accept_cb<A, false>(listenData);
     }
 
     template <void A(Socket *s)>
     static void accept_timer_cb(Timer *p) {
-        ListenData *listenData = (ListenData *) p->getData();
+        ListenSocket *listenData = (ListenSocket *) p->getData();
         accept_cb<A, true>(listenData);
     }
 
     template <void A(Socket *s), bool TIMER>
-    static void accept_cb(ListenData *listenData) {
-        uv_os_sock_t serverFd = listenData->sock;
-        Context *netContext = listenData->nodeData->netContext;
+    static void accept_cb(ListenSocket *listenSocket) {
+        uv_os_sock_t serverFd = listenSocket->getFd();
+        Context *netContext = listenSocket->nodeData->netContext;
         uv_os_sock_t clientFd = netContext->acceptSocket(serverFd);
-//        if (clientFd == INVALID_SOCKET) {
-//            /*
-//            * If accept is failing, the pending connection won't be removed and the
-//            * polling will cause the server to spin, using 100% cpu. Switch to a timer
-//            * event instead to avoid this.
-//            */
-//            if (!TIMER && !netContext->wouldBlock()) {
-//                listenData->listenPoll->stop(listenData->nodeData->loop);
-//                listenData->listenPoll->close(listenData->nodeData->loop);
-//                listenData->listenPoll = nullptr;
+        if (clientFd == INVALID_SOCKET) {
+            /*
+            * If accept is failing, the pending connection won't be removed and the
+            * polling will cause the server to spin, using 100% cpu. Switch to a timer
+            * event instead to avoid this.
+            */
+            if (!TIMER && !netContext->wouldBlock()) {
+                listenSocket->stop(listenSocket->nodeData->loop);
 
-//                listenData->listenTimer = new Timer(listenData->nodeData->loop);
-//                listenData->listenTimer->setData(listenData);
-//                listenData->listenTimer->start(accept_timer_cb<A>, 1000, 1000);
-//            }
-//            return;
-//        } else if (TIMER) {
-//            listenData->listenTimer->stop();
-//            listenData->listenTimer->close();
-//            listenData->listenTimer = nullptr;
+                listenSocket->timer = new Timer(listenSocket->nodeData->loop);
+                listenSocket->timer->setData(listenSocket);
+                listenSocket->timer->start(accept_timer_cb<A>, 1000, 1000);
+            }
+            return;
+        } else if (TIMER) {
+            listenSocket->timer->stop();
+            listenSocket->timer->close();
+            listenSocket->timer = nullptr;
 
-//            // todo: broken
-//            //listenData->listenPoll = new Poll(listenData->nodeData->loop, serverFd);
-//            //listenData->listenPoll->setData(listenData);
-
-//            listenData->listenPoll->setCb(accept_poll_cb<A>);
-//            listenData->listenPoll->start(listenData->nodeData->loop, listenData, UV_READABLE);
-//        }
+            listenSocket->setCb(accept_poll_cb<A>);
+            listenSocket->start(listenSocket->nodeData->loop, listenSocket, UV_READABLE);
+        }
         do {
-#ifdef __APPLE__
-            int noSigpipe = 1;
-            setsockopt(clientFd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
-#endif
-
             SSL *ssl = nullptr;
-            if (listenData->sslContext) {
-                ssl = SSL_new(listenData->sslContext.getNativeContext());
+            if (listenSocket->sslContext) {
+                ssl = SSL_new(listenSocket->sslContext.getNativeContext());
                 SSL_set_accept_state(ssl);
             }
 
-            Socket *socket = new Socket(listenData->nodeData, listenData->nodeData->loop, clientFd, ssl);
+            Socket *socket = new Socket(listenSocket->nodeData, listenSocket->nodeData->loop, clientFd, ssl);
             socket->setPoll(UV_READABLE);
             A(socket);
         } while ((clientFd = netContext->acceptSocket(serverFd)) != INVALID_SOCKET);
@@ -190,21 +176,16 @@ public:
             return true;
         }
 
-        ListenData *listenData = new ListenData(nodeData, loop, listenFd, nullptr);
-        listenData->sslContext = sslContext;
-        listenData->nodeData = nodeData;
+        ListenSocket *listenSocket = new ListenSocket(nodeData, loop, listenFd, nullptr);
+        listenSocket->sslContext = sslContext;
+        listenSocket->nodeData = nodeData;
 
-        listenData->setCb(accept_poll_cb<A>);
-        listenData->start(loop, listenData, UV_READABLE);
-
-
-        // why is this needed?
-        listenData->sock = listenFd;
-
-        listenData->ssl = nullptr;
+        listenSocket->setCb(accept_poll_cb<A>);
+        listenSocket->start(loop, listenSocket, UV_READABLE);
 
         // should be vector of listen data! one group can have many listeners!
-        nodeData->user = listenData;
+        nodeData->user = listenSocket;
+
         freeaddrinfo(result);
         return false;
     }

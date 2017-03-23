@@ -137,23 +137,19 @@ Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) :
 template <bool isServer>
 void Group<isServer>::stopListening() {
     if (isServer) {
-        uS::ListenData *listenData = (uS::ListenData *) user;
-        if (listenData) {
-            if (listenData) {
-                uS::Socket *s = (uS::Socket *) listenData;
-                s->closeSocket<uS::ListenData>();
-            } else if (listenData->listenTimer) {
-                uv_os_sock_t fd = listenData->sock;
-                listenData->listenTimer->stop();
-                listenData->nodeData->netContext->closeSocket(fd);
+        if (user) {
+            // todo: we should allow one group to listen to many ports!
+            uS::ListenSocket *listenSocket = (uS::ListenSocket *) user;
 
-                SSL *ssl = listenData->ssl;
-                if (ssl) {
-                    SSL_free(ssl);
-                }
-
-                listenData->listenTimer->close();
+            if (listenSocket->timer) {
+                listenSocket->timer->stop();
+                listenSocket->timer->close();
             }
+
+            listenSocket->closeSocket<uS::ListenSocket>();
+
+            // mark as stopped listening (extra care?)
+            user = nullptr;
         }
     }
 

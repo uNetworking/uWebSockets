@@ -473,14 +473,13 @@ struct WIN32_EXPORT Socket : Poll {
     }
 };
 
-struct ListenData : Socket {
+struct ListenSocket : Socket {
 
-    ListenData(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, SSL *ssl) : Socket(nodeData, loop, fd, ssl) {
+    ListenSocket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, SSL *ssl) : Socket(nodeData, loop, fd, ssl) {
 
     }
 
-    Timer *listenTimer = nullptr;
-    uv_os_sock_t sock;
+    Timer *timer = nullptr;
     uS::TLS::Context sslContext;
 };
 

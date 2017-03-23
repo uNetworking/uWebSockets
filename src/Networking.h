@@ -1,3 +1,6 @@
+// the purpose of this header should be to provide SSL and networking wrapped in a common interface
+// it should allow cross-platform networking and SSL and also easy usage of mTCP and similar tech
+
 #ifndef NETWORKING_UWS_H
 #define NETWORKING_UWS_H
 
@@ -75,6 +78,7 @@ inline SOCKET dup(SOCKET socket) {
 namespace uS {
 
 // todo: mark sockets nonblocking in these functions
+// todo: probably merge this Context with the TLS::Context for same interface for SSL and non-SSL!
 struct Context {
 
 #ifdef USE_MTCP
@@ -96,13 +100,22 @@ struct Context {
 
     // returns INVALID_SOCKET on error
     uv_os_sock_t acceptSocket(uv_os_sock_t fd) {
+        uv_os_sock_t acceptedFd;
 #if defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
         // Linux, FreeBSD
-        return accept4(fd, nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK);
+        acceptedFd = accept4(fd, nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK);
 #else
         // Windows, OS X
-        return accept(fd, nullptr, nullptr);
+        acceptedFd = accept(fd, nullptr, nullptr);
 #endif
+
+#ifdef __APPLE__
+        if (acceptedFd != INVALID_SOCKET) {
+            int noSigpipe = 1;
+            setsockopt(acceptedFd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
+        }
+#endif
+        return acceptedFd;
     }
 
     // returns INVALID_SOCKET on error
@@ -112,7 +125,16 @@ struct Context {
         flags = SOCK_CLOEXEC | SOCK_NONBLOCK;
 #endif
 
-        return socket(domain, type | flags, protocol);
+        uv_os_sock_t createdFd = socket(domain, type | flags, protocol);
+
+#ifdef __APPLE__
+        if (createdFd != INVALID_SOCKET) {
+            int noSigpipe = 1;
+            setsockopt(createdFd, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(int));
+        }
+#endif
+
+        return createdFd;
     }
 
     void closeSocket(uv_os_sock_t fd) {
@@ -173,6 +195,7 @@ Context createContext(std::string certChainFileName, std::string keyFileName, st
 
 struct Socket;
 
+// NodeData is like a Context, maybe merge them?
 struct WIN32_EXPORT NodeData {
     char *recvBufferMemoryBlock;
     char *recvBuffer;
