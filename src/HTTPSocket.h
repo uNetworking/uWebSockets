@@ -137,7 +137,7 @@ struct WIN32_EXPORT HttpSocket : uS::Socket {
                  size_t subprotocolLength, bool *perMessageDeflate);
 
 private:
-    friend class uS::Socket;
+    friend struct uS::Socket;
     friend struct HttpResponse;
     friend struct Hub;
     static uS::Socket *onData(uS::Socket *s, char *data, size_t length);

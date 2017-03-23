@@ -57,7 +57,7 @@ struct WIN32_EXPORT WebSocket : uS::Socket, WebSocketProtocol<isServer> {
     static void finalizeMessage(PreparedMessage *preparedMessage);
 
 private:
-    friend class uS::Socket;
+    friend struct uS::Socket;
     template <bool> friend struct Group;
     static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
     static void onEnd(uS::Socket *s);
