@@ -3,16 +3,21 @@
 const http = require('http');
 const EventEmitter = require('events');
 const EE_ERROR = 'Registering more than one listener to a WebSocket is not supported.';
+
 function noop() {}
+
 function abortConnection(socket, code, name) {
     socket.end('HTTP/1.1 ' + code + ' ' + name + '\r\n\r\n');
 }
+
 function emitConnection(ws) {
     this.emit('connection', ws);
 }
+
 function onServerMessage(message, webSocket) {
     webSocket.internalOnMessage(message);
 }
+
 const native = (() => {
     try {
         try {
@@ -25,6 +30,7 @@ const native = (() => {
             return parseInt(n);
         });
         const lessThanSixFour = version[0] < 6 || (version[0] === 6 && version[1] < 4);
+
         if (process.platform === 'win32' && lessThanSixFour) {
             throw new Error('µWebSockets requires Node.js 6.4.0 or greater on Windows.');
         } else {
@@ -37,7 +43,9 @@ const native = (() => {
 native.setNoop(noop);
 
 var _upgradeReq = null;
+
 const clientGroup = native.client.group.create();
+
 native.client.group.onConnection(clientGroup, (external) => {
     const webSocket = native.getUserData(external);
     webSocket.external = external;
@@ -50,9 +58,11 @@ native.client.group.onMessage(clientGroup, (message, webSocket) => {
 
 native.client.group.onDisconnection(clientGroup, (external, code, message, webSocket) => {
     webSocket.external = null;
+
     process.nextTick(() => {
         webSocket.internalOnClose(code, message);
     });
+
     native.clearUserData(external);
 });
 
@@ -280,6 +290,7 @@ class WebSocket {
             }
 
             const binary = options && options.binary || typeof message !== 'string';
+
             native.server.send(this.external, message, binary ? WebSocketClient.OPCODE_BINARY : WebSocketClient.OPCODE_TEXT, cb ? (() => {
                 process.nextTick(cb);
             }) : undefined);
@@ -325,6 +336,7 @@ class WebSocketClient extends WebSocket {
             }
 
             const binary = options && options.binary || typeof message !== 'string';
+
             native.client.send(this.external, message, binary ? WebSocketClient.OPCODE_BINARY : WebSocketClient.OPCODE_TEXT, cb ? (() => {
                 process.nextTick(cb);
             }) : undefined);
@@ -345,7 +357,16 @@ class Server extends EventEmitter {
     constructor(options, callback) {
         super();
 
+        if (!options) {
+            throw new TypeError('missing options');
+        }
+
+        if (options.port === undefined && !options.server && !options.noServer) {
+            throw new TypeError('invalid options');
+        }
+
         var nativeOptions = WebSocketClient.PERMESSAGE_DEFLATE;
+
         if (options.perMessageDeflate !== undefined) {
             if (options.perMessageDeflate === false) {
                 nativeOptions = 0;
@@ -414,9 +435,11 @@ class Server extends EventEmitter {
 
         native.server.group.onDisconnection(this.serverGroup, (external, code, message, webSocket) => {
             webSocket.external = null;
+
             process.nextTick(() => {
                 webSocket.internalOnClose(code, message);
             });
+
             native.clearUserData(external);
         });
 
@@ -432,21 +455,22 @@ class Server extends EventEmitter {
 
         native.server.group.onConnection(this.serverGroup, (external) => {
             const webSocket = new WebSocket(external);
+
             native.setUserData(external, webSocket);
             this._upgradeCallback(webSocket);
             _upgradeReq = null;
         });
 
-        if (options.port) {
+        if (options.port !== undefined) {
             if (options.host) {
-                this.httpServer.listen(options.port, options.host, ()=> {
-                      this.emit('listening');
-                      callback && callback();
+                this.httpServer.listen(options.port, options.host, () => {
+                    this.emit('listening');
+                    callback && callback();
                 });
             } else {
-                this.httpServer.listen(options.port,  ()=> {
-                      this.emit('listening');
-                      callback && callback();
+                this.httpServer.listen(options.port, () => {
+                    this.emit('listening');
+                    callback && callback();
                 });
             }
         }
@@ -454,11 +478,11 @@ class Server extends EventEmitter {
 
     handleUpgrade(request, socket, upgradeHead, callback) {
         if (socket._isNative) {
-                    if (this.serverGroup) {
-                        _upgradeReq = request;
-                        this._upgradeCallback = callback ? callback : noop;
-                        native.upgrade(this.serverGroup, socket.external, secKey, request.headers['sec-websocket-extensions'], request.headers['sec-websocket-protocol']);
-                    }
+            if (this.serverGroup) {
+                _upgradeReq = request;
+                this._upgradeCallback = callback ? callback : noop;
+                native.upgrade(this.serverGroup, socket.external, secKey, request.headers['sec-websocket-extensions'], request.headers['sec-websocket-protocol']);
+            }
         } else {
             const secKey = request.headers['sec-websocket-key'];
             const socketHandle = socket.ssl ? socket._parent._handle : socket._handle;
@@ -493,6 +517,7 @@ class Server extends EventEmitter {
     close() {
         if (this._upgradeListener && this.httpServer) {
             this.httpServer.removeListener('upgrade', this._upgradeListener);
+
             if (!this._passedHttpServer) {
                 this.httpServer.close();
             }
