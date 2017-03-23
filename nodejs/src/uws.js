@@ -461,16 +461,18 @@ class Server extends EventEmitter {
             _upgradeReq = null;
         });
 
-        if (options.host) {
-            this.httpServer.listen(options.port, options.host, () => {
-                this.emit('listening');
-                callback && callback();
-            });
-        } else {
-            this.httpServer.listen(options.port,  () => {
-                this.emit('listening');
-                callback && callback();
-            });
+        if (options.port !== undefined) {
+            if (options.host) {
+                this.httpServer.listen(options.port, options.host, () => {
+                    this.emit('listening');
+                    callback && callback();
+                });
+            } else {
+                this.httpServer.listen(options.port, () => {
+                    this.emit('listening');
+                    callback && callback();
+                });
+            }
         }
     }
 
