@@ -361,7 +361,7 @@ class Server extends EventEmitter {
             throw new TypeError('missing options');
         }
 
-        if (options.port === null && !options.server && !options.noServer) {
+        if (options.port === undefined && !options.server && !options.noServer) {
             throw new TypeError('invalid options');
         }
 
