@@ -93,7 +93,7 @@ public:
 //            * polling will cause the server to spin, using 100% cpu. Switch to a timer
 //            * event instead to avoid this.
 //            */
-//            if (!TIMER && errno != EAGAIN && errno != EWOULDBLOCK) {
+//            if (!TIMER && !netContext->wouldBlock()) {
 //                listenData->listenPoll->stop(listenData->nodeData->loop);
 //                listenData->listenPoll->close(listenData->nodeData->loop);
 //                listenData->listenPoll = nullptr;

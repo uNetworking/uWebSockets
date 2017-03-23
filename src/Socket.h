@@ -263,6 +263,7 @@ struct WIN32_EXPORT Socket : Poll {
     static void ioHandler(Poll *p, int status, int events) {
         Socket *socket = (Socket *) p;
         NodeData *nodeData = socket->nodeData;
+        Context *netContext = nodeData->netContext;
 
         if (status < 0) {
             STATE::onEnd((Socket *) p);
@@ -286,7 +287,7 @@ struct WIN32_EXPORT Socket : Poll {
                             break;
                         }
                     } else if (sent == SOCKET_ERROR) {
-                        if (errno != EWOULDBLOCK) {
+                        if (!netContext->wouldBlock()) {
                             STATE::onEnd((Socket *) p);
                             return;
                         }
@@ -305,7 +306,7 @@ struct WIN32_EXPORT Socket : Poll {
             int length = recv(socket->getFd(), nodeData->recvBuffer, nodeData->recvLength, 0);
             if (length > 0) {
                 STATE::onData((Socket *) p, nodeData->recvBuffer, length);
-            } else if (length <= 0 || (length == SOCKET_ERROR && errno != EWOULDBLOCK)) {
+            } else if (length <= 0 || (length == SOCKET_ERROR && !netContext->wouldBlock())) {
                 STATE::onEnd((Socket *) p);
             }
         }
@@ -391,7 +392,7 @@ struct WIN32_EXPORT Socket : Poll {
                     wasTransferred = false;
                     return true;
                 } else if (sent == SOCKET_ERROR) {
-                    if (errno != EWOULDBLOCK) {
+                    if (!nodeData->netContext->wouldBlock()) {
                         return false;
                     }
                 } else {

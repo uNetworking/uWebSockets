@@ -122,6 +122,14 @@ struct Context {
         close(fd);
 #endif
     }
+
+    bool wouldBlock() {
+#ifdef _WIN32
+        return WSAGetLastError() == WSAEWOULDBLOCK;
+#else
+        return errno == EWOULDBLOCK;// || errno == EAGAIN;
+#endif
+    }
 };
 
 namespace TLS {
