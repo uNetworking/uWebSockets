@@ -348,7 +348,7 @@ class Server extends EventEmitter {
         if (!options)
             throw new TypeError('missing options');
 
-        if (options.port == null && !options.server && !options.noServer)
+        if (options.port === null && !options.server && !options.noServer)
             throw new TypeError('invalid options');
 
         var nativeOptions = WebSocketClient.PERMESSAGE_DEFLATE;
