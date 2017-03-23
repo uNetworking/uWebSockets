@@ -22,6 +22,7 @@
     <ProjectGuid>{2CA70B30-89DC-48D6-8F67-7690C32F2611}</ProjectGuid>
     <ProjectName>uWS</ProjectName>
   </PropertyGroup>
+  <Import Condition="'$(VcpkgTargetsFilePath)'!=''" Project="$(VcpkgTargetsFilePath)"/>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.default.props" />
   <PropertyGroup>
     <ConfigurationType>DynamicLibrary</ConfigurationType>
