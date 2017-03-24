@@ -1,5 +1,7 @@
 <div align="center"><img src="misc/images/logo.png"/></div>
+
 `µWS` is one of the most lightweight, efficient & scalable WebSocket & HTTP server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
+
 
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/misc/autobahn/index.html).
 * One million WebSockets require ~111mb of user space memory (104 bytes per WebSocket).
@@ -8,7 +10,7 @@
 * Runs with raw epoll, libuv or ASIO (C++17-ready).
 * Valgrind & AddressSanitizer clean.
 * Permessage-deflate, SSL/TLS support & integrates with foreign HTTP(S) servers.
-* Multi-core friendly.
+* Multi-core friendly & optionally thread-safe via compiler flag UWS_THREADSAFE.
 
 [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](misc/images/patreon.png)](https://www.patreon.com/uWebSockets)
 
@@ -20,8 +22,8 @@ The interface has been designed for simplicity and only requires you to write a 
 int main() {
     uWS::Hub h;
 
-    h.onMessage([](uWS::WebSocket<uWS::SERVER> ws, char *message, size_t length, uWS::OpCode opCode) {
-        ws.send(message, length, opCode);
+    h.onMessage([](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
+        ws->send(message, length, opCode);
     });
 
     h.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes) {
