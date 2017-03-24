@@ -37,7 +37,7 @@ struct Loop {
     std::vector<std::pair<Poll *, void (*)(Poll *)>> closing;
 
     Loop(bool defaultLoop) {
-        epfd = epoll_create(1);
+        epfd = epoll_create1(EPOLL_CLOEXEC);
         timepoint = std::chrono::system_clock::now();
     }
 
