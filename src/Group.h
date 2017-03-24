@@ -16,7 +16,7 @@ struct WIN32_EXPORT Group : uS::NodeData {
 protected:
     friend struct Hub;
     friend struct WebSocket<isServer>;
-    friend struct WebSocketProtocol<isServer>;
+    friend class WebSocketProtocol<isServer>;
     friend struct HttpSocket<false>;
     friend struct HttpSocket<true>;
 
@@ -44,8 +44,6 @@ protected:
 
     // todo: cannot be named user, collides with parent!
     void *userData = nullptr;
-    void setUserData(void *user);
-    void *getUserData();
     static void timerCallback(Timer *timer);
 
     WebSocket<isServer> *webSocketHead = nullptr;
@@ -78,6 +76,8 @@ public:
 
     // Thread safe
     void broadcast(const char *message, size_t length, OpCode opCode);
+    void setUserData(void *user);
+    void *getUserData();
 
     // Not thread safe
     void terminate();

@@ -477,7 +477,7 @@ public:
         return state.shuttingDown;
     }
 
-    friend struct Node;
+    friend class Node;
     friend struct NodeData;
 };
 

@@ -43,7 +43,7 @@ char *Hub::inflate(char *data, size_t &length) {
 }
 
 void Hub::onServerAccept(uS::Socket *s) {
-    HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(s, true);
+    HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(s);
     delete s;
 
     httpSocket->setState<HttpSocket<SERVER>>();
@@ -84,7 +84,7 @@ bool Hub::listen(int port, uS::TLS::Context sslContext, int options, Group<SERVE
 }
 
 uS::Socket *allocateHttpSocket(uS::Socket *s) {
-    return (uS::Socket *) new HttpSocket<CLIENT>(s, true);
+    return (uS::Socket *) new HttpSocket<CLIENT>(s);
 }
 
 void Hub::connect(std::string uri, void *user, std::map<std::string, std::string> extraHeaders, int timeoutMs, Group<CLIENT> *eh) {
@@ -163,7 +163,7 @@ void Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
     s.setNoDelay(true);
 
     // todo: skip httpSocket -> it cannot fail anyways!
-    HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(&s, true);
+    HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(&s);
     httpSocket->setState<HttpSocket<SERVER>>();
     httpSocket->change(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
     bool perMessageDeflate;

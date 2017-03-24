@@ -118,7 +118,7 @@ struct WIN32_EXPORT HttpSocket : uS::Socket {
     size_t contentLength = 0;
     bool missedDeadline = false;
 
-    HttpSocket(uS::Socket *socket, bool areYouSure) : uS::Socket(std::move(*socket)) {}
+    HttpSocket(uS::Socket *socket) : uS::Socket(std::move(*socket)) {}
 
     void terminate() {
         onEnd(this);
@@ -213,7 +213,7 @@ struct HttpResponse {
         };
 
         if (httpSocket->outstandingResponsesHead != this) {
-            uS::Socket::Queue::Message *messagePtr = httpSocket->allocMessage(HttpTransformer::estimate(message, length));
+            HttpSocket<true>::Queue::Message *messagePtr = httpSocket->allocMessage(HttpTransformer::estimate(message, length));
             messagePtr->length = HttpTransformer::transform(message, (char *) messagePtr->data, length, transformData);
             messagePtr->callback = callback;
             messagePtr->callbackData = callbackData;
@@ -226,9 +226,9 @@ struct HttpResponse {
             HttpResponse *head = next;
             while (head) {
                 // empty message queue
-                uS::Socket::Queue::Message *messagePtr = head->messageQueue;
+                HttpSocket<true>::Queue::Message *messagePtr = head->messageQueue;
                 while (messagePtr) {
-                    uS::Socket::Queue::Message *nextMessage = messagePtr->nextMessage;
+                    HttpSocket<true>::Queue::Message *nextMessage = messagePtr->nextMessage;
 
                     bool wasTransferred;
                     if (httpSocket->write(messagePtr, wasTransferred)) {

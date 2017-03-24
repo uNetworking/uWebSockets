@@ -88,8 +88,8 @@ public:
     using Group<SERVER>::onHttpUpgrade;
     using Group<SERVER>::onCancelledHttpRequest;
 
-    friend struct WebSocketProtocol<true>;
-    friend struct WebSocketProtocol<false>;
+    friend class WebSocketProtocol<true>;
+    friend class WebSocketProtocol<false>;
 };
 
 }

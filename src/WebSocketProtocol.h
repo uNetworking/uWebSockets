@@ -171,7 +171,7 @@ private:
     }
 
     // 16 bytes
-    struct {
+    struct State {
         unsigned int wantsHead : 1;
         unsigned int spillLength : 4;
         int opStack : 2; // -1, 0, 1
@@ -180,7 +180,15 @@ private:
         // 15 bytes
         unsigned char spill[LONG_MESSAGE_HEADER - 1];
         OpCode opCode[2];
-    } state = {true, 0, -1, true};
+
+        State() {
+            wantsHead = true;
+            spillLength = 0;
+            opStack = -1;
+            lastFin = true;
+        }
+
+    } state;
 
     // 8 bytes
     unsigned int remainingBytes = 0;

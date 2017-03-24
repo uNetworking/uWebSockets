@@ -110,7 +110,7 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
 
                             // Warning: changes socket, needs to inform the stack of Poll address change!
                             WebSocket<isServer> *webSocket = new WebSocket<isServer>(perMessageDeflate, httpSocket);
-                            webSocket->setState<WebSocket<isServer>>();
+                            webSocket->template setState<WebSocket<isServer>>();
                             webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
                             getGroup<isServer>(webSocket)->addWebSocket(webSocket);
 
@@ -162,7 +162,7 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
                     WebSocket<isServer> *webSocket = new WebSocket<isServer>(false, httpSocket);
                     httpSocket->cancelTimeout();
                     webSocket->setUserData(httpSocket->httpUser);
-                    webSocket->setState<WebSocket<isServer>>();
+                    webSocket->template setState<WebSocket<isServer>>();
                     webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
                     getGroup<isServer>(webSocket)->addWebSocket(webSocket);
 

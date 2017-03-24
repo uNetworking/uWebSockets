@@ -199,7 +199,7 @@ struct Async : Poll {
     Loop *loop;
     void *data;
 
-    Async(Loop *loop) : Poll(loop, ::eventfd(0, 0)) {
+    Async(Loop *loop) : Poll(loop, ::eventfd(0, EFD_CLOEXEC)) {
         this->loop = loop;
     }
 
@@ -216,7 +216,9 @@ struct Async : Poll {
 
     void send() {
         uint64_t one = 1;
-        ::write(state.fd, &one, 8);
+        if (::write(state.fd, &one, 8) != 8) {
+            return;
+        }
     }
 
     void close() {

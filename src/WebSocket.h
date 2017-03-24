@@ -65,7 +65,7 @@ public:
     friend struct Group<isServer>;
     friend struct HttpSocket<isServer>;
     friend struct uS::Socket;
-    friend struct WebSocketProtocol<isServer>;
+    friend class WebSocketProtocol<isServer>;
 };
 
 }
