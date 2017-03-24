@@ -225,6 +225,11 @@ void Group<isServer>::onHttpUpgrade(std::function<void(HttpSocket<isServer> *, H
 
 template <bool isServer>
 void Group<isServer>::broadcast(const char *message, size_t length, OpCode opCode) {
+
+#ifdef UWS_THREADSAFE
+    std::lock_guard<std::recursive_mutex> lockGuard(*asyncMutex);
+#endif
+
     typename WebSocket<isServer>::PreparedMessage *preparedMessage = WebSocket<isServer>::prepareMessage((char *) message, length, opCode, false);
     forEach([preparedMessage](uWS::WebSocket<isServer> *ws) {
         ws->sendPrepared(preparedMessage);

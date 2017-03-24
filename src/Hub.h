@@ -11,17 +11,7 @@
 namespace uWS {
 
 struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<CLIENT> {
-
-    template <bool isServer>
-    Group<isServer> *createGroup(int extensionOptions = 0) {
-        return new Group<isServer>(extensionOptions, this, nodeData);
-    }
-
-    template <bool isServer>
-    Group<isServer> &getDefaultGroup() {
-        return (Group<isServer> &) *this;
-    }
-
+protected:
     struct ConnectionData {
         std::string path;
         void *user;
@@ -37,6 +27,17 @@ struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<C
     static void onServerAccept(uS::Socket *s);
     static void onClientConnection(uS::Socket *s, bool error);
 
+public:
+    template <bool isServer>
+    Group<isServer> *createGroup(int extensionOptions = 0) {
+        return new Group<isServer>(extensionOptions, this, nodeData);
+    }
+
+    template <bool isServer>
+    Group<isServer> &getDefaultGroup() {
+        return (Group<isServer> &) *this;
+    }
+
     bool listen(int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
     bool listen(const char *host, int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
     void connect(std::string uri, void *user = nullptr, std::map<std::string, std::string> extraHeaders = {}, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr);
@@ -46,6 +47,18 @@ struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<C
                                              Group<SERVER>(extensionOptions, this, nodeData), Group<CLIENT>(0, this, nodeData) {
         inflateInit2(&inflationStream, -15);
         inflationBuffer = new char[LARGE_BUFFER_SIZE];
+
+#ifdef UWS_THREADSAFE
+        getLoop()->preCbData = nodeData;
+        getLoop()->preCb = [](void *nodeData) {
+            ((uS::NodeData *) nodeData)->asyncMutex->lock();
+        };
+
+        getLoop()->postCbData = nodeData;
+        getLoop()->postCb = [](void *nodeData) {
+            ((uS::NodeData *) nodeData)->asyncMutex->unlock();
+        };
+#endif
     }
 
     ~Hub() {
@@ -74,6 +87,9 @@ struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<C
     using Group<SERVER>::onHttpDisconnection;
     using Group<SERVER>::onHttpUpgrade;
     using Group<SERVER>::onCancelledHttpRequest;
+
+    friend struct WebSocketProtocol<true>;
+    friend struct WebSocketProtocol<false>;
 };
 
 }

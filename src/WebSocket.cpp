@@ -5,6 +5,17 @@ namespace uWS {
 
 template <bool isServer>
 void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
+
+#ifdef UWS_THREADSAFE
+    std::lock_guard<std::recursive_mutex> lockGuard(*nodeData->asyncMutex);
+    if (isClosed()) {
+        if (callback) {
+            callback(this, callbackData, true, nullptr);
+        }
+        return;
+    }
+#endif
+
     const int HEADER_LENGTH = WebSocketProtocol<!isServer>::LONG_MESSAGE_HEADER;
 
     struct TransformData {
@@ -128,11 +139,22 @@ uS::Socket *WebSocket<isServer>::onData(uS::Socket *s, char *data, size_t length
 
 template <bool isServer>
 void WebSocket<isServer>::terminate() {
+
+#ifdef UWS_THREADSAFE
+    std::lock_guard<std::recursive_mutex> lockGuard(*nodeData->asyncMutex);
+    if (isClosed()) {
+        return;
+    }
+#endif
+
     WebSocket<isServer>::onEnd(this);
 }
 
 template <bool isServer>
 void WebSocket<isServer>::close(int code, const char *message, size_t length) {
+
+    // startTimeout is not thread safe
+
     static const int MAX_CLOSE_PAYLOAD = 123;
     length = std::min<size_t>(MAX_CLOSE_PAYLOAD, length);
     getGroup<isServer>(this)->removeWebSocket(this);

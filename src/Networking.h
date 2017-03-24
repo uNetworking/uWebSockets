@@ -218,13 +218,7 @@ struct WIN32_EXPORT NodeData {
         void (*cb)(Poll *);
     };
 
-    void addAsync() {
-        async = new Async(loop);
-        async->setData(this);
-        async->start(NodeData::asyncCallback);
-    }
-
-    std::mutex *asyncMutex;
+    std::recursive_mutex *asyncMutex;
     std::vector<TransferData> transferQueue;
     std::vector<Poll *> changePollQueue;
     static void asyncCallback(Async *async);
@@ -249,6 +243,13 @@ struct WIN32_EXPORT NodeData {
         } else {
             delete [] memory;
         }
+    }
+
+public:
+    void addAsync() {
+        async = new Async(loop);
+        async->setData(this);
+        async->start(NodeData::asyncCallback);
     }
 };
 

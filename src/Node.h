@@ -13,58 +13,10 @@ enum ListenOptions : int {
 };
 
 class WIN32_EXPORT Node {
-protected:
-    Loop *loop;
-    NodeData *nodeData;
-    std::mutex asyncMutex;
-
-public:
-    Node(int recvLength = 1024, int prePadding = 0, int postPadding = 0, bool useDefaultLoop = false);
-    ~Node();
-    void run();
-
-    Loop *getLoop() {
-        return loop;
-    }
-
+private:
     template <void C(Socket *p, bool error)>
     static void connect_cb(Poll *p, int status, int events) {
         C((Socket *) p, status < 0);
-    }
-
-    template <uS::Socket *I(Socket *s), void C(Socket *p, bool error)>
-    Socket *connect(const char *hostname, int port, bool secure, NodeData *nodeData) {
-        Context *netContext = nodeData->netContext;
-
-        addrinfo hints, *result;
-        memset(&hints, 0, sizeof(addrinfo));
-        hints.ai_family = AF_UNSPEC;
-        hints.ai_socktype = SOCK_STREAM;
-        if (getaddrinfo(hostname, std::to_string(port).c_str(), &hints, &result) != 0) {
-            return nullptr;
-        }
-
-        uv_os_sock_t fd = netContext->createSocket(result->ai_family, result->ai_socktype, result->ai_protocol);
-        if (fd == INVALID_SOCKET) {
-            return nullptr;
-        }
-
-        ::connect(fd, result->ai_addr, result->ai_addrlen);
-        freeaddrinfo(result);
-
-        SSL *ssl = nullptr;
-        if (secure) {
-            ssl = SSL_new(nodeData->clientContext);
-            SSL_set_connect_state(ssl);
-            SSL_set_tlsext_host_name(ssl, hostname);
-        }
-
-        Socket initialSocket(nodeData, getLoop(), fd, ssl);
-        uS::Socket *socket = I(&initialSocket);
-
-        socket->setCb(connect_cb<C>);
-        socket->start(loop, socket, socket->setPoll(UV_WRITABLE));
-        return socket;
     }
 
     template <void A(Socket *s)>
@@ -117,6 +69,55 @@ public:
             socket->setPoll(UV_READABLE);
             A(socket);
         } while ((clientFd = netContext->acceptSocket(serverFd)) != INVALID_SOCKET);
+    }
+
+protected:
+    Loop *loop;
+    NodeData *nodeData;
+    std::recursive_mutex asyncMutex;
+
+public:
+    Node(int recvLength = 1024, int prePadding = 0, int postPadding = 0, bool useDefaultLoop = false);
+    ~Node();
+    void run();
+
+    Loop *getLoop() {
+        return loop;
+    }
+
+    template <uS::Socket *I(Socket *s), void C(Socket *p, bool error)>
+    Socket *connect(const char *hostname, int port, bool secure, NodeData *nodeData) {
+        Context *netContext = nodeData->netContext;
+
+        addrinfo hints, *result;
+        memset(&hints, 0, sizeof(addrinfo));
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+        if (getaddrinfo(hostname, std::to_string(port).c_str(), &hints, &result) != 0) {
+            return nullptr;
+        }
+
+        uv_os_sock_t fd = netContext->createSocket(result->ai_family, result->ai_socktype, result->ai_protocol);
+        if (fd == INVALID_SOCKET) {
+            return nullptr;
+        }
+
+        ::connect(fd, result->ai_addr, result->ai_addrlen);
+        freeaddrinfo(result);
+
+        SSL *ssl = nullptr;
+        if (secure) {
+            ssl = SSL_new(nodeData->clientContext);
+            SSL_set_connect_state(ssl);
+            SSL_set_tlsext_host_name(ssl, hostname);
+        }
+
+        Socket initialSocket(nodeData, getLoop(), fd, ssl);
+        uS::Socket *socket = I(&initialSocket);
+
+        socket->setCb(connect_cb<C>);
+        socket->start(loop, socket, socket->setPoll(UV_WRITABLE));
+        return socket;
     }
 
     // todo: hostname, backlog

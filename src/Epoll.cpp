@@ -22,6 +22,11 @@ void Loop::run() {
 
         int numFdReady = epoll_wait(epfd, readyEvents, 1024, delay);
         timepoint = std::chrono::system_clock::now();
+
+        if (preCb) {
+            preCb(preCbData);
+        }
+
         for (int i = 0; i < numFdReady; i++) {
             Poll *poll = (Poll *) readyEvents[i].data.ptr;
             int status = -bool(readyEvents[i].events & EPOLLERR);
@@ -43,6 +48,10 @@ void Loop::run() {
             if (repeat) {
                 timer->start(cb, repeat, repeat);
             }
+        }
+
+        if (postCb) {
+            postCb(postCbData);
         }
     }
 }

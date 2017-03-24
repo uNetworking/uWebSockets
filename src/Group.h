@@ -13,7 +13,13 @@ struct Hub;
 
 template <bool isServer>
 struct WIN32_EXPORT Group : uS::NodeData {
+protected:
     friend struct Hub;
+    friend struct WebSocket<isServer>;
+    friend struct WebSocketProtocol<isServer>;
+    friend struct HttpSocket<false>;
+    friend struct HttpSocket<true>;
+
     std::function<void(WebSocket<isServer> *, HttpRequest)> connectionHandler;
     std::function<void(WebSocket<isServer> *)> transferHandler;
     std::function<void(WebSocket<isServer> *, char *message, size_t length, OpCode opCode)> messageHandler;
@@ -40,7 +46,6 @@ struct WIN32_EXPORT Group : uS::NodeData {
     void *userData = nullptr;
     void setUserData(void *user);
     void *getUserData();
-    void startAutoPing(int intervalMs, std::string userMessage = "");
     static void timerCallback(Timer *timer);
 
     WebSocket<isServer> *webSocketHead = nullptr;
@@ -53,7 +58,6 @@ struct WIN32_EXPORT Group : uS::NodeData {
     void addHttpSocket(HttpSocket<isServer> *httpSocket);
     void removeHttpSocket(HttpSocket<isServer> *httpSocket);
 
-protected:
     Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData);
     void stopListening();
 
@@ -72,12 +76,15 @@ public:
     void onCancelledHttpRequest(std::function<void(HttpResponse *)> handler);
     void onHttpUpgrade(std::function<void(HttpSocket<isServer> *, HttpRequest)> handler);
 
+    // Thread safe
     void broadcast(const char *message, size_t length, OpCode opCode);
+
+    // Not thread safe
     void terminate();
     void close(int code = 1000, char *message = nullptr, size_t length = 0);
+    void startAutoPing(int intervalMs, std::string userMessage = "");
     using NodeData::addAsync;
 
-    // todo: handle nested forEachs with removeWebSocket
     template <class F>
     void forEach(const F &cb) {
         Poll *iterator = webSocketHead;
@@ -114,7 +121,7 @@ public:
 
 template <bool isServer>
 Group<isServer> *getGroup(uS::Socket *s) {
-    return static_cast<Group<isServer> *>(s->nodeData);
+    return static_cast<Group<isServer> *>(s->getNodeData());
 }
 
 }

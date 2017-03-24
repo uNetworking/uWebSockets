@@ -7,22 +7,15 @@ namespace uS {
 
 // perfectly 64 bytes (4 + 60)
 struct WIN32_EXPORT Socket : Poll {
+protected:
     struct {
         int poll : 4;
         int shuttingDown : 4;
     } state = {0, false};
 
-    NodeData *nodeData;
     SSL *ssl;
     void *user = nullptr;
-
-    Socket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, SSL *ssl) : Poll(loop, fd), nodeData(nodeData) {
-        if (ssl) {
-            SSL_set_fd(ssl, fd);
-            SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
-        }
-        this->ssl = ssl;
-    }
+    NodeData *nodeData;
 
     // this is not needed by HttpSocket!
     struct Queue {
@@ -63,8 +56,6 @@ struct WIN32_EXPORT Socket : Poll {
         }
     } messageQueue;
 
-    Poll *next = nullptr, *prev = nullptr;
-
     int getPoll() {
         return state.poll;
     }
@@ -72,10 +63,6 @@ struct WIN32_EXPORT Socket : Poll {
     int setPoll(int poll) {
         state.poll = poll;
         return poll;
-    }
-
-    bool isShuttingDown() {
-        return state.shuttingDown;
     }
 
     void setShuttingDown(bool shuttingDown) {
@@ -118,49 +105,6 @@ struct WIN32_EXPORT Socket : Poll {
             } else {
                 change(socket->nodeData->loop, socket, socket->getPoll());
             }
-        }
-    }
-
-    void *getUserData() {
-        return user;
-    }
-
-    void setUserData(void *user) {
-        this->user = user;
-    }
-
-    struct Address {
-        unsigned int port;
-        const char *address;
-        const char *family;
-    };
-
-    Address getAddress();
-
-    void cork(int enable) {
-#if defined(TCP_CORK)
-        // Linux & SmartOS have proper TCP_CORK
-        setsockopt(getFd(), IPPROTO_TCP, TCP_CORK, &enable, sizeof(int));
-#elif defined(TCP_NOPUSH)
-        // Mac OS X & FreeBSD have TCP_NOPUSH
-        setsockopt(getFd(), IPPROTO_TCP, TCP_NOPUSH, &enable, sizeof(int));
-        if (!enable) {
-            // Tested on OS X, FreeBSD situation is unclear
-            ::send(getFd(), "", 0, MSG_NOSIGNAL);
-        }
-#endif
-    }
-
-    void setNoDelay(int enable) {
-        setsockopt(getFd(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int));
-    }
-
-    void shutdown() {
-        if (ssl) {
-            //todo: poll in/out - have the io_cb recall shutdown if failed
-            SSL_shutdown(ssl);
-        } else {
-            ::shutdown(getFd(), SHUT_WR);
         }
     }
 
@@ -208,7 +152,7 @@ struct WIN32_EXPORT Socket : Poll {
                     socket->messageQueue.pop();
                     if (socket->messageQueue.empty()) {
                         if ((socket->state.poll & UV_WRITABLE) && SSL_want(socket->ssl) != SSL_WRITING) {
-                            p->change(socket->nodeData->loop, socket, socket->setPoll(UV_READABLE));
+                            socket->change(socket->nodeData->loop, socket, socket->setPoll(UV_READABLE));
                         }
                         break;
                     }
@@ -218,7 +162,7 @@ struct WIN32_EXPORT Socket : Poll {
                         break;
                     case SSL_ERROR_WANT_WRITE:
                         if ((socket->getPoll() & UV_WRITABLE) == 0) {
-                            p->change(socket->nodeData->loop, socket, socket->setPoll(socket->getPoll() | UV_WRITABLE));
+                            socket->change(socket->nodeData->loop, socket, socket->setPoll(socket->getPoll() | UV_WRITABLE));
                         }
                         break;
                     default:
@@ -240,7 +184,7 @@ struct WIN32_EXPORT Socket : Poll {
                         break;
                     case SSL_ERROR_WANT_WRITE:
                         if ((socket->getPoll() & UV_WRITABLE) == 0) {
-                            p->change(socket->nodeData->loop, socket, socket->setPoll(socket->getPoll() | UV_WRITABLE));
+                            socket->change(socket->nodeData->loop, socket, socket->setPoll(socket->getPoll() | UV_WRITABLE));
                         }
                         break;
                     default:
@@ -283,7 +227,7 @@ struct WIN32_EXPORT Socket : Poll {
                         socket->messageQueue.pop();
                         if (socket->messageQueue.empty()) {
                             // todo, remove bit, don't set directly
-                            p->change(socket->nodeData->loop, socket, socket->setPoll(UV_READABLE));
+                            socket->change(socket->nodeData->loop, socket, socket->setPoll(UV_READABLE));
                             break;
                         }
                     } else if (sent == SOCKET_ERROR) {
@@ -320,22 +264,6 @@ struct WIN32_EXPORT Socket : Poll {
         } else {
             setCb(ioHandler<STATE>);
         }
-    }
-
-    template <class T>
-    void closeSocket() {
-        uv_os_sock_t fd = getFd();
-        Context *netContext = nodeData->netContext;
-        stop(nodeData->loop);
-        netContext->closeSocket(fd);
-
-        if (ssl) {
-            SSL_free(ssl);
-        }
-
-        Poll::close(nodeData->loop, [](Poll *p) {
-            delete (T *) p;
-        });
     }
 
     bool hasEmptyQueue() {
@@ -471,6 +399,86 @@ struct WIN32_EXPORT Socket : Poll {
             enqueue(messagePtr);
         }
     }
+
+public:
+    Socket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, SSL *ssl) : Poll(loop, fd), ssl(ssl), nodeData(nodeData) {
+        if (ssl) {
+            SSL_set_fd(ssl, fd);
+            SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
+        }
+    }
+
+    NodeData *getNodeData() {
+        return nodeData;
+    }
+
+    Poll *next = nullptr, *prev = nullptr;
+
+    void *getUserData() {
+        return user;
+    }
+
+    void setUserData(void *user) {
+        this->user = user;
+    }
+
+    struct Address {
+        unsigned int port;
+        const char *address;
+        const char *family;
+    };
+
+    Address getAddress();
+
+    void setNoDelay(int enable) {
+        setsockopt(getFd(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int));
+    }
+
+    void cork(int enable) {
+#if defined(TCP_CORK)
+        // Linux & SmartOS have proper TCP_CORK
+        setsockopt(getFd(), IPPROTO_TCP, TCP_CORK, &enable, sizeof(int));
+#elif defined(TCP_NOPUSH)
+        // Mac OS X & FreeBSD have TCP_NOPUSH
+        setsockopt(getFd(), IPPROTO_TCP, TCP_NOPUSH, &enable, sizeof(int));
+        if (!enable) {
+            // Tested on OS X, FreeBSD situation is unclear
+            ::send(getFd(), "", 0, MSG_NOSIGNAL);
+        }
+#endif
+    }
+
+    void shutdown() {
+        if (ssl) {
+            //todo: poll in/out - have the io_cb recall shutdown if failed
+            SSL_shutdown(ssl);
+        } else {
+            ::shutdown(getFd(), SHUT_WR);
+        }
+    }
+
+    template <class T>
+    void closeSocket() {
+        uv_os_sock_t fd = getFd();
+        Context *netContext = nodeData->netContext;
+        stop(nodeData->loop);
+        netContext->closeSocket(fd);
+
+        if (ssl) {
+            SSL_free(ssl);
+        }
+
+        Poll::close(nodeData->loop, [](Poll *p) {
+            delete (T *) p;
+        });
+    }
+
+    bool isShuttingDown() {
+        return state.shuttingDown;
+    }
+
+    friend struct Node;
+    friend struct NodeData;
 };
 
 struct ListenSocket : Socket {

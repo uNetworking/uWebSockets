@@ -120,14 +120,6 @@ struct WIN32_EXPORT HttpSocket : uS::Socket {
 
     HttpSocket(uS::Socket *socket, bool areYouSure) : uS::Socket(std::move(*socket)) {}
 
-    using uS::Socket::getUserData;
-    using uS::Socket::setUserData;
-    using uS::Socket::getAddress;
-    using uS::Socket::Address;
-
-    using uS::Socket::shutdown;
-    using uS::Socket::close;
-
     void terminate() {
         onEnd(this);
     }

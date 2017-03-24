@@ -4,6 +4,7 @@ default:
 	$(CXX) -std=c++11 -O3 scalability_socketio.cpp -s -o scalability_socketio -lpthread
 	$(CXX) -std=c++11 -O3 throughput_socketio.cpp -s -o throughput_socketio -luv
 	$(CXX) -std=c++11 -O3 -I ../src ../src/Extensions.cpp ../src/Group.cpp ../src/WebSocketImpl.cpp ../src/Networking.cpp ../src/Hub.cpp ../src/Node.cpp ../src/WebSocket.cpp ../src/HTTPSocket.cpp ../src/Socket.cpp ../src/Epoll.cpp uWS.cpp -o uWS_epoll -lcrypto -lssl -lz -s
+	$(CXX) -DUWS_THREADSAFE -std=c++11 -O3 -I ../src ../src/Extensions.cpp ../src/Group.cpp ../src/WebSocketImpl.cpp ../src/Networking.cpp ../src/Hub.cpp ../src/Node.cpp ../src/WebSocket.cpp ../src/HTTPSocket.cpp ../src/Socket.cpp ../src/Epoll.cpp uWS.cpp -o uWS_threadsafe -lcrypto -lssl -lz -s
 	$(CXX) -DUSE_LIBUV -std=c++11 -O3 -I ../src ../src/Extensions.cpp ../src/Group.cpp ../src/WebSocketImpl.cpp ../src/Networking.cpp ../src/Hub.cpp ../src/Node.cpp ../src/WebSocket.cpp ../src/HTTPSocket.cpp ../src/Socket.cpp ../src/Epoll.cpp uWS.cpp -o uWS_libuv -luv -lcrypto -lssl -lz -s
 	$(CXX) -DUSE_ASIO -std=c++11 -O3 -I ../src ../src/Extensions.cpp ../src/Group.cpp ../src/WebSocketImpl.cpp ../src/Networking.cpp ../src/Hub.cpp ../src/Node.cpp ../src/WebSocket.cpp ../src/HTTPSocket.cpp ../src/Socket.cpp ../src/Epoll.cpp uWS.cpp -o uWS_asio -lboost_system -lcrypto -lssl -lz -s
 	$(CXX) -std=c++11 -O3 wsPP.cpp -s -o wsPP -lpthread -lboost_system -lboost_random -lssl -lcrypto

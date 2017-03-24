@@ -1064,11 +1064,87 @@ void testReceivePerformance() {
     delete [] originalBuffer;
 }
 
+void testThreadSafety() {
+
+    uS::TLS::Context c = uS::TLS::createContext("misc/ssl/cert.pem",
+                                                "misc/ssl/key.pem",
+                                                "1234");
+
+    for (int ssl = 0; ssl < 2; ssl++) {
+        std::cout << "SSL: " << ssl << std::endl;
+        uWS::Hub h;
+
+        uWS::WebSocket<uWS::SERVER> *sharedSocket;
+
+        std::mutex holdUp;
+        holdUp.lock();
+
+        std::thread *sendingThreads[10];
+
+        for (std::thread *&thread : sendingThreads) {
+            thread = new std::thread([&holdUp, &sharedSocket]() {
+                holdUp.lock();
+                std::cout << "Starting sending thread" << std::endl;
+                holdUp.unlock();
+
+                for (int i = 0; i < 1000; i++) {
+                    sharedSocket->send("Hello from thread");
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+            });
+        }
+
+        h.onConnection([&sharedSocket, &holdUp](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+            sharedSocket = ws;
+            holdUp.unlock();
+        });
+
+        int remainingMessages = 1000 * 10;
+
+        h.onMessage([&sharedSocket, &holdUp, &remainingMessages, &h](uWS::WebSocket<uWS::CLIENT> *ws, char *message, size_t length, uWS::OpCode opCode) {
+            if (strncmp("Hello from thread", message, length)) {
+                std::cout << "FAILURE: Invalid data received!" << std::endl;
+                exit(-1);
+            }
+
+            if (!--remainingMessages) {
+                h.getDefaultGroup<uWS::SERVER>().close();
+            }
+        });
+
+
+        if (ssl) {
+            if (!h.listen(3000, c)) {
+                std::cout << "FAILURE: cannot listen!" << std::endl;
+            }
+            h.connect("wss://localhost:3000", nullptr);
+        } else {
+            if (!h.listen(3000)) {
+                std::cout << "FAILURE: cannot listen!" << std::endl;
+            }
+            h.connect("ws://localhost:3000", nullptr);
+        }
+
+        h.run();
+
+        for (std::thread *thread : sendingThreads) {
+            thread->join();
+            delete thread;
+        }
+
+        std::cout << "Everything received" << std::endl;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     //serveEventSource();
     //serveHttp();
     //serveBenchmark();
+
+#ifdef UWS_THREADSAFE
+    testThreadSafety();
+#endif
 
     // performance tests (run without asan!)
     testReceivePerformance();

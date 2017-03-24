@@ -109,13 +109,13 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
                             getGroup<isServer>(httpSocket)->removeHttpSocket(httpSocket);
 
                             // Warning: changes socket, needs to inform the stack of Poll address change!
-                            WebSocket<SERVER> *webSocket = new WebSocket<SERVER>(perMessageDeflate, httpSocket);
-                            webSocket->setState<WebSocket<SERVER>>();
+                            WebSocket<isServer> *webSocket = new WebSocket<isServer>(perMessageDeflate, httpSocket);
+                            webSocket->setState<WebSocket<isServer>>();
                             webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
-                            getGroup<SERVER>(webSocket)->addWebSocket(webSocket);
+                            getGroup<isServer>(webSocket)->addWebSocket(webSocket);
 
                             webSocket->cork(true);
-                            getGroup<SERVER>(webSocket)->connectionHandler(webSocket, req);
+                            getGroup<isServer>(webSocket)->connectionHandler(webSocket, req);
                             // todo: should not uncork if closed!
                             webSocket->cork(false);
                             delete httpSocket;
@@ -159,15 +159,15 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
                 if (req.getHeader("upgrade", 7)) {
 
                     // Warning: changes socket, needs to inform the stack of Poll address change!
-                    WebSocket<CLIENT> *webSocket = new WebSocket<CLIENT>(false, httpSocket);
+                    WebSocket<isServer> *webSocket = new WebSocket<isServer>(false, httpSocket);
                     httpSocket->cancelTimeout();
                     webSocket->setUserData(httpSocket->httpUser);
-                    webSocket->setState<WebSocket<CLIENT>>();
+                    webSocket->setState<WebSocket<isServer>>();
                     webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
-                    getGroup<CLIENT>(webSocket)->addWebSocket(webSocket);
+                    getGroup<isServer>(webSocket)->addWebSocket(webSocket);
 
                     webSocket->cork(true);
-                    getGroup<CLIENT>(webSocket)->connectionHandler(webSocket, req);
+                    getGroup<isServer>(webSocket)->connectionHandler(webSocket, req);
                     if (!(webSocket->isClosed() || webSocket->isShuttingDown())) {
                         webSocket->consume(cursor, end - cursor, webSocket);
                     }

@@ -36,6 +36,10 @@ struct Loop {
     std::vector<Timepoint> timers;
     std::vector<std::pair<Poll *, void (*)(Poll *)>> closing;
 
+    void (*preCb)(void *) = nullptr;
+    void (*postCb)(void *) = nullptr;
+    void *preCbData, *postCbData;
+
     Loop(bool defaultLoop) {
         epfd = epoll_create1(EPOLL_CLOEXEC);
         timepoint = std::chrono::system_clock::now();
@@ -114,6 +118,7 @@ struct Timer {
 
 // 4 bytes
 struct Poll {
+protected:
     struct {
         int fd : 28;
         unsigned int cbIndex : 4;
@@ -123,14 +128,6 @@ struct Poll {
         fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
         state.fd = fd;
         loop->numPolls++;
-    }
-
-    bool isClosed() {
-        return state.fd == -1;
-    }
-
-    uv_os_sock_t getFd() {
-        return state.fd;
     }
 
     void setCb(void (*cb)(Poll *p, int status, int events)) {
@@ -183,6 +180,17 @@ struct Poll {
         state.fd = -1;
         loop->closing.push_back({this, cb});
     }
+
+public:
+    bool isClosed() {
+        return state.fd == -1;
+    }
+
+    uv_os_sock_t getFd() {
+        return state.fd;
+    }
+
+    friend struct Loop;
 };
 
 // this should be put in the Loop as a general "post" function always available
@@ -199,7 +207,7 @@ struct Async : Poll {
         this->cb = cb;
         Poll::setCb([](Poll *p, int, int) {
             uint64_t val;
-            if (::read(p->state.fd, &val, 8) == 8) {
+            if (::read(((Async *) p)->state.fd, &val, 8) == 8) {
                 ((Async *) p)->cb((Async *) p);
             }
         });

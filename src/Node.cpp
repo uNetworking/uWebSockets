@@ -2,22 +2,26 @@
 
 namespace uS {
 
+// this should be Node
 void NodeData::asyncCallback(Async *async)
 {
     NodeData *nodeData = (NodeData *) async->getData();
 
     nodeData->asyncMutex->lock();
     for (TransferData transferData : nodeData->transferQueue) {
+
+        Socket *s = (Socket *) transferData.p;
+
         //transferData.p->init(nodeData->loop, transferData.fd);
-        transferData.p->setCb(transferData.pollCb);
+        s->setCb(transferData.pollCb);
         //transferData.p->start(transferData.socketData->nodeData->loop, transferData.socketData->getPoll());
         transferData.socketData->nodeData = nodeData;
         transferData.cb(transferData.p);
     }
 
     for (Poll *p : nodeData->changePollQueue) {
-        Socket *socketData = (Socket *) p;
-        p->change(socketData->nodeData->loop, socketData, socketData->getPoll());
+        Socket *s = (Socket *) p;
+        s->change(s->nodeData->loop, s, s->getPoll());
     }
 
     nodeData->changePollQueue.clear();
