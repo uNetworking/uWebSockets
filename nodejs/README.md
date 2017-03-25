@@ -23,6 +23,7 @@ There are some important incompatibilities with `ws` though, we aim to be ~90% c
 * `webSocket._socket.remote...` might fail, you need to cache it at connection.
 * `webSocket` acts like an `EventEmitter` with one listener per event maximum.
 * `webSocket.upgradeReq` is only valid during execution of the connection handler. If you want to keep properties of the upgradeReq for the entire lifetime of the webSocket you better attach that specific property to the webSocket at connection.
+* `webSocketServer.close` without `callback`
 
 ## Installation
 [![](https://nodei.co/npm/uws.png)](https://www.npmjs.com/package/uws)
