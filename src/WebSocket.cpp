@@ -1,5 +1,6 @@
 #include "WebSocket.h"
 #include "Group.h"
+#include "Hub.h"
 
 namespace uWS {
 
@@ -16,7 +17,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
     }
 #endif
 
-    const int HEADER_LENGTH = WebSocketProtocol<!isServer>::LONG_MESSAGE_HEADER;
+    const int HEADER_LENGTH = WebSocketProtocol<!isServer, WebSocket<!isServer>>::LONG_MESSAGE_HEADER;
 
     struct TransformData {
         OpCode opCode;
@@ -28,7 +29,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
         }
 
         static size_t transform(const char *src, char *dst, size_t length, TransformData transformData) {
-            return WebSocketProtocol<isServer>::formatMessage(dst, src, length, transformData.opCode, length, false);
+            return WebSocketProtocol<isServer, WebSocket<isServer>>::formatMessage(dst, src, length, transformData.opCode, length, false);
         }
     };
 
@@ -39,7 +40,7 @@ template <bool isServer>
 typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved)) {
     PreparedMessage *preparedMessage = new PreparedMessage;
     preparedMessage->buffer = new char[length + 10];
-    preparedMessage->length = WebSocketProtocol<isServer>::formatMessage(preparedMessage->buffer, data, length, opCode, length, compressed);
+    preparedMessage->length = WebSocketProtocol<isServer, WebSocket<isServer>>::formatMessage(preparedMessage->buffer, data, length, opCode, length, compressed);
     preparedMessage->references = 1;
     preparedMessage->callback = (void(*)(void *, void *, bool, void *)) callback;
     return preparedMessage;
@@ -59,7 +60,7 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
 
     int offset = 0;
     for (size_t i = 0; i < messages.size(); i++) {
-        offset += WebSocketProtocol<isServer>::formatMessage(preparedMessage->buffer + offset, messages[i].data(), messages[i].length(), opCode, messages[i].length(), compressed);
+        offset += WebSocketProtocol<isServer, WebSocket<isServer>>::formatMessage(preparedMessage->buffer + offset, messages[i].data(), messages[i].length(), opCode, messages[i].length(), compressed);
     }
     preparedMessage->length = offset;
     preparedMessage->references = 1;
@@ -128,7 +129,7 @@ uS::Socket *WebSocket<isServer>::onData(uS::Socket *s, char *data, size_t length
     webSocket->hasOutstandingPong = false;
     if (!webSocket->isShuttingDown()) {
         webSocket->cork(true);
-        webSocket->consume(data, length, s);
+        WebSocketProtocol<isServer, WebSocket<isServer>>::consume(data, length, webSocket);
         if (!webSocket->isClosed()) {
             webSocket->cork(false);
         }
@@ -166,7 +167,7 @@ void WebSocket<isServer>::close(int code, const char *message, size_t length) {
     startTimeout<WebSocket<isServer>::onEnd>();
 
     char closePayload[MAX_CLOSE_PAYLOAD + 2];
-    int closePayloadLength = WebSocketProtocol<isServer>::formatClosePayload(closePayload, code, message, length);
+    int closePayloadLength = WebSocketProtocol<isServer, WebSocket<isServer>>::formatClosePayload(closePayload, code, message, length);
     send(closePayload, closePayloadLength, OpCode::CLOSE, [](WebSocket<isServer> *p, void *data, bool cancelled, void *reserved) {
         if (!cancelled) {
             p->shutdown();
@@ -194,6 +195,116 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
         }
         webSocket->messageQueue.pop();
     }
+}
+
+template <bool isServer>
+bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, void *user) {
+    WebSocket<isServer> *webSocket = (WebSocket<isServer> *) user;
+
+    if (opCode < 3) {
+        if (!remainingBytes && fin && !webSocket->fragmentBuffer.length()) {
+
+            if (webSocket->compressionStatus == WebSocket<isServer>::CompressionStatus::COMPRESSED_FRAME) {
+                    webSocket->compressionStatus = WebSocket<isServer>::CompressionStatus::ENABLED;
+                    Hub *hub = ((Group<isServer> *) webSocket->nodeData)->hub;
+                    data = hub->inflate(data, length);
+                    if (!data) {
+                        forceClose(user);
+                        return true;
+                    }
+            }
+
+            if (opCode == 1 && !WebSocketProtocol<isServer, WebSocket<isServer>>::isValidUtf8((unsigned char *) data, length)) {
+                forceClose(user);
+                return true;
+            }
+
+            ((Group<isServer> *) webSocket->nodeData)->messageHandler(webSocket, data, length, (OpCode) opCode);
+            if (webSocket->isClosed() || webSocket->isShuttingDown()) {
+                return true;
+            }
+        } else {
+            webSocket->fragmentBuffer.append(data, length);
+            if (!remainingBytes && fin) {
+                length = webSocket->fragmentBuffer.length();
+
+                if (webSocket->compressionStatus == WebSocket<isServer>::CompressionStatus::COMPRESSED_FRAME) {
+                        webSocket->compressionStatus = WebSocket<isServer>::CompressionStatus::ENABLED;
+                        Hub *hub = ((Group<isServer> *) webSocket->nodeData)->hub;
+                        webSocket->fragmentBuffer.append("....");
+                        data = hub->inflate((char *) webSocket->fragmentBuffer.data(), length);
+                        if (!data) {
+                            forceClose(user);
+                            return true;
+                        }
+                } else {
+                    data = (char *) webSocket->fragmentBuffer.data();
+                }
+
+                if (opCode == 1 && !WebSocketProtocol<isServer, WebSocket<isServer>>::isValidUtf8((unsigned char *) data, length)) {
+                    forceClose(user);
+                    return true;
+                }
+
+                ((Group<isServer> *) webSocket->nodeData)->messageHandler(webSocket, data, length, (OpCode) opCode);
+                if (webSocket->isClosed() || webSocket->isShuttingDown()) {
+                    return true;
+                }
+                webSocket->fragmentBuffer.clear();
+            }
+        }
+    } else {
+        if (!remainingBytes && fin && !webSocket->controlTipLength) {
+            if (opCode == CLOSE) {
+                typename WebSocketProtocol<isServer, WebSocket<isServer>>::CloseFrame closeFrame = WebSocketProtocol<isServer, WebSocket<isServer>>::parseClosePayload(data, length);
+                webSocket->close(closeFrame.code, closeFrame.message, closeFrame.length);
+                return true;
+            } else {
+                if (opCode == PING) {
+                    webSocket->send(data, length, (OpCode) OpCode::PONG);
+                    ((Group<isServer> *) webSocket->nodeData)->pingHandler(webSocket, data, length);
+                    if (webSocket->isClosed() || webSocket->isShuttingDown()) {
+                        return true;
+                    }
+                } else if (opCode == PONG) {
+                    ((Group<isServer> *) webSocket->nodeData)->pongHandler(webSocket, data, length);
+                    if (webSocket->isClosed() || webSocket->isShuttingDown()) {
+                        return true;
+                    }
+                }
+            }
+        } else {
+            webSocket->fragmentBuffer.append(data, length);
+            webSocket->controlTipLength += length;
+
+            if (!remainingBytes && fin) {
+                char *controlBuffer = (char *) webSocket->fragmentBuffer.data() + webSocket->fragmentBuffer.length() - webSocket->controlTipLength;
+                if (opCode == CLOSE) {
+                    typename WebSocketProtocol<isServer, WebSocket<isServer>>::CloseFrame closeFrame = WebSocketProtocol<isServer, WebSocket<isServer>>::parseClosePayload(controlBuffer, webSocket->controlTipLength);
+                    webSocket->close(closeFrame.code, closeFrame.message, closeFrame.length);
+                    return true;
+                } else {
+                    if (opCode == PING) {
+                        webSocket->send(controlBuffer, webSocket->controlTipLength, (OpCode) OpCode::PONG);
+                        ((Group<isServer> *) webSocket->nodeData)->pingHandler(webSocket, controlBuffer, webSocket->controlTipLength);
+                        if (webSocket->isClosed() || webSocket->isShuttingDown()) {
+                            return true;
+                        }
+                    } else if (opCode == PONG) {
+                        ((Group<isServer> *) webSocket->nodeData)->pongHandler(webSocket, controlBuffer, webSocket->controlTipLength);
+                        if (webSocket->isClosed() || webSocket->isShuttingDown()) {
+                            return true;
+                        }
+                    }
+                }
+
+                webSocket->fragmentBuffer.resize(webSocket->fragmentBuffer.length() - webSocket->controlTipLength);
+                webSocket->controlTipLength = 0;
+            }
+        }
+    }
+
+    return false;
 }
 
 template struct WebSocket<SERVER>;

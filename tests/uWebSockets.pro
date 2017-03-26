@@ -4,7 +4,6 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += main.cpp \
-    ../src/WebSocketImpl.cpp \
     ../src/Networking.cpp \
     ../src/Hub.cpp \
     ../src/Node.cpp \

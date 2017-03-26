@@ -43,7 +43,7 @@ public:
     void connect(std::string uri, void *user = nullptr, std::map<std::string, std::string> extraHeaders = {}, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr);
     void upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup = nullptr);
 
-    Hub(int extensionOptions = 0, bool useDefaultLoop = false) : uS::Node(LARGE_BUFFER_SIZE, WebSocketProtocol<SERVER>::CONSUME_PRE_PADDING, WebSocketProtocol<SERVER>::CONSUME_POST_PADDING, useDefaultLoop),
+    Hub(int extensionOptions = 0, bool useDefaultLoop = false) : uS::Node(LARGE_BUFFER_SIZE, WebSocketProtocol<SERVER, WebSocket<SERVER>>::CONSUME_PRE_PADDING, WebSocketProtocol<SERVER, WebSocket<SERVER>>::CONSUME_POST_PADDING, useDefaultLoop),
                                              Group<SERVER>(extensionOptions, this, nodeData), Group<CLIENT>(0, this, nodeData) {
         inflateInit2(&inflationStream, -15);
         inflationBuffer = new char[LARGE_BUFFER_SIZE];
@@ -88,8 +88,8 @@ public:
     using Group<SERVER>::onHttpUpgrade;
     using Group<SERVER>::onCancelledHttpRequest;
 
-    friend class WebSocketProtocol<true>;
-    friend class WebSocketProtocol<false>;
+    friend class WebSocket<true>;
+    friend class WebSocket<false>;
 };
 
 }

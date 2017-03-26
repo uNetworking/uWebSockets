@@ -16,7 +16,6 @@ struct WIN32_EXPORT Group : uS::NodeData {
 protected:
     friend struct Hub;
     friend struct WebSocket<isServer>;
-    friend class WebSocketProtocol<isServer>;
     friend struct HttpSocket<false>;
     friend struct HttpSocket<true>;
 

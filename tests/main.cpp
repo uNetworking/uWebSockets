@@ -1032,18 +1032,12 @@ void testReceivePerformance() {
         exit(-1);
     });
 
-    struct TestWebSocket : uWS::WebSocket<uWS::SERVER> {
-        void onData(char *data, size_t length) {
-            consume(data, length, this);
-        }
-    };
-
     h.onConnection([originalBuffer, buffer, bufferLength, messages, &h](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
         for (int i = 0; i < 100; i++) {
             memcpy(buffer, originalBuffer, bufferLength);
 
             auto now = std::chrono::high_resolution_clock::now();
-            ((TestWebSocket *) ws)->onData(buffer, bufferLength);
+            uWS::WebSocketProtocol<uWS::SERVER, uWS::WebSocket<uWS::SERVER>>::consume(buffer, bufferLength, ws);
             int us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - now).count();
 
             std::cout << "Messages per microsecond: " << (double(messages) / double(us)) << std::endl;

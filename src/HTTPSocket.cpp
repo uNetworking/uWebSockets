@@ -77,7 +77,7 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
             return httpSocket;
         }
 
-        httpSocket->httpBuffer.reserve(httpSocket->httpBuffer.length() + length + WebSocketProtocol<uWS::CLIENT>::CONSUME_POST_PADDING);
+        httpSocket->httpBuffer.reserve(httpSocket->httpBuffer.length() + length + WebSocketProtocol<uWS::CLIENT, WebSocket<uWS::CLIENT>>::CONSUME_POST_PADDING);
         httpSocket->httpBuffer.append(data, length);
         data = (char *) httpSocket->httpBuffer.data();
         length = httpSocket->httpBuffer.length();
@@ -169,7 +169,7 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
                     webSocket->cork(true);
                     getGroup<isServer>(webSocket)->connectionHandler(webSocket, req);
                     if (!(webSocket->isClosed() || webSocket->isShuttingDown())) {
-                        webSocket->consume(cursor, end - cursor, webSocket);
+                        WebSocketProtocol<isServer, WebSocket<isServer>>::consume(cursor, end - cursor, webSocket);
                     }
                     webSocket->cork(false);
                     delete httpSocket;

@@ -13,7 +13,7 @@ template <bool isServer>
 struct HttpSocket;
 
 template <const bool isServer>
-struct WIN32_EXPORT WebSocket : uS::Socket, protected WebSocketProtocol<isServer> {
+struct WIN32_EXPORT WebSocket : uS::Socket, WebSocketState<isServer> {
 protected:
     std::string fragmentBuffer;
     enum CompressionStatus : char {
@@ -30,6 +30,28 @@ protected:
     static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
     static void onEnd(uS::Socket *s);
     using uS::Socket::closeSocket;
+
+    static bool refusePayloadLength(void *user, uint64_t length) {
+        return length > 16777216;
+    }
+
+    static bool setCompressed(void *user) {
+        WebSocket<isServer> *webSocket = (WebSocket<isServer> *) user;
+
+        if (webSocket->compressionStatus == WebSocket<isServer>::CompressionStatus::ENABLED) {
+            webSocket->compressionStatus = WebSocket<isServer>::CompressionStatus::COMPRESSED_FRAME;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    static void forceClose(void *user) {
+        WebSocket<isServer> *webSocket = (WebSocket<isServer> *) user;
+        webSocket->terminate();
+    }
+
+    static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, void *user);
 
 public:
     struct PreparedMessage {
@@ -65,7 +87,7 @@ public:
     friend struct Group<isServer>;
     friend struct HttpSocket<isServer>;
     friend struct uS::Socket;
-    friend class WebSocketProtocol<isServer>;
+    friend class WebSocketProtocol<isServer, WebSocket<isServer>>;
 };
 
 }
