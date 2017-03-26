@@ -20,7 +20,12 @@ void Loop::run() {
         }
         closing.clear();
 
+#ifdef __linux__
         int numFdReady = epoll_wait(epfd, readyEvents, 1024, delay);
+#else
+        struct kevent change = {};
+        int numFdReady = kevent(epfd, &change, 1, readyEvents, 1024, nullptr);
+#endif
         timepoint = std::chrono::system_clock::now();
 
         if (preCb) {

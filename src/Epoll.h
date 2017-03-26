@@ -1,7 +1,8 @@
+// Supports Epoll (Linux) and Kqueue (OS X, FreeBSD)
+
 #ifndef EPOLL_H
 #define EPOLL_H
 
-#include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -10,8 +11,17 @@
 #include <vector>
 
 typedef int uv_os_sock_t;
+#ifdef __linux__
+#include <sys/epoll.h>
+
 static const int UV_READABLE = EPOLLIN;
 static const int UV_WRITABLE = EPOLLOUT;
+#else
+#include <sys/event.h>
+
+static const int UV_READABLE = EVFILT_READ;
+static const int UV_WRITABLE = EVFILT_WRITE;
+#endif
 
 struct Poll;
 struct Timer;
@@ -31,7 +41,11 @@ struct Loop {
     int numPolls = 0;
     bool cancelledLastTimer;
     int delay = -1;
+#ifdef __linux__
     epoll_event readyEvents[1024];
+#else
+    struct kevent readyEvents[1024];
+#endif
     std::chrono::system_clock::time_point timepoint;
     std::vector<Timepoint> timers;
     std::vector<std::pair<Poll *, void (*)(Poll *)>> closing;
@@ -41,7 +55,11 @@ struct Loop {
     void *preCbData, *postCbData;
 
     Loop(bool defaultLoop) {
+#ifdef __linux__
         epfd = epoll_create1(EPOLL_CLOEXEC);
+#else
+        epfd = kqueue();
+#endif
         timepoint = std::chrono::system_clock::now();
     }
 
@@ -144,22 +162,38 @@ protected:
     }
 
     void start(Loop *loop, Poll *self, int events) {
+#ifdef __linux__
         epoll_event event;
         event.events = events;
         event.data.ptr = self;
         epoll_ctl(loop->epfd, EPOLL_CTL_ADD, state.fd, &event);
+#else
+        unsigned int fd = state.fd;
+        struct kevent event = {&fd, events, EV_ADD, 0, 0, self};
+        kevent(loop->epfd, &event, 1, nullptr, 0, nullptr);
+#endif
     }
 
     void change(Loop *loop, Poll *self, int events) {
+#ifdef __linux__
         epoll_event event;
         event.events = events;
         event.data.ptr = self;
         epoll_ctl(loop->epfd, EPOLL_CTL_MOD, state.fd, &event);
+#else
+        start(loop, self, events);
+#endif
     }
 
     void stop(Loop *loop) {
+#ifdef __linux__
         epoll_event event;
         epoll_ctl(loop->epfd, EPOLL_CTL_DEL, state.fd, &event);
+#else
+        unsigned int fd = state.fd;
+        struct kevent event = {&fd, events, EV_DELETE, 0, 0, self};
+        kevent(loop->epfd, &event, 1, nullptr, 0, nullptr);
+#endif
     }
 
     bool fastTransfer(Loop *loop, Loop *newLoop, int events) {
