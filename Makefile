@@ -26,4 +26,4 @@ clean:
 	rm -f libuWS.dylib
 .PHONY: tests
 tests:
-	$(CXX) -std=c++11 tests/main.cpp -Isrc -o testsBin -lpthread -luWS -lssl -lcrypto -lz -luv
+	$(CXX) -std=c++11 -O3 tests/main.cpp -Isrc -o testsBin -lpthread -luWS -lssl -lcrypto -lz -luv
