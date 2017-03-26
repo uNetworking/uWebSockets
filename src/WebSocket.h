@@ -31,12 +31,12 @@ protected:
     static void onEnd(uS::Socket *s);
     using uS::Socket::closeSocket;
 
-    static bool refusePayloadLength(void *user, uint64_t length) {
+    static bool refusePayloadLength(uint64_t length, WebSocketState<isServer> *webSocketState) {
         return length > 16777216;
     }
 
-    static bool setCompressed(void *user) {
-        WebSocket<isServer> *webSocket = (WebSocket<isServer> *) user;
+    static bool setCompressed(WebSocketState<isServer> *webSocketState) {
+        WebSocket<isServer> *webSocket = static_cast<WebSocket<isServer> *>(webSocketState);
 
         if (webSocket->compressionStatus == WebSocket<isServer>::CompressionStatus::ENABLED) {
             webSocket->compressionStatus = WebSocket<isServer>::CompressionStatus::COMPRESSED_FRAME;
@@ -46,12 +46,12 @@ protected:
         }
     }
 
-    static void forceClose(void *user) {
-        WebSocket<isServer> *webSocket = (WebSocket<isServer> *) user;
+    static void forceClose(WebSocketState<isServer> *webSocketState) {
+        WebSocket<isServer> *webSocket = static_cast<WebSocket<isServer> *>(webSocketState);
         webSocket->terminate();
     }
 
-    static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, void *user);
+    static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, WebSocketState<isServer> *webSocketState);
 
 public:
     struct PreparedMessage {

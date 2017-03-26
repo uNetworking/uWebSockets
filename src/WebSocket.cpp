@@ -124,7 +124,7 @@ void WebSocket<isServer>::finalizeMessage(typename WebSocket<isServer>::Prepared
 
 template <bool isServer>
 uS::Socket *WebSocket<isServer>::onData(uS::Socket *s, char *data, size_t length) {
-    WebSocket<isServer> *webSocket = (WebSocket<isServer> *) s;
+    WebSocket<isServer> *webSocket = static_cast<WebSocket<isServer> *>(s);
 
     webSocket->hasOutstandingPong = false;
     if (!webSocket->isShuttingDown()) {
@@ -177,7 +177,7 @@ void WebSocket<isServer>::close(int code, const char *message, size_t length) {
 
 template <bool isServer>
 void WebSocket<isServer>::onEnd(uS::Socket *s) {
-    WebSocket<isServer> *webSocket = (WebSocket<isServer> *) s;
+    WebSocket<isServer> *webSocket = static_cast<WebSocket<isServer> *>(s);
 
     if (!webSocket->isShuttingDown()) {
         getGroup<isServer>(webSocket)->removeWebSocket(webSocket);
@@ -198,24 +198,23 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
 }
 
 template <bool isServer>
-bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, void *user) {
-    WebSocket<isServer> *webSocket = (WebSocket<isServer> *) user;
+bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, WebSocketState<isServer> *webSocketState) {
+    WebSocket<isServer> *webSocket = static_cast<WebSocket<isServer> *>(webSocketState);
 
     if (opCode < 3) {
         if (!remainingBytes && fin && !webSocket->fragmentBuffer.length()) {
-
             if (webSocket->compressionStatus == WebSocket<isServer>::CompressionStatus::COMPRESSED_FRAME) {
                     webSocket->compressionStatus = WebSocket<isServer>::CompressionStatus::ENABLED;
                     Hub *hub = ((Group<isServer> *) webSocket->nodeData)->hub;
                     data = hub->inflate(data, length);
                     if (!data) {
-                        forceClose(user);
+                        forceClose(webSocketState);
                         return true;
                     }
             }
 
             if (opCode == 1 && !WebSocketProtocol<isServer, WebSocket<isServer>>::isValidUtf8((unsigned char *) data, length)) {
-                forceClose(user);
+                forceClose(webSocketState);
                 return true;
             }
 
@@ -227,14 +226,13 @@ bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int
             webSocket->fragmentBuffer.append(data, length);
             if (!remainingBytes && fin) {
                 length = webSocket->fragmentBuffer.length();
-
                 if (webSocket->compressionStatus == WebSocket<isServer>::CompressionStatus::COMPRESSED_FRAME) {
                         webSocket->compressionStatus = WebSocket<isServer>::CompressionStatus::ENABLED;
                         Hub *hub = ((Group<isServer> *) webSocket->nodeData)->hub;
                         webSocket->fragmentBuffer.append("....");
                         data = hub->inflate((char *) webSocket->fragmentBuffer.data(), length);
                         if (!data) {
-                            forceClose(user);
+                            forceClose(webSocketState);
                             return true;
                         }
                 } else {
@@ -242,7 +240,7 @@ bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int
                 }
 
                 if (opCode == 1 && !WebSocketProtocol<isServer, WebSocket<isServer>>::isValidUtf8((unsigned char *) data, length)) {
-                    forceClose(user);
+                    forceClose(webSocketState);
                     return true;
                 }
 

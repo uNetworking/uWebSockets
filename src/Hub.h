@@ -35,7 +35,7 @@ public:
 
     template <bool isServer>
     Group<isServer> &getDefaultGroup() {
-        return (Group<isServer> &) *this;
+        return static_cast<Group<isServer> &>(*this);
     }
 
     bool listen(int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
@@ -51,12 +51,12 @@ public:
 #ifdef UWS_THREADSAFE
         getLoop()->preCbData = nodeData;
         getLoop()->preCb = [](void *nodeData) {
-            ((uS::NodeData *) nodeData)->asyncMutex->lock();
+            static_cast<uS::NodeData *>(nodeData)->asyncMutex->lock();
         };
 
         getLoop()->postCbData = nodeData;
         getLoop()->postCb = [](void *nodeData) {
-            ((uS::NodeData *) nodeData)->asyncMutex->unlock();
+            static_cast<uS::NodeData *>(nodeData)->asyncMutex->unlock();
         };
 #endif
     }
@@ -88,8 +88,8 @@ public:
     using Group<SERVER>::onHttpUpgrade;
     using Group<SERVER>::onCancelledHttpRequest;
 
-    friend class WebSocket<true>;
-    friend class WebSocket<false>;
+    friend class WebSocket<SERVER>;
+    friend class WebSocket<CLIENT>;
 };
 
 }
