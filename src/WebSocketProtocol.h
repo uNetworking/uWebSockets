@@ -26,9 +26,9 @@ enum {
 template <const bool isServer>
 class WIN32_EXPORT WebSocketProtocol {
 public:
-    static const int SHORT_MESSAGE_HEADER = isServer ? 6 : 2;
-    static const int MEDIUM_MESSAGE_HEADER = isServer ? 8 : 4;
-    static const int LONG_MESSAGE_HEADER = isServer ? 14 : 10;
+    static const unsigned int SHORT_MESSAGE_HEADER = isServer ? 6 : 2;
+    static const unsigned int MEDIUM_MESSAGE_HEADER = isServer ? 8 : 4;
+    static const unsigned int LONG_MESSAGE_HEADER = isServer ? 14 : 10;
 
 private:
     static inline bool isFin(char *frame) {return *((unsigned char *) frame) & 128;}
@@ -74,7 +74,7 @@ private:
         SND_COMPRESSED = 64
     };
 
-    template <const int MESSAGE_HEADER, typename T>
+    template <unsigned int MESSAGE_HEADER, typename T>
     inline bool consumeMessage(T payLength, char *&src, unsigned int &length, void *user) {
         if (getOpCode(src)) {
             if (state.opStack == 1 || (!state.lastFin && getOpCode(src) < 2)) {
@@ -93,7 +93,7 @@ private:
             return true;
         }
 
-        if (int(payLength) <= int(length - MESSAGE_HEADER)) {
+        if (payLength + MESSAGE_HEADER <= length) {
             if (isServer) {
                 unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, payLength);
                 if (handleFragment(src + MESSAGE_HEADER - 4, payLength, 0, state.opCode[state.opStack], isFin(src), user)) {
@@ -118,10 +118,9 @@ private:
             state.wantsHead = false;
             remainingBytes = payLength - length + MESSAGE_HEADER;
             bool fin = isFin(src);
-
             if (isServer) {
                 memcpy(mask, src + MESSAGE_HEADER - 4, 4);
-                unmaskImprecise(src, src + MESSAGE_HEADER, mask, length);
+                unmaskImprecise(src, src + MESSAGE_HEADER, mask, length - MESSAGE_HEADER);
                 rotateMask(4 - (length - MESSAGE_HEADER) % 4, mask);
             } else {
                 src += MESSAGE_HEADER;
@@ -327,7 +326,7 @@ public:
         }
         if (state.wantsHead) {
             parseNext:
-            for (; length >= SHORT_MESSAGE_HEADER; ) {
+            while (length >= SHORT_MESSAGE_HEADER) {
 
                 // invalid reserved bits / invalid opcodes / invalid control frames / set compressed frame
                 if ((rsv1(src) && !setCompressed(user)) || rsv23(src) || (getOpCode(src) > 2 && getOpCode(src) < 8) ||
@@ -361,11 +360,11 @@ public:
         }
     }
 
-    static const int CONSUME_POST_PADDING = 18;
+    static const int CONSUME_POST_PADDING = 4;
     static const int CONSUME_PRE_PADDING = LONG_MESSAGE_HEADER - 1;
 
     // events to be implemented by application (can't be inline currently)
-    bool refusePayloadLength(void *user, int length);
+    bool refusePayloadLength(void *user, uint64_t length);
     bool setCompressed(void *user);
     void forceClose(void *user);
     bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, void *user);
