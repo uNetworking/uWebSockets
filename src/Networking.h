@@ -171,7 +171,7 @@ private:
     }
 
 public:
-    friend Context createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword);
+    friend Context WIN32_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword);
     Context(SSL_CTX *context) : context(context) {
 
     }
@@ -189,7 +189,7 @@ public:
     }
 };
 
-Context createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword = std::string());
+Context WIN32_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword = std::string());
 
 }
 
