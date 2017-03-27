@@ -1027,11 +1027,6 @@ void testReceivePerformance() {
 
     uWS::Hub h;
 
-    h.onError([](void *user) {
-        std::cout << "FAILURE: " << user << " should not emit error!" << std::endl;
-        exit(-1);
-    });
-
     h.onConnection([originalBuffer, buffer, bufferLength, messages, &h](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
         for (int i = 0; i < 100; i++) {
             memcpy(buffer, originalBuffer, bufferLength);
@@ -1141,6 +1136,8 @@ int main(int argc, char *argv[])
 #endif
 
     // These will run on Travis OS X
+    testReceivePerformance();
+    testStress();
     testHTTP();
     testSmallSends();
     testSendCallback();
@@ -1150,14 +1147,12 @@ int main(int argc, char *argv[])
     testBroadcast();
     testMessageBatch();
     testAutoPing();
+    testConnections();
 
     // These are not working yet / not tested
 #ifndef __APPLE__
-    testReceivePerformance();
     testMultithreading();
     testReusePort();
-    testStress();
-    testConnections();
 #endif
 
     //testAutobahn();
