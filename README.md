@@ -50,31 +50,19 @@ Get the sources of the uws.chat server [here](https://github.com/uWebSockets/web
 #### Dependencies
 First of all you need to install the required dependencies. This is very easily done with a good open source package manager like [Homebrew](http://brew.sh) for OS X, [vcpkg](https://github.com/Microsoft/vcpkg) for Windows or your native Linux package manager.
 
-Always required:
-* OpenSSL 1.0.x
+* OpenSSL 1.x.x
 * zlib 1.x
+* libuv 1.3+ *or* Boost.Asio 1.x (both optional on Linux)
 
-Not required on Linux systems:
-* libuv 1.3+
-* Boost.Asio 1.x
+If you wish to integrate with a specific event-loop you can define `USE_ASIO` or `USE_LIBUV` as a global compilation flag and then link to respective libraries. `USE_EPOLL` is default on Linux while other systems default to `USE_LIBUV`.
 
-On Linux systems you don't necessarily need any third party event-loop library, but can run directly on the high performance epoll backend (this gives by far the best performance and memory usage). Non-Linux systems will automatically fall back to libuv.
-
-If you wish to integrate with a specific event-loop you can define `USE_ASIO` or `USE_LIBUV` as a global compilation flag and then link to respective libraries.
+* Fedora: `sudo dnf install openssl-devel zlib-devel`
+* Homebrew: `brew install openssl zlib libuv`
+* Vcpkg: `vcpkg install openssl zlib libuv` *and/or* `vcpkg install openssl:x64-windows zlib:x64-windows libuv:x64-windows`
 
 #### Compilation
-Clone and enter the repo:
-* `git clone https://github.com/uWebSockets/uWebSockets.git && cd uWebSockets`
-
 ###### OS X & Linux
-Compile with Make:
 * `make`
-* `sudo make install`
-
+* `sudo make install` (or as you wish)
 ###### Windows
-Compile with Visual C++ Community Edition 2015 or later. This workflow requires previous usage of vcpkg:
-* `vcpkg integrate install`
-* `vcpkg install libuv:x64-windows boost:x64-windows openssl:x64-windows zlib:x64-windows`
-* Open the VC++ project file
-* If you see a toolset upgrade prompt (i.e. you're using VS 2017), accept it
-* Click Build
+* Compile `VC++.vcxproj` with Visual C++ Community Edition 2015 or later.
