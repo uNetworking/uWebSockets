@@ -9,10 +9,14 @@
 
 namespace uWS {
 
+enum ListenOptions {
+    TRANSFERS
+};
+
 struct Hub;
 
 template <bool isServer>
-struct WIN32_EXPORT Group : uS::NodeData {
+struct WIN32_EXPORT Group : private uS::NodeData {
 protected:
     friend struct Hub;
     friend struct WebSocket<isServer>;
@@ -82,7 +86,19 @@ public:
     void terminate();
     void close(int code = 1000, char *message = nullptr, size_t length = 0);
     void startAutoPing(int intervalMs, std::string userMessage = "");
-    using NodeData::addAsync;
+
+    // same as listen(TRANSFERS), backwards compatible API for now
+    void addAsync() {
+        if (!async) {
+            NodeData::addAsync();
+        }
+    }
+
+    void listen(ListenOptions listenOptions) {
+        if (listenOptions == TRANSFERS && !async) {
+            addAsync();
+        }
+    }
 
     template <class F>
     void forEach(const F &cb) {
@@ -116,12 +132,11 @@ public:
         }
         iterators.pop();
     }
-};
 
-template <bool isServer>
-Group<isServer> *getGroup(uS::Socket *s) {
-    return static_cast<Group<isServer> *>(s->getNodeData());
-}
+    static Group<isServer> *from(uS::Socket *s) {
+        return static_cast<Group<isServer> *>(s->getNodeData());
+    }
+};
 
 }
 

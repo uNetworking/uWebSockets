@@ -8,6 +8,7 @@
 #include <chrono>
 #include <algorithm>
 #include <vector>
+#include <mutex>
 
 typedef int uv_os_sock_t;
 static const int UV_READABLE = EPOLLIN;
@@ -16,6 +17,7 @@ static const int UV_WRITABLE = EPOLLOUT;
 struct Poll;
 struct Timer;
 
+extern std::recursive_mutex cbMutex;
 extern void (*callbacks[16])(Poll *, int, int);
 extern int cbHead;
 
@@ -130,7 +132,9 @@ protected:
         loop->numPolls++;
     }
 
+    // todo: pre-set all of callbacks up front and remove mutex
     void setCb(void (*cb)(Poll *p, int status, int events)) {
+        cbMutex.lock();
         state.cbIndex = cbHead;
         for (int i = 0; i < cbHead; i++) {
             if (callbacks[i] == cb) {
@@ -141,6 +145,16 @@ protected:
         if (state.cbIndex == cbHead) {
             callbacks[cbHead++] = cb;
         }
+        cbMutex.unlock();
+    }
+
+    void (*getCb())(Poll *, int, int) {
+        return callbacks[state.cbIndex];
+    }
+
+    void reInit(Loop *loop, uv_os_sock_t fd) {
+        state.fd = fd;
+        loop->numPolls++;
     }
 
     void start(Loop *loop, Poll *self, int events) {

@@ -2,6 +2,8 @@
 
 #ifdef USE_EPOLL
 
+// todo: remove this mutex, have callbacks set at program start
+std::recursive_mutex cbMutex;
 void (*callbacks[16])(Poll *, int, int);
 int cbHead = 0;
 

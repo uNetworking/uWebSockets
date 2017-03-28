@@ -210,16 +210,8 @@ struct WIN32_EXPORT NodeData {
     Async *async = nullptr;
     pthread_t tid;
 
-    struct TransferData {
-        Poll *p;
-        uv_os_sock_t fd;
-        Socket *socketData;
-        void (*pollCb)(Poll *, int, int);
-        void (*cb)(Poll *);
-    };
-
     std::recursive_mutex *asyncMutex;
-    std::vector<TransferData> transferQueue;
+    std::vector<Poll *> transferQueue;
     std::vector<Poll *> changePollQueue;
     static void asyncCallback(Async *async);
 

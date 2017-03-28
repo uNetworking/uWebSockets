@@ -117,6 +117,16 @@ struct Poll {
         this->cb = cb;
     }
 
+    void (*getCb())(Poll *, int, int) {
+        return cb;
+    }
+
+    void reInit(Loop *loop, uv_os_sock_t fd) {
+        delete socket;
+        socket = new boost::asio::posix::stream_descriptor(*loop, fd);
+        socket->non_blocking(true);
+    }
+
     void start(Loop *, Poll *self, int events) {
         if (events & UV_READABLE) {
             socket->async_read_some(boost::asio::null_buffers(), [self](boost::system::error_code ec, std::size_t) {
@@ -155,6 +165,9 @@ struct Poll {
         socket->cancel();
     }
 
+    // this is not correct, but it works for now
+    // think about transfer - should allow one to not delete
+    // but in this case it doesn't matter at all
     void close(Loop *loop, void (*cb)(Poll *)) {
         socket->release();
         socket->get_io_service().post([cb, this]() {

@@ -49,8 +49,8 @@ void Hub::onServerAccept(uS::Socket *s) {
     httpSocket->setState<HttpSocket<SERVER>>();
     httpSocket->start(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
     httpSocket->setNoDelay(true);
-    getGroup<SERVER>(httpSocket)->addHttpSocket(httpSocket);
-    getGroup<SERVER>(httpSocket)->httpConnectionHandler(httpSocket);
+    Group<SERVER>::from(httpSocket)->addHttpSocket(httpSocket);
+    Group<SERVER>::from(httpSocket)->httpConnectionHandler(httpSocket);
 }
 
 void Hub::onClientConnection(uS::Socket *s, bool error) {

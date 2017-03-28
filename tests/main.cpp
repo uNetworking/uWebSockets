@@ -472,7 +472,7 @@ void testReusePort() {
     delete group2;
 }
 
-void testMultithreading() {
+void testTransfers() {
     for (int ssl = 0; ssl < 2; ssl++) {
         uWS::Group<uWS::SERVER> *tServerGroup = nullptr;
         uWS::Group<uWS::CLIENT> *clientGroup = nullptr;
@@ -486,7 +486,23 @@ void testMultithreading() {
             uWS::Hub th;
             tServerGroup = &th.getDefaultGroup<uWS::SERVER>();
 
-            th.onMessage([&tServerGroup, &client, &receivedMessages, &clientGroup, &m](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
+            bool transferred = false;
+
+            th.onTransfer([&transferred](uWS::WebSocket<uWS::SERVER> *ws) {
+                if (ws->getUserData() != (void *) 12345) {
+                    std::cout << "onTransfer called with websocket with invalid user data set!" << std::endl;
+                    exit(-1);
+                }
+
+                transferred = true;
+            });
+
+            th.onMessage([&tServerGroup, &client, &receivedMessages, &clientGroup, &m, &transferred](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
+                if (!transferred) {
+                    std::cout << "FAILURE: onTransfer was not triggered in time" << std::endl;
+                    exit(-1);
+                }
+
                 switch(++receivedMessages) {
                 case 1:
                     m.lock();
@@ -518,7 +534,7 @@ void testMultithreading() {
                 }
             });
 
-            th.getDefaultGroup<uWS::SERVER>().addAsync();
+            th.getDefaultGroup<uWS::SERVER>().listen(uWS::TRANSFERS);
             th.run();
         });
 
@@ -529,9 +545,10 @@ void testMultithreading() {
 
         clientGroup = &h.getDefaultGroup<uWS::CLIENT>();
 
-        clientGroup->addAsync();
+        clientGroup->listen(uWS::TRANSFERS);
 
         h.onConnection([&tServerGroup](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+            ws->setUserData((void *) 12345);
             ws->transfer(tServerGroup);
         });
 
@@ -1148,10 +1165,10 @@ int main(int argc, char *argv[])
     testMessageBatch();
     testAutoPing();
     testConnections();
+    testTransfers();
 
-    // These are not working yet / not tested
-#ifndef __APPLE__
-    testMultithreading();
+    // Linux-only feature
+#ifdef __linux__
     testReusePort();
 #endif
 

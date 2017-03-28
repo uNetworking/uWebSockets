@@ -128,6 +128,16 @@ struct Poll {
         this->cb = cb;
     }
 
+    void (*getCb())(Poll *, int, int) {
+        return cb;
+    }
+
+    void reInit(Loop *loop, uv_os_sock_t fd) {
+        delete uv_poll;
+        uv_poll = new uv_poll_t;
+        uv_poll_init_socket(loop, uv_poll, fd);
+    }
+
     void start(Loop *, Poll *self, int events) {
         uv_poll->data = self;
         uv_poll_start(uv_poll, events, [](uv_poll_t *p, int status, int events) {
