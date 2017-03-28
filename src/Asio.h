@@ -50,6 +50,9 @@ struct Timer {
         return data;
     }
 
+    // bug: cancel does not cancel expired timers!
+    // it has to guarantee that the timer is not called after
+    // stop is called! ffs boost!
     void stop() {
         asio_timer.cancel();
     }
