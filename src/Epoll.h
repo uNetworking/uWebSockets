@@ -72,16 +72,16 @@ struct Timer {
     }
 
     void start(void (*cb)(Timer *), int timeout, int repeat) {
-		loop->timepoint = std::chrono::system_clock::now();
+        loop->timepoint = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point timepoint = loop->timepoint + std::chrono::milliseconds(timeout);
 
-		Timepoint t = {cb, this, timepoint, repeat};
-		loop->timers.insert(
-			std::upper_bound(loop->timers.begin(), loop->timers.end(), t, [](const Timepoint &a, const Timepoint &b) {
-				return a.timepoint < b.timepoint;
-			}),
-			t
-		);
+        Timepoint t = {cb, this, timepoint, repeat};
+        loop->timers.insert(
+            std::upper_bound(loop->timers.begin(), loop->timers.end(), t, [](const Timepoint &a, const Timepoint &b) {
+                return a.timepoint < b.timepoint;
+            }),
+            t
+        );
 
         loop->delay = -1;
         if (loop->timers.size()) {
