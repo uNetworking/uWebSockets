@@ -297,13 +297,10 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
     }
 
     httpSocket->nodeData->asyncMutex->lock();
-    auto end = httpSocket->nodeData->changePollQueue.end();
-    auto it = std::find_if(httpSocket->nodeData->changePollQueue.begin(), end, [=](Poll* s) {
-        return (s == httpSocket);
-    });
-    if (it != end) {
-        httpSocket->nodeData->changePollQueue.erase(it);
-    }
+    httpSocket->nodeData->changePollQueue.erase(
+        std::remove(httpSocket->nodeData->changePollQueue.begin(), httpSocket->nodeData->changePollQueue.end(), httpSocket),
+        httpSocket->nodeData->changePollQueue.end()
+    );
     httpSocket->nodeData->asyncMutex->unlock();
 
     if (!isServer) {
