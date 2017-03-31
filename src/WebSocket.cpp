@@ -288,6 +288,8 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
         }
         webSocket->messageQueue.pop();
     }
+
+    webSocket->nodeData->clearPendingPollChanges(webSocket);
 }
 
 template <bool isServer>

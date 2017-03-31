@@ -296,6 +296,8 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
         delete httpSocket->preAllocatedResponse;
     }
 
+    httpSocket->nodeData->clearPendingPollChanges(httpSocket);
+
     if (!isServer) {
         httpSocket->cancelTimeout();
         Group<CLIENT>::from(httpSocket)->errorHandler(httpSocket->httpUser);
