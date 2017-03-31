@@ -243,6 +243,15 @@ public:
         async->setData(this);
         async->start(NodeData::asyncCallback);
     }
+
+    void clearPendingPollChanges(Poll *p) {
+        asyncMutex->lock();
+        changePollQueue.erase(
+            std::remove(changePollQueue.begin(), changePollQueue.end(), p),
+            changePollQueue.end()
+        );
+        asyncMutex->unlock();
+    }
 };
 
 }

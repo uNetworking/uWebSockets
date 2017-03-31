@@ -296,12 +296,7 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
         delete httpSocket->preAllocatedResponse;
     }
 
-    httpSocket->nodeData->asyncMutex->lock();
-    httpSocket->nodeData->changePollQueue.erase(
-        std::remove(httpSocket->nodeData->changePollQueue.begin(), httpSocket->nodeData->changePollQueue.end(), httpSocket),
-        httpSocket->nodeData->changePollQueue.end()
-    );
-    httpSocket->nodeData->asyncMutex->unlock();
+    httpSocket->nodeData->clearPendingPollChanges(httpSocket);
 
     if (!isServer) {
         httpSocket->cancelTimeout();
