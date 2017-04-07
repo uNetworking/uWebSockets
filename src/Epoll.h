@@ -83,9 +83,15 @@ struct Timer {
             t
         );
 
+        std::vector<Timepoint>::iterator low;
+        Timepoint temp = {NULL, NULL, loop->timepoint, 0};
+        low = std::lower_bound(loop->timers.begin(), loop->timers.end(), temp, [](const Timepoint &a, const Timepoint &b) {
+            return a.timepoint < b.timepoint;
+        });
+
         loop->delay = -1;
         if (loop->timers.size()) {
-            loop->delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(loop->timers[0].timepoint - loop->timepoint).count(), 0);
+            loop->delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(low->timepoint - loop->timepoint).count(), 0);
         }
     }
 
@@ -109,9 +115,15 @@ struct Timer {
         }
         loop->cancelledLastTimer = true;
 
+        std::vector<Timepoint>::iterator low;
+        Timepoint temp = {NULL, NULL, loop->timepoint, 0};
+        low = std::lower_bound(loop->timers.begin(), loop->timers.end(), temp, [](const Timepoint &a, const Timepoint &b) {
+            return a.timepoint < b.timepoint;
+        });
+
         loop->delay = -1;
         if (loop->timers.size()) {
-            loop->delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(loop->timers[0].timepoint - loop->timepoint).count(), 0);
+            loop->delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(low->timepoint - loop->timepoint).count(), 0);
         }
     }
 
