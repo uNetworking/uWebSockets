@@ -101,7 +101,7 @@ void serveBenchmark() {
 }
 
 void measureInternalThroughput(unsigned int payloadLength, int echoes, bool ssl) {
-    uWS::Hub h;
+    uWS::Hub h(0, false, 16777216);
 
     char *payload = new char[payloadLength];
     for (unsigned int i = 0; i < payloadLength; i++) {
