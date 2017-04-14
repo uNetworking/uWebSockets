@@ -14,6 +14,8 @@
 
 [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](misc/images/patreon.png)](https://www.patreon.com/uWebSockets)
 
+:briefcase: :tophat: If you like what you see then kindly support me on patreon above or simply hire me, I'm not doing anything right now. Toss me a mail at alexhultman@gmail.com and we can discuss this further - only companies please, no 1-day private consulting jobs etc.
+
 ## Simple & modern
 The interface has been designed for simplicity and only requires you to write a few lines of code to get a working server:
 ```c++
