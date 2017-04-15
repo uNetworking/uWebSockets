@@ -41,6 +41,8 @@ Get the sources of the uws.chat server [here](https://github.com/uWebSockets/web
 ## Widely adopted
 <div align="center"><img src="misc/images/adoption.png"/></div>
 
+*While I cannot use their logo, Google Creative Labs has published a multiplayer WebVR demo using µWS [over here](https://forest.webvrexperiments.com/).*
+
 ## Not your average server
 µWS was designed to perform well across the board, not just in one specific dimension. With excellent memory usage paired with high throughput it outscales Socket.IO by 180x.
 
