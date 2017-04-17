@@ -260,7 +260,7 @@ protected:
             int length = recv(socket->getFd(), nodeData->recvBuffer, nodeData->recvLength, 0);
             if (length > 0) {
                 STATE::onData((Socket *) p, nodeData->recvBuffer, length);
-            } else if (length <= 0 || (length == SOCKET_ERROR && !netContext->wouldBlock())) {
+            } else if (length == 0 || (length == SOCKET_ERROR && !netContext->wouldBlock())) {
                 STATE::onEnd((Socket *) p);
             }
         }
