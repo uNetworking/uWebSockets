@@ -103,7 +103,11 @@ public:
             return nullptr;
         }
 
-        ::connect(fd, result->ai_addr, result->ai_addrlen);
+        if (::connect(fd, result->ai_addr, result->ai_addrlen) == -1) {
+            freeaddrinfo(result);
+            return nullptr;
+        }
+
         freeaddrinfo(result);
 
         SSL *ssl = nullptr;
