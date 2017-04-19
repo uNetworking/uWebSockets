@@ -12,7 +12,7 @@
 * Permessage-deflate, SSL/TLS support & integrates with foreign HTTP(S) servers.
 * Multi-core friendly & optionally thread-safe via compiler flag UWS_THREADSAFE.
 
-[![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](misc/images/patreon.png)](https://www.patreon.com/uWebSockets)
+[![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets)
 
 ## Simple & modern
 The interface has been designed for simplicity and only requires you to write a few lines of code to get a working server:
@@ -39,12 +39,17 @@ Get the sources of the uws.chat server [here](https://github.com/uWebSockets/web
 ## Widely adopted
 <div align="center"><img src="misc/images/adoption.png"/></div>
 
+*While I cannot use their logo, Google Creative Labs has published a multiplayer WebVR demo using µWS [over here](https://forest.webvrexperiments.com/).*
+
 ## Not your average server
 µWS was designed to perform well across the board, not just in one specific dimension. With excellent memory usage paired with high throughput it outscales Socket.IO by 180x.
 
 <div align="center"><img src="misc/images/overview.png"/></div>
 
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. Read more about the benchmarks [here](benchmarks).*
+
+## Perfect for WebRTC
+Distributed WebRTC networks typically employ WebSockets for peer signalling. Since every single peer in the entire distributed network requires a persistent connection to the signalling server at all times, only a scalable WebSocket server will do.
 
 ## Getting started
 #### Dependencies
