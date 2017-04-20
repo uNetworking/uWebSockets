@@ -32,7 +32,8 @@ protected:
     using uS::Socket::closeSocket;
 
     static bool refusePayloadLength(uint64_t length, WebSocketState<isServer> *webSocketState) {
-        return length > 16777216;
+        WebSocket<isServer> *webSocket = static_cast<WebSocket<isServer> *>(webSocketState);
+        return length > Group<isServer>::from(webSocket)->maxPayload;
     }
 
     static bool setCompressed(WebSocketState<isServer> *webSocketState) {

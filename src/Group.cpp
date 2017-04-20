@@ -118,7 +118,7 @@ void Group<isServer>::removeWebSocket(WebSocket<isServer> *webSocket) {
 }
 
 template <bool isServer>
-Group<isServer>::Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData) : uS::NodeData(*nodeData), hub(hub), extensionOptions(extensionOptions) {
+Group<isServer>::Group(int extensionOptions, unsigned int maxPayload, Hub *hub, uS::NodeData *nodeData) : uS::NodeData(*nodeData), maxPayload(maxPayload), hub(hub), extensionOptions(extensionOptions) {
     connectionHandler = [](WebSocket<isServer> *, HttpRequest) {};
     transferHandler = [](WebSocket<isServer> *) {};
     messageHandler = [](WebSocket<isServer> *, char *, size_t, OpCode) {};
