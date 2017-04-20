@@ -5,7 +5,7 @@
 
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/misc/autobahn/index.html).
 * One million WebSockets require ~111mb of user space memory (104 bytes per WebSocket).
-* By far one of the fastest in both HTTP and WebSocket throughput (see table below).
+* Single-threaded throughput of up to 5 million HTTP req/sec or 20 million WebSocket echoes/sec.
 * Linux, OS X, Windows & [Node.js](http://github.com/uWebSockets/bindings) support.
 * Runs with raw epoll, libuv or ASIO (C++17-ready).
 * Valgrind & AddressSanitizer clean.
