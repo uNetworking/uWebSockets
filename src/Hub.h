@@ -29,8 +29,8 @@ protected:
 
 public:
     template <bool isServer>
-    Group<isServer> *createGroup(int extensionOptions = 0) {
-        return new Group<isServer>(extensionOptions, this, nodeData);
+    Group<isServer> *createGroup(int extensionOptions = 0, unsigned int maxPayload = 16777216) {
+        return new Group<isServer>(extensionOptions, maxPayload, this, nodeData);
     }
 
     template <bool isServer>
@@ -43,8 +43,8 @@ public:
     void connect(std::string uri, void *user = nullptr, std::map<std::string, std::string> extraHeaders = {}, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr);
     void upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup = nullptr);
 
-    Hub(int extensionOptions = 0, bool useDefaultLoop = false) : uS::Node(LARGE_BUFFER_SIZE, WebSocketProtocol<SERVER, WebSocket<SERVER>>::CONSUME_PRE_PADDING, WebSocketProtocol<SERVER, WebSocket<SERVER>>::CONSUME_POST_PADDING, useDefaultLoop),
-                                             Group<SERVER>(extensionOptions, this, nodeData), Group<CLIENT>(0, this, nodeData) {
+    Hub(int extensionOptions = 0, bool useDefaultLoop = false, unsigned int maxPayload = 16777216) : uS::Node(LARGE_BUFFER_SIZE, WebSocketProtocol<SERVER, WebSocket<SERVER>>::CONSUME_PRE_PADDING, WebSocketProtocol<SERVER, WebSocket<SERVER>>::CONSUME_POST_PADDING, useDefaultLoop),
+                                             Group<SERVER>(extensionOptions, maxPayload, this, nodeData), Group<CLIENT>(0, maxPayload, this, nodeData) {
         inflateInit2(&inflationStream, -15);
         inflationBuffer = new char[LARGE_BUFFER_SIZE];
 

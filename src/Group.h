@@ -41,6 +41,7 @@ protected:
 
     Hub *hub;
     int extensionOptions;
+    unsigned int maxPayload;
     Timer *timer = nullptr, *httpTimer = nullptr;
     std::string userPingMessage;
     std::stack<Poll *> iterators;
@@ -59,7 +60,7 @@ protected:
     void addHttpSocket(HttpSocket<isServer> *httpSocket);
     void removeHttpSocket(HttpSocket<isServer> *httpSocket);
 
-    Group(int extensionOptions, Hub *hub, uS::NodeData *nodeData);
+    Group(int extensionOptions, unsigned int maxPayload, Hub *hub, uS::NodeData *nodeData);
     void stopListening();
 
 public:
