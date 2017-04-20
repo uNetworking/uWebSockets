@@ -22,9 +22,8 @@ protected:
         COMPRESSED_FRAME
     } compressionStatus;
     unsigned char controlTipLength = 0, hasOutstandingPong = false;
-    unsigned int maxPayload;
 
-    WebSocket(bool perMessageDeflate, uS::Socket *socket, unsigned int maxPayload = 1048576) : uS::Socket(std::move(*socket)), maxPayload(maxPayload) {
+    WebSocket(bool perMessageDeflate, uS::Socket *socket) : uS::Socket(std::move(*socket)) {
         compressionStatus = perMessageDeflate ? CompressionStatus::ENABLED : CompressionStatus::DISABLED;
     }
 
@@ -34,7 +33,7 @@ protected:
 
     static bool refusePayloadLength(uint64_t length, WebSocketState<isServer> *webSocketState) {
         WebSocket<isServer> *webSocket = static_cast<WebSocket<isServer> *>(webSocketState);
-        return length > webSocket->maxPayload;
+        return length > Group<isServer>::from(webSocket)->maxPayload;
     }
 
     static bool setCompressed(WebSocketState<isServer> *webSocketState) {
