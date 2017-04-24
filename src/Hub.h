@@ -20,7 +20,7 @@ protected:
 
     z_stream inflationStream = {};
     char *inflationBuffer;
-    char *inflate(char *data, size_t &length);
+    char *inflate(char *data, size_t &length, size_t maxPayload);
     std::string dynamicInflationBuffer;
     static const int LARGE_BUFFER_SIZE = 300 * 1024;
 
@@ -88,8 +88,8 @@ public:
     using Group<SERVER>::onHttpUpgrade;
     using Group<SERVER>::onCancelledHttpRequest;
 
-    friend class WebSocket<SERVER>;
-    friend class WebSocket<CLIENT>;
+    friend struct WebSocket<SERVER>;
+    friend struct WebSocket<CLIENT>;
 };
 
 }

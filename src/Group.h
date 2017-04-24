@@ -39,9 +39,9 @@ protected:
     using errorType = typename std::conditional<isServer, int, void *>::type;
     std::function<void(errorType)> errorHandler;
 
+    unsigned int maxPayload;
     Hub *hub;
     int extensionOptions;
-    unsigned int maxPayload;
     Timer *timer = nullptr, *httpTimer = nullptr;
     std::string userPingMessage;
     std::stack<Poll *> iterators;
