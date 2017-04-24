@@ -295,13 +295,13 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
 template <bool isServer>
 bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, WebSocketState<isServer> *webSocketState) {
     WebSocket<isServer> *webSocket = static_cast<WebSocket<isServer> *>(webSocketState);
+    Group<isServer> *group = Group<isServer>::from(webSocket);
 
     if (opCode < 3) {
         if (!remainingBytes && fin && !webSocket->fragmentBuffer.length()) {
             if (webSocket->compressionStatus == WebSocket<isServer>::CompressionStatus::COMPRESSED_FRAME) {
                     webSocket->compressionStatus = WebSocket<isServer>::CompressionStatus::ENABLED;
-                    Hub *hub = ((Group<isServer> *) webSocket->nodeData)->hub;
-                    data = hub->inflate(data, length);
+                    data = group->hub->inflate(data, length, group->maxPayload);
                     if (!data) {
                         forceClose(webSocketState);
                         return true;
@@ -313,7 +313,7 @@ bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int
                 return true;
             }
 
-            ((Group<isServer> *) webSocket->nodeData)->messageHandler(webSocket, data, length, (OpCode) opCode);
+            group->messageHandler(webSocket, data, length, (OpCode) opCode);
             if (webSocket->isClosed() || webSocket->isShuttingDown()) {
                 return true;
             }
@@ -323,9 +323,8 @@ bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int
                 length = webSocket->fragmentBuffer.length();
                 if (webSocket->compressionStatus == WebSocket<isServer>::CompressionStatus::COMPRESSED_FRAME) {
                         webSocket->compressionStatus = WebSocket<isServer>::CompressionStatus::ENABLED;
-                        Hub *hub = ((Group<isServer> *) webSocket->nodeData)->hub;
                         webSocket->fragmentBuffer.append("....");
-                        data = hub->inflate((char *) webSocket->fragmentBuffer.data(), length);
+                        data = group->hub->inflate((char *) webSocket->fragmentBuffer.data(), length, group->maxPayload);
                         if (!data) {
                             forceClose(webSocketState);
                             return true;
@@ -339,7 +338,7 @@ bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int
                     return true;
                 }
 
-                ((Group<isServer> *) webSocket->nodeData)->messageHandler(webSocket, data, length, (OpCode) opCode);
+                group->messageHandler(webSocket, data, length, (OpCode) opCode);
                 if (webSocket->isClosed() || webSocket->isShuttingDown()) {
                     return true;
                 }
@@ -355,12 +354,12 @@ bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int
             } else {
                 if (opCode == PING) {
                     webSocket->send(data, length, (OpCode) OpCode::PONG);
-                    ((Group<isServer> *) webSocket->nodeData)->pingHandler(webSocket, data, length);
+                    group->pingHandler(webSocket, data, length);
                     if (webSocket->isClosed() || webSocket->isShuttingDown()) {
                         return true;
                     }
                 } else if (opCode == PONG) {
-                    ((Group<isServer> *) webSocket->nodeData)->pongHandler(webSocket, data, length);
+                    group->pongHandler(webSocket, data, length);
                     if (webSocket->isClosed() || webSocket->isShuttingDown()) {
                         return true;
                     }
@@ -379,12 +378,12 @@ bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int
                 } else {
                     if (opCode == PING) {
                         webSocket->send(controlBuffer, webSocket->controlTipLength, (OpCode) OpCode::PONG);
-                        ((Group<isServer> *) webSocket->nodeData)->pingHandler(webSocket, controlBuffer, webSocket->controlTipLength);
+                        group->pingHandler(webSocket, controlBuffer, webSocket->controlTipLength);
                         if (webSocket->isClosed() || webSocket->isShuttingDown()) {
                             return true;
                         }
                     } else if (opCode == PONG) {
-                        ((Group<isServer> *) webSocket->nodeData)->pongHandler(webSocket, controlBuffer, webSocket->controlTipLength);
+                        group->pongHandler(webSocket, controlBuffer, webSocket->controlTipLength);
                         if (webSocket->isClosed() || webSocket->isShuttingDown()) {
                             return true;
                         }
