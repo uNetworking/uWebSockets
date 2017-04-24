@@ -55,8 +55,7 @@ void Hub::onClientConnection(uS::Socket *s, bool error) {
     HttpSocket<CLIENT> *httpSocket = (HttpSocket<CLIENT> *) s;
 
     if (error) {
-        ((Group<CLIENT> *) httpSocket->nodeData)->errorHandler(httpSocket->httpUser);
-        delete httpSocket;
+        httpSocket->onEnd(httpSocket);
     } else {
         httpSocket->setState<HttpSocket<CLIENT>>();
         httpSocket->change(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));

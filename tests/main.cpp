@@ -238,6 +238,9 @@ void testConnections() {
         case 7:
             std::cout << "Client emitted error on HTTP response without upgrade (SSL)" << std::endl;
             break;
+        case 10:
+            std::cout << "Client emitted error on poll error" << std::endl;
+            break;
         default:
             std::cout << "FAILURE: " << user << " should not emit error!" << std::endl;
             exit(-1);
@@ -272,6 +275,7 @@ void testConnections() {
     h.connect("wss://echo.websocket.org", (void *) 9);
     h.connect("ws://google.com", (void *) 6);
     h.connect("wss://google.com", (void *) 7);
+    h.connect("ws://127.0.0.1:6000", (void *) 10, {}, 60000);
 
     h.run();
     std::cout << "Falling through testConnections" << std::endl;
