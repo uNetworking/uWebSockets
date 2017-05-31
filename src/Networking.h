@@ -42,8 +42,10 @@
 
 #ifdef EXPORT_WIN32_API
 	#define WIN32_EXPORT __declspec(dllexport)
+	#define WIN32_API	 extern
 #else
 	#define WIN32_EXPORT __declspec(dllimport)
+	#define WIN32_API
 #endif 
 
 inline void close(SOCKET fd) {closesocket(fd);}
@@ -69,6 +71,7 @@ inline SOCKET dup(SOCKET socket) {
 #define SOCKET_ERROR -1
 #define INVALID_SOCKET -1
 #define WIN32_EXPORT
+#define WIN32_API
 #endif
 
 #include "Backend.h"
@@ -161,15 +164,15 @@ struct Context {
 
 namespace TLS {
 
-class WIN32_EXPORT Context {
+class Context {
 private:
     SSL_CTX *context = nullptr;
     std::shared_ptr<std::string> password;
 
-    static int passwordCallback(char *buf, int size, int rwflag, void *u)
+    static int passwordCallback(char *buf, int size, int /*rwflag*/, void *u)
     {
         std::string *password = (std::string *) u;
-        int length = std::min<int>(size, password->length());
+        int length = std::min<int>(size, (int) password->length());
         memcpy(buf, password->data(), length);
         buf[length] = '\0';
         return length;
@@ -182,9 +185,9 @@ public:
     }
 
     Context() = default;
-    Context(const Context &other);
-    Context &operator=(const Context &other);
-    ~Context();
+	WIN32_EXPORT Context(const Context &other);
+	WIN32_EXPORT Context &operator=(const Context &other);
+	WIN32_EXPORT ~Context();
     operator bool() {
         return context;
     }
@@ -201,7 +204,7 @@ Context WIN32_EXPORT createContext(std::string certChainFileName, std::string ke
 struct Socket;
 
 // NodeData is like a Context, maybe merge them?
-struct WIN32_EXPORT NodeData {
+struct NodeData {
     char *recvBufferMemoryBlock;
     char *recvBuffer;
     int recvLength;
@@ -221,7 +224,7 @@ struct WIN32_EXPORT NodeData {
     static void asyncCallback(Async *async);
 
     static int getMemoryBlockIndex(size_t length) {
-        return (length >> 4) + bool(length & 15);
+        return (int) ((length >> 4) + bool(length & 15));
     }
 
     char *getSmallMemoryBlock(int index) {
