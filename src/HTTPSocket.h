@@ -106,7 +106,7 @@ struct HttpRequest {
 struct HttpResponse;
 
 template <const bool isServer>
-struct WIN32_EXPORT HttpSocket : uS::Socket {
+struct HttpSocket : uS::Socket {
     void *httpUser; // remove this later, setTimeout occupies user for now
     HttpResponse *outstandingResponsesHead = nullptr;
     HttpResponse *outstandingResponsesTail = nullptr;
@@ -122,7 +122,7 @@ struct WIN32_EXPORT HttpSocket : uS::Socket {
         onEnd(this);
     }
 
-    void upgrade(const char *secKey, const char *extensions,
+	WIN32_EXPORT void upgrade(const char *secKey, const char *extensions,
                  size_t extensionsLength, const char *subprotocol,
                  size_t subprotocolLength, bool *perMessageDeflate);
 
@@ -130,8 +130,8 @@ private:
     friend struct uS::Socket;
     friend struct HttpResponse;
     friend struct Hub;
-    static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
-    static void onEnd(uS::Socket *s);
+	WIN32_EXPORT  static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
+	WIN32_EXPORT  static void onEnd(uS::Socket *s);
 };
 
 struct HttpResponse {
@@ -172,11 +172,11 @@ struct HttpResponse {
                void *callbackData = nullptr) {
 
         struct NoopTransformer {
-            static size_t estimate(const char *data, size_t length) {
+            static size_t estimate(const char * /*data*/, size_t length) {
                 return length;
             }
 
-            static size_t transform(const char *src, char *dst, size_t length, int transformData) {
+            static size_t transform(const char *src, char *dst, size_t length, int /*transformData*/) {
                 memcpy(dst, src, length);
                 return length;
             }
@@ -198,7 +198,7 @@ struct HttpResponse {
         struct HttpTransformer {
 
             // todo: this should get TransformData!
-            static size_t estimate(const char *data, size_t length) {
+            static size_t estimate(const char * /*data*/, size_t length) {
                 return length + 128;
             }
 
@@ -252,9 +252,9 @@ struct HttpResponse {
                 if (!head->hasEnded) {
                     break;
                 } else {
-                    HttpResponse *next = head->next;
+                    HttpResponse *nextResp = head->next;
                     head->freeResponse(httpSocket);
-                    head = next;
+                    head = nextResp;
                 }
             }
             updateHead:
@@ -267,8 +267,8 @@ struct HttpResponse {
         }
     }
 
-    void setUserData(void *userData) {
-        this->userData = userData;
+    void setUserData(void *data) {
+        this->userData = data;
     }
 
     void *getUserData() {

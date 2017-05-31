@@ -2,8 +2,8 @@
 namespace uWS {
 
 template <bool isServer>
-void Group<isServer>::setUserData(void *user) {
-    this->userData = user;
+void Group<isServer>::setUserData(void *data) {
+    this->userData = data;
 }
 
 template <bool isServer>

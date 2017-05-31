@@ -48,7 +48,7 @@ ExtensionsParser::ExtensionsParser(const char *data, size_t length) {
     for (; token && token != TOK_PERMESSAGE_DEFLATE; token = getToken(data, stop));
 
     perMessageDeflate = (token == TOK_PERMESSAGE_DEFLATE);
-    while ((token = getToken(data, stop))) {
+    while ((token = getToken(data, stop)) != 0) {
         switch (token) {
         case TOK_PERMESSAGE_DEFLATE:
             return;

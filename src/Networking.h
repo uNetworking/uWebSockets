@@ -221,7 +221,7 @@ struct NodeData {
     std::recursive_mutex *asyncMutex;
     std::vector<Poll *> transferQueue;
     std::vector<Poll *> changePollQueue;
-    static void asyncCallback(Async *async);
+	WIN32_EXPORT static void asyncCallback(Async *async);
 
     static int getMemoryBlockIndex(size_t length) {
         return (int) ((length >> 4) + bool(length & 15));

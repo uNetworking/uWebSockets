@@ -23,7 +23,7 @@ struct TransferData {
 };
 
 // perfectly 64 bytes (4 + 60)
-struct WIN32_EXPORT Socket : Poll {
+struct  Socket : Poll {
 protected:
     struct {
         int poll : 4;
@@ -86,9 +86,9 @@ protected:
         state.shuttingDown = shuttingDown;
     }
 
-    void transfer(NodeData *nodeData, void (*cb)(Poll *)) {
+    void transfer(NodeData *nd, void (*callback)(Poll *)) {
         // userData is invalid from now on till onTransfer
-        setUserData(new TransferData({getFd(), ssl, getCb(), getPoll(), getUserData(), nodeData, cb}));
+        setUserData(new TransferData({getFd(), ssl, getCb(), getPoll(), getUserData(), nd, callback }));
         stop(this->nodeData->loop);
         close(this->nodeData->loop, [](Poll *p) {
             Socket *s = (Socket *) p;
@@ -154,7 +154,7 @@ protected:
             socket->cork(true);
             while (true) {
                 Queue::Message *messagePtr = socket->messageQueue.front();
-                int sent = SSL_write(socket->ssl, messagePtr->data, messagePtr->length);
+                int sent = SSL_write(socket->ssl, messagePtr->data, (int) messagePtr->length);
                 if (sent == (ssize_t) messagePtr->length) {
                     if (messagePtr->callback) {
                         messagePtr->callback(p, messagePtr->callbackData, false, messagePtr->reserved);
@@ -229,7 +229,7 @@ protected:
                 socket->cork(true);
                 while (true) {
                     Queue::Message *messagePtr = socket->messageQueue.front();
-                    ssize_t sent = ::send(socket->getFd(), messagePtr->data, messagePtr->length, MSG_NOSIGNAL);
+                    ssize_t sent = ::send(socket->getFd(), messagePtr->data, (int) messagePtr->length, MSG_NOSIGNAL);
                     if (sent == (ssize_t) messagePtr->length) {
                         if (messagePtr->callback) {
                             messagePtr->callback(p, messagePtr->callbackData, false, messagePtr->reserved);
@@ -306,12 +306,12 @@ protected:
         if (messageQueue.empty()) {
 
             if (ssl) {
-                sent = SSL_write(ssl, message->data, message->length);
+                sent = SSL_write(ssl, message->data, (int) message->length);
                 if (sent == (ssize_t) message->length) {
                     wasTransferred = false;
                     return true;
                 } else if (sent < 0) {
-                    switch (SSL_get_error(ssl, sent)) {
+                    switch (SSL_get_error(ssl, (int) sent)) {
                     case SSL_ERROR_WANT_READ:
                         break;
                     case SSL_ERROR_WANT_WRITE:
@@ -325,7 +325,7 @@ protected:
                     }
                 }
             } else {
-                sent = ::send(getFd(), message->data, message->length, MSG_NOSIGNAL);
+                sent = ::send(getFd(), message->data,(int)  message->length, MSG_NOSIGNAL);
                 if (sent == (ssize_t) message->length) {
                     wasTransferred = false;
                     return true;
@@ -355,7 +355,7 @@ protected:
 
         if (hasEmptyQueue()) {
             if (estimatedLength <= uS::NodeData::preAllocMaxSize) {
-                int memoryLength = estimatedLength;
+                size_t memoryLength = estimatedLength;
                 int memoryIndex = nodeData->getMemoryBlockIndex(memoryLength);
 
                 Queue::Message *messagePtr = (Queue::Message *) nodeData->getSmallMemoryBlock(memoryIndex);
@@ -429,8 +429,8 @@ public:
         return user;
     }
 
-    void setUserData(void *user) {
-        this->user = user;
+    void setUserData(void *userdata) {
+        this->user = userdata;
     }
 
     struct Address {
@@ -439,13 +439,13 @@ public:
         const char *family;
     };
 
-    Address getAddress();
+	WIN32_EXPORT Address getAddress();
 
     void setNoDelay(int enable) {
         setsockopt(getFd(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int));
     }
 
-    void cork(int enable) {
+    void cork(int /*enable*/) {
 #if defined(TCP_CORK)
         // Linux & SmartOS have proper TCP_CORK
         setsockopt(getFd(), IPPROTO_TCP, TCP_CORK, &enable, sizeof(int));

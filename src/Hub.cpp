@@ -8,7 +8,7 @@ char *Hub::inflate(char *data, size_t &length, size_t maxPayload) {
     dynamicInflationBuffer.clear();
 
     inflationStream.next_in = (Bytef *) data;
-    inflationStream.avail_in = length;
+    inflationStream.avail_in = (uInt) length;
 
     int err;
     do {

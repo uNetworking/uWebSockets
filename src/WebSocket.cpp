@@ -33,7 +33,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
     } transformData = {opCode};
 
     struct WebSocketTransformer {
-        static size_t estimate(const char *data, size_t length) {
+        static size_t estimate(const char * /*data*/, size_t length) {
             return length + HEADER_LENGTH;
         }
 
@@ -74,7 +74,7 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
  *
  */
 template <bool isServer>
-typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages, OpCode opCode, bool compressed, void (*callback)(WebSocket<isServer> *, void *, bool, void *))
+typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> & /*excludedMessages*/, OpCode opCode, bool compressed, void (*callback)(WebSocket<isServer> *, void *, bool, void *))
 {
     // should be sent in!
     size_t batchLength = 0;
@@ -85,7 +85,7 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
     PreparedMessage *preparedMessage = new PreparedMessage;
     preparedMessage->buffer = new char[batchLength + 10 * messages.size()];
 
-    int offset = 0;
+    size_t offset = 0;
     for (size_t i = 0; i < messages.size(); i++) {
         offset += WebSocketProtocol<isServer, WebSocket<isServer>>::formatMessage(preparedMessage->buffer + offset, messages[i].data(), messages[i].length(), opCode, messages[i].length(), compressed);
     }
@@ -177,7 +177,7 @@ uS::Socket *WebSocket<isServer>::onData(uS::Socket *s, char *data, size_t length
     webSocket->hasOutstandingPong = false;
     if (!webSocket->isShuttingDown()) {
         webSocket->cork(true);
-        WebSocketProtocol<isServer, WebSocket<isServer>>::consume(data, length, webSocket);
+        WebSocketProtocol<isServer, WebSocket<isServer>>::consume(data, (unsigned int) length, webSocket);
         if (!webSocket->isClosed()) {
             webSocket->cork(false);
         }
@@ -260,8 +260,8 @@ void WebSocket<isServer>::close(int code, const char *message, size_t length) {
     startTimeout<WebSocket<isServer>::onEnd>();
 
     char closePayload[MAX_CLOSE_PAYLOAD + 2];
-    int closePayloadLength = WebSocketProtocol<isServer, WebSocket<isServer>>::formatClosePayload(closePayload, code, message, length);
-    send(closePayload, closePayloadLength, OpCode::CLOSE, [](WebSocket<isServer> *p, void *data, bool cancelled, void *reserved) {
+    size_t closePayloadLength = WebSocketProtocol<isServer, WebSocket<isServer>>::formatClosePayload(closePayload, (uint16_t) code, message, length);
+    send(closePayload, closePayloadLength, OpCode::CLOSE, [](WebSocket<isServer> *p, void * /*data*/, bool cancelled, void * /*reserved*/) {
         if (!cancelled) {
             p->shutdown();
         }
@@ -367,7 +367,7 @@ bool WebSocket<isServer>::handleFragment(char *data, size_t length, unsigned int
             }
         } else {
             webSocket->fragmentBuffer.append(data, length);
-            webSocket->controlTipLength += length;
+            webSocket->controlTipLength +=  (unsigned char) length;
 
             if (!remainingBytes && fin) {
                 char *controlBuffer = (char *) webSocket->fragmentBuffer.data() + webSocket->fragmentBuffer.length() - webSocket->controlTipLength;

@@ -127,7 +127,7 @@ private:
 
         if (payLength + MESSAGE_HEADER <= length) {
             if (isServer) {
-                unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, payLength);
+                unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, (unsigned int) payLength);
                 if (Impl::handleFragment(src + MESSAGE_HEADER - 4, payLength, 0, wState->state.opCode[wState->state.opStack], isFin(src), wState)) {
                     return true;
                 }
@@ -194,7 +194,8 @@ private:
                 return false;
             }
 
-            if (isServer && length % 4) {
+			bool bRotate = isServer && (length % 4);
+            if ( bRotate) {
                 rotateMask(4 - (length % 4), wState->mask);
             }
             return false;
@@ -281,11 +282,11 @@ public:
         size_t headerLength;
         if (reportedLength < 126) {
             headerLength = 2;
-            dst[1] = reportedLength;
+            dst[1] = (char) reportedLength;
         } else if (reportedLength <= UINT16_MAX) {
             headerLength = 4;
             dst[1] = 126;
-            *((uint16_t *) &dst[2]) = htons(reportedLength);
+            *((uint16_t *) &dst[2]) = htons((u_short) reportedLength);
         } else {
             headerLength = 10;
             dst[1] = 127;
