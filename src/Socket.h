@@ -48,7 +48,7 @@ protected:
         void pop()
         {
             Message *nextMessage;
-            if ((nextMessage = head->nextMessage)) {
+            if ((nextMessage = head->nextMessage) != nullptr ) {
                 delete [] (char *) head;
                 head = nextMessage;
             } else {

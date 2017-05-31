@@ -124,8 +124,8 @@ struct Poll {
 #endif
     }
 
-    void setCb(void (*cb)(Poll *p, int status, int events)) {
-        this->cb = cb;
+    void setCb(void (*callback)(Poll *p, int status, int events)) {
+        this->cb = callback;
     }
 
     void (*getCb())(Poll *, int, int) {

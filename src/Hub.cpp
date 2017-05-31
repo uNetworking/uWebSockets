@@ -84,7 +84,7 @@ uS::Socket *allocateHttpSocket(uS::Socket *s) {
     return (uS::Socket *) new HttpSocket<CLIENT>(s);
 }
 
-void Hub::connect(std::string uri, void *user, std::map<std::string, std::string> extraHeaders, int timeoutMs, Group<CLIENT> *eh) {
+void Hub::connect(const std::string& uri, void *user, const std::map<std::string, std::string>& extraHeaders, int timeoutMs, Group<CLIENT> *eh) {
     if (!eh) {
         eh = (Group<CLIENT> *) this;
     }

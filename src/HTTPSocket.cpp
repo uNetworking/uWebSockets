@@ -89,7 +89,7 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
     Header headers[MAX_HEADERS];
     do {
         char *lastCursor = cursor;
-        if ((cursor = getHeaders(cursor, end, headers, MAX_HEADERS))) {
+        if ((cursor = getHeaders(cursor, end, headers, MAX_HEADERS)) != nullptr) {
             HttpRequest req(headers);
 
             if (isServer) {

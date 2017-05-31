@@ -13,10 +13,12 @@ enum ListenOptions {
     TRANSFERS
 };
 
+
 struct Hub;
 
 template <bool isServer>
-struct WIN32_EXPORT Group : private uS::NodeData {
+struct  Group : private uS::NodeData {
+
 protected:
     friend struct Hub;
     friend struct WebSocket<isServer>;
@@ -139,6 +141,16 @@ public:
     }
 };
 
+
+namespace Impl
+{
+	WIN32_EXPORT Timer* CreateHubTimer(Hub* hub);
+};
+
+
 }
+
+//Include inline template expansions.
+#include "Group.inl"
 
 #endif // GROUP_UWS_H
