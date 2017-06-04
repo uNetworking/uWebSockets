@@ -1,0 +1,13 @@
+{
+  "name": "µWebSockets",
+  "version": "0.12.0",
+  "description": "Node.js WebSocket Addon",
+  "main": "nodejs/dist/uws.js",
+  "private": false,
+  "scripts": {
+    "test": "echo add a test command?",
+    "install" : "cmake-js compile",
+    "build": "cmake-js build"
+  }
+}
+
