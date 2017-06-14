@@ -10,7 +10,7 @@
 
 namespace uWS {
 
-struct  Hub : private uS::Node, public Group<SERVER>, public Group<CLIENT> {
+struct  Hub : protected uS::Node, public Group<SERVER>, public Group<CLIENT> {
 protected:
     struct ConnectionData {
         std::string path;
@@ -26,7 +26,7 @@ protected:
 
     static void onServerAccept(uS::Socket *s);
     static void onClientConnection(uS::Socket *s, bool error);
-
+	static uS::Socket *allocateHttpSocket(uS::Socket *s);
 public:
     template <bool isServer>
     Group<isServer> *createGroup(int extensionOptions = 0, unsigned int maxPayload = 16777216) {
@@ -84,8 +84,10 @@ public:
     using Group<SERVER>::onHttpRequest;
     using Group<SERVER>::onHttpData;
     using Group<SERVER>::onHttpConnection;
-    using Group<SERVER>::onHttpDisconnection;
-    using Group<SERVER>::onHttpUpgrade;
+	using Group<CLIENT>::onHttpConnection;
+	using Group<SERVER>::onHttpDisconnection;
+	using Group<CLIENT>::onHttpDisconnection;
+	using Group<SERVER>::onHttpUpgrade;
     using Group<SERVER>::onCancelledHttpRequest;
 
     friend struct WebSocket<SERVER>;

@@ -130,6 +130,7 @@ private:
     friend struct uS::Socket;
     friend struct HttpResponse;
     friend struct Hub;
+	friend struct HubExtended;
 	WIN32_EXPORT  static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
 	WIN32_EXPORT  static void onEnd(uS::Socket *s);
 };

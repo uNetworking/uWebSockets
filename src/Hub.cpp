@@ -80,7 +80,7 @@ bool Hub::listen(int port, uS::TLS::Context sslContext, int options, Group<SERVE
     return listen(nullptr, port, sslContext, options, eh);
 }
 
-uS::Socket *allocateHttpSocket(uS::Socket *s) {
+uS::Socket *Hub::allocateHttpSocket(uS::Socket *s) {
     return (uS::Socket *) new HttpSocket<CLIENT>(s);
 }
 

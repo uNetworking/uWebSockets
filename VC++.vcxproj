@@ -91,24 +91,26 @@
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ItemGroup>
+    <ClCompile Include="src\Hub.cpp" />
+    <ClCompile Include="src\HubExtended.cpp" />
     <ClCompile Include="src\Epoll.cpp" />
     <ClCompile Include="src\Extensions.cpp" />
     <ClCompile Include="src\Group.cpp" />
     <ClCompile Include="src\HTTPSocket.cpp" />
-    <ClCompile Include="src\Hub.cpp" />
     <ClCompile Include="src\Networking.cpp" />
     <ClCompile Include="src\Node.cpp" />
     <ClCompile Include="src\Socket.cpp" />
     <ClCompile Include="src\WebSocket.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Hub.h" />
+    <ClInclude Include="src\HubExtended.h" />
     <ClInclude Include="src\Asio.h" />
     <ClInclude Include="src\Backend.h" />
     <ClInclude Include="src\Epoll.h" />
     <ClInclude Include="src\Extensions.h" />
     <ClInclude Include="src\Group.h" />
     <ClInclude Include="src\HTTPSocket.h" />
-    <ClInclude Include="src\Hub.h" />
     <ClInclude Include="src\Libuv.h" />
     <ClInclude Include="src\Networking.h" />
     <ClInclude Include="src\Node.h" />
@@ -116,6 +118,9 @@
     <ClInclude Include="src\uWS.h" />
     <ClInclude Include="src\WebSocket.h" />
     <ClInclude Include="src\WebSocketProtocol.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\Group.inl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Targets" />
 </Project>

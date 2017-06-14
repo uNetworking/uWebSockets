@@ -21,6 +21,7 @@ struct  Group : private uS::NodeData {
 
 protected:
     friend struct Hub;
+	friend struct HubExtended;
     friend struct WebSocket<isServer>;
     friend struct HttpSocket<false>;
     friend struct HttpSocket<true>;
