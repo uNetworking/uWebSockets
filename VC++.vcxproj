@@ -91,6 +91,7 @@
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ItemGroup>
+    <ClCompile Include="src\HTTPResponse.cpp" />
     <ClCompile Include="src\Hub.cpp" />
     <ClCompile Include="src\HubExtended.cpp" />
     <ClCompile Include="src\Epoll.cpp" />

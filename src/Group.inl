@@ -124,6 +124,7 @@ Group<isServer>::Group(int extensionOptions, unsigned int maxPayload, Hub *hub, 
     pingHandler = pongHandler = [](WebSocket<isServer> *, char *, size_t) {};
     errorHandler = [](errorType) {};
     httpRequestHandler = [](HttpResponse *, HttpRequest, char *, size_t, size_t) {};
+	httpResponseHandler = [](const HttpResponseHeader&, char *, size_t, size_t) {};
     httpConnectionHandler = [](HttpSocket<isServer> *) {};
     httpDisconnectionHandler = [](HttpSocket<isServer> *) {};
     httpCancelledRequestHandler = [](HttpResponse *) {};
@@ -199,6 +200,11 @@ void Group<isServer>::onHttpConnection(std::function<void (HttpSocket<isServer> 
 template <bool isServer>
 void Group<isServer>::onHttpRequest(std::function<void (HttpResponse *, HttpRequest, char *, size_t, size_t)> handler) {
     httpRequestHandler = handler;
+}
+
+template <bool isServer>
+void Group<isServer>::onHttpResponse(std::function<void(const HttpResponseHeader&, char *, size_t, size_t)> handler) {
+	httpResponseHandler = handler;
 }
 
 template <bool isServer>

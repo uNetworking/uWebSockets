@@ -34,6 +34,7 @@ protected:
     std::function<void(WebSocket<isServer> *, char *, size_t)> pongHandler;
     std::function<void(HttpSocket<isServer> *)> httpConnectionHandler;
     std::function<void(HttpResponse *, HttpRequest, char *, size_t, size_t)> httpRequestHandler;
+	std::function<void(const HttpResponseHeader&, char *, size_t, size_t)> httpResponseHandler;
     std::function<void(HttpResponse *, char *, size_t, size_t)> httpDataHandler;
     std::function<void(HttpResponse *)> httpCancelledRequestHandler;
     std::function<void(HttpSocket<isServer> *)> httpDisconnectionHandler;
@@ -76,6 +77,7 @@ public:
     void onError(std::function<void(errorType)> handler);
     void onHttpConnection(std::function<void(HttpSocket<isServer> *)> handler);
     void onHttpRequest(std::function<void(HttpResponse *, HttpRequest, char *data, size_t length, size_t remainingBytes)> handler);
+	void onHttpResponse(std::function<void(const HttpResponseHeader&, char *data, size_t length, size_t remainingBytes)> handler);
     void onHttpData(std::function<void(HttpResponse *, char *data, size_t length, size_t remainingBytes)> handler);
     void onHttpDisconnection(std::function<void(HttpSocket<isServer> *)> handler);
     void onCancelledHttpRequest(std::function<void(HttpResponse *)> handler);

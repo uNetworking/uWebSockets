@@ -7,6 +7,7 @@
 #define MAX_HEADER_BUFFER_SIZE 4096
 #define FORCE_SLOW_PATH false
 
+
 namespace uWS {
 
 // UNSAFETY NOTE: assumes *end == '\r' (might unref end pointer)
@@ -176,8 +177,36 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
 
                     return webSocket;
                 } else {
-                    httpSocket->onEnd(httpSocket);
-                }
+					if (Group<SERVER>::from(httpSocket)->httpResponseHandler) {
+
+						//Cast request to response header so we can see stuff.
+						HttpResponseHeader resp( req);
+
+						Header contentLength;
+						if (contentLength = req.getHeader("content-length", 14)) {
+							int ilen = atoi(contentLength.value);
+							httpSocket->contentLength = ilen;
+							size_t bytesToRead = std::min<size_t>(httpSocket->contentLength, end - cursor);
+							Group<SERVER>::from(httpSocket)->httpResponseHandler(resp, cursor, bytesToRead, httpSocket->contentLength -= bytesToRead);
+							cursor += bytesToRead;
+
+							//Don't terminate socket if more data to read.
+							if (ilen <= bytesToRead )
+							{
+								httpSocket->bClientForceClose = false;
+								httpSocket->onEnd(httpSocket);
+							}
+						}
+						else {
+							Group<SERVER>::from(httpSocket)->httpResponseHandler(resp, nullptr, 0, 0);
+							httpSocket->bClientForceClose = false;
+							httpSocket->onEnd(httpSocket);
+						}
+					}
+					else {
+						httpSocket->onEnd(httpSocket);
+					}
+				}
                 return httpSocket;
             }
         } else {
@@ -271,6 +300,10 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
             Group<isServer>::from(httpSocket)->removeHttpSocket(httpSocket);
             Group<isServer>::from(httpSocket)->httpDisconnectionHandler(httpSocket);
         }
+		else { 
+			//Group<isServer>::from(httpSocket)->removeHttpSocket(httpSocket);
+			Group<isServer>::from(httpSocket)->httpDisconnectionHandler(httpSocket);
+		}
     } else {
         httpSocket->cancelTimeout();
     }
@@ -300,7 +333,8 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
 
     if (!isServer) {
         httpSocket->cancelTimeout();
-        Group<CLIENT>::from(httpSocket)->errorHandler(httpSocket->httpUser);
+        if(httpSocket->bClientForceClose)
+			Group<CLIENT>::from(httpSocket)->errorHandler(httpSocket->httpUser);
     }
 }
 

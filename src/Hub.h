@@ -83,7 +83,8 @@ public:
     using Group<CLIENT>::onError;
     using Group<SERVER>::onHttpRequest;
     using Group<SERVER>::onHttpData;
-    using Group<SERVER>::onHttpConnection;
+	using Group<CLIENT>::onHttpResponse;
+	using Group<SERVER>::onHttpConnection;
 	using Group<CLIENT>::onHttpConnection;
 	using Group<SERVER>::onHttpDisconnection;
 	using Group<CLIENT>::onHttpDisconnection;
