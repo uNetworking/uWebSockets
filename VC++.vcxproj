@@ -93,7 +93,6 @@
   <ItemGroup>
     <ClCompile Include="src\HTTPResponse.cpp" />
     <ClCompile Include="src\Hub.cpp" />
-    <ClCompile Include="src\HubExtended.cpp" />
     <ClCompile Include="src\Epoll.cpp" />
     <ClCompile Include="src\Extensions.cpp" />
     <ClCompile Include="src\Group.cpp" />
@@ -105,7 +104,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Hub.h" />
-    <ClInclude Include="src\HubExtended.h" />
     <ClInclude Include="src\Asio.h" />
     <ClInclude Include="src\Backend.h" />
     <ClInclude Include="src\Epoll.h" />
