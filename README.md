@@ -66,3 +66,17 @@ If you wish to integrate with a specific event-loop you can define `USE_ASIO` or
 * `sudo make install` (or as you wish)
 ###### Windows
 * Compile `VC++.vcxproj` with Visual C++ Community Edition 2015 or later.
+
+#### Alternate Compilation with CMAKE.  
+Multi-platform support Windows, Linux, and IoS compilations are supported using CMAKE as an alternative.   To build using CMAKE do the following: 
+
+##### Windows
+* In the root directory for the repo,  issue the following commands
+* `mkdir build`
+* `cd build`  
+* `cmake -G"Visual Studio 15 2017 Win64" -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=../sdk .. 
+* Open `uWebSockets.sln` in visual studio.
+* Build the 'ALL_BUILD' project
+* Build the INSTALL project
+
+The results of the build will be stored in the sdk/bin directory ready to use in other projects.  By default all examples and tests are enabled.

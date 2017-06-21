@@ -78,9 +78,9 @@ protected:
     std::recursive_mutex asyncMutex;
 
 public:
-	WIN32_EXPORT Node(int recvLength = 1024, int prePadding = 0, int postPadding = 0, bool useDefaultLoop = false);
-	WIN32_EXPORT ~Node();
-	WIN32_EXPORT void run();
+	UWS_EXPORT Node(int recvLength = 1024, int prePadding = 0, int postPadding = 0, bool useDefaultLoop = false);
+	UWS_EXPORT ~Node();
+	UWS_EXPORT void run();
 
     Loop *getLoop() {
         return loop;

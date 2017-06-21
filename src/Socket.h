@@ -439,7 +439,7 @@ public:
         const char *family;
     };
 
-	WIN32_EXPORT Address getAddress();
+	UWS_EXPORT Address getAddress();
 
     void setNoDelay(int enable) {
         setsockopt(getFd(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int));

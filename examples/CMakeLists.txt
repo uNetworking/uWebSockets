@@ -1,0 +1,31 @@
+#Register Echo Application.
+LIBUHD_REGISTER_COMPONENT("EXAMPLE uWebSockets Echo" ENABLE_UWS_ECHO ON "" OFF)
+
+IF(ENABLE_UWS_ECHO)
+    ADD_EXECUTABLE(uws.echo echo.cpp)
+    TARGET_LINK_LIBRARIES(uws.echo uWs ${CMAKE_THREAD_LIBS_INIT})
+
+    IF(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    	UHD_INSTALL(TARGETS uws.echo
+        	DESTINATION ${RUNTIME_DIR} COMPONENT tests)
+    ELSE()
+    	UHD_INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/uws.echo 
+        	DESTINATION ${RUNTIME_DIR} COMPONENT tests)
+    ENDIF()       
+ENDIF()
+
+#Register HTTP Client Application
+LIBUHD_REGISTER_COMPONENT("EXAMPLE uWebSockets HTTP Client" ENABLE_UWS_HTTP_CLIENT ON "" OFF)
+
+IF(ENABLE_UWS_ECHO)
+    ADD_EXECUTABLE(uws.http_client http_client_srvr.cpp)
+    TARGET_LINK_LIBRARIES(uws.http_client uWs ${CMAKE_THREAD_LIBS_INIT})
+
+    IF(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    	UHD_INSTALL(TARGETS uws.http_client
+        	DESTINATION ${RUNTIME_DIR} COMPONENT tests)
+    ELSE()
+    	UHD_INSTALL(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/uws.http_client 
+        	DESTINATION ${RUNTIME_DIR} COMPONENT tests)
+    ENDIF()       
+ENDIF()

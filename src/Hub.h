@@ -26,11 +26,11 @@ protected:
     std::string dynamicInflationBuffer;
     static const int LARGE_BUFFER_SIZE = 300 * 1024;
 
-	WIN32_EXPORT static void onServerAccept(uS::Socket *s);
-	WIN32_EXPORT static void onClientConnection(uS::Socket *s, bool error);
-	WIN32_EXPORT static uS::Socket *allocateHttpSocket(uS::Socket *s);
-	WIN32_EXPORT static void ontHttpOnlyConnection(uS::Socket *s, bool error);
-	WIN32_EXPORT HttpSocket<CLIENT>* HttpSocketConnect(const std::string& uri, void *user, Group<CLIENT> *eh, std::string& hostname, std::string& path);
+	UWS_EXPORT static void onServerAccept(uS::Socket *s);
+	UWS_EXPORT static void onClientConnection(uS::Socket *s, bool error);
+	UWS_EXPORT static uS::Socket *allocateHttpSocket(uS::Socket *s);
+	UWS_EXPORT static void ontHttpOnlyConnection(uS::Socket *s, bool error);
+	UWS_EXPORT HttpSocket<CLIENT>* HttpSocketConnect(const std::string& uri, void *user, Group<CLIENT> *eh, std::string& hostname, std::string& path);
 
 public:
     template <bool isServer>
@@ -43,21 +43,21 @@ public:
         return static_cast<Group<isServer> &>(*this);
     }
 
-	WIN32_EXPORT bool listen(int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
-	WIN32_EXPORT bool listen(const char *host, int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
+	UWS_EXPORT bool listen(int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
+	UWS_EXPORT bool listen(const char *host, int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
 
 	/**
 	* Connects using the web socket protocol with upgrade.  
 	* todo - rename connectWS
 	*/
-	WIN32_EXPORT void connect(const std::string& uri, void *user = nullptr, const HttpHeaderMap&  extraHeaders = {}, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr);
+	UWS_EXPORT void connect(const std::string& uri, void *user = nullptr, const HttpHeaderMap&  extraHeaders = {}, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr);
 
-	WIN32_EXPORT void upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup = nullptr);
+	UWS_EXPORT void upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup = nullptr);
 
 	/**
 	* Makes a standard HTTP connection.
 	*/
-	WIN32_EXPORT void connect(const std::string& uri, HttpMethod method, void *user = nullptr, const HttpHeaderMap& extraHeaders = {},
+	UWS_EXPORT void connect(const std::string& uri, HttpMethod method, void *user = nullptr, const HttpHeaderMap& extraHeaders = {},
 		const char* content = nullptr, size_t contentlength = 0, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr);
 
 

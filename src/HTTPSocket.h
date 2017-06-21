@@ -206,7 +206,7 @@ struct HttpSocket : uS::Socket {
         onEnd(this);
     }
 
-	WIN32_EXPORT void upgrade(const char *secKey, const char *extensions,
+	UWS_EXPORT void upgrade(const char *secKey, const char *extensions,
                  size_t extensionsLength, const char *subprotocol,
                  size_t subprotocolLength, bool *perMessageDeflate);
 
@@ -216,8 +216,8 @@ private:
     friend struct HttpResponse;
     friend struct Hub;
 	friend struct HubExtended;
-	WIN32_EXPORT  static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
-	WIN32_EXPORT  static void onEnd(uS::Socket *s);
+	UWS_EXPORT  static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
+	UWS_EXPORT  static void onEnd(uS::Socket *s);
 };
 
 struct HttpResponse {
@@ -231,7 +231,7 @@ public:
     bool hasEnded = false;
     bool hasHead = false;
 
-	//WIN32_EXPORT  static const std::string& MapStatusToString(HttpStatusCode status);
+	//UWS_EXPORT  static const std::string& MapStatusToString(HttpStatusCode status);
 
     HttpResponse(HttpSocket<true> *httpSocket) : httpSocket(httpSocket) {
 
@@ -284,7 +284,7 @@ public:
 		end(STATUS_OK, message, length, callback, callbackData);
 	}
 
-	WIN32_EXPORT void end(HttpStatusCode status, const char *message = nullptr, size_t length = 0,
+	UWS_EXPORT void end(HttpStatusCode status, const char *message = nullptr, size_t length = 0,
 		void(*callback)(void *httpResponse, void *data, bool cancelled, void *reserved) = nullptr,
 		void *callbackData = nullptr);
 

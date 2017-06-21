@@ -147,7 +147,7 @@ public:
 
 namespace Impl
 {
-	WIN32_EXPORT Timer* CreateHubTimer(Hub* hub);
+	UWS_EXPORT Timer* CreateHubTimer(Hub* hub);
 };
 
 

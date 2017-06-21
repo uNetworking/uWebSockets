@@ -56,7 +56,7 @@ public:
 };
 
 template <const bool isServer, class Impl>
-class WIN32_EXPORT WebSocketProtocol {
+class UWS_EXPORT WebSocketProtocol {
 public:
     static const unsigned int SHORT_MESSAGE_HEADER = isServer ? 6 : 2;
     static const unsigned int MEDIUM_MESSAGE_HEADER = isServer ? 8 : 4;

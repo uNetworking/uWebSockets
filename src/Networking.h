@@ -35,17 +35,17 @@
 #else
 #define __thread __declspec(thread)
 #define htobe64(x) htonll(x)
-#define be64toh(x) ntohll(x)
-#define pthread_t DWORD
-#define pthread_self GetCurrentThreadId
-#endif
+	#define be64toh(x) ntohll(x)
+	#define pthread_t DWORD
+	#define pthread_self GetCurrentThreadId
+	#endif
 
-#ifdef EXPORT_WIN32_API
-	#define WIN32_EXPORT __declspec(dllexport)
-	#define WIN32_API	 extern
-#else
-	#define WIN32_EXPORT __declspec(dllimport)
-	#define WIN32_API
+	#ifdef EXPORT_UWS_WIN_API
+		#define UWS_EXPORT __declspec(dllexport)
+		#define UWS_API	 extern
+	#else
+		#define UWS_EXPORT __declspec(dllimport)
+	#define UWS_API
 #endif 
 
 inline void close(SOCKET fd) {closesocket(fd);}
@@ -70,8 +70,8 @@ inline SOCKET dup(SOCKET socket) {
 #include <cstring>
 #define SOCKET_ERROR -1
 #define INVALID_SOCKET -1
-#define WIN32_EXPORT
-#define WIN32_API
+#define UWS_EXPORT
+#define UWS_API
 #endif
 
 #include "Backend.h"
@@ -179,15 +179,15 @@ private:
     }
 
 public:
-    friend Context WIN32_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword);
+    friend Context UWS_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword);
     Context(SSL_CTX *context) : context(context) {
 
     }
 
     Context() = default;
-	WIN32_EXPORT Context(const Context &other);
-	WIN32_EXPORT Context &operator=(const Context &other);
-	WIN32_EXPORT ~Context();
+	UWS_EXPORT Context(const Context &other);
+	UWS_EXPORT Context &operator=(const Context &other);
+	UWS_EXPORT ~Context();
     operator bool() {
         return context;
     }
@@ -197,7 +197,7 @@ public:
     }
 };
 
-Context WIN32_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword = std::string());
+Context UWS_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword = std::string());
 
 }
 
@@ -221,7 +221,7 @@ struct NodeData {
     std::recursive_mutex *asyncMutex;
     std::vector<Poll *> transferQueue;
     std::vector<Poll *> changePollQueue;
-	WIN32_EXPORT static void asyncCallback(Async *async);
+	UWS_EXPORT static void asyncCallback(Async *async);
 
     static int getMemoryBlockIndex(size_t length) {
         return (int) ((length >> 4) + bool(length & 15));
