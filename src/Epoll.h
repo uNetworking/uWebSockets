@@ -42,7 +42,7 @@ struct Loop {
     void (*postCb)(void *) = nullptr;
     void *preCbData, *postCbData;
 
-    Loop(bool defaultLoop) {
+    Loop(bool /*defaultLoop*/) {
         epfd = epoll_create1(EPOLL_CLOEXEC);
         timepoint = std::chrono::system_clock::now();
     }

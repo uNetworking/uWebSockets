@@ -445,7 +445,7 @@ public:
         setsockopt(getFd(), IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(int));
     }
 
-    void cork(int /*enable*/) {
+    void cork(int enable) {
 #if defined(TCP_CORK)
         // Linux & SmartOS have proper TCP_CORK
         setsockopt(getFd(), IPPROTO_TCP, TCP_CORK, &enable, sizeof(int));
