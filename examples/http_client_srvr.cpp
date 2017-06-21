@@ -3,9 +3,10 @@
 */ 
 
 
-#include <uWS/uWS.h>
-#include <uWs/Hub.h>
+#include <uWS.h>
+#include <Hub.h>
 #include <iostream>
+#include <thread>
 
 std::mutex m;
 
@@ -18,14 +19,14 @@ int main()
 	//****
 	uWS::Hub hubSrv;
 
-	hubSrv.onHttpConnection([](uWS::HttpSocket<uWS::SERVER> *ws) 
+	hubSrv.onHttpConnection([](uWS::HttpSocket<uWS::SERVER> * /*ws*/) 
 	{
 		m.lock();
 		std::cout << "SERVER: Http Socket Connecting" << std::endl;
 		m.unlock();
 	});
 
-	hubSrv.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t remainingBytes)
+	hubSrv.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t length, size_t /*remainingBytes*/)
 	{
 		uWS::Header url = req.getUrl();
 		std::string sUrl = url.toString();
@@ -70,17 +71,17 @@ int main()
 	new std::thread([] 
 	{ 
 		uWS::Hub hubClient;
-		hubClient.onHttpConnection([](uWS::HttpSocket<uWS::CLIENT> *ws)
+		hubClient.onHttpConnection([](uWS::HttpSocket<uWS::CLIENT> * /*ws*/)
 		{
 			m.lock();
 			std::cout << "CLIENT: Socket Connected" << std::endl;
 			m.unlock();
 		});
 
-		hubClient.onHttpResponse([](const uWS::HttpResponseHeader& resp, char* data, size_t len, size_t maxlen)
+		hubClient.onHttpResponse([](const uWS::HttpResponseHeader& resp, char* data, size_t len, size_t /*maxlen*/ )
 		{
 			std::string sStatus = resp.getStatusString();
-			uWS::HttpStatusCode code = resp.getStatusCode();
+			//uWS::HttpStatusCode code = resp.getStatusCode();
 			std::string sProtocol = resp.getProtocol();
 			std::string sval(data, len);
 			m.lock();
@@ -88,7 +89,7 @@ int main()
 			m.unlock();
 		});
 
-		hubClient.onHttpDisconnection([](uWS::HttpSocket<false>* psock)
+		hubClient.onHttpDisconnection([](uWS::HttpSocket<false>* /*psock*/)
 		{
 			m.lock();
 			std::cout << "CLIENT: disconnected" << std::endl;

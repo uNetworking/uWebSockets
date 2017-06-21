@@ -41,7 +41,7 @@ SET(${PROJECT_NAME}_VERSION_PATCH
 ##############################################################
 # Set up CMake Module Path and Include Modules
 ##############################################################
-SET( COMMONCMAKE ${CMAKE_SOURCE_DIR}/../../../cmake )
+SET( COMMONCMAKE ${CMAKE_SOURCE_DIR}/../cmake )
 message(STATUS ${COMMONCMAKE}/defaultbuild.cmake.inc)
 include(${COMMONCMAKE}/defaultbuild.cmake.inc)
 
