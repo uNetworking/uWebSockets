@@ -11,7 +11,7 @@ endif(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 ##############################################################
 
 CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
-SET(PROJECT_NAME uWebSockets)
+SET(PROJECT_NAME uWS)
 PROJECT(${PROJECT_NAME} CXX C)
 ENABLE_TESTING()
 

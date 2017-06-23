@@ -183,7 +183,7 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
 						HttpResponseHeader resp( req);
 
 						Header contentLength;
-						if( (contentLength = req.getHeader("content-length", 14)) > 0) {
+						if( (contentLength = req.getHeader("content-length", 14))) {
 							size_t ilen = atoi(contentLength.value);
 							httpSocket->contentLength = ilen;
 							size_t bytesToRead = std::min<size_t>(httpSocket->contentLength, end - cursor);

@@ -1,4 +1,4 @@
-<div align="center"><img src="misc/images/logo.png"/></div>
+﻿<div align="center"><img src="misc/images/logo.png"/></div>
 
 `µWS` is one of the most lightweight, efficient & scalable WebSocket & HTTP server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
@@ -74,7 +74,7 @@ Multi-platform support Windows, Linux, and IoS compilations are supported using 
 * In the root directory for the repo,  issue the following commands
 * `mkdir build`
 * `cd build`  
-* `cmake -G"Visual Studio 15 2017 Win64" -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=../sdk .. 
+* `cmake -G"Visual Studio 15 2017 Win64" -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=../sdk ..` 
 * Open `uWebSockets.sln` in visual studio.
 * Build the 'ALL_BUILD' project
 * Build the INSTALL project
