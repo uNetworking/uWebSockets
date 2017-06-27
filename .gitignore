@@ -1,0 +1,9 @@
+# Visual Studio-related directories.
+.vs/
+bin/
+Debug/
+Release/
+packages/
+x64/
+x86/
+Win32/
