@@ -243,10 +243,10 @@ void testConnections() {
             break;
         case 11:
             static int protocolErrorCount = 0;
-            protocolErrorCount ++;
+            protocolErrorCount++;
             std::cout << "Client emitted error on invalid protocol" << std::endl;
-            if (protocolErrorCount>1) {
-                std::cout << "FAILURE:  " << protocolErrorCount << " errors emitted for one connection!"<< std::endl;
+            if (protocolErrorCount > 1) {
+                std::cout << "FAILURE:  " << protocolErrorCount << " errors emitted for one connection!" << std::endl;
                 exit(-1);
             }
             break;
