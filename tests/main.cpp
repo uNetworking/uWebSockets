@@ -241,6 +241,15 @@ void testConnections() {
         case 10:
             std::cout << "Client emitted error on poll error" << std::endl;
             break;
+        case 11:
+            static int protocolErrorCount = 0;
+            protocolErrorCount++;
+            std::cout << "Client emitted error on invalid protocol" << std::endl;
+            if (protocolErrorCount > 1) {
+                std::cout << "FAILURE:  " << protocolErrorCount << " errors emitted for one connection!" << std::endl;
+                exit(-1);
+            }
+            break;
         default:
             std::cout << "FAILURE: " << user << " should not emit error!" << std::endl;
             exit(-1);
@@ -268,6 +277,7 @@ void testConnections() {
     });
 
     h.connect("invalid URI", (void *) 1);
+    h.connect("invalid://validButUnknown.yolo", (void *) 11);
     h.connect("ws://validButUnknown.yolo", (void *) 2);
     h.connect("ws://echo.websocket.org", (void *) 3, {}, 10);
     h.connect("ws://echo.websocket.org", (void *) 8);

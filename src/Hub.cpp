@@ -114,6 +114,7 @@ void Hub::connect(std::string uri, void *user, std::map<std::string, std::string
             secure = true;
         } else if (protocol != "ws") {
             eh->errorHandler(user);
+            return;
         }
 
         if (portStr.length()) {
