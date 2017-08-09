@@ -218,6 +218,10 @@ void testStress() {
 void testConnections() {
     uWS::Hub h;
 
+    if (h.listen(3000)) {
+        std::cout << "Server listens to port 3000" << std::endl;
+    }
+
     h.onError([](void *user) {
         switch ((long) user) {
         case 1:
@@ -256,7 +260,7 @@ void testConnections() {
         }
     });
 
-    h.onConnection([](uWS::WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
+    h.onConnection([&h](uWS::WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
         switch ((long) ws->getUserData()) {
         case 8:
             std::cout << "Client established a remote connection over non-SSL" << std::endl;
@@ -265,6 +269,11 @@ void testConnections() {
         case 9:
             std::cout << "Client established a remote connection over SSL" << std::endl;
             ws->close(1000);
+            break;
+        case 12:
+            std::cout << "Client established a local connection over IPv6" << std::endl;
+            ws->close(1000);
+            h.getDefaultGroup<uWS::SERVER>().close();
             break;
         default:
             std::cout << "FAILURE: " << ws->getUserData() << " should not connect!" << std::endl;
@@ -286,6 +295,7 @@ void testConnections() {
     h.connect("ws://google.com", (void *) 6);
     h.connect("wss://google.com", (void *) 7);
     h.connect("ws://127.0.0.1:6000", (void *) 10, {}, 60000);
+    h.connect("ws://[::1]:3000", (void *) 12);
 
     h.run();
     std::cout << "Falling through testConnections" << std::endl;
