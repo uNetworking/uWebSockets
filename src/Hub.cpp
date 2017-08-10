@@ -92,7 +92,7 @@ void Hub::connect(std::string uri, void *user, std::map<std::string, std::string
     size_t offset = 0;
     std::string protocol = uri.substr(offset, uri.find("://")), hostname, portStr, path;
     if ((offset += protocol.length() + 3) < uri.length()) {
-        if (uri[offset] == "[") {
+        if (uri[offset] == '[') {
             offset++;
             hostname = uri.substr(offset, uri.find_first_of("]", offset) - offset);
             offset++;
