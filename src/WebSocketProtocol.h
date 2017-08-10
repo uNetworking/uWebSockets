@@ -56,7 +56,7 @@ public:
 };
 
 template <const bool isServer, class Impl>
-class WIN32_EXPORT WebSocketProtocol {
+class UWS_EXPORT WebSocketProtocol {
 public:
     static const unsigned int SHORT_MESSAGE_HEADER = isServer ? 6 : 2;
     static const unsigned int MEDIUM_MESSAGE_HEADER = isServer ? 8 : 4;
@@ -127,7 +127,7 @@ private:
 
         if (payLength + MESSAGE_HEADER <= length) {
             if (isServer) {
-                unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, payLength);
+                unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, (unsigned int) payLength);
                 if (Impl::handleFragment(src + MESSAGE_HEADER - 4, payLength, 0, wState->state.opCode[wState->state.opStack], isFin(src), wState)) {
                     return true;
                 }
@@ -142,13 +142,13 @@ private:
             }
 
             src += payLength + MESSAGE_HEADER;
-            length -= payLength + MESSAGE_HEADER;
+            length -= (unsigned int)(payLength + MESSAGE_HEADER);
             wState->state.spillLength = 0;
             return false;
         } else {
             wState->state.spillLength = 0;
             wState->state.wantsHead = false;
-            wState->remainingBytes = payLength - length + MESSAGE_HEADER;
+            wState->remainingBytes = (unsigned int)(payLength - length + MESSAGE_HEADER);
             bool fin = isFin(src);
             if (isServer) {
                 memcpy(wState->mask, src + MESSAGE_HEADER - 4, 4);
@@ -194,7 +194,8 @@ private:
                 return false;
             }
 
-            if (isServer && length % 4) {
+			bool bRotate = isServer && (length % 4);
+            if ( bRotate) {
                 rotateMask(4 - (length % 4), wState->mask);
             }
             return false;
@@ -281,11 +282,11 @@ public:
         size_t headerLength;
         if (reportedLength < 126) {
             headerLength = 2;
-            dst[1] = reportedLength;
+            dst[1] = (char) reportedLength;
         } else if (reportedLength <= UINT16_MAX) {
             headerLength = 4;
             dst[1] = 126;
-            *((uint16_t *) &dst[2]) = htons(reportedLength);
+            *((uint16_t *) &dst[2]) = htons((u_short) reportedLength);
         } else {
             headerLength = 10;
             dst[1] = 127;

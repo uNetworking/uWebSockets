@@ -35,11 +35,18 @@
 #else
 #define __thread __declspec(thread)
 #define htobe64(x) htonll(x)
-#define be64toh(x) ntohll(x)
-#define pthread_t DWORD
-#define pthread_self GetCurrentThreadId
-#endif
-#define WIN32_EXPORT __declspec(dllexport)
+	#define be64toh(x) ntohll(x)
+	#define pthread_t DWORD
+	#define pthread_self GetCurrentThreadId
+	#endif
+
+	#ifdef EXPORT_UWS_WIN_API
+		#define UWS_EXPORT __declspec(dllexport)
+		#define UWS_API	 extern
+	#else
+		#define UWS_EXPORT __declspec(dllimport)
+	#define UWS_API
+#endif 
 
 inline void close(SOCKET fd) {closesocket(fd);}
 inline int setsockopt(SOCKET fd, int level, int optname, const void *optval, socklen_t optlen) {
@@ -63,7 +70,8 @@ inline SOCKET dup(SOCKET socket) {
 #include <cstring>
 #define SOCKET_ERROR -1
 #define INVALID_SOCKET -1
-#define WIN32_EXPORT
+#define UWS_EXPORT
+#define UWS_API
 #endif
 
 #include "Backend.h"
@@ -156,30 +164,30 @@ struct Context {
 
 namespace TLS {
 
-class WIN32_EXPORT Context {
+class Context {
 private:
     SSL_CTX *context = nullptr;
     std::shared_ptr<std::string> password;
 
-    static int passwordCallback(char *buf, int size, int rwflag, void *u)
+    static int passwordCallback(char *buf, int size, int /*rwflag*/, void *u)
     {
         std::string *password = (std::string *) u;
-        int length = std::min<int>(size, password->length());
+        int length = std::min<int>(size, (int) password->length());
         memcpy(buf, password->data(), length);
         buf[length] = '\0';
         return length;
     }
 
 public:
-    friend Context WIN32_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword);
+    friend Context UWS_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword);
     Context(SSL_CTX *context) : context(context) {
 
     }
 
     Context() = default;
-    Context(const Context &other);
-    Context &operator=(const Context &other);
-    ~Context();
+	UWS_EXPORT Context(const Context &other);
+	UWS_EXPORT Context &operator=(const Context &other);
+	UWS_EXPORT ~Context();
     operator bool() {
         return context;
     }
@@ -189,14 +197,14 @@ public:
     }
 };
 
-Context WIN32_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword = std::string());
+Context UWS_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword = std::string());
 
 }
 
 struct Socket;
 
 // NodeData is like a Context, maybe merge them?
-struct WIN32_EXPORT NodeData {
+struct NodeData {
     char *recvBufferMemoryBlock;
     char *recvBuffer;
     int recvLength;
@@ -213,10 +221,10 @@ struct WIN32_EXPORT NodeData {
     std::recursive_mutex *asyncMutex;
     std::vector<Poll *> transferQueue;
     std::vector<Poll *> changePollQueue;
-    static void asyncCallback(Async *async);
+	UWS_EXPORT static void asyncCallback(Async *async);
 
     static int getMemoryBlockIndex(size_t length) {
-        return (length >> 4) + bool(length & 15);
+        return (int) ((length >> 4) + bool(length & 15));
     }
 
     char *getSmallMemoryBlock(int index) {

@@ -7,6 +7,7 @@
 #define MAX_HEADER_BUFFER_SIZE 4096
 #define FORCE_SLOW_PATH false
 
+
 namespace uWS {
 
 // UNSAFETY NOTE: assumes *end == '\r' (might unref end pointer)
@@ -21,12 +22,12 @@ char *getHeaders(char *buffer, char *end, Header *headers, size_t maxHeaders) {
                 return nullptr;
             }
         } else {
-            headers->keyLength = buffer - headers->key;
+            headers->keyLength = (unsigned int) (buffer - headers->key);
             for (buffer++; (*buffer == ':' || *buffer < 33) && *buffer != '\r'; buffer++);
             headers->value = buffer;
             buffer = (char *) memchr(buffer, '\r', end - buffer); //for (; *buffer != '\r'; buffer++);
             if (buffer /*!= end*/ && buffer[1] == '\n') {
-                headers->valueLength = buffer - headers->value;
+                headers->valueLength = (unsigned int)(buffer - headers->value);
                 buffer += 2;
                 headers++;
             } else {
@@ -89,7 +90,7 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
     Header headers[MAX_HEADERS];
     do {
         char *lastCursor = cursor;
-        if ((cursor = getHeaders(cursor, end, headers, MAX_HEADERS))) {
+        if ((cursor = getHeaders(cursor, end, headers, MAX_HEADERS)) != nullptr) {
             HttpRequest req(headers);
 
             if (isServer) {
@@ -140,7 +141,7 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
                         Header contentLength;
                         if (req.getMethod() != HttpMethod::METHOD_GET && (contentLength = req.getHeader("content-length", 14))) {
                             httpSocket->contentLength = atoi(contentLength.value);
-                            size_t bytesToRead = std::min<int>(httpSocket->contentLength, end - cursor);
+                            size_t bytesToRead = std::min<size_t>(httpSocket->contentLength, end - cursor);
                             Group<SERVER>::from(httpSocket)->httpRequestHandler(res, req, cursor, bytesToRead, httpSocket->contentLength -= bytesToRead);
                             cursor += bytesToRead;
                         } else {
@@ -169,15 +170,43 @@ uS::Socket *HttpSocket<isServer>::onData(uS::Socket *s, char *data, size_t lengt
                     webSocket->cork(true);
                     Group<isServer>::from(webSocket)->connectionHandler(webSocket, req);
                     if (!(webSocket->isClosed() || webSocket->isShuttingDown())) {
-                        WebSocketProtocol<isServer, WebSocket<isServer>>::consume(cursor, end - cursor, webSocket);
+                        WebSocketProtocol<isServer, WebSocket<isServer>>::consume(cursor, (unsigned int)(end - cursor), webSocket);
                     }
                     webSocket->cork(false);
                     delete httpSocket;
 
                     return webSocket;
                 } else {
-                    httpSocket->onEnd(httpSocket);
-                }
+					if (Group<SERVER>::from(httpSocket)->httpResponseHandler) {
+
+						//Cast request to response header so we can see stuff.
+						HttpResponseHeader resp( req);
+
+						Header contentLength;
+						if( (contentLength = req.getHeader("content-length", 14))) {
+							size_t ilen = atoi(contentLength.value);
+							httpSocket->contentLength = ilen;
+							size_t bytesToRead = std::min<size_t>(httpSocket->contentLength, end - cursor);
+							Group<SERVER>::from(httpSocket)->httpResponseHandler(resp, cursor, bytesToRead, httpSocket->contentLength -= bytesToRead);
+							cursor += bytesToRead;
+
+							//Don't terminate socket if more data to read.
+							if (ilen <= bytesToRead )
+							{
+								httpSocket->bClientForceClose = false;
+								httpSocket->onEnd(httpSocket);
+							}
+						}
+						else {
+							Group<SERVER>::from(httpSocket)->httpResponseHandler(resp, nullptr, 0, 0);
+							httpSocket->bClientForceClose = false;
+							httpSocket->onEnd(httpSocket);
+						}
+					}
+					else {
+						httpSocket->onEnd(httpSocket);
+					}
+				}
                 return httpSocket;
             }
         } else {
@@ -271,6 +300,10 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
             Group<isServer>::from(httpSocket)->removeHttpSocket(httpSocket);
             Group<isServer>::from(httpSocket)->httpDisconnectionHandler(httpSocket);
         }
+		else { 
+			//Group<isServer>::from(httpSocket)->removeHttpSocket(httpSocket);
+			Group<isServer>::from(httpSocket)->httpDisconnectionHandler(httpSocket);
+		}
     } else {
         httpSocket->cancelTimeout();
     }
@@ -300,7 +333,8 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
 
     if (!isServer) {
         httpSocket->cancelTimeout();
-        Group<CLIENT>::from(httpSocket)->errorHandler(httpSocket->httpUser);
+        if(httpSocket->bClientForceClose)
+			Group<CLIENT>::from(httpSocket)->errorHandler(httpSocket->httpUser);
     }
 }
 

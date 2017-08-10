@@ -12,15 +12,15 @@ enum ListenOptions : int {
     ONLY_IPV4 = 2
 };
 
-class WIN32_EXPORT Node {
+class  Node {
 private:
     template <void C(Socket *p, bool error)>
-    static void connect_cb(Poll *p, int status, int events) {
+    static void connect_cb(Poll *p, int status, int /*events*/) {
         C((Socket *) p, status < 0);
     }
 
     template <void A(Socket *s)>
-    static void accept_poll_cb(Poll *p, int status, int events) {
+    static void accept_poll_cb(Poll *p, int /*status*/, int /*events*/) {
         ListenSocket *listenData = (ListenSocket *) p;
         accept_cb<A, false>(listenData);
     }
@@ -42,7 +42,8 @@ private:
             * polling will cause the server to spin, using 100% cpu. Switch to a timer
             * event instead to avoid this.
             */
-            if (!TIMER && !netContext->wouldBlock()) {
+			bool bSetTimer = !TIMER && !netContext->wouldBlock();
+            if (bSetTimer) {
                 listenSocket->stop(listenSocket->nodeData->loop);
 
                 listenSocket->timer = new Timer(listenSocket->nodeData->loop);
@@ -77,9 +78,9 @@ protected:
     std::recursive_mutex asyncMutex;
 
 public:
-    Node(int recvLength = 1024, int prePadding = 0, int postPadding = 0, bool useDefaultLoop = false);
-    ~Node();
-    void run();
+	UWS_EXPORT Node(int recvLength = 1024, int prePadding = 0, int postPadding = 0, bool useDefaultLoop = false);
+	UWS_EXPORT ~Node();
+	UWS_EXPORT void run();
 
     Loop *getLoop() {
         return loop;
@@ -103,7 +104,7 @@ public:
             return nullptr;
         }
 
-        ::connect(fd, result->ai_addr, result->ai_addrlen);
+        ::connect(fd, result->ai_addr, (int) result->ai_addrlen);
         freeaddrinfo(result);
 
         SSL *ssl = nullptr;
@@ -123,7 +124,7 @@ public:
 
     // todo: hostname, backlog
     template <void A(Socket *s)>
-    bool listen(const char *host, int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void *user) {
+    bool listen(const char *host, int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void * /*user*/) {
         addrinfo hints, *result;
         memset(&hints, 0, sizeof(addrinfo));
 
@@ -137,8 +138,8 @@ public:
             return true;
         }
 
-        uv_os_sock_t listenFd = SOCKET_ERROR;
-        addrinfo *listenAddr;
+        uv_os_sock_t listenFd = (uv_os_sock_t) SOCKET_ERROR;
+		addrinfo *listenAddr = nullptr;
         if ((options & uS::ONLY_IPV4) == 0) {
             for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
                 if (a->ai_family == AF_INET6) {
@@ -172,7 +173,7 @@ public:
         int enabled = true;
         setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled));
 
-        if (bind(listenFd, listenAddr->ai_addr, listenAddr->ai_addrlen) || ::listen(listenFd, 512)) {
+        if (bind(listenFd, listenAddr->ai_addr, (int) listenAddr->ai_addrlen) || ::listen(listenFd, 512)) {
             netContext->closeSocket(listenFd);
             freeaddrinfo(result);
             return true;

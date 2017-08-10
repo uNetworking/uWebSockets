@@ -13,7 +13,7 @@ template <bool isServer>
 struct HttpSocket;
 
 template <const bool isServer>
-struct WIN32_EXPORT WebSocket : uS::Socket, WebSocketState<isServer> {
+struct  WebSocket : uS::Socket, WebSocketState<isServer> {
 protected:
     std::string fragmentBuffer;
     enum CompressionStatus : char {
@@ -27,8 +27,8 @@ protected:
         compressionStatus = perMessageDeflate ? CompressionStatus::ENABLED : CompressionStatus::DISABLED;
     }
 
-    static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
-    static void onEnd(uS::Socket *s);
+	UWS_EXPORT static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
+	UWS_EXPORT static void onEnd(uS::Socket *s);
     using uS::Socket::closeSocket;
 
     static bool refusePayloadLength(uint64_t length, WebSocketState<isServer> *webSocketState) {
@@ -52,7 +52,7 @@ protected:
         webSocket->terminate();
     }
 
-    static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, WebSocketState<isServer> *webSocketState);
+	UWS_EXPORT static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, WebSocketState<isServer> *webSocketState);
 
 public:
     struct PreparedMessage {
@@ -63,18 +63,18 @@ public:
     };
 
     // Not thread safe
-    void sendPrepared(PreparedMessage *preparedMessage, void *callbackData = nullptr);
-    static void finalizeMessage(PreparedMessage *preparedMessage);
-    void close(int code = 1000, const char *message = nullptr, size_t length = 0);
-    void transfer(Group<isServer> *group);
+	UWS_EXPORT void sendPrepared(PreparedMessage *preparedMessage, void *callbackData = nullptr);
+	UWS_EXPORT static void finalizeMessage(PreparedMessage *preparedMessage);
+	UWS_EXPORT void close(int code = 1000, const char *message = nullptr, size_t length = 0);
+	UWS_EXPORT void transfer(Group<isServer> *group);
 
     // Thread safe
-    void terminate();
+	UWS_EXPORT void terminate();
     void ping(const char *message) {send(message, OpCode::PING);}
     void send(const char *message, OpCode opCode = OpCode::TEXT) {send(message, strlen(message), opCode);}
-    void send(const char *message, size_t length, OpCode opCode, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
-    static PreparedMessage *prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
-    static PreparedMessage *prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages,
+	UWS_EXPORT void send(const char *message, size_t length, OpCode opCode, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved) = nullptr, void *callbackData = nullptr);
+	UWS_EXPORT static PreparedMessage *prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
+	UWS_EXPORT static PreparedMessage *prepareMessageBatch(std::vector<std::string> &messages, std::vector<int> &excludedMessages,
                                                 OpCode opCode, bool compressed, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved) = nullptr);
 
     friend struct Hub;

@@ -10,7 +10,9 @@
 
 namespace uWS {
 
-struct WIN32_EXPORT Hub : private uS::Node, public Group<SERVER>, public Group<CLIENT> {
+using HttpHeaderMap = std::map<std::string, std::string>;
+
+struct  Hub : protected uS::Node, public Group<SERVER>, public Group<CLIENT> {
 protected:
     struct ConnectionData {
         std::string path;
@@ -24,8 +26,11 @@ protected:
     std::string dynamicInflationBuffer;
     static const int LARGE_BUFFER_SIZE = 300 * 1024;
 
-    static void onServerAccept(uS::Socket *s);
-    static void onClientConnection(uS::Socket *s, bool error);
+	UWS_EXPORT static void onServerAccept(uS::Socket *s);
+	UWS_EXPORT static void onClientConnection(uS::Socket *s, bool error);
+	UWS_EXPORT static uS::Socket *allocateHttpSocket(uS::Socket *s);
+	UWS_EXPORT static void ontHttpOnlyConnection(uS::Socket *s, bool error);
+	UWS_EXPORT HttpSocket<CLIENT>* HttpSocketConnect(const std::string& uri, void *user, Group<CLIENT> *eh, std::string& hostname, std::string& path);
 
 public:
     template <bool isServer>
@@ -38,10 +43,23 @@ public:
         return static_cast<Group<isServer> &>(*this);
     }
 
-    bool listen(int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
-    bool listen(const char *host, int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
-    void connect(std::string uri, void *user = nullptr, std::map<std::string, std::string> extraHeaders = {}, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr);
-    void upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup = nullptr);
+	UWS_EXPORT bool listen(int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
+	UWS_EXPORT bool listen(const char *host, int port, uS::TLS::Context sslContext = nullptr, int options = 0, Group<SERVER> *eh = nullptr);
+
+	/**
+	* Connects using the web socket protocol with upgrade.  
+	* todo - rename connectWS
+	*/
+	UWS_EXPORT void connect(const std::string& uri, void *user = nullptr, const HttpHeaderMap&  extraHeaders = {}, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr);
+
+	UWS_EXPORT void upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup = nullptr);
+
+	/**
+	* Makes a standard HTTP connection.
+	*/
+	UWS_EXPORT void connect(const std::string& uri, HttpMethod method, void *user = nullptr, const HttpHeaderMap& extraHeaders = {},
+		const char* content = nullptr, size_t contentlength = 0, int timeoutMs = 5000, Group<CLIENT> *eh = nullptr);
+
 
     Hub(int extensionOptions = 0, bool useDefaultLoop = false, unsigned int maxPayload = 16777216) : uS::Node(LARGE_BUFFER_SIZE, WebSocketProtocol<SERVER, WebSocket<SERVER>>::CONSUME_PRE_PADDING, WebSocketProtocol<SERVER, WebSocket<SERVER>>::CONSUME_POST_PADDING, useDefaultLoop),
                                              Group<SERVER>(extensionOptions, maxPayload, this, nodeData), Group<CLIENT>(0, maxPayload, this, nodeData) {
@@ -83,9 +101,12 @@ public:
     using Group<CLIENT>::onError;
     using Group<SERVER>::onHttpRequest;
     using Group<SERVER>::onHttpData;
-    using Group<SERVER>::onHttpConnection;
-    using Group<SERVER>::onHttpDisconnection;
-    using Group<SERVER>::onHttpUpgrade;
+	using Group<CLIENT>::onHttpResponse;
+	using Group<SERVER>::onHttpConnection;
+	using Group<CLIENT>::onHttpConnection;
+	using Group<SERVER>::onHttpDisconnection;
+	using Group<CLIENT>::onHttpDisconnection;
+	using Group<SERVER>::onHttpUpgrade;
     using Group<SERVER>::onCancelledHttpRequest;
 
     friend struct WebSocket<SERVER>;

@@ -124,8 +124,8 @@ struct Poll {
 #endif
     }
 
-    void setCb(void (*cb)(Poll *p, int status, int events)) {
-        this->cb = cb;
+    void setCb(void (*callback)(Poll *p, int status, int events)) {
+        this->cb = callback;
     }
 
     void (*getCb())(Poll *, int, int) {
@@ -150,24 +150,24 @@ struct Poll {
         start(nullptr, self, events);
     }
 
-    void stop(Loop *loop) {
+    void stop(Loop * /*loop*/) {
         uv_poll_stop(uv_poll);
     }
 
-    bool fastTransfer(Loop *loop, Loop *newLoop, int events) {
+    bool fastTransfer(Loop * /*loop*/, Loop * /*newLoop*/, int /*events*/) {
         return false;
     }
 
-    bool threadSafeChange(Loop *, Poll *self, int events) {
+    bool threadSafeChange(Loop *, Poll * /*self*/, int /*events*/) {
         return false;
     }
 
-    void close(Loop *loop, void (*cb)(Poll *)) {
-        this->cb = (void(*)(Poll *, int, int)) cb;
+    void close(Loop * /*loop*/, void (*callback)(Poll *)) {
+        this->cb = (void(*)(Poll *, int, int)) callback;
         uv_close((uv_handle_t *) uv_poll, [](uv_handle_t *p) {
             Poll *poll = (Poll *) p->data;
-            void (*cb)(Poll *) = (void(*)(Poll *)) poll->cb;
-            cb(poll);
+            void (*callback)(Poll *) = (void(*)(Poll *)) poll->cb;
+			callback(poll);
         });
     }
 };

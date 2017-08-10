@@ -3,6 +3,7 @@
 
 #include "Socket.h"
 #include <string>
+#include <map>
 // #include <experimental/string_view>
 
 namespace uWS {
@@ -34,33 +35,78 @@ enum HttpMethod {
     METHOD_INVALID
 };
 
-struct HttpRequest {
-    Header *headers;
-    Header getHeader(const char *key) {
-        return getHeader(key, strlen(key));
-    }
+enum HttpStatusCode
+{
+	STATUS_INVALID = 0,
+	STATUS_CONTINUE = 100,
+	STATUS_SWITCHING_PROTOCOLS = 101,
+	STATUS_OK = 200,
+	STATUS_CREATED = 201,
+	STATUS_ACCEPTED = 202,
+	STATUS_NO_CONTENT = 204,
+	STATUS_PARTIAL_CONTENT = 206,
+	STATUS_MOVED_PERMANENTLY = 301,
+	STATUS_FOUND = 302,
+	STATUS_BAD_REQUEST = 400,
+	STATUS_UNAUTHORIZED = 401,
+	STATUS_PAYMENT_REQUIRED = 402,
+	STATUS_FORBIDDEN = 403,
+	STATUS_NOT_FOUND= 404,
+	STATUS_METHOD_NOT_ALLOWED=405,
+	STATUS_NOT_ACCEPTABLE=406,
+	STATUS_PROXY_AUTHENTICATION_REQUIRED=407,
+	STATUS_REQUEST_TIMEOUT=408,
+	STATUS_CONFLICT=409,
+	STATUS_GONE=410,
+	STATUS_LENGTH_REQUIRED=411,
+	STATUS_PRECONDITION_FAILED=412,
+	STATUS_REQUEST_ENTITY_TOO_LARGE=413,
+	STATUS_REQUEST_URI_TOO_LONG=414,
+	STATUS_UNSUPPORTED_MEDIA_TYPE=415,
+	STATUS_REQUESTED_RANGE_NOT_SATISFIABLE=416,
+	STATUS_EXPECTATION_FAILED=417,
+	STATUS_INTERNAL_SERVER_ERROR=500,
+	STATUS_NOT_IMPLEMENTED=501,
+	STATUS_BAD_GATEWAY=502,
+	STATUS_SERVICE_UNAVAILABLE=503,
+	STATUS_GATEWAY_TIMEOUT=504,
+	STATUS_VERSION_NOT_SUPPORTED=505
+};
 
-    HttpRequest(Header *headers = nullptr) : headers(headers) {}
+struct HttpHeaderBase {
+	Header *headers;
 
-    Header getHeader(const char *key, size_t length) {
-        if (headers) {
-            for (Header *h = headers; *++h; ) {
-                if (h->keyLength == length && !strncmp(h->key, key, length)) {
-                    return *h;
-                }
-            }
-        }
-        return {nullptr, nullptr, 0, 0};
-    }
+	Header getHeader(const char *key, size_t length) const {
+		if (headers) {
+			for (Header *h = headers; *++h; ) {
+				if (h->keyLength == length && !strncmp(h->key, key, length)) {
+					return *h;
+				}
+			}
+		}
+		return { nullptr, nullptr, 0, 0 };
+	}
 
-    Header getUrl() {
+	Header getHeader(const char *key) const {
+		return getHeader(key, strlen(key));
+	}
+	HttpHeaderBase(Header *headers = nullptr) : headers(headers) {}
+
+};
+
+struct HttpRequest : public HttpHeaderBase{
+
+    HttpRequest(Header *headers = nullptr) : HttpHeaderBase(headers) {}
+
+
+    Header getUrl() const {
         if (headers->key) {
             return *headers;
         }
         return {nullptr, nullptr, 0, 0};
     }
 
-    HttpMethod getMethod() {
+    HttpMethod getMethod() const {
         if (!headers->key) {
             return METHOD_INVALID;
         }
@@ -103,10 +149,48 @@ struct HttpRequest {
     }
 };
 
+/**
+* Alias HttpRequest as HttpResponseHeader for now.  Turn into full type later.
+*/
+struct HttpResponseHeader : public HttpHeaderBase
+{
+	HttpResponseHeader(Header *headers = nullptr) : HttpHeaderBase(headers) {}
+	HttpResponseHeader(const HttpRequest& req) : HttpHeaderBase(req.headers) {}
+
+	std::string getProtocol() const 
+	{
+		if (!headers->key) {
+			return std::string("");
+		}
+	
+		return std::string(headers->key, headers->keyLength);
+	}
+	std::string getStatusString() const
+	{
+		if (!headers->key) {
+			return std::string("");
+		}
+
+		return std::string(headers->value+4, headers->valueLength-4);
+	}
+
+	HttpStatusCode getStatusCode() const
+	{
+		if (!headers->key) {
+			return STATUS_INVALID;
+		}
+
+		int val = atoi(headers->value);
+		return (HttpStatusCode)val;
+	}
+
+
+};
+
 struct HttpResponse;
 
 template <const bool isServer>
-struct WIN32_EXPORT HttpSocket : uS::Socket {
+struct HttpSocket : uS::Socket {
     void *httpUser; // remove this later, setTimeout occupies user for now
     HttpResponse *outstandingResponsesHead = nullptr;
     HttpResponse *outstandingResponsesTail = nullptr;
@@ -122,19 +206,23 @@ struct WIN32_EXPORT HttpSocket : uS::Socket {
         onEnd(this);
     }
 
-    void upgrade(const char *secKey, const char *extensions,
+	UWS_EXPORT void upgrade(const char *secKey, const char *extensions,
                  size_t extensionsLength, const char *subprotocol,
                  size_t subprotocolLength, bool *perMessageDeflate);
 
 private:
+	bool bClientForceClose = true;
     friend struct uS::Socket;
     friend struct HttpResponse;
     friend struct Hub;
-    static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
-    static void onEnd(uS::Socket *s);
+	friend struct HubExtended;
+	UWS_EXPORT  static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
+	UWS_EXPORT  static void onEnd(uS::Socket *s);
 };
 
 struct HttpResponse {
+
+public:
     HttpSocket<true> *httpSocket;
     HttpResponse *next = nullptr;
     void *userData = nullptr;
@@ -142,6 +230,8 @@ struct HttpResponse {
     HttpSocket<true>::Queue::Message *messageQueue = nullptr;
     bool hasEnded = false;
     bool hasHead = false;
+
+	//UWS_EXPORT  static const std::string& MapStatusToString(HttpStatusCode status);
 
     HttpResponse(HttpSocket<true> *httpSocket) : httpSocket(httpSocket) {
 
@@ -172,11 +262,11 @@ struct HttpResponse {
                void *callbackData = nullptr) {
 
         struct NoopTransformer {
-            static size_t estimate(const char *data, size_t length) {
+            static size_t estimate(const char * /*data*/, size_t length) {
                 return length;
             }
 
-            static size_t transform(const char *src, char *dst, size_t length, int transformData) {
+            static size_t transform(const char *src, char *dst, size_t length, int /*transformData*/) {
                 memcpy(dst, src, length);
                 return length;
             }
@@ -186,89 +276,20 @@ struct HttpResponse {
         hasHead = true;
     }
 
-    // todo: maybe this function should have a fast path for 0 length?
-    void end(const char *message = nullptr, size_t length = 0,
-             void(*callback)(void *httpResponse, void *data, bool cancelled, void *reserved) = nullptr,
-             void *callbackData = nullptr) {
+	// todo: maybe this function should have a fast path for 0 length?
+	void end(const char *message = nullptr, size_t length = 0,
+		void(*callback)(void *httpResponse, void *data, bool cancelled, void *reserved) = nullptr,
+		void *callbackData = nullptr)
+	{
+		end(STATUS_OK, message, length, callback, callbackData);
+	}
 
-        struct TransformData {
-            bool hasHead;
-        } transformData = {hasHead};
+	UWS_EXPORT void end(HttpStatusCode status, const char *message = nullptr, size_t length = 0,
+		void(*callback)(void *httpResponse, void *data, bool cancelled, void *reserved) = nullptr,
+		void *callbackData = nullptr);
 
-        struct HttpTransformer {
-
-            // todo: this should get TransformData!
-            static size_t estimate(const char *data, size_t length) {
-                return length + 128;
-            }
-
-            static size_t transform(const char *src, char *dst, size_t length, TransformData transformData) {
-                // todo: sprintf is extremely slow
-                int offset = transformData.hasHead ? 0 : std::sprintf(dst, "HTTP/1.1 200 OK\r\nContent-Length: %u\r\n\r\n", (unsigned int) length);
-                memcpy(dst + offset, src, length);
-                return length + offset;
-            }
-        };
-
-        if (httpSocket->outstandingResponsesHead != this) {
-            HttpSocket<true>::Queue::Message *messagePtr = httpSocket->allocMessage(HttpTransformer::estimate(message, length));
-            messagePtr->length = HttpTransformer::transform(message, (char *) messagePtr->data, length, transformData);
-            messagePtr->callback = callback;
-            messagePtr->callbackData = callbackData;
-            messagePtr->nextMessage = messageQueue;
-            messageQueue = messagePtr;
-            hasEnded = true;
-        } else {
-            httpSocket->sendTransformed<HttpTransformer>(message, length, callback, callbackData, transformData);
-            // move head as far as possible
-            HttpResponse *head = next;
-            while (head) {
-                // empty message queue
-                HttpSocket<true>::Queue::Message *messagePtr = head->messageQueue;
-                while (messagePtr) {
-                    HttpSocket<true>::Queue::Message *nextMessage = messagePtr->nextMessage;
-
-                    bool wasTransferred;
-                    if (httpSocket->write(messagePtr, wasTransferred)) {
-                        if (!wasTransferred) {
-                            httpSocket->freeMessage(messagePtr);
-                            if (callback) {
-                                callback(this, callbackData, false, nullptr);
-                            }
-                        } else {
-                            messagePtr->callback = callback;
-                            messagePtr->callbackData = callbackData;
-                        }
-                    } else {
-                        httpSocket->freeMessage(messagePtr);
-                        if (callback) {
-                            callback(this, callbackData, true, nullptr);
-                        }
-                        goto updateHead;
-                    }
-                    messagePtr = nextMessage;
-                }
-                // cannot go beyond unfinished responses
-                if (!head->hasEnded) {
-                    break;
-                } else {
-                    HttpResponse *next = head->next;
-                    head->freeResponse(httpSocket);
-                    head = next;
-                }
-            }
-            updateHead:
-            httpSocket->outstandingResponsesHead = head;
-            if (!head) {
-                httpSocket->outstandingResponsesTail = nullptr;
-            }
-
-            freeResponse(httpSocket);
-        }
-    }
-
-    void setUserData(void *userData) {
-        this->userData = userData;
+    void setUserData(void *data) {
+        this->userData = data;
     }
 
     void *getUserData() {
