@@ -277,6 +277,7 @@ void testConnections() {
     });
 
     h.connect("invalid URI", (void *) 1);
+    h.connect("ws://badport.yolo:abc", (void *) 1);
     h.connect("invalid://validButUnknown.yolo", (void *) 11);
     h.connect("ws://validButUnknown.yolo", (void *) 2);
     h.connect("ws://echo.websocket.org", (void *) 3, {}, 10);
