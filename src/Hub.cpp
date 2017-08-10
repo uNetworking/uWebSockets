@@ -118,7 +118,12 @@ void Hub::connect(std::string uri, void *user, std::map<std::string, std::string
         }
 
         if (portStr.length()) {
-            port = stoi(portStr);
+            try {
+                port = stoi(portStr);
+            } catch (...) {
+                er->errorHandler(user);
+                return;
+            }
         }
 
         HttpSocket<CLIENT> *httpSocket = (HttpSocket<CLIENT> *) uS::Node::connect<allocateHttpSocket, onClientConnection>(hostname.c_str(), port, secure, eh);
