@@ -30,7 +30,8 @@ int main() {
         res->end(const char *, size_t);
     });
 
-    h.listen(3000);
+    // connect to port and exit if blocked
+    if (!h.listen(3000)) return 1;
     h.run();
 }
 ```

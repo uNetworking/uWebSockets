@@ -8,6 +8,7 @@ int main()
         ws->send(message, length, opCode);
     });
 
-    h.listen(3000);
+    // connect to port and exit if blocked
+    if (!h.listen(3000)) return 1;
     h.run();
 }
