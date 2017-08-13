@@ -8,6 +8,7 @@ int main()
         ws->send(message, length, opCode);
     });
 
-    h.listen(3000);
-    h.run();
+    if (h.listen(3000)) {
+        h.run();
+    }
 }

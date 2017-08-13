@@ -30,8 +30,9 @@ int main() {
         res->end(const char *, size_t);
     });
 
-    h.listen(3000);
-    h.run();
+    if (h.listen(3000)) {
+        h.run();
+    }
 }
 ```
 Get the sources of the uws.chat server [here](https://github.com/uWebSockets/website/blob/master/main.cpp). Learn from the tests [here](tests/main.cpp).
