@@ -10,9 +10,11 @@
 #define SSL_up_ref(x) x->references++
 #endif
 
-#ifndef __linux
+#ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
-#else
+#endif
+
+#if defined(__linux__) || defined(__sun)
 #include <endian.h>
 #endif
 
