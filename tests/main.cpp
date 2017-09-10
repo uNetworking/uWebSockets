@@ -1181,8 +1181,8 @@ int main(int argc, char *argv[])
     testConnections();
     testTransfers();
 
-    // Linux-only feature
-#ifdef __linux__
+    // UNIX TCP/IP stacks
+#if defined(__linux) || defined(__FreeBSD__)
     testReusePort();
 #endif
 
