@@ -4,6 +4,8 @@ CPP_OSX := -stdlib=libc++ -mmacosx-version-min=10.7 -undefined dynamic_lookup $(
 
 default:
 	make `(uname -s)`
+FreeBSD:
+	$(CXX) $(CPPFLAGS) -I/usr/local/include $(CFLAGS) -DHAVE_REUSEPORT $(CXXFLAGS) $(CPP_SHARED) -g -o libuWS.so
 Linux:
 	$(CXX) $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) -s -o libuWS.so
 Darwin:
@@ -16,6 +18,11 @@ installLinux:
 	if [ -d "/usr/lib64" ]; then cp libuWS.so /usr/lib64/; else cp libuWS.so /usr/lib/; fi
 	mkdir -p /usr/include/uWS
 	cp src/*.h /usr/include/uWS/
+.PHONY: installFreeBSD
+installFreeBSD:
+	install -m 444 libuWS.so /usr/local/lib/libuWS.so
+	mkdir -p /usr/local/include/uWS
+	cp src/*.h /usr/local/include/uWS/
 .PHONY: installDarwin
 installDarwin:
 	cp libuWS.dylib /usr/local/lib/
@@ -27,4 +34,4 @@ clean:
 	rm -f libuWS.dylib
 .PHONY: tests
 tests:
-	$(CXX) $(CPP_OPENSSL_OSX) -std=c++11 -O3 tests/main.cpp -Isrc -o testsBin -lpthread -luWS -lssl -lcrypto -lz -luv
+	$(CXX) $(CPP_OPENSSL_OSX) -I/usr/local/include -std=c++11 -O3 -g tests/main.cpp -Isrc -o testsBin -lpthread -L. -luWS -lssl -lcrypto -lz -L/usr/local/lib -luv
