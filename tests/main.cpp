@@ -952,7 +952,7 @@ void testHTTP() {
         fputs("PUT /closeServer HTTP/1.1\r\n\r\n", nc);
         pclose(nc);
         if (expectedRequests != 18) {
-            std::cerr << "FAILURE: expectedRequests differ: " << expectedRequests << std::endl;
+            std::cerr << "FAILURE: requests outstanding: got " << expectedRequests << " expected 18" << std::endl;
             exit(-1);
         }
     });
