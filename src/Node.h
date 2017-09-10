@@ -160,7 +160,7 @@ public:
             return true;
         }
 
-#ifdef __linux
+#ifdef HAVE_REUSEPORT
 #ifdef SO_REUSEPORT
         if (options & REUSE_PORT) {
             int optval = 1;
