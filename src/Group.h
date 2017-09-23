@@ -42,13 +42,13 @@ protected:
     unsigned int maxPayload;
     Hub *hub;
     int extensionOptions;
-    Timer *timer = nullptr, *httpTimer = nullptr;
+    uS::Timer *timer = nullptr, *httpTimer = nullptr;
     std::string userPingMessage;
-    std::stack<Poll *> iterators;
+    std::stack<uS::Poll *> iterators;
 
     // todo: cannot be named user, collides with parent!
     void *userData = nullptr;
-    static void timerCallback(Timer *timer);
+    static void timerCallback(uS::Timer *timer);
 
     WebSocket<isServer> *webSocketHead = nullptr;
     HttpSocket<isServer> *httpSocketHead = nullptr;
@@ -103,10 +103,10 @@ public:
 
     template <class F>
     void forEach(const F &cb) {
-        Poll *iterator = webSocketHead;
+        uS::Poll *iterator = webSocketHead;
         iterators.push(iterator);
         while (iterator) {
-            Poll *lastIterator = iterator;
+            uS::Poll *lastIterator = iterator;
             cb((WebSocket<isServer> *) iterator);
             iterator = iterators.top();
             if (lastIterator == iterator) {
@@ -120,10 +120,10 @@ public:
     // duplicated code for now!
     template <class F>
     void forEachHttpSocket(const F &cb) {
-        Poll *iterator = httpSocketHead;
+        uS::Poll *iterator = httpSocketHead;
         iterators.push(iterator);
         while (iterator) {
-            Poll *lastIterator = iterator;
+            uS::Poll *lastIterator = iterator;
             cb((HttpSocket<isServer> *) iterator);
             iterator = iterators.top();
             if (lastIterator == iterator) {

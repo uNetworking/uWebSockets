@@ -3,6 +3,8 @@
 
 #include <boost/asio.hpp>
 
+namespace uS {
+
 typedef boost::asio::ip::tcp::socket::native_type uv_os_sock_t;
 static const int UV_READABLE = 1;
 static const int UV_WRITABLE = 2;
@@ -180,5 +182,7 @@ struct Poll {
         socket = nullptr;
     }
 };
+
+}
 
 #endif // ASIO_H

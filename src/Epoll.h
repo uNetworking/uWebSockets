@@ -10,6 +10,8 @@
 #include <vector>
 #include <mutex>
 
+namespace uS {
+
 typedef int uv_os_sock_t;
 static const int UV_READABLE = EPOLLIN;
 static const int UV_WRITABLE = EPOLLOUT;
@@ -253,5 +255,7 @@ struct Async : Poll {
         return data;
     }
 };
+
+}
 
 #endif // EPOLL_H

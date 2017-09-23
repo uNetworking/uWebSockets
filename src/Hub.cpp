@@ -45,7 +45,7 @@ void Hub::onServerAccept(uS::Socket *s) {
     delete s;
 
     httpSocket->setState<HttpSocket<SERVER>>();
-    httpSocket->start(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
+    httpSocket->start(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(uS::UV_READABLE));
     httpSocket->setNoDelay(true);
     Group<SERVER>::from(httpSocket)->addHttpSocket(httpSocket);
     Group<SERVER>::from(httpSocket)->httpConnectionHandler(httpSocket);
@@ -58,7 +58,7 @@ void Hub::onClientConnection(uS::Socket *s, bool error) {
         httpSocket->onEnd(httpSocket);
     } else {
         httpSocket->setState<HttpSocket<CLIENT>>();
-        httpSocket->change(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
+        httpSocket->change(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(uS::UV_READABLE));
         httpSocket->setNoDelay(true);
         httpSocket->upgrade(nullptr, nullptr, 0, nullptr, 0, nullptr);
     }
@@ -187,7 +187,7 @@ void Hub::connect(std::string uri, void *user, std::map<std::string, std::string
     }
 }
 
-void Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup) {
+void Hub::upgrade(uS::uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup) {
     if (!serverGroup) {
         serverGroup = &getDefaultGroup<SERVER>();
     }
@@ -198,14 +198,14 @@ void Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *ext
     // todo: skip httpSocket -> it cannot fail anyways!
     HttpSocket<SERVER> *httpSocket = new HttpSocket<SERVER>(&s);
     httpSocket->setState<HttpSocket<SERVER>>();
-    httpSocket->change(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(UV_READABLE));
+    httpSocket->change(httpSocket->nodeData->loop, httpSocket, httpSocket->setPoll(uS::UV_READABLE));
     bool perMessageDeflate;
     httpSocket->upgrade(secKey, extensions, extensionsLength, subprotocol, subprotocolLength, &perMessageDeflate);
 
     WebSocket<SERVER> *webSocket = new WebSocket<SERVER>(perMessageDeflate, httpSocket);
     delete httpSocket;
     webSocket->setState<WebSocket<SERVER>>();
-    webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(UV_READABLE));
+    webSocket->change(webSocket->nodeData->loop, webSocket, webSocket->setPoll(uS::UV_READABLE));
     serverGroup->addWebSocket(webSocket);
     serverGroup->connectionHandler(webSocket, {});
 }
