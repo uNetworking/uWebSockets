@@ -14,7 +14,7 @@ void *Group<isServer>::getUserData() {
 }
 
 template <bool isServer>
-void Group<isServer>::timerCallback(Timer *timer) {
+void Group<isServer>::timerCallback(uS::Timer *timer) {
     Group<isServer> *group = (Group<isServer> *) timer->getData();
 
     group->forEach([](uWS::WebSocket<isServer> *webSocket) {
@@ -34,7 +34,7 @@ void Group<isServer>::timerCallback(Timer *timer) {
 
 template <bool isServer>
 void Group<isServer>::startAutoPing(int intervalMs, std::string userMessage) {
-    timer = new Timer(loop);
+    timer = new uS::Timer(loop);
     timer->setData(this);
     timer->start(timerCallback, intervalMs, intervalMs);
     userPingMessage = userMessage;
@@ -48,9 +48,9 @@ void Group<isServer>::addHttpSocket(HttpSocket<isServer> *httpSocket) {
     } else {
         httpSocket->next = nullptr;
         // start timer
-        httpTimer = new Timer(hub->getLoop());
+        httpTimer = new uS::Timer(hub->getLoop());
         httpTimer->setData(this);
-        httpTimer->start([](Timer *httpTimer) {
+        httpTimer->start([](uS::Timer *httpTimer) {
             Group<isServer> *group = (Group<isServer> *) httpTimer->getData();
             group->forEachHttpSocket([](HttpSocket<isServer> *httpSocket) {
                 if (httpSocket->missedDeadline) {
