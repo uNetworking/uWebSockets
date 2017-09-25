@@ -970,7 +970,7 @@ void serveEventSource() {
 
     // stop and delete the libuv timer on http disconnection
     h.onHttpDisconnection([](uWS::HttpSocket<uWS::SERVER> *s) {
-        Timer *timer = (Timer *) s->getUserData();
+        uS::Timer *timer = (uS::Timer *) s->getUserData();
         if (timer) {
             timer->stop();
             timer->close();
@@ -997,9 +997,9 @@ void serveEventSource() {
                 res->write((char *) header.data(), header.length());
 
                 // create and attach a libuv timer to the socket and let it send messages to the client each second
-                Timer *timer = new Timer(h.getLoop());
+                uS::Timer *timer = new uS::Timer(h.getLoop());
                 timer->setData(res);
-                timer->start([](Timer *timer) {
+                timer->start([](uS::Timer *timer) {
                     // send a message to the browser
                     std::string message = "data: Clock sent from the server: " + std::to_string(clock()) + "\n\n";
                     ((uWS::HttpResponse *) timer->getData())->write((char *) message.data(), message.length());
