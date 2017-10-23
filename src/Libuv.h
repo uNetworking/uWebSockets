@@ -4,6 +4,9 @@
 #include <uv.h>
 static_assert (UV_VERSION_MINOR >= 3, "µWebSockets requires libuv >=1.3.0");
 
+static const int UWS_READABLE = UV_READABLE;
+static const int UWS_WRITABLE = UV_WRITABLE;
+
 namespace uS {
 
 struct Loop : uv_loop_t {

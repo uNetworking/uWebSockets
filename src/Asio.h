@@ -4,8 +4,8 @@
 #include <boost/asio.hpp>
 
 typedef boost::asio::ip::tcp::socket::native_type uv_os_sock_t;
-static const int UV_READABLE = 1;
-static const int UV_WRITABLE = 2;
+static const int UWS_READABLE = 1;
+static const int UWS_WRITABLE = 2;
 
 namespace uS {
 
@@ -133,20 +133,20 @@ struct Poll {
     }
 
     void start(Loop *, Poll *self, int events) {
-        if (events & UV_READABLE) {
+        if (events & UWS_READABLE) {
             socket->async_read_some(boost::asio::null_buffers(), [self](boost::system::error_code ec, std::size_t) {
                 if (ec != boost::asio::error::operation_aborted) {
-                    self->start(nullptr, self, UV_READABLE);
-                    self->cb(self, ec ? -1 : 0, UV_READABLE);
+                    self->start(nullptr, self, UWS_READABLE);
+                    self->cb(self, ec ? -1 : 0, UWS_READABLE);
                 }
             });
         }
 
-        if (events & UV_WRITABLE) {
+        if (events & UWS_WRITABLE) {
             socket->async_write_some(boost::asio::null_buffers(), [self](boost::system::error_code ec, std::size_t) {
                 if (ec != boost::asio::error::operation_aborted) {
-                    self->start(nullptr, self, UV_WRITABLE);
-                    self->cb(self, ec ? -1 : 0, UV_WRITABLE);
+                    self->start(nullptr, self, UWS_WRITABLE);
+                    self->cb(self, ec ? -1 : 0, UWS_WRITABLE);
                 }
             });
         }
