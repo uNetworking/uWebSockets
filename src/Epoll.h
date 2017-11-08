@@ -11,8 +11,8 @@
 #include <mutex>
 
 typedef int uv_os_sock_t;
-static const int UV_READABLE = EPOLLIN;
-static const int UV_WRITABLE = EPOLLOUT;
+static const int UWS_READABLE = EPOLLIN;
+static const int UWS_WRITABLE = EPOLLOUT;
 
 namespace uS {
 
@@ -229,7 +229,7 @@ struct Async : Poll {
                 ((Async *) p)->cb((Async *) p);
             }
         });
-        Poll::start(loop, this, UV_READABLE);
+        Poll::start(loop, this, UWS_READABLE);
     }
 
     void send() {

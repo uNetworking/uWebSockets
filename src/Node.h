@@ -56,7 +56,7 @@ private:
             listenSocket->timer = nullptr;
 
             listenSocket->setCb(accept_poll_cb<A>);
-            listenSocket->start(listenSocket->nodeData->loop, listenSocket, UV_READABLE);
+            listenSocket->start(listenSocket->nodeData->loop, listenSocket, UWS_READABLE);
         }
         do {
             SSL *ssl = nullptr;
@@ -66,7 +66,7 @@ private:
             }
 
             Socket *socket = new Socket(listenSocket->nodeData, listenSocket->nodeData->loop, clientFd, ssl);
-            socket->setPoll(UV_READABLE);
+            socket->setPoll(UWS_READABLE);
             A(socket);
         } while ((clientFd = netContext->acceptSocket(serverFd)) != INVALID_SOCKET);
     }
@@ -117,7 +117,7 @@ public:
         uS::Socket *socket = I(&initialSocket);
 
         socket->setCb(connect_cb<C>);
-        socket->start(loop, socket, socket->setPoll(UV_WRITABLE));
+        socket->start(loop, socket, socket->setPoll(UWS_WRITABLE));
         return socket;
     }
 
@@ -183,7 +183,7 @@ public:
         listenSocket->nodeData = nodeData;
 
         listenSocket->setCb(accept_poll_cb<A>);
-        listenSocket->start(loop, listenSocket, UV_READABLE);
+        listenSocket->start(loop, listenSocket, UWS_READABLE);
 
         // should be vector of listen data! one group can have many listeners!
         nodeData->user = listenSocket;
