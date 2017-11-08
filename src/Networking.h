@@ -61,8 +61,23 @@ inline SOCKET dup(SOCKET socket) {
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <cstring>
-#define SOCKET_ERROR -1
-#define INVALID_SOCKET -1
+
+#ifndef SOCKET_ERROR
+#define SOCKET_ERROR (-1)
+#else
+#if SOCKET_ERROR != -1
+#error SOCKET_ERROR is defined and its value is not -1
+#endif
+#endif
+
+#ifndef INVALID_SOCKET
+#define INVALID_SOCKET (-1)
+#else
+#if INVALID_SOCKET != -1
+#error INVALID_SOCKET is defined and its value is not -1
+#endif
+#endif
+
 #define WIN32_EXPORT
 #endif
 
