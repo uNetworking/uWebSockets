@@ -42,6 +42,7 @@ Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop)
 
     nodeData->tid = pthread_self();
     loop = Loop::createLoop(useDefaultLoop);
+    loop->setLoopType(useDefaultLoop);
 
     // each node has a context
     nodeData->netContext = new Context();

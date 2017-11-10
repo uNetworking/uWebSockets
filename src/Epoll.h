@@ -35,6 +35,7 @@ struct Loop {
     int numPolls = 0;
     bool cancelledLastTimer;
     int delay = -1;
+    bool isDefaultLoop = true;
     epoll_event readyEvents[1024];
     std::chrono::system_clock::time_point timepoint;
     std::vector<Timepoint> timers;
@@ -62,6 +63,10 @@ struct Loop {
 
     int getEpollFd() {
         return epfd;
+    }
+
+    void setLoopType(bool defaultLoop = true) {
+        isDefaultLoop = defaultLoop;
     }
 };
 

@@ -7,6 +7,8 @@ static_assert (UV_VERSION_MINOR >= 3, "µWebSockets requires libuv >=1.3.0");
 namespace uS {
 
 struct Loop : uv_loop_t {
+    bool isDefaultLoop = true;
+
     static Loop *createLoop(bool defaultLoop = true) {
         if (defaultLoop) {
             return (Loop *) uv_default_loop();
@@ -16,13 +18,17 @@ struct Loop : uv_loop_t {
     }
 
     void destroy() {
-        if (this != uv_default_loop()) {
+        if (!isDefaultLoop) {
             uv_loop_delete(this);
         }
     }
 
     void run() {
         uv_run(this, UV_RUN_DEFAULT);
+    }
+
+    void setLoopType(bool defaultLoop = true) {
+        isDefaultLoop = defaultLoop;
     }
 };
 
