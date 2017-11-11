@@ -22,6 +22,8 @@ struct Loop : boost::asio::io_service {
     void run() {
         boost::asio::io_service::run();
     }
+
+    void setLoopType(bool defaultLoop = true);
 };
 
 struct Timer {
