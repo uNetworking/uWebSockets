@@ -1,5 +1,11 @@
 <div align="center"><img src="misc/images/logo.png"/></div>
 
+# Module not working on new versions of OS X.
+Since your issues are fuckin closed, this is the only way to contact you. The websockets doesn't work on High Sierra, however it connects and works on older Sierra. Maybe instead of bitching around - http://prntscr.com/hb7kvi <-- I had to search for this like an idiot in the google cache, you could ask for more details (when the ppl are unable to provide you the OS/compiler versions etc themselves).
+I dont expect you to fix it - just provide this info to the people so they wont have to search for it like I did.
+
+
+
 `µWS` is one of the most lightweight, efficient & scalable WebSocket & HTTP server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
 
