@@ -4,6 +4,8 @@
 #ifndef NETWORKING_UWS_H
 #define NETWORKING_UWS_H
 
+#include "Utils.h"
+
 #include <openssl/opensslv.h>
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 #define SSL_CTX_up_ref(x) x->references++
@@ -163,6 +165,7 @@ private:
 
     static int passwordCallback(char *buf, int size, int rwflag, void *u)
     {
+        ignore_unused(rwflag);
         std::string *password = (std::string *) u;
         int length = std::min<int>(size, password->length());
         memcpy(buf, password->data(), length);

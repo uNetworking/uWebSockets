@@ -1,6 +1,7 @@
 #ifndef NODE_UWS_H
 #define NODE_UWS_H
 
+#include "Utils.h"
 #include "Socket.h"
 #include <vector>
 #include <mutex>
@@ -16,11 +17,13 @@ class WIN32_EXPORT Node {
 private:
     template <void C(Socket *p, bool error)>
     static void connect_cb(Poll *p, int status, int events) {
+        ignore_unused(events);
         C((Socket *) p, status < 0);
     }
 
     template <void A(Socket *s)>
     static void accept_poll_cb(Poll *p, int status, int events) {
+        ignore_unused(status, events);
         ListenSocket *listenData = (ListenSocket *) p;
         accept_cb<A, false>(listenData);
     }
@@ -124,6 +127,8 @@ public:
     // todo: hostname, backlog
     template <void A(Socket *s)>
     bool listen(const char *host, int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void *user) {
+        ignore_unused(user);
+
         addrinfo hints, *result;
         memset(&hints, 0, sizeof(addrinfo));
 

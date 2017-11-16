@@ -1,6 +1,7 @@
 #ifndef EPOLL_H
 #define EPOLL_H
 
+#include "Utils.h"
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
@@ -45,6 +46,7 @@ struct Loop {
     void *preCbData, *postCbData;
 
     Loop(bool defaultLoop) {
+        ignore_unused(defaultLoop);
         epfd = epoll_create1(EPOLL_CLOEXEC);
         timepoint = std::chrono::system_clock::now();
     }

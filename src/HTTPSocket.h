@@ -1,6 +1,7 @@
 #ifndef HTTPSOCKET_UWS_H
 #define HTTPSOCKET_UWS_H
 
+#include "Utils.h"
 #include "Socket.h"
 #include <string>
 // #include <experimental/string_view>
@@ -173,10 +174,12 @@ struct HttpResponse {
 
         struct NoopTransformer {
             static size_t estimate(const char *data, size_t length) {
+                uS::ignore_unused(data);
                 return length;
             }
 
             static size_t transform(const char *src, char *dst, size_t length, int transformData) {
+                uS::ignore_unused(transformData);
                 memcpy(dst, src, length);
                 return length;
             }
@@ -199,6 +202,7 @@ struct HttpResponse {
 
             // todo: this should get TransformData!
             static size_t estimate(const char *data, size_t length) {
+                uS::ignore_unused(data);
                 return length + 128;
             }
 
