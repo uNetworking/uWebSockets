@@ -52,7 +52,8 @@ void testAutobahn() {
 
     uS::TLS::Context c = uS::TLS::createContext("misc/ssl/cert.pem",
                                                 "misc/ssl/key.pem",
-                                                "1234");
+                                                "1234",
+                                                "misc/ssl/dh_param_2048.pem");
     if (!h.listen(3001, c, 0, sslGroup) || !h.listen(3000, nullptr, 0, group)) {
         std::cout << "FAILURE: Error listening for Autobahn connections!" << std::endl;
         exit(-1);
@@ -113,7 +114,8 @@ void measureInternalThroughput(unsigned int payloadLength, int echoes, bool ssl)
 
     uS::TLS::Context c = uS::TLS::createContext("misc/ssl/cert.pem",
                                                 "misc/ssl/key.pem",
-                                                "1234");
+                                                "1234",
+                                                "misc/ssl/dh_param_2048.pem");
 
     h.onConnection([payload, payloadLength, echoes](uWS::WebSocket<uWS::CLIENT> *ws, uWS::HttpRequest req) {
         for (int i = 0; i < echoes; i++) {
@@ -581,7 +583,7 @@ void testTransfers() {
         if (ssl) {
             if (!h.listen(3000,
                           uS::TLS::createContext("misc/ssl/cert.pem",
-                          "misc/ssl/key.pem", "1234"))) {
+                          "misc/ssl/key.pem", "1234", "misc/ssl/dh_param_2048.pem"))) {
                 std::cerr << "FAILURE: Cannot listen!" << std::endl;
                 exit(-1);
             }
@@ -1088,7 +1090,8 @@ void testThreadSafety() {
 
     uS::TLS::Context c = uS::TLS::createContext("misc/ssl/cert.pem",
                                                 "misc/ssl/key.pem",
-                                                "1234");
+                                                "1234",
+                                                "misc/ssl/dh_param_2048.pem");
 
     for (int ssl = 0; ssl < 2; ssl++) {
         std::cout << "SSL: " << ssl << std::endl;
