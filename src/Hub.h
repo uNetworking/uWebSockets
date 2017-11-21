@@ -71,6 +71,7 @@ public:
     using Group<SERVER>::onConnection;
     using Group<CLIENT>::onConnection;
     using Group<SERVER>::onTransfer;
+    using Group<CLIENT>::onTransfer;
     using Group<SERVER>::onMessage;
     using Group<CLIENT>::onMessage;
     using Group<SERVER>::onDisconnection;
