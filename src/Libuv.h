@@ -1,6 +1,7 @@
 #ifndef LIBUV_H
 #define LIBUV_H
 
+#include "Utils.h"
 #include <uv.h>
 static_assert (UV_VERSION_MINOR >= 3, "µWebSockets requires libuv >=1.3.0");
 
@@ -153,18 +154,22 @@ struct Poll {
     }
 
     void stop(Loop *loop) {
+        ignore_unused(loop);
         uv_poll_stop(uv_poll);
     }
 
     bool fastTransfer(Loop *loop, Loop *newLoop, int events) {
+        ignore_unused(loop, newLoop, events);
         return false;
     }
 
     bool threadSafeChange(Loop *, Poll *self, int events) {
+        ignore_unused(self, events);
         return false;
     }
 
     void close(Loop *loop, void (*cb)(Poll *)) {
+        ignore_unused(loop);
         this->cb = (void(*)(Poll *, int, int)) cb;
         uv_close((uv_handle_t *) uv_poll, [](uv_handle_t *p) {
             Poll *poll = (Poll *) p->data;
