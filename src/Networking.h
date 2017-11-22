@@ -171,7 +171,7 @@ private:
     }
 
 public:
-    friend Context createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword);
+    friend Context WIN32_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword);
     Context(SSL_CTX *context) : context(context) {
 
     }
@@ -189,7 +189,7 @@ public:
     }
 };
 
-Context createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword = std::string());
+Context WIN32_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword = std::string());
 
 }
 
@@ -210,16 +210,8 @@ struct WIN32_EXPORT NodeData {
     Async *async = nullptr;
     pthread_t tid;
 
-    struct TransferData {
-        Poll *p;
-        uv_os_sock_t fd;
-        Socket *socketData;
-        void (*pollCb)(Poll *, int, int);
-        void (*cb)(Poll *);
-    };
-
     std::recursive_mutex *asyncMutex;
-    std::vector<TransferData> transferQueue;
+    std::vector<Poll *> transferQueue;
     std::vector<Poll *> changePollQueue;
     static void asyncCallback(Async *async);
 
@@ -250,6 +242,15 @@ public:
         async = new Async(loop);
         async->setData(this);
         async->start(NodeData::asyncCallback);
+    }
+
+    void clearPendingPollChanges(Poll *p) {
+        asyncMutex->lock();
+        changePollQueue.erase(
+            std::remove(changePollQueue.begin(), changePollQueue.end(), p),
+            changePollQueue.end()
+        );
+        asyncMutex->unlock();
     }
 };
 

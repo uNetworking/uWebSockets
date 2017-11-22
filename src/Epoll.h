@@ -9,6 +9,7 @@
 #include <chrono>
 #include <algorithm>
 #include <vector>
+#include <mutex>
 
 typedef int uv_os_sock_t;
 #ifdef __linux__
@@ -23,9 +24,12 @@ static const int UV_READABLE = EVFILT_READ;
 static const int UV_WRITABLE = EVFILT_WRITE;
 #endif
 
+namespace uS {
+
 struct Poll;
 struct Timer;
 
+extern std::recursive_mutex cbMutex;
 extern void (*callbacks[16])(Poll *, int, int);
 extern int cbHead;
 
@@ -88,14 +92,16 @@ struct Timer {
     }
 
     void start(void (*cb)(Timer *), int timeout, int repeat) {
+        loop->timepoint = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point timepoint = loop->timepoint + std::chrono::milliseconds(timeout);
-        loop->timers.push_back({cb, this, timepoint, repeat});
-        std::sort(loop->timers.begin(), loop->timers.end(), [](const Timepoint &a, const Timepoint &b) {
-            return a.timepoint < b.timepoint;
-        });
 
-        // insertion sort
-
+        Timepoint t = {cb, this, timepoint, repeat};
+        loop->timers.insert(
+            std::upper_bound(loop->timers.begin(), loop->timers.end(), t, [](const Timepoint &a, const Timepoint &b) {
+                return a.timepoint < b.timepoint;
+            }),
+            t
+        );
 
         loop->delay = -1;
         if (loop->timers.size()) {
@@ -148,7 +154,9 @@ protected:
         loop->numPolls++;
     }
 
+    // todo: pre-set all of callbacks up front and remove mutex
     void setCb(void (*cb)(Poll *p, int status, int events)) {
+        cbMutex.lock();
         state.cbIndex = cbHead;
         for (int i = 0; i < cbHead; i++) {
             if (callbacks[i] == cb) {
@@ -159,6 +167,16 @@ protected:
         if (state.cbIndex == cbHead) {
             callbacks[cbHead++] = cb;
         }
+        cbMutex.unlock();
+    }
+
+    void (*getCb())(Poll *, int, int) {
+        return callbacks[state.cbIndex];
+    }
+
+    void reInit(Loop *loop, uv_os_sock_t fd) {
+        state.fd = fd;
+        loop->numPolls++;
     }
 
     void start(Loop *loop, Poll *self, int events) {
@@ -271,5 +289,7 @@ struct Async : Poll {
         return data;
     }
 };
+
+}
 
 #endif // EPOLL_H

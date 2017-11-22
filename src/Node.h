@@ -99,6 +99,7 @@ public:
 
         uv_os_sock_t fd = netContext->createSocket(result->ai_family, result->ai_socktype, result->ai_protocol);
         if (fd == INVALID_SOCKET) {
+            freeaddrinfo(result);
             return nullptr;
         }
 

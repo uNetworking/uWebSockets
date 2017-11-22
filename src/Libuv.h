@@ -4,6 +4,8 @@
 #include <uv.h>
 static_assert (UV_VERSION_MINOR >= 3, "µWebSockets requires libuv >=1.3.0");
 
+namespace uS {
+
 struct Loop : uv_loop_t {
     static Loop *createLoop(bool defaultLoop = true) {
         if (defaultLoop) {
@@ -128,6 +130,16 @@ struct Poll {
         this->cb = cb;
     }
 
+    void (*getCb())(Poll *, int, int) {
+        return cb;
+    }
+
+    void reInit(Loop *loop, uv_os_sock_t fd) {
+        delete uv_poll;
+        uv_poll = new uv_poll_t;
+        uv_poll_init_socket(loop, uv_poll, fd);
+    }
+
     void start(Loop *, Poll *self, int events) {
         uv_poll->data = self;
         uv_poll_start(uv_poll, events, [](uv_poll_t *p, int status, int events) {
@@ -161,5 +173,7 @@ struct Poll {
         });
     }
 };
+
+}
 
 #endif // LIBUV_H

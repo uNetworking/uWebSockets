@@ -238,6 +238,18 @@ void testConnections() {
         case 7:
             std::cout << "Client emitted error on HTTP response without upgrade (SSL)" << std::endl;
             break;
+        case 10:
+            std::cout << "Client emitted error on poll error" << std::endl;
+            break;
+        case 11:
+            static int protocolErrorCount = 0;
+            protocolErrorCount++;
+            std::cout << "Client emitted error on invalid protocol" << std::endl;
+            if (protocolErrorCount > 1) {
+                std::cout << "FAILURE:  " << protocolErrorCount << " errors emitted for one connection!" << std::endl;
+                exit(-1);
+            }
+            break;
         default:
             std::cout << "FAILURE: " << user << " should not emit error!" << std::endl;
             exit(-1);
@@ -265,6 +277,7 @@ void testConnections() {
     });
 
     h.connect("invalid URI", (void *) 1);
+    h.connect("invalid://validButUnknown.yolo", (void *) 11);
     h.connect("ws://validButUnknown.yolo", (void *) 2);
     h.connect("ws://echo.websocket.org", (void *) 3, {}, 10);
     h.connect("ws://echo.websocket.org", (void *) 8);
@@ -272,6 +285,7 @@ void testConnections() {
     h.connect("wss://echo.websocket.org", (void *) 9);
     h.connect("ws://google.com", (void *) 6);
     h.connect("wss://google.com", (void *) 7);
+    h.connect("ws://127.0.0.1:6000", (void *) 10, {}, 60000);
 
     h.run();
     std::cout << "Falling through testConnections" << std::endl;
@@ -472,7 +486,7 @@ void testReusePort() {
     delete group2;
 }
 
-void testMultithreading() {
+void testTransfers() {
     for (int ssl = 0; ssl < 2; ssl++) {
         uWS::Group<uWS::SERVER> *tServerGroup = nullptr;
         uWS::Group<uWS::CLIENT> *clientGroup = nullptr;
@@ -486,7 +500,23 @@ void testMultithreading() {
             uWS::Hub th;
             tServerGroup = &th.getDefaultGroup<uWS::SERVER>();
 
-            th.onMessage([&tServerGroup, &client, &receivedMessages, &clientGroup, &m](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
+            bool transferred = false;
+
+            th.onTransfer([&transferred](uWS::WebSocket<uWS::SERVER> *ws) {
+                if (ws->getUserData() != (void *) 12345) {
+                    std::cout << "onTransfer called with websocket with invalid user data set!" << std::endl;
+                    exit(-1);
+                }
+
+                transferred = true;
+            });
+
+            th.onMessage([&tServerGroup, &client, &receivedMessages, &clientGroup, &m, &transferred](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
+                if (!transferred) {
+                    std::cout << "FAILURE: onTransfer was not triggered in time" << std::endl;
+                    exit(-1);
+                }
+
                 switch(++receivedMessages) {
                 case 1:
                     m.lock();
@@ -518,7 +548,7 @@ void testMultithreading() {
                 }
             });
 
-            th.getDefaultGroup<uWS::SERVER>().addAsync();
+            th.getDefaultGroup<uWS::SERVER>().listen(uWS::TRANSFERS);
             th.run();
         });
 
@@ -529,9 +559,10 @@ void testMultithreading() {
 
         clientGroup = &h.getDefaultGroup<uWS::CLIENT>();
 
-        clientGroup->addAsync();
+        clientGroup->listen(uWS::TRANSFERS);
 
         h.onConnection([&tServerGroup](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+            ws->setUserData((void *) 12345);
             ws->transfer(tServerGroup);
         });
 
@@ -939,7 +970,7 @@ void serveEventSource() {
 
     // stop and delete the libuv timer on http disconnection
     h.onHttpDisconnection([](uWS::HttpSocket<uWS::SERVER> *s) {
-        Timer *timer = (Timer *) s->getUserData();
+        uS::Timer *timer = (uS::Timer *) s->getUserData();
         if (timer) {
             timer->stop();
             timer->close();
@@ -966,9 +997,9 @@ void serveEventSource() {
                 res->write((char *) header.data(), header.length());
 
                 // create and attach a libuv timer to the socket and let it send messages to the client each second
-                Timer *timer = new Timer(h.getLoop());
+                uS::Timer *timer = new uS::Timer(h.getLoop());
                 timer->setData(res);
-                timer->start([](Timer *timer) {
+                timer->start([](uS::Timer *timer) {
                     // send a message to the browser
                     std::string message = "data: Clock sent from the server: " + std::to_string(clock()) + "\n\n";
                     ((uWS::HttpResponse *) timer->getData())->write((char *) message.data(), message.length());
@@ -1026,11 +1057,6 @@ void testReceivePerformance() {
     }
 
     uWS::Hub h;
-
-    h.onError([](void *user) {
-        std::cout << "FAILURE: " << user << " should not emit error!" << std::endl;
-        exit(-1);
-    });
 
     h.onConnection([originalBuffer, buffer, bufferLength, messages, &h](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
         for (int i = 0; i < 100; i++) {
@@ -1141,6 +1167,8 @@ int main(int argc, char *argv[])
 #endif
 
     // These will run on Travis OS X
+    testReceivePerformance();
+    testStress();
     testHTTP();
     testSmallSends();
     testSendCallback();
@@ -1150,14 +1178,12 @@ int main(int argc, char *argv[])
     testBroadcast();
     testMessageBatch();
     testAutoPing();
-
-    // These are not working yet / not tested
-#ifndef __APPLE__
-    testReceivePerformance();
-    testMultithreading();
-    testReusePort();
-    testStress();
     testConnections();
+    testTransfers();
+
+    // Linux-only feature
+#ifdef __linux__
+    testReusePort();
 #endif
 
     //testAutobahn();

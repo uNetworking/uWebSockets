@@ -5,14 +5,14 @@
 
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/misc/autobahn/index.html).
 * One million WebSockets require ~111mb of user space memory (104 bytes per WebSocket).
-* By far one of the fastest in both HTTP and WebSocket throughput (see table below).
+* Single-threaded throughput of up to 5 million HTTP req/sec or 20 million WebSocket echoes/sec.
 * Linux, OS X, Windows & [Node.js](http://github.com/uWebSockets/bindings) support.
 * Runs with raw epoll, libuv or ASIO (C++17-ready).
 * Valgrind & AddressSanitizer clean.
 * Permessage-deflate, SSL/TLS support & integrates with foreign HTTP(S) servers.
 * Multi-core friendly & optionally thread-safe via compiler flag UWS_THREADSAFE.
 
-[![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets) [![](misc/images/patreon.png)](https://www.patreon.com/uWebSockets)
+[![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets)
 
 ## Simple & modern
 The interface has been designed for simplicity and only requires you to write a few lines of code to get a working server:
@@ -30,14 +30,12 @@ int main() {
         res->end(const char *, size_t);
     });
 
-    h.listen(3000);
-    h.run();
+    if (h.listen(3000)) {
+        h.run();
+    }
 }
 ```
 Get the sources of the uws.chat server [here](https://github.com/uWebSockets/website/blob/master/main.cpp). Learn from the tests [here](tests/main.cpp).
-
-## Widely adopted
-<div align="center"><img src="misc/images/adoption.png"/></div>
 
 ## Not your average server
 µWS was designed to perform well across the board, not just in one specific dimension. With excellent memory usage paired with high throughput it outscales Socket.IO by 180x.
@@ -46,35 +44,28 @@ Get the sources of the uws.chat server [here](https://github.com/uWebSockets/web
 
 *Benchmarks are run with default settings in all libraries, except for `ws` which is run with the native performance addons. Read more about the benchmarks [here](benchmarks).*
 
+## Perfect for WebRTC
+Distributed WebRTC networks typically employ WebSockets for peer signalling. Since every single peer in the entire distributed network requires a persistent connection to the signalling server at all times, only a scalable WebSocket server will do.
+
 ## Getting started
+Sources are provided as-is, without any personal support or help. There is no issue tracker due to the extensive spam of nonsense bug reports, duplicates and otherwise narcissistic demands of personal support. If you find an issue you want fixed, chances are you need to fix it yourself and send me a PR. Please try and understand though, this library sees multiple thousands of downloads every single day. This means the chance of your "this library is completely broken" bug report being valid becomes close to 0%. Please act accordingly.
+
 #### Dependencies
 First of all you need to install the required dependencies. This is very easily done with a good open source package manager like [Homebrew](http://brew.sh) for OS X, [vcpkg](https://github.com/Microsoft/vcpkg) for Windows or your native Linux package manager.
 
-Always required:
-* OpenSSL 1.0.x
+* OpenSSL 1.x.x
 * zlib 1.x
+* libuv 1.3+ *or* Boost.Asio 1.x (both optional on Linux)
 
-Not required on Linux systems:
-* libuv 1.3+
-* Boost.Asio 1.x
+If you wish to integrate with a specific event-loop you can define `USE_ASIO` or `USE_LIBUV` as a global compilation flag and then link to respective libraries. `USE_EPOLL` is default on Linux while other systems default to `USE_LIBUV`.
 
-On Linux systems you don't necessarily need any third party event-loop library, but can run directly on the high performance epoll backend (this gives by far the best performance and memory usage). Non-Linux systems will automatically fall back to libuv.
-
-If you wish to integrate with a specific event-loop you can define `USE_ASIO` or `USE_LIBUV` as a global compilation flag and then link to respective libraries.
+* Fedora: `sudo dnf install openssl-devel zlib-devel`
+* Homebrew: `brew install openssl zlib libuv`
+* Vcpkg: `vcpkg install openssl zlib libuv` *and/or* `vcpkg install openssl:x64-windows zlib:x64-windows libuv:x64-windows`
 
 #### Compilation
-Clone and enter the repo:
-* `git clone https://github.com/uWebSockets/uWebSockets.git && cd uWebSockets`
-
 ###### OS X & Linux
-Compile with Make:
 * `make`
-* `sudo make install`
-
+* `sudo make install` (or as you wish)
 ###### Windows
-Compile with Visual C++ Community Edition 2015 or later. This workflow requires previous usage of vcpkg:
-* `vcpkg integrate install`
-* `vcpkg install libuv:x64-windows boost:x64-windows openssl:x64-windows zlib:x64-windows`
-* Open the VC++ project file
-* If you see a toolset upgrade prompt (i.e. you're using VS 2017), accept it
-* Click Build
+* Compile `VC++.vcxproj` with Visual C++ Community Edition 2015 or later.

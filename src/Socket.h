@@ -5,6 +5,23 @@
 
 namespace uS {
 
+struct TransferData {
+    // Connection state
+    uv_os_sock_t fd;
+    SSL *ssl;
+
+    // Poll state
+    void (*pollCb)(Poll *, int, int);
+    int pollEvents;
+
+    // User state
+    void *userData;
+
+    // Destination
+    NodeData *destination;
+    void (*transferCb)(Poll *);
+};
+
 // perfectly 64 bytes (4 + 60)
 struct WIN32_EXPORT Socket : Poll {
 protected:
@@ -69,30 +86,23 @@ protected:
         state.shuttingDown = shuttingDown;
     }
 
-    // todo: needs to lock newLoop's numPolls when doing fastTransfer
     void transfer(NodeData *nodeData, void (*cb)(Poll *)) {
-        //nodeData->asyncMutex->lock();
-        if (fastTransfer(this->nodeData->loop, nodeData->loop, getPoll())) {
-            //nodeData->asyncMutex->unlock();
-            this->nodeData = nodeData;
-            cb(this);
-            //return;
-        } else {
-//            // todo: libuv is not thread safe
-//            nodeData->asyncMutex->lock();
-//            //nodeData->transferQueue.push_back({new Poll, getFd(), socketData, getPollCallback(), cb});
-//            nodeData->asyncMutex->unlock();
+        // userData is invalid from now on till onTransfer
+        setUserData(new TransferData({getFd(), ssl, getCb(), getPoll(), getUserData(), nodeData, cb}));
+        stop(this->nodeData->loop);
+        close(this->nodeData->loop, [](Poll *p) {
+            Socket *s = (Socket *) p;
+            TransferData *transferData = (TransferData *) s->getUserData();
 
-//            if (nodeData->tid != nodeData->tid) {
-//                nodeData->async->send();
-//            } else {
-//                NodeData::asyncCallback(nodeData->async);
-//            }
+            transferData->destination->asyncMutex->lock();
+            bool wasEmpty = transferData->destination->transferQueue.empty();
+            transferData->destination->transferQueue.push_back(s);
+            transferData->destination->asyncMutex->unlock();
 
-//            stop(nodeData->loop);
-//            close(nodeData->loop);
-        }
-        //nodeData->asyncMutex->unlock();
+            if (wasEmpty) {
+                transferData->destination->async->send();
+            }
+        });
     }
 
     void changePoll(Socket *socket) {
@@ -403,7 +413,8 @@ protected:
 public:
     Socket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, SSL *ssl) : Poll(loop, fd), ssl(ssl), nodeData(nodeData) {
         if (ssl) {
-            SSL_set_fd(ssl, fd);
+            // OpenSSL treats SOCKETs as int
+            SSL_set_fd(ssl, (int) fd);
             SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
         }
     }

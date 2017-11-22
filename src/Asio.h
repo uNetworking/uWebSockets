@@ -7,6 +7,8 @@ typedef boost::asio::ip::tcp::socket::native_type uv_os_sock_t;
 static const int UV_READABLE = 1;
 static const int UV_WRITABLE = 2;
 
+namespace uS {
+
 struct Loop : boost::asio::io_service {
 
     static Loop *createLoop(bool defaultLoop = true) {
@@ -50,6 +52,9 @@ struct Timer {
         return data;
     }
 
+    // bug: cancel does not cancel expired timers!
+    // it has to guarantee that the timer is not called after
+    // stop is called! ffs boost!
     void stop() {
         asio_timer.cancel();
     }
@@ -117,6 +122,16 @@ struct Poll {
         this->cb = cb;
     }
 
+    void (*getCb())(Poll *, int, int) {
+        return cb;
+    }
+
+    void reInit(Loop *loop, uv_os_sock_t fd) {
+        delete socket;
+        socket = new boost::asio::posix::stream_descriptor(*loop, fd);
+        socket->non_blocking(true);
+    }
+
     void start(Loop *, Poll *self, int events) {
         if (events & UV_READABLE) {
             socket->async_read_some(boost::asio::null_buffers(), [self](boost::system::error_code ec, std::size_t) {
@@ -155,6 +170,9 @@ struct Poll {
         socket->cancel();
     }
 
+    // this is not correct, but it works for now
+    // think about transfer - should allow one to not delete
+    // but in this case it doesn't matter at all
     void close(Loop *loop, void (*cb)(Poll *)) {
         socket->release();
         socket->get_io_service().post([cb, this]() {
@@ -164,5 +182,7 @@ struct Poll {
         socket = nullptr;
     }
 };
+
+}
 
 #endif // ASIO_H
