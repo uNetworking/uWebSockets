@@ -6,8 +6,12 @@ default:
 	make `(uname -s)`
 Linux:
 	$(CXX) $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) -s -o libuWS.so
+	$(CXX) $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) -s -c
+	ar rvs libuWS.a *.o
 Darwin:
 	$(CXX) $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) $(CPP_OSX) -o libuWS.dylib
+	$(CXX) $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) -c
+	ar rvs libuWS.a *.o
 .PHONY: install
 install:
 	make install`(uname -s)`
