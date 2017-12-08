@@ -1173,8 +1173,12 @@ void parseArg(int argc, char *argv[]) {
         case 'e':
             gExcludedTest.insert(optarg);
             break;
+        case '?':
+            std::cout << "Usage: [-e test_to_exclude]" << std::endl;
+            exit(-1);
+            break;
         default:
-            std::cout << '-' << (char)ch << " is not supported." << std::endl;
+            exit(-1);
             break;
         }
     }
