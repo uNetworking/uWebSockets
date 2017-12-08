@@ -322,12 +322,17 @@ void testClosing() {
     uWS::Hub h;
     const char *closeMessage = "Closing you down!";
 
-    h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
-        ws->terminate();
-        h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
-            ws->close(1000, closeMessage, strlen(closeMessage));
-        });
-        h.connect("ws://localhost:3000", (void *) 2);
+    int serverConnectionCount = 0;
+    h.onConnection([&h, closeMessage, &serverConnectionCount](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+        switch (++serverConnectionCount) {
+        case 1:
+              ws->terminate();
+              h.connect("ws://localhost:3000", (void *)2);
+              break;
+        case 2:
+              ws->close(1000, closeMessage, strlen(closeMessage));
+              break;
+        }
     });
 
     h.onDisconnection([closeMessage](uWS::WebSocket<uWS::CLIENT> *ws, int code, char *message, size_t length) {
