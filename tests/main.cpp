@@ -1,5 +1,6 @@
 // NOTE: This is not part of the library, this file holds examples and tests
 
+#include <unistd.h>
 #include "uWS.h"
 #include <iostream>
 #include <chrono>
@@ -12,6 +13,10 @@
 #include <unordered_map>
 #include <map>
 #include <atomic>
+
+std::unordered_set<std::string> gExcludedTest;
+#define UWS_TEST(testFunc) \
+  if (gExcludedTest.find(#testFunc) == gExcludedTest.end()) testFunc();
 
 int countOccurrences(std::string word, std::string &document) {
     int count = 0;
@@ -1161,35 +1166,51 @@ void testThreadSafety() {
     }
 }
 
+void parseArg(int argc, char *argv[]) {
+    int ch;
+    while ((ch = getopt(argc, argv, "e:")) != -1) {
+        switch (ch) {
+        case 'e':
+            gExcludedTest.insert(optarg);
+            break;
+        default:
+            std::cout << '-' << (char)ch << " is not supported." << std::endl;
+            break;
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
-    //serveEventSource();
-    //serveHttp();
-    //serveBenchmark();
+    parseArg(argc, argv);
+
+    //UWS_TEST(serveEventSource);
+    //UWS_TEST(serveHttp);
+    //UWS_TEST(serveBenchmark);
 
 #ifdef UWS_THREADSAFE
-    testThreadSafety();
+    UWS_TEST(testThreadSafety);
 #endif
 
     // These will run on Travis OS X
-    testReceivePerformance();
-    testStress();
-    testHTTP();
-    testSmallSends();
-    testSendCallback();
-    testRouting();
-    testClosing();
-    testListening();
-    testBroadcast();
-    testMessageBatch();
-    testAutoPing();
-    testConnections();
-    testTransfers();
+    UWS_TEST(testReceivePerformance);
+    UWS_TEST(testStress);
+    UWS_TEST(testHTTP);
+    UWS_TEST(testSmallSends);
+    UWS_TEST(testSendCallback);
+    UWS_TEST(testRouting);
+    UWS_TEST(testClosing);
+    UWS_TEST(testListening);
+    UWS_TEST(testBroadcast);
+    UWS_TEST(testMessageBatch);
+    UWS_TEST(testAutoPing);
+    UWS_TEST(testConnections);
+    UWS_TEST(testTransfers);
 
     // Linux-only feature
 #ifdef __linux__
-    testReusePort();
+    UWS_TEST(testReusePort);
 #endif
 
-    //testAutobahn();
+    //UWS_TEST(testAutobahn);
 }
