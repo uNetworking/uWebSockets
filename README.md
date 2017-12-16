@@ -35,10 +35,10 @@ int main() {
     }
 }
 ```
-Get the sources of the uws.chat server [here](https://github.com/uWebSockets/website/blob/master/main.cpp). Learn from the tests [here](tests/main.cpp).
+Get the sources of the uws.chat server [here](https://github.com/uWebSockets/website/blob/master/main.cpp). Learn from the tests [here](tests/main.cpp). Also do check the Wiki pages.
 
 ## Not your average server
-µWS was designed to perform well across the board, not just in one specific dimension. With excellent memory usage paired with high throughput it outscales Socket.IO by 180x.
+µWS was designed to perform well across the board, not just in one specific dimension. With excellent memory usage paired with high throughput it outscales Socket.IO by 180x (Socket.IO 2 by 120x).
 
 <div align="center"><img src="misc/images/overview.png"/></div>
 
