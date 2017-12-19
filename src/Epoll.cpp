@@ -47,10 +47,11 @@ void Loop::run() {
             }
 
             int repeat = timers[0].nextDelay;
+            int timeout = timers[0].timeout;
             auto cb = timers[0].cb;
             timers.erase(timers.begin());
             if (repeat) {
-                timer->start(cb, repeat, repeat);
+                timer->start(cb, timeout, repeat);
             }
         }
 

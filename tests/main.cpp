@@ -1156,8 +1156,24 @@ void testThreadSafety() {
     }
 }
 
+void timerTest()
+{
+    uWS::Hub h;
+    auto pLoop = h.getLoop();
+    pLoop->numPolls = 1;
+    uS::Timer *timer1 = new uS::Timer(pLoop);
+    timer1->start([](uS::Timer *timer) {
+        std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+        std::time_t now_c = std::chrono::system_clock::to_time_t( now );
+        std::cout << std::ctime( &now_c ) << std::endl;
+    }, 1000, 30);
+
+    pLoop->run();
+}
+
 int main(int argc, char *argv[])
 {
+    timerTest();
     //serveEventSource();
     //serveHttp();
     //serveBenchmark();
