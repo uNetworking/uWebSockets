@@ -2,6 +2,8 @@
 #define SOCKET_UWS_H
 
 #include "Networking.h"
+#include <iostream>
+#include <string>
 
 namespace uS {
 
@@ -258,13 +260,13 @@ protected:
 
         if (events & UV_READABLE) {
             int length = recv(socket->getFd(), nodeData->recvBuffer, nodeData->recvLength, 0);
+            std::cout << "Socket ioHandler receive length = " << length << ", receive data:" << std::string(nodeData->recvBuffer, length) << std::endl;
             if (length > 0) {
                 STATE::onData((Socket *) p, nodeData->recvBuffer, length);
             } else if (length <= 0 || (length == SOCKET_ERROR && !netContext->wouldBlock())) {
                 STATE::onEnd((Socket *) p);
             }
         }
-
     }
 
     template<class STATE>

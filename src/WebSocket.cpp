@@ -174,6 +174,8 @@ template <bool isServer>
 uS::Socket *WebSocket<isServer>::onData(uS::Socket *s, char *data, size_t length) {
     WebSocket<isServer> *webSocket = static_cast<WebSocket<isServer> *>(s);
 
+    std::cout << "WebSocket onData: " << std::string(data, length) << std::endl;
+
     webSocket->hasOutstandingPong = false;
     if (!webSocket->isShuttingDown()) {
         webSocket->cork(true);

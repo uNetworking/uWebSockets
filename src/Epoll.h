@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <vector>
 #include <mutex>
+#include <iostream>
 
 typedef int uv_os_sock_t;
 static const int UV_READABLE = EPOLLIN;
@@ -148,8 +149,10 @@ protected:
             }
         }
         if (state.cbIndex == cbHead) {
+            std::cout << "cbHead = " << cbHead << ", cb = " << cb << std::endl;
             callbacks[cbHead++] = cb;
         }
+
         cbMutex.unlock();
     }
 
