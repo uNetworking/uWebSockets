@@ -14,6 +14,10 @@
 
 [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets)
 
+**Warning** Socket.IO is not a representation of, or a substitute for, µWS. Socket.IO (µWS version included) has always had, and will continue to have *severe* fundamental performance issues amassing a staggering 100x overhead to µWS. There is no such thing as "certified by µWS" or similar effortless silver bullet solutions. If you are not directly using µWS then you are NOT in position to receive any of its benefits. No such wrapper project, Primus, Engine.IO, Socket.IO, SocketCluster, Feathersjs, properly represent or portray the original µWS. Wrapper overhead of 5-100x is not uncommon but in fact the norm. Most of the above mentioned wrappers see almost no improvement from using µWS due to longstanding negligence. It becomes a marketing scam more than a technical improvement to state "now using µWS". It doesn't mean anything if the project in question has severe, deep-rooted issues.
+
+* [Don't be this guy](https://twitter.com/mazhlekov/status/933853165094690817)
+
 ## Simple & modern
 The interface has been designed for simplicity and only requires you to write a few lines of code to get a working server:
 ```c++
