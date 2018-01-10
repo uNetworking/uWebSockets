@@ -1,6 +1,6 @@
 <div align="center"><img src="misc/images/logo.png"/></div>
 
-`µWS` is one of the most lightweight, efficient & scalable WebSocket & HTTP server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
+`µWS` ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is one of the most lightweight, efficient & scalable WebSocket & HTTP server implementations available. It features an easy-to-use, fully async object-oriented interface and scales to millions of connections using only a fraction of memory compared to the competition. While performance and scalability are two of our top priorities, we consider security, stability and standards compliance paramount. License is zlib/libpng (very permissive & suits commercial applications).
 
 
 * Autobahn tests [all pass](http://htmlpreview.github.io/?https://github.com/uWebSockets/uWebSockets/blob/master/misc/autobahn/index.html).
@@ -13,6 +13,10 @@
 * Multi-core friendly & optionally thread-safe via compiler flag UWS_THREADSAFE.
 
 [![](https://api.travis-ci.org/uWebSockets/uWebSockets.svg?branch=master)](https://travis-ci.org/uWebSockets/uWebSockets)
+
+**WARNING** *µWS is not affiliated with, represented by, substituted with, or in any shape or form encouraged to be used via Socket.IO, SocketCluster, Primus, Engine.IO, Feathers or any similar wrapper module. No such wrapper project properly represent or portray µWS and should not be confused with, or misrepresented as being µWS. Severe, fundamental and deep-rooted performance catastrophes haunt every mentioned wrapper project and utterly ruin any chance of a proper speed-up. Everything from 5x to a staggering 100x overhead to µWS has been measured for mentioned wrapper projects. If you are not directly using µWS then you should absolutely not assume any of its benefits.*
+
+* [Don't be this guy](https://twitter.com/mazhlekov/status/933853165094690817)
 
 ## Simple & modern
 The interface has been designed for simplicity and only requires you to write a few lines of code to get a working server:
@@ -35,10 +39,10 @@ int main() {
     }
 }
 ```
-Get the sources of the uws.chat server [here](https://github.com/uWebSockets/website/blob/master/main.cpp). Learn from the tests [here](tests/main.cpp).
+Get the sources of the uws.chat server [here](https://github.com/uWebSockets/website/blob/master/main.cpp). Learn from the tests [here](tests/main.cpp). Also do check the Wiki pages.
 
 ## Not your average server
-µWS was designed to perform well across the board, not just in one specific dimension. With excellent memory usage paired with high throughput it outscales Socket.IO by 180x.
+µWS was designed to perform well across the board, not just in one specific dimension. With excellent memory usage paired with high throughput it outscales Socket.IO by 180x (Socket.IO 2 by 120x).
 
 <div align="center"><img src="misc/images/overview.png"/></div>
 
