@@ -38,6 +38,7 @@ installOpenBSD:
 clean:
 	rm -f libuWS.so
 	rm -f libuWS.dylib
+	rm -f testsBin
 .PHONY: tests
 tests:
 	$(CXX) $(CPP_OPENSSL_OSX) $(CPP_OPENBSD) -std=c++11 -O3 tests/main.cpp -Isrc -o testsBin -lpthread -L. -luWS -lssl -lcrypto -lz -luv
