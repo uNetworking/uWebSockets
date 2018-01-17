@@ -1,11 +1,15 @@
 CPP_SHARED := -std=c++11 -O3 -I src -shared -fPIC src/Extensions.cpp src/Group.cpp src/Networking.cpp src/Hub.cpp src/Node.cpp src/WebSocket.cpp src/HTTPSocket.cpp src/Socket.cpp src/Epoll.cpp
 CPP_OPENSSL_OSX := -L/usr/local/opt/openssl/lib -I/usr/local/opt/openssl/include
 CPP_OSX := -stdlib=libc++ -mmacosx-version-min=10.7 -undefined dynamic_lookup $(CPP_OPENSSL_OSX)
+CPP_OPENSSL_OPENBSD := -L/usr/local/lib/eopenssl -I/usr/local/include/eopenssl
+CPP_OPENBSD := -L/usr/local/lib -I /usr/local/include $(CPP_OPENSSL_OPENBSD)
 
 default:
 	make `(uname -s)`
 Linux:
 	$(CXX) $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) -s -o libuWS.so
+OpenBSD:
+	$(CXX) $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) $(CPP_OPENBSD) -o libuWS.so
 Darwin:
 	$(CXX) $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) $(CPP_OSX) -o libuWS.dylib
 .PHONY: install
@@ -24,10 +28,16 @@ installDarwin:
 	cp libuWS.dylib $(PREFIX)/lib/
 	mkdir -p $(PREFIX)/include/uWS
 	cp src/*.h $(PREFIX)/include/uWS/
+installOpenBSD:
+	$(eval PREFIX ?= /usr/local)
+	mkdir -p $(PREFIX)/lib
+	cp libuWS.so $(PREFIX)/lib/
+	mkdir -p $(PREFIX)/include/uWS
+	cp src/*.h $(PREFIX)/include/uWS/
 .PHONY: clean
 clean:
 	rm -f libuWS.so
 	rm -f libuWS.dylib
 .PHONY: tests
 tests:
-	$(CXX) $(CPP_OPENSSL_OSX) -std=c++11 -O3 tests/main.cpp -Isrc -o testsBin -lpthread -L. -luWS -lssl -lcrypto -lz -luv
+	$(CXX) $(CPP_OPENSSL_OSX) $(CPP_OPENBSD) -std=c++11 -O3 tests/main.cpp -Isrc -o testsBin -lpthread -L. -luWS -lssl -lcrypto -lz -luv
