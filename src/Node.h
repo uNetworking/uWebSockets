@@ -172,7 +172,7 @@ public:
         int enabled = true;
         setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled));
 
-        if (bind(listenFd, listenAddr->ai_addr, listenAddr->ai_addrlen) || ::listen(listenFd, 512)) {
+        if (::bind(listenFd, listenAddr->ai_addr, listenAddr->ai_addrlen) || ::listen(listenFd, 512)) {
             netContext->closeSocket(listenFd);
             freeaddrinfo(result);
             return true;
