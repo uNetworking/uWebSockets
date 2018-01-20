@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <map>
 #include <atomic>
+#include <string>
 
 int countOccurrences(std::string word, std::string &document) {
     int count = 0;
@@ -93,6 +94,13 @@ void serveBenchmark() {
 
     h.onMessage([&h](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
         ws->send(message, length, opCode);
+//        ws->send("Hello Ping", uWS::OpCode::PING);
+//        ws->send("Hello Pong", uWS::OpCode::PONG);
+        std::cout << "receive data:" << std::string(message, length) << std::endl;
+    });
+
+    h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> *ws, int code, char *message, size_t length){
+        std::cout << "onDisconnection:" << std::string(message, length) << std::endl;
     });
 
     //h.getDefaultGroup<uWS::SERVER>().startAutoPing(1000);
@@ -1156,34 +1164,50 @@ void testThreadSafety() {
     }
 }
 
+void timerTest()
+{
+    uWS::Hub h;
+    auto pLoop = h.getLoop();
+    pLoop->numPolls = 1;
+    uS::Timer *timer1 = new uS::Timer(pLoop);
+    timer1->start([](uS::Timer *timer) {
+        std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+        std::time_t now_c = std::chrono::system_clock::to_time_t( now );
+        std::cout << std::ctime( &now_c ) << std::endl;
+    }, 1000, 8);
+
+    pLoop->run();
+}
+
 int main(int argc, char *argv[])
 {
+//    timerTest();
     //serveEventSource();
     //serveHttp();
-    //serveBenchmark();
+    serveBenchmark();
 
 #ifdef UWS_THREADSAFE
-    testThreadSafety();
+//    testThreadSafety();
 #endif
 
     // These will run on Travis OS X
-    testReceivePerformance();
-    testStress();
-    testHTTP();
-    testSmallSends();
-    testSendCallback();
-    testRouting();
-    testClosing();
-    testListening();
-    testBroadcast();
-    testMessageBatch();
-    testAutoPing();
-    testConnections();
-    testTransfers();
+//    testReceivePerformance();
+//    testStress();
+//    testHTTP();
+//    testSmallSends();
+//    testSendCallback();
+//    testRouting();
+//    testClosing();
+//    testListening();
+//    testBroadcast();
+//    testMessageBatch();
+//    testAutoPing();
+//    testConnections();
+//    testTransfers();
 
     // Linux-only feature
 #ifdef __linux__
-    testReusePort();
+//    testReusePort();
 #endif
 
     //testAutobahn();

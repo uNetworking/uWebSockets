@@ -1,5 +1,6 @@
 #include "Group.h"
 #include "Hub.h"
+#include <iostream>
 
 namespace uWS {
 
@@ -119,17 +120,17 @@ void Group<isServer>::removeWebSocket(WebSocket<isServer> *webSocket) {
 
 template <bool isServer>
 Group<isServer>::Group(int extensionOptions, unsigned int maxPayload, Hub *hub, uS::NodeData *nodeData) : uS::NodeData(*nodeData), maxPayload(maxPayload), hub(hub), extensionOptions(extensionOptions) {
-    connectionHandler = [](WebSocket<isServer> *, HttpRequest) {};
-    transferHandler = [](WebSocket<isServer> *) {};
-    messageHandler = [](WebSocket<isServer> *, char *, size_t, OpCode) {};
-    disconnectionHandler = [](WebSocket<isServer> *, int, char *, size_t) {};
-    pingHandler = pongHandler = [](WebSocket<isServer> *, char *, size_t) {};
-    errorHandler = [](errorType) {};
-    httpRequestHandler = [](HttpResponse *, HttpRequest, char *, size_t, size_t) {};
-    httpConnectionHandler = [](HttpSocket<isServer> *) {};
-    httpDisconnectionHandler = [](HttpSocket<isServer> *) {};
-    httpCancelledRequestHandler = [](HttpResponse *) {};
-    httpDataHandler = [](HttpResponse *, char *, size_t, size_t) {};
+    connectionHandler = [](WebSocket<isServer> *, HttpRequest) { std::cout << "connectionHandler default" << std::endl; };
+    transferHandler = [](WebSocket<isServer> *) { std::cout << "transferHandler default" << std::endl; };
+    messageHandler = [](WebSocket<isServer> *, char *, size_t, OpCode) { std::cout << "messageHandler default" << std::endl; };
+    disconnectionHandler = [](WebSocket<isServer> *, int, char *, size_t) { std::cout << "disconnectionHandler default" << std::endl; };
+    pingHandler = pongHandler = [](WebSocket<isServer> *, char *, size_t) { std::cout << "pingPongHandler default" << std::endl; };
+    errorHandler = [](errorType) { std::cout << "errorHandler default" << std::endl; };
+    httpRequestHandler = [](HttpResponse *, HttpRequest, char *, size_t, size_t) { std::cout << "httpRequestHandler default" << std::endl; };
+    httpConnectionHandler = [](HttpSocket<isServer> *) { std::cout << "httpConnectionHandler default" << std::endl; };
+    httpDisconnectionHandler = [](HttpSocket<isServer> *) { std::cout << "httpDisconnectionHandler default" << std::endl; };
+    httpCancelledRequestHandler = [](HttpResponse *) { std::cout << "httpCancelledRequestHandler default" << std::endl; };
+    httpDataHandler = [](HttpResponse *, char *, size_t, size_t) { std::cout << "httpDataHandler default" << std::endl; };
 
     this->extensionOptions |= CLIENT_NO_CONTEXT_TAKEOVER | SERVER_NO_CONTEXT_TAKEOVER;
 }

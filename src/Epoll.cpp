@@ -46,11 +46,12 @@ void Loop::run() {
                 continue;
             }
 
-            int repeat = timers[0].nextDelay;
+            int repeat = timers[0].nextDelay - 1;
+            int timeout = timers[0].timeout;
             auto cb = timers[0].cb;
             timers.erase(timers.begin());
             if (repeat) {
-                timer->start(cb, repeat, repeat);
+                timer->start(cb, timeout, repeat);
             }
         }
 

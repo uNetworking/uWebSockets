@@ -332,6 +332,7 @@ public:
             length += wState->state.spillLength;
             memcpy(src, wState->state.spill, wState->state.spillLength);
         }
+
         if (wState->state.wantsHead) {
             parseNext:
             while (length >= SHORT_MESSAGE_HEADER) {
