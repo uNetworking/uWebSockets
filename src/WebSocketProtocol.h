@@ -127,7 +127,7 @@ private:
 
         if (payLength + MESSAGE_HEADER <= length) {
             if (isServer) {
-                unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, payLength);
+                unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, (unsigned int) payLength);
                 if (Impl::handleFragment(src + MESSAGE_HEADER - 4, payLength, 0, wState->state.opCode[wState->state.opStack], isFin(src), wState)) {
                     return true;
                 }
@@ -148,7 +148,7 @@ private:
         } else {
             wState->state.spillLength = 0;
             wState->state.wantsHead = false;
-            wState->remainingBytes = payLength - length + MESSAGE_HEADER;
+            wState->remainingBytes = (unsigned int) (payLength - length + MESSAGE_HEADER);
             bool fin = isFin(src);
             if (isServer) {
                 memcpy(wState->mask, src + MESSAGE_HEADER - 4, 4);

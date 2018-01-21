@@ -154,7 +154,7 @@ protected:
             socket->cork(true);
             while (true) {
                 Queue::Message *messagePtr = socket->messageQueue.front();
-                int sent = SSL_write(socket->ssl, messagePtr->data, messagePtr->length);
+                int sent = SSL_write(socket->ssl, messagePtr->data, (int) messagePtr->length);
                 if (sent == (ssize_t) messagePtr->length) {
                     if (messagePtr->callback) {
                         messagePtr->callback(p, messagePtr->callbackData, false, messagePtr->reserved);
@@ -257,7 +257,7 @@ protected:
         }
 
         if (events & UV_READABLE) {
-            int length = recv(socket->getFd(), nodeData->recvBuffer, nodeData->recvLength, 0);
+            int length = (int) recv(socket->getFd(), nodeData->recvBuffer, nodeData->recvLength, 0);
             if (length > 0) {
                 STATE::onData((Socket *) p, nodeData->recvBuffer, length);
             } else if (length <= 0 || (length == SOCKET_ERROR && !netContext->wouldBlock())) {
@@ -306,12 +306,12 @@ protected:
         if (messageQueue.empty()) {
 
             if (ssl) {
-                sent = SSL_write(ssl, message->data, message->length);
+                sent = SSL_write(ssl, message->data, (int) message->length);
                 if (sent == (ssize_t) message->length) {
                     wasTransferred = false;
                     return true;
                 } else if (sent < 0) {
-                    switch (SSL_get_error(ssl, sent)) {
+                    switch (SSL_get_error(ssl, (int) sent)) {
                     case SSL_ERROR_WANT_READ:
                         break;
                     case SSL_ERROR_WANT_WRITE:
@@ -355,7 +355,7 @@ protected:
 
         if (hasEmptyQueue()) {
             if (estimatedLength <= uS::NodeData::preAllocMaxSize) {
-                int memoryLength = estimatedLength;
+                int memoryLength = (int) estimatedLength;
                 int memoryIndex = nodeData->getMemoryBlockIndex(memoryLength);
 
                 Queue::Message *messagePtr = (Queue::Message *) nodeData->getSmallMemoryBlock(memoryIndex);
