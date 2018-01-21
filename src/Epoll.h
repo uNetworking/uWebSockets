@@ -243,7 +243,7 @@ struct Async : Poll {
         Poll::stop(loop);
         ::close(state.fd);
         Poll::close(loop, [](Poll *p) {
-            delete (Async*) p;
+            delete (Async *) p;
         });
     }
 
