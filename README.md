@@ -64,6 +64,7 @@ First of all you need to install the required dependencies. This is very easily 
 If you wish to integrate with a specific event-loop you can define `USE_ASIO` or `USE_LIBUV` as a global compilation flag and then link to respective libraries. `USE_EPOLL` is default on Linux while other systems default to `USE_LIBUV`.
 
 * Fedora: `sudo dnf install openssl-devel zlib-devel`
+* Debian|Ubuntu: `sudo apt-get install libssl-dev libuv1-dev`
 * Homebrew: `brew install openssl zlib libuv`
 * Vcpkg: `vcpkg install openssl zlib libuv` *and/or* `vcpkg install openssl:x64-windows zlib:x64-windows libuv:x64-windows`
 
