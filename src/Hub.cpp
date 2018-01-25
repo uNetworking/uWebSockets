@@ -1,6 +1,7 @@
 #include "Hub.h"
 #include "HTTPSocket.h"
 #include <openssl/sha.h>
+#include <string>
 
 namespace uWS {
 
@@ -173,7 +174,7 @@ void Hub::connect(std::string uri, void *user, std::map<std::string, std::string
                                      "Upgrade: websocket\r\n"
                                      "Connection: Upgrade\r\n"
                                      "Sec-WebSocket-Key: " + randomKey + "\r\n"
-                                     "Host: " + hostname + "\r\n" +
+                                     "Host: " + hostname + ":" + std::to_string(port) + "\r\n"
                                      "Sec-WebSocket-Version: 13\r\n";
 
             for (std::pair<std::string, std::string> header : extraHeaders) {
