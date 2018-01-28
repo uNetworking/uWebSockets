@@ -15,7 +15,7 @@ enum Options : unsigned int {
 
 template <bool isServer>
 class ExtensionsNegotiator {
-private:
+protected:
     int options;
 public:
     ExtensionsNegotiator(int wantedOptions);
