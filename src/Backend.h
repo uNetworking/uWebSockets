@@ -8,7 +8,9 @@
 #elif !defined(__linux__) || defined(USE_LIBUV)
 #include "Libuv.h"
 #else
+#ifndef USE_EPOLL
 #define USE_EPOLL
+#endif
 #include "Epoll.h"
 #endif
 
