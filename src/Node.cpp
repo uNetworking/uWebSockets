@@ -64,6 +64,10 @@ void Node::run() {
     loop->run();
 }
 
+void Node::poll() {
+    loop->poll();
+}
+
 Node::~Node() {
     delete [] nodeData->recvBufferMemoryBlock;
     SSL_CTX_free(nodeData->clientContext);

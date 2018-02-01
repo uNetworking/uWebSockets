@@ -79,7 +79,12 @@ protected:
 public:
     Node(int recvLength = 1024, int prePadding = 0, int postPadding = 0, bool useDefaultLoop = false);
     ~Node();
+
+    /* Blocking */
     void run();
+
+    /* Non-blocking */
+    void poll();
 
     Loop *getLoop() {
         return loop;
