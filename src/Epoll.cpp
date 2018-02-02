@@ -59,14 +59,14 @@ void Loop::doEpoll(int epollTimeout) {
 
 void Loop::run() {
     while (numPolls) {
-    	doEpoll(delay);
+        doEpoll(delay);
     }
 }
 
 void Loop::poll() {
-	if (numPolls) {
-		doEpoll(0);
-	}
+    if (numPolls) {
+        doEpoll(0);
+    }
 }
 
 }
