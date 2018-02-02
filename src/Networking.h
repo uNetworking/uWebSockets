@@ -157,7 +157,7 @@ struct Context {
 namespace TLS {
 
 class WIN32_EXPORT Context {
-private:
+protected:
     SSL_CTX *context = nullptr;
     std::shared_ptr<std::string> password;
 

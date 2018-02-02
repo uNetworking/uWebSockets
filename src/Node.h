@@ -13,7 +13,7 @@ enum ListenOptions : int {
 };
 
 class WIN32_EXPORT Node {
-private:
+protected:
     template <void C(Socket *p, bool error)>
     static void connect_cb(Poll *p, int status, int events) {
         C((Socket *) p, status < 0);
@@ -71,7 +71,6 @@ private:
         } while ((clientFd = netContext->acceptSocket(serverFd)) != INVALID_SOCKET);
     }
 
-protected:
     Loop *loop;
     NodeData *nodeData;
     std::recursive_mutex asyncMutex;

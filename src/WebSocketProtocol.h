@@ -62,7 +62,7 @@ public:
     static const unsigned int MEDIUM_MESSAGE_HEADER = isServer ? 8 : 4;
     static const unsigned int LONG_MESSAGE_HEADER = isServer ? 14 : 10;
 
-private:
+protected:
     static inline bool isFin(char *frame) {return *((unsigned char *) frame) & 128;}
     static inline unsigned char getOpCode(char *frame) {return *((unsigned char *) frame) & 15;}
     static inline unsigned char payloadLength(char *frame) {return ((unsigned char *) frame)[1] & 127;}
