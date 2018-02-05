@@ -58,6 +58,8 @@ void Loop::doEpoll(int epollTimeout) {
 }
 
 void Loop::run() {
+    // updated for consistency with libuv impl. behaviour
+    timepoint = std::chrono::system_clock::now();
     while (numPolls) {
         doEpoll(delay);
     }
@@ -66,6 +68,9 @@ void Loop::run() {
 void Loop::poll() {
     if (numPolls) {
         doEpoll(0);
+    } else {
+        // updated for consistency with libuv impl. behaviour
+        timepoint = std::chrono::system_clock::now();
     }
 }
 
