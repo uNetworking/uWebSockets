@@ -24,6 +24,10 @@ struct Loop : uv_loop_t {
     void run() {
         uv_run(this, UV_RUN_DEFAULT);
     }
+
+    void poll() {
+        uv_run(this, UV_RUN_NOWAIT);
+    }
 };
 
 struct Async {

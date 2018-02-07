@@ -34,7 +34,7 @@ struct Loop {
     int epfd;
     int numPolls = 0;
     bool cancelledLastTimer;
-    int delay = -1;
+    int delay = -1;  // delay to next timer expiry, or -1 if no timers pending
     epoll_event readyEvents[1024];
     std::chrono::system_clock::time_point timepoint;
     std::vector<Timepoint> timers;
@@ -58,7 +58,11 @@ struct Loop {
         delete this;
     }
 
+    void doEpoll(int epollTimeout);
+
     void run();
+
+    void poll();
 
     int getEpollFd() {
         return epfd;
