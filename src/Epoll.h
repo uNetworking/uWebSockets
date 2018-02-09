@@ -77,7 +77,8 @@ struct Timer {
         this->loop = loop;
     }
 
-    void start(void (*cb)(Timer *), int timeout, int repeat) {
+	template<typename Func>
+    void start(Func cb, int timeout, int repeat) {
         loop->timepoint = std::chrono::system_clock::now();
         std::chrono::system_clock::time_point timepoint = loop->timepoint + std::chrono::milliseconds(timeout);
 
