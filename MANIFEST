@@ -1,0 +1,11 @@
+General direction
+
+If it's not old, then don't bother with it. This goes for everything used in this project. Old should always be preferred unless anything new can bring SIGNIFICANT improvement. If two solutions are similar then always prefer the older. Everything close to the 70s, 80s is good by default. NEVER use software with tons of GitHub stars.
+
+Build system
+
+What build system? Makefiles will do, they are old and have no dependencies and work everywhere and can achieve the same. Never will this project ever have any other build system files. This includes node-gyp - never EVER will this project use anything like node-gyp.
+
+Dependencies
+
+Don't. As with build systems that require Java, Node.js and Python all installed just to pass "g++ main.cpp" to the command interpreter. Every dependency should be weighted for its additional functionality. OpenSSL and zlib both bring old, portable and much needed functionality. Compatibility with Node.js internals is important for now.
