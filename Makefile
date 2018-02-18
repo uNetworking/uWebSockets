@@ -1,33 +1,43 @@
-CPP_SHARED := -std=c++11 -O3 -I src -shared -fPIC src/Extensions.cpp src/Group.cpp src/Networking.cpp src/Hub.cpp src/Node.cpp src/WebSocket.cpp src/HTTPSocket.cpp src/Socket.cpp src/Epoll.cpp
-CPP_OPENSSL_OSX := -L/usr/local/opt/openssl/lib -I/usr/local/opt/openssl/include
-CPP_OSX := -stdlib=libc++ -mmacosx-version-min=10.7 -undefined dynamic_lookup $(CPP_OPENSSL_OSX)
+PLATFORM := $(shell uname -s)
+NAME      = libuWS
+CXXLD    ?= $(CXX)
+CPPFLAGS += -I src
+CXXFLAGS ?= -O3 -ggdb
+CXXFLAGS += -std=c++11 -fPIC
+LDFLAGS  ?= -ggdb
+LDFLAGS  += -fPIC $(shell [ "$(PLATFORM)" = "Darwin" ] && echo '-Wl,-undefined,error' || echo '-Wl,--no-undefined')
+LDLIBS   += -lssl -lz -lcrypto -luv
+SNAME    ?= $(NAME).a
+DNAME    ?= $(if $(filter $(PLATFORM), Darwin), $(NAME).dylib, $(NAME).so)
+PREFIX   ?= $(if $(filter $(PLATFORM), Darwin), /usr/local, /usr)
+ifeq ($(PLATFORM), Darwin)
+	CPPFLAGS += -I/usr/local/opt/openssl/include
+	CXXFLAGS += -stdlib=libc++ -mmacosx-version-min=10.7
+	LDFLAGS  += -L/usr/local/opt/openssl/lib
+endif
 
-default:
-	make `(uname -s)`
-Linux:
-	$(CXX) $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) -s -o libuWS.so
-Darwin:
-	$(CXX) $(CPPFLAGS) $(CFLAGS) $(CPP_SHARED) $(CPP_OSX) -o libuWS.dylib
-.PHONY: install
-install:
-	make install`(uname -s)`
-.PHONY: installLinux
-installLinux:
-	$(eval PREFIX ?= /usr)
-	if [ -d "/usr/lib64" ]; then mkdir -p $(PREFIX)/lib64 && cp libuWS.so $(PREFIX)/lib64/; else mkdir -p $(PREFIX)/lib && cp libuWS.so $(PREFIX)/lib/; fi
-	mkdir -p $(PREFIX)/include/uWS
-	cp src/*.h $(PREFIX)/include/uWS/
-.PHONY: installDarwin
-installDarwin:
-	$(eval PREFIX ?= /usr/local)
-	mkdir -p $(PREFIX)/lib
-	cp libuWS.dylib $(PREFIX)/lib/
-	mkdir -p $(PREFIX)/include/uWS
-	cp src/*.h $(PREFIX)/include/uWS/
-.PHONY: clean
+SRCS = src/Extensions.cpp src/Group.cpp src/Networking.cpp src/Hub.cpp src/Node.cpp src/WebSocket.cpp src/HTTPSocket.cpp src/Socket.cpp src/Epoll.cpp
+OBJS := $(SRCS:.cpp=.o)
+
+.PHONY: default install clean tests check
+default: $(DNAME) $(SNAME)
+
+%.o: $(SRCS)
+
+$(DNAME): $(OBJS)
+	$(CXXLD) -o $@ $^ $(LDLIBS) $(LDFLAGS) -shared
+$(SNAME): $(OBJS)
+	$(AR) $(ARFLAGS) $@ $^
+testsBin: tests/main.cpp $(SNAME)
+	$(eval CPPFLAGS += -pthread)
+	$(eval LDFLAGS  += -L.)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ $^ $(LDLIBS) $(LDFLAGS)
+tests: testsBin
+check: tests
+	./testsBin
+
+install: $(DNAME) $(SNAME)
+	if [ "${PLATFORM}" = "Linux" -a -d "${PREFIX}/lib64" ]; then install -v -D $(DNAME) $(SNAME) $(PREFIX)/lib64/; else mkdir -v -p $(PREFIX)/lib && cp -v $(DNAME) $(SNAME) $(PREFIX)/lib/; fi
+	mkdir -v -p $(PREFIX)/include/uWS && cp -v src/*.h $(PREFIX)/include/uWS/
 clean:
-	rm -f libuWS.so
-	rm -f libuWS.dylib
-.PHONY: tests
-tests:
-	$(CXX) $(CPP_OPENSSL_OSX) -std=c++11 -O3 tests/main.cpp -Isrc -o testsBin -lpthread -L. -luWS -lssl -lcrypto -lz -luv
+	$(RM) $(DNAME) $(SNAME) $(OBJS) testsBin
