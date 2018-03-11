@@ -234,6 +234,13 @@ void HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
             memcpy(upgradeBuffer + upgradeResponseLength + 26 + extensionsResponse.length(), "\r\n", 2);
             upgradeResponseLength += 26 + extensionsResponse.length() + 2;
         }
+        // select first protocol
+        for (int i = 0; i < subprotocolLength; i++) {
+            if (subprotocol[i] == ',') {
+                subprotocolLength = i;
+                break;
+            }
+        }
         if (subprotocolLength && subprotocolLength < 200) {
             memcpy(upgradeBuffer + upgradeResponseLength, "Sec-WebSocket-Protocol: ", 24);
             memcpy(upgradeBuffer + upgradeResponseLength + 24, subprotocol, subprotocolLength);
