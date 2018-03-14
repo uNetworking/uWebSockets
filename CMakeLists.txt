@@ -10,6 +10,29 @@ endif()
 set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(EXTRA_LIBS "")
+
+#TODO: Not tested
+## Enable libUV
+option(ENABLE_LIBUV "Enable libUV backend"  OFF)
+option(ENABLE_ASIO  "Enable Boost.Asio backend" OFF)
+
+if(ENABLE_LIBUV)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_LIBUV")
+    find_package(LibUV REQUIRED)
+    include_directories(${LibUV_INCLUDE_DIRS})    
+    set(EXTRA_LIBS ${EXTRA_LIBS} ${LIBUV_LIBRARIES})
+elseif(ENABLE_ASIO)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_ASIO")
+    set(Boost_USE_STATIC_LIBS OFF)
+    set(Boost_USE_MULTITHREAD ON)
+    find_package(Boost REQUIRED COMPONENTS system filesystem thread asio)
+    if(Boost_FOUND)
+        include_directories(${Boost_INCLUDE_DIRS})
+        set(EXTRA_LIBS ${EXTRA_LIBS} ${Boost_ASIO_LIBRARY} ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY})
+    endif(Boost_FOUND)
+endif(ENABLE_LIBUV)
+
 
 if(APPLE)
 add_definitions(-stdlib=libc++ -mmacosx-version-min=10.7 -undefined dynamic_lookup)    
@@ -41,7 +64,6 @@ else()
     message(FATAL "ZLib no found")
 endif()
 
-
 ## Source files
 set(TARGET uWS)
 set(HEADER_DIR ${PROJECT_SOURCE_DIR}/src)
@@ -64,4 +86,4 @@ file(GLOB TEST_TARGET_SRSC ${PROJECT_SOURCE_DIR}/tests/*.cpp)
 message(STATUS "Test Sources: ${HEADER_DIR}")
 add_executable(${TEST_TARGET} ${TEST_TARGET_SRSC})
 target_include_directories(${TEST_TARGET} PUBLIC ${HEADER_DIR})
-target_link_libraries(${TEST_TARGET} ${TARGET} ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
+target_link_libraries(${TEST_TARGET} ${TARGET} ${EXTRA_LIBS} ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
