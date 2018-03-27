@@ -101,14 +101,23 @@ public:
             return nullptr;
         }
 
-        uv_os_sock_t fd = netContext->createSocket(result->ai_family, result->ai_socktype, result->ai_protocol);
+        uv_os_sock_t fd = INVALID_SOCKET;
+        for (struct addrinfo *address = result; address && fd == INVALID_SOCKET; address = address->ai_next)
+        {
+            fd = netContext->createSocket(address->ai_family, address->ai_socktype, address->ai_protocol);
+            if (fd == INVALID_SOCKET) {
+                continue;
+            }
+
+            if (::connect(fd, address->ai_addr, address->ai_addrlen) != 0) {
+                netContext->closeSocket(fd);
+                fd = INVALID_SOCKET;
+            }
+        }
+        freeaddrinfo(result);
         if (fd == INVALID_SOCKET) {
-            freeaddrinfo(result);
             return nullptr;
         }
-
-        ::connect(fd, result->ai_addr, result->ai_addrlen);
-        freeaddrinfo(result);
 
         SSL *ssl = nullptr;
         if (secure) {
