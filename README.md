@@ -32,4 +32,4 @@ int main() {
 <div align="center"><img src="misc/images/overview.png"/></div>
 
 #### Freely available.
-Non-profit open source ([Zlib](LICENSE)) since 2016.
+An open source ([Zlib](LICENSE)) hobby project of [mine](https://github.com/alexhultman) since 2016. Sponsored by [BitMEX.com](https://bitmex.com) since 2018.
