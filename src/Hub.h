@@ -66,6 +66,7 @@ public:
 
     ~Hub() {
         inflateEnd(&inflationStream);
+        deflateEnd(&deflationStream);
         delete [] zlibBuffer;
     }
 
