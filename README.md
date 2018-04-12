@@ -31,5 +31,8 @@ int main() {
 #### Excel across the board.
 <div align="center"><img src="misc/images/overview.png"/></div>
 
+#### Fast does not imply broken.
+Gracefully passes the [entire Autobahn fuzzing test suite](http://htmlpreview.github.io/?https://github.com/uNetworking/uWebSockets/blob/master/misc/autobahn/index.html) with no failures or Valgrind/ASAN errors. With or without SSL/permessage-deflate.
+
 #### Freely available.
 An open source ([Zlib](LICENSE)) hobby project of [mine](https://github.com/alexhultman) since 2016. Sponsored by [BitMEX.com](https://bitmex.com) since 2018.
