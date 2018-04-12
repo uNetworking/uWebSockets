@@ -18,10 +18,11 @@ protected:
         Group<CLIENT> *group;
     };
 
-    z_stream inflationStream = {};
-    char *inflationBuffer;
+    z_stream inflationStream = {}, deflationStream = {};
+    char *deflate(char *data, size_t &length);
     char *inflate(char *data, size_t &length, size_t maxPayload);
-    std::string dynamicInflationBuffer;
+    char *zlibBuffer;
+    std::string dynamicZlibBuffer;
     static const int LARGE_BUFFER_SIZE = 300 * 1024;
 
     static void onServerAccept(uS::Socket *s);
@@ -46,7 +47,9 @@ public:
     Hub(int extensionOptions = 0, bool useDefaultLoop = false, unsigned int maxPayload = 16777216) : uS::Node(LARGE_BUFFER_SIZE, WebSocketProtocol<SERVER, WebSocket<SERVER>>::CONSUME_PRE_PADDING, WebSocketProtocol<SERVER, WebSocket<SERVER>>::CONSUME_POST_PADDING, useDefaultLoop),
                                              Group<SERVER>(extensionOptions, maxPayload, this, nodeData), Group<CLIENT>(0, maxPayload, this, nodeData) {
         inflateInit2(&inflationStream, -15);
-        inflationBuffer = new char[LARGE_BUFFER_SIZE];
+        zlibBuffer = new char[LARGE_BUFFER_SIZE];
+
+        deflateInit2(&deflationStream, 1, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY);
 
 #ifdef UWS_THREADSAFE
         getLoop()->preCbData = nodeData;
@@ -63,7 +66,7 @@ public:
 
     ~Hub() {
         inflateEnd(&inflationStream);
-        delete [] inflationBuffer;
+        delete [] zlibBuffer;
     }
 
     using uS::Node::run;

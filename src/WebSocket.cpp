@@ -14,7 +14,7 @@ namespace uWS {
  *
  */
 template <bool isServer>
-void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved), void *callbackData) {
+void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved), void *callbackData, bool compress) {
 
 #ifdef UWS_THREADSAFE
     std::lock_guard<std::recursive_mutex> lockGuard(*nodeData->asyncMutex);
@@ -30,7 +30,9 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
 
     struct TransformData {
         OpCode opCode;
-    } transformData = {opCode};
+        bool compress;
+        Socket *s;
+    } transformData = {opCode, compress && compressionStatus == WebSocket<isServer>::CompressionStatus::ENABLED, this};
 
     struct WebSocketTransformer {
         static size_t estimate(const char *data, size_t length) {
@@ -38,6 +40,11 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
         }
 
         static size_t transform(const char *src, char *dst, size_t length, TransformData transformData) {
+            if (transformData.compress) {
+                char *deflated = Group<isServer>::from(transformData.s)->hub->deflate((char *) src, length);
+                return WebSocketProtocol<isServer, WebSocket<isServer>>::formatMessage(dst, deflated, length, transformData.opCode, length, true);
+            }
+
             return WebSocketProtocol<isServer, WebSocket<isServer>>::formatMessage(dst, src, length, transformData.opCode, length, false);
         }
     };

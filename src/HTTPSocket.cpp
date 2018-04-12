@@ -235,7 +235,7 @@ void HttpSocket<isServer>::upgrade(const char *secKey, const char *extensions, s
             upgradeResponseLength += 26 + extensionsResponse.length() + 2;
         }
         // select first protocol
-        for (int i = 0; i < subprotocolLength; i++) {
+        for (unsigned int i = 0; i < subprotocolLength; i++) {
             if (subprotocol[i] == ',') {
                 subprotocolLength = i;
                 break;

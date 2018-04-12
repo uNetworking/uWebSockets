@@ -5,40 +5,78 @@
 
 namespace uWS {
 
+char *Hub::deflate(char *data, size_t &length) {
+    dynamicZlibBuffer.clear();
+
+    deflationStream.next_in = (Bytef *) data;
+    deflationStream.avail_in = (unsigned int) length;
+
+    // note: zlib requires more than 6 bytes with Z_SYNC_FLUSH
+    const int DEFLATE_OUTPUT_CHUNK = LARGE_BUFFER_SIZE;
+
+    int err;
+    do {
+        deflationStream.next_out = (Bytef *) zlibBuffer;
+        deflationStream.avail_out = DEFLATE_OUTPUT_CHUNK;
+
+        err = ::deflate(&deflationStream, Z_SYNC_FLUSH);
+        if (Z_OK == err && deflationStream.avail_out == 0) {
+            dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out);
+            continue;
+        } else {
+            break;
+        }
+    } while (true);
+
+    // note: should not change avail_out
+    deflateReset(&deflationStream);
+
+    if (dynamicZlibBuffer.length()) {
+        dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out);
+
+        length = dynamicZlibBuffer.length();
+        return (char *) dynamicZlibBuffer.data();
+    }
+
+    length = DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out;
+    return zlibBuffer;
+}
+
+// todo: let's go through this code once more some time!
 char *Hub::inflate(char *data, size_t &length, size_t maxPayload) {
-    dynamicInflationBuffer.clear();
+    dynamicZlibBuffer.clear();
 
     inflationStream.next_in = (Bytef *) data;
     inflationStream.avail_in = (unsigned int) length;
 
     int err;
     do {
-        inflationStream.next_out = (Bytef *) inflationBuffer;
+        inflationStream.next_out = (Bytef *) zlibBuffer;
         inflationStream.avail_out = LARGE_BUFFER_SIZE;
         err = ::inflate(&inflationStream, Z_FINISH);
         if (!inflationStream.avail_in) {
             break;
         }
 
-        dynamicInflationBuffer.append(inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
-    } while (err == Z_BUF_ERROR && dynamicInflationBuffer.length() <= maxPayload);
+        dynamicZlibBuffer.append(zlibBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
+    } while (err == Z_BUF_ERROR && dynamicZlibBuffer.length() <= maxPayload);
 
     inflateReset(&inflationStream);
 
-    if ((err != Z_BUF_ERROR && err != Z_OK) || dynamicInflationBuffer.length() > maxPayload) {
+    if ((err != Z_BUF_ERROR && err != Z_OK) || dynamicZlibBuffer.length() > maxPayload) {
         length = 0;
         return nullptr;
     }
 
-    if (dynamicInflationBuffer.length()) {
-        dynamicInflationBuffer.append(inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
+    if (dynamicZlibBuffer.length()) {
+        dynamicZlibBuffer.append(zlibBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
 
-        length = dynamicInflationBuffer.length();
-        return (char *) dynamicInflationBuffer.data();
+        length = dynamicZlibBuffer.length();
+        return (char *) dynamicZlibBuffer.data();
     }
 
     length = LARGE_BUFFER_SIZE - inflationStream.avail_out;
-    return inflationBuffer;
+    return zlibBuffer;
 }
 
 void Hub::onServerAccept(uS::Socket *s) {
