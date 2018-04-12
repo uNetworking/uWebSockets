@@ -28,7 +28,7 @@ void testAutobahn() {
     uWS::Group<uWS::SERVER> *group = h.createGroup<uWS::SERVER>(uWS::PERMESSAGE_DEFLATE);
 
     auto messageHandler = [](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
-        ws->send(message, length, opCode);
+        ws->send(message, length, opCode, nullptr, nullptr, true);
     };
 
     sslGroup->onMessage(messageHandler);

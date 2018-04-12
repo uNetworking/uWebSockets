@@ -34,11 +34,11 @@ char *Hub::deflate(char *data, size_t &length) {
     if (dynamicZlibBuffer.length()) {
         dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out);
 
-        length = dynamicZlibBuffer.length();
+        length = dynamicZlibBuffer.length() - 4;
         return (char *) dynamicZlibBuffer.data();
     }
 
-    length = DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out;
+    length = DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out - 4;
     return zlibBuffer;
 }
 
