@@ -1,5 +1,6 @@
 // NOTE: This is not part of the library, this file holds examples and tests
 
+#include <unistd.h>
 #include "uWS.h"
 #include <iostream>
 #include <chrono>
@@ -12,6 +13,10 @@
 #include <unordered_map>
 #include <map>
 #include <atomic>
+
+std::unordered_set<std::string> gExcludedTest;
+#define UWS_TEST(testFunc) \
+  if (gExcludedTest.find(#testFunc) == gExcludedTest.end()) testFunc();
 
 int countOccurrences(std::string word, std::string &document) {
     int count = 0;
@@ -322,12 +327,17 @@ void testClosing() {
     uWS::Hub h;
     const char *closeMessage = "Closing you down!";
 
-    h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
-        ws->terminate();
-        h.onConnection([&h, closeMessage](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
-            ws->close(1000, closeMessage, strlen(closeMessage));
-        });
-        h.connect("ws://localhost:3000", (void *) 2);
+    int serverConnectionCount = 0;
+    h.onConnection([&h, closeMessage, &serverConnectionCount](uWS::WebSocket<uWS::SERVER> *ws, uWS::HttpRequest req) {
+        switch (++serverConnectionCount) {
+        case 1:
+              ws->terminate();
+              h.connect("ws://localhost:3000", (void *)2);
+              break;
+        case 2:
+              ws->close(1000, closeMessage, strlen(closeMessage));
+              break;
+        }
     });
 
     h.onDisconnection([closeMessage](uWS::WebSocket<uWS::CLIENT> *ws, int code, char *message, size_t length) {
@@ -1156,35 +1166,55 @@ void testThreadSafety() {
     }
 }
 
+void parseArg(int argc, char *argv[]) {
+    int ch;
+    while ((ch = getopt(argc, argv, "e:")) != -1) {
+        switch (ch) {
+        case 'e':
+            gExcludedTest.insert(optarg);
+            break;
+        case '?':
+            std::cout << "Usage: [-e test_to_exclude]" << std::endl;
+            exit(-1);
+            break;
+        default:
+            exit(-1);
+            break;
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
-    //serveEventSource();
-    //serveHttp();
-    //serveBenchmark();
+    parseArg(argc, argv);
+
+    //UWS_TEST(serveEventSource);
+    //UWS_TEST(serveHttp);
+    //UWS_TEST(serveBenchmark);
 
 #ifdef UWS_THREADSAFE
-    testThreadSafety();
+    UWS_TEST(testThreadSafety);
 #endif
 
     // These will run on Travis OS X
-    testReceivePerformance();
-    testStress();
-    testHTTP();
-    testSmallSends();
-    testSendCallback();
-    testRouting();
-    testClosing();
-    testListening();
-    testBroadcast();
-    testMessageBatch();
-    testAutoPing();
-    testConnections();
-    testTransfers();
+    UWS_TEST(testReceivePerformance);
+    UWS_TEST(testStress);
+    UWS_TEST(testHTTP);
+    UWS_TEST(testSmallSends);
+    UWS_TEST(testSendCallback);
+    UWS_TEST(testRouting);
+    UWS_TEST(testClosing);
+    UWS_TEST(testListening);
+    UWS_TEST(testBroadcast);
+    UWS_TEST(testMessageBatch);
+    UWS_TEST(testAutoPing);
+    UWS_TEST(testConnections);
+    UWS_TEST(testTransfers);
 
     // Linux-only feature
 #ifdef __linux__
-    testReusePort();
+    UWS_TEST(testReusePort);
 #endif
 
-    //testAutobahn();
+    //UWS_TEST(testAutobahn);
 }
