@@ -1156,6 +1156,25 @@ void testThreadSafety() {
     }
 }
 
+void testAsync() {
+    uWS::Hub h;
+    uS::Async *a = new uS::Async(h.getLoop());
+
+    a->start([](uS::Async *a) {
+        a->close();
+    });
+
+    std::thread t([&h]() {
+        h.run();
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    a->send();
+    t.join();
+    std::cout << "Falling through Async test" << std::endl;
+}
+
 int main(int argc, char *argv[])
 {
     //serveEventSource();
