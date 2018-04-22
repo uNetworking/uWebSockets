@@ -5,23 +5,30 @@
 
 namespace uWS {
 
-char *Hub::deflate(char *data, size_t &length) {
+z_stream *Hub::allocateDefaultCompressor(z_stream *zStream) {
+    deflateInit2(zStream, 1, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY);
+    return zStream;
+}
+
+char *Hub::deflate(char *data, size_t &length, z_stream *slidingDeflateWindow) {
     dynamicZlibBuffer.clear();
 
-    deflationStream.next_in = (Bytef *) data;
-    deflationStream.avail_in = (unsigned int) length;
+    z_stream *compressor = slidingDeflateWindow ? slidingDeflateWindow : &deflationStream;
+
+    compressor->next_in = (Bytef *) data;
+    compressor->avail_in = (unsigned int) length;
 
     // note: zlib requires more than 6 bytes with Z_SYNC_FLUSH
     const int DEFLATE_OUTPUT_CHUNK = LARGE_BUFFER_SIZE;
 
     int err;
     do {
-        deflationStream.next_out = (Bytef *) zlibBuffer;
-        deflationStream.avail_out = DEFLATE_OUTPUT_CHUNK;
+        compressor->next_out = (Bytef *) zlibBuffer;
+        compressor->avail_out = DEFLATE_OUTPUT_CHUNK;
 
-        err = ::deflate(&deflationStream, Z_SYNC_FLUSH);
-        if (Z_OK == err && deflationStream.avail_out == 0) {
-            dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out);
+        err = ::deflate(compressor, Z_SYNC_FLUSH);
+        if (Z_OK == err && compressor->avail_out == 0) {
+            dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - compressor->avail_out);
             continue;
         } else {
             break;
@@ -29,16 +36,18 @@ char *Hub::deflate(char *data, size_t &length) {
     } while (true);
 
     // note: should not change avail_out
-    deflateReset(&deflationStream);
+    if (!slidingDeflateWindow) {
+        deflateReset(compressor);
+    }
 
     if (dynamicZlibBuffer.length()) {
-        dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out);
+        dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - compressor->avail_out);
 
         length = dynamicZlibBuffer.length() - 4;
         return (char *) dynamicZlibBuffer.data();
     }
 
-    length = DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out - 4;
+    length = DEFLATE_OUTPUT_CHUNK - compressor->avail_out - 4;
     return zlibBuffer;
 }
 

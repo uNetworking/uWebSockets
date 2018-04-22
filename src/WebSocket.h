@@ -23,9 +23,9 @@ protected:
     } compressionStatus;
     unsigned char controlTipLength = 0, hasOutstandingPong = false;
 
-    WebSocket(bool perMessageDeflate, uS::Socket *socket) : uS::Socket(std::move(*socket)) {
-        compressionStatus = perMessageDeflate ? CompressionStatus::ENABLED : CompressionStatus::DISABLED;
-    }
+    void *slidingDeflateWindow = nullptr;
+
+    WebSocket(bool perMessageDeflate, uS::Socket *socket);
 
     static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
     static void onEnd(uS::Socket *s);

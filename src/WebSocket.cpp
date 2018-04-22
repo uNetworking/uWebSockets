@@ -4,6 +4,16 @@
 
 namespace uWS {
 
+template <bool isServer>
+WebSocket<isServer>::WebSocket(bool perMessageDeflate, uS::Socket *socket) : uS::Socket(std::move(*socket)) {
+    compressionStatus = perMessageDeflate ? CompressionStatus::ENABLED : CompressionStatus::DISABLED;
+
+    // if we are created in a group with sliding deflate window allocate it here
+    if (Group<isServer>::from(this)->extensionOptions & SLIDING_DEFLATE_WINDOW) {
+        slidingDeflateWindow = Hub::allocateDefaultCompressor(new z_stream{});
+    }
+}
+
 /*
  * Frames and sends a WebSocket message.
  *
@@ -31,8 +41,8 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
     struct TransformData {
         OpCode opCode;
         bool compress;
-        Socket *s;
-    } transformData = {opCode, compress && compressionStatus == WebSocket<isServer>::CompressionStatus::ENABLED, this};
+        WebSocket<isServer> *s;
+    } transformData = {opCode, compress && compressionStatus == WebSocket<isServer>::CompressionStatus::ENABLED && opCode < 3, this};
 
     struct WebSocketTransformer {
         static size_t estimate(const char *data, size_t length) {
@@ -41,7 +51,7 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
 
         static size_t transform(const char *src, char *dst, size_t length, TransformData transformData) {
             if (transformData.compress) {
-                char *deflated = Group<isServer>::from(transformData.s)->hub->deflate((char *) src, length);
+                char *deflated = Group<isServer>::from(transformData.s)->hub->deflate((char *) src, length, (z_stream *) transformData.s->slidingDeflateWindow);
                 return WebSocketProtocol<isServer, WebSocket<isServer>>::formatMessage(dst, deflated, length, transformData.opCode, length, true);
             }
 
@@ -297,6 +307,14 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
     }
 
     webSocket->nodeData->clearPendingPollChanges(webSocket);
+
+    // remove any per-websocket zlib memory
+    if (webSocket->slidingDeflateWindow) {
+        // this relates to Hub::allocateDefaultCompressor
+        deflateEnd((z_stream *) webSocket->slidingDeflateWindow);
+        delete (z_stream *) webSocket->slidingDeflateWindow;
+        webSocket->slidingDeflateWindow = nullptr;
+    }
 }
 
 template <bool isServer>

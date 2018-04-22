@@ -18,8 +18,10 @@ protected:
         Group<CLIENT> *group;
     };
 
+    static z_stream *allocateDefaultCompressor(z_stream *zStream);
+
     z_stream inflationStream = {}, deflationStream = {};
-    char *deflate(char *data, size_t &length);
+    char *deflate(char *data, size_t &length, z_stream *slidingDeflateWindow);
     char *inflate(char *data, size_t &length, size_t maxPayload);
     char *zlibBuffer;
     std::string dynamicZlibBuffer;
@@ -49,7 +51,7 @@ public:
         inflateInit2(&inflationStream, -15);
         zlibBuffer = new char[LARGE_BUFFER_SIZE];
 
-        deflateInit2(&deflationStream, 1, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY);
+        allocateDefaultCompressor(&deflationStream);
 
 #ifdef UWS_THREADSAFE
         getLoop()->preCbData = nodeData;

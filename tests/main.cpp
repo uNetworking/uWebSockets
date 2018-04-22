@@ -24,8 +24,9 @@ int countOccurrences(std::string word, std::string &document) {
 void testAutobahn() {
     uWS::Hub h;
 
+    // let's test pmd + ssl and then pmd + sliding window
     uWS::Group<uWS::SERVER> *sslGroup = h.createGroup<uWS::SERVER>(uWS::PERMESSAGE_DEFLATE);
-    uWS::Group<uWS::SERVER> *group = h.createGroup<uWS::SERVER>(uWS::PERMESSAGE_DEFLATE);
+    uWS::Group<uWS::SERVER> *group = h.createGroup<uWS::SERVER>(uWS::PERMESSAGE_DEFLATE | uWS::SLIDING_DEFLATE_WINDOW);
 
     auto messageHandler = [](uWS::WebSocket<uWS::SERVER> *ws, char *message, size_t length, uWS::OpCode opCode) {
         ws->send(message, length, opCode, nullptr, nullptr, true);

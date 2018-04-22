@@ -8,9 +8,10 @@ namespace uWS {
 enum Options : unsigned int {
     NO_OPTIONS = 0,
     PERMESSAGE_DEFLATE = 1,
-    SERVER_NO_CONTEXT_TAKEOVER = 2,
-    CLIENT_NO_CONTEXT_TAKEOVER = 4,
-    NO_DELAY = 8
+    SERVER_NO_CONTEXT_TAKEOVER = 2, // remove this
+    CLIENT_NO_CONTEXT_TAKEOVER = 4, // remove this
+    NO_DELAY = 8,
+    SLIDING_DEFLATE_WINDOW = 16
 };
 
 template <bool isServer>
