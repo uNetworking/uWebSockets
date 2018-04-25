@@ -12,7 +12,8 @@ SOURCES += main.cpp \
     ../src/Socket.cpp \
     ../src/Group.cpp \
     ../src/Extensions.cpp \
-    ../src/Epoll.cpp
+    ../src/Epoll.cpp \
+    ../src/Room.cpp
 
 HEADERS += ../src/WebSocketProtocol.h \
     ../src/Networking.h \
@@ -27,7 +28,8 @@ HEADERS += ../src/WebSocketProtocol.h \
     ../src/Libuv.h \
     ../src/Backend.h \
     ../src/Epoll.h \
-    ../src/Asio.h
+    ../src/Asio.h \
+    ../src/Room.h
 
 LIBS += -lasan -lssl -lcrypto -lz -lpthread -luv -lboost_system
 

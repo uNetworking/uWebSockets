@@ -1176,6 +1176,18 @@ void testAsync() {
     std::cout << "Falling through Async test" << std::endl;
 }
 
+#include "Room.h"
+
+void testRoom() {
+    uWS::Hub h;
+
+    uWS::Room<uWS::SERVER> *room = new uWS::Room<uWS::SERVER>(h.getLoop());
+
+
+
+    delete room;
+}
+
 int main(int argc, char *argv[])
 {
     //serveEventSource();
