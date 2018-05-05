@@ -264,6 +264,8 @@ struct HttpResponse {
             }
 
             freeResponse(httpSocket);
+
+            // TODO: httpSocket->shutdown() when finished sending?
         }
     }
 
