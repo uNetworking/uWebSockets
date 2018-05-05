@@ -239,18 +239,24 @@ void Group<isServer>::broadcast(const char *message, size_t length, OpCode opCod
 
 template <bool isServer>
 void Group<isServer>::terminate() {
+    stopListening();
     forEach([](uWS::WebSocket<isServer> *ws) {
         ws->terminate();
     });
-    stopListening();
+    forEachHttpSocket([](HttpSocket<isServer> *httpSocket) {
+        httpSocket->terminate();
+    });
 }
 
 template <bool isServer>
 void Group<isServer>::close(int code, char *message, size_t length) {
+    stopListening();
     forEach([code, message, length](uWS::WebSocket<isServer> *ws) {
         ws->close(code, message, length);
     });
-    stopListening();
+    forEachHttpSocket([](HttpSocket<isServer> *httpSocket) {
+        httpSocket->shutdown();
+    });
     if (timer) {
         timer->stop();
         timer->close();
