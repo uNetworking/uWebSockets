@@ -9,7 +9,14 @@ SOURCES += \
     uSockets/src/libusockets.c \
     uSockets/src/socket.c \
     uSockets/src/backends/epoll.c \
-    uSockets/src/backends/libuv.c
+    uSockets/src/backends/libuv.c \
+    Hub.cpp \
+    Http.cpp
 
 INCLUDEPATH += uSockets/src
-QMAKE_CXXFLAGS += -std=c++14
+QMAKE_CXXFLAGS += -fsanitize=address -std=c++14
+LIBS += -lasan
+
+HEADERS += \
+    Hub.h \
+    Http.h
