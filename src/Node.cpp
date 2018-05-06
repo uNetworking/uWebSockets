@@ -55,8 +55,8 @@ Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop)
         nodeData->preAlloc[i] = nullptr;
     }
 
-    nodeData->clientContext = SSL_CTX_new(SSLv23_client_method());
-    SSL_CTX_set_options(nodeData->clientContext, SSL_OP_NO_SSLv3);
+    nodeData->clientContext = SSL_CTX_new(TLS_client_method());
+    SSL_CTX_set_min_proto_version(nodeData->clientContext, TLS1_VERSION);
 }
 
 void Node::run() {
