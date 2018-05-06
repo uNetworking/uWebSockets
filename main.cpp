@@ -1,11 +1,14 @@
 // uWS.h
 #include "Hub.h"
+#include <iostream>
 
 int main() {
-
     Hub h;
 
-    h.onHttpRequest([](auto req, auto res) {
+    // req = ?, res = HttpSocket
+    h.onHttpRequest([](auto req, auto res, char *data, unsigned int length) {
+
+        std::cout << "Got data: " << std::string(data, length) << std::endl;
 
         // res.writeStatus();
         // res.writeHeader();

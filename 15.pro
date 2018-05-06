@@ -5,18 +5,18 @@ CONFIG -= qt
 
 SOURCES += \
         main.cpp \
-    uSockets/src/context.c \
-    uSockets/src/libusockets.c \
-    uSockets/src/socket.c \
-    uSockets/src/backends/epoll.c \
-    uSockets/src/backends/libuv.c \
-    Hub.cpp \
-    Http.cpp
-
-INCLUDEPATH += uSockets/src
-QMAKE_CXXFLAGS += -fsanitize=address -std=c++14
-LIBS += -lasan
+        uSockets/src/context.c \
+        uSockets/src/libusockets.c \
+        uSockets/src/socket.c \
+        uSockets/src/backends/epoll.c \
+        uSockets/src/backends/libuv.c \
+        src/Hub.cpp \
+        src/Http.cpp
 
 HEADERS += \
-    Hub.h \
-    Http.h
+        src/Hub.h \
+        src/Http.h
+
+INCLUDEPATH += uSockets/src src
+QMAKE_CXXFLAGS += -fsanitize=address
+LIBS += -lasan
