@@ -10,15 +10,23 @@
 struct Hub {
     us_loop *loop;
     struct Data {
-        Data(us_loop *loop) : httpContext(loop) {
+        Data() {
 
         }
 
-        HttpContext httpContext;
-        std::function<void(HttpRequest *, HttpResponse *, char *data, unsigned int length)> onHttpRequest;
+        HttpContext *httpContext;
+        std::function<void(HttpSocket *)> onHttpConnection;
+        std::function<void(HttpSocket *)> onHttpDisconnection;
+        std::function<void(HttpSocket *, HttpRequest *, char *data, unsigned int length)> onHttpRequest;
     } *data;
 
     static void wakeupCb(us_loop *loop);
+    void onHttpConnection(decltype(Data::onHttpConnection) handler) {
+        data->onHttpConnection = handler;
+    }
+    void onHttpDisconnection(decltype(Data::onHttpDisconnection) handler) {
+        data->onHttpDisconnection = handler;
+    }
     void onHttpRequest(decltype(Data::onHttpRequest) handler) {
         data->onHttpRequest = handler;
     }

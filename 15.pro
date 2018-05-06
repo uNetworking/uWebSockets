@@ -18,5 +18,5 @@ HEADERS += \
         src/Http.h
 
 INCLUDEPATH += uSockets/src src
-QMAKE_CXXFLAGS += -fsanitize=address
-LIBS += -lasan
+#QMAKE_CXXFLAGS += -fsanitize=address
+#LIBS += -lasan

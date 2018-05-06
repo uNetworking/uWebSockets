@@ -2,31 +2,38 @@
 #define HTTP_H
 
 #include "libusockets.h"
+#include <functional>
 
 struct HttpRequest {
 
 };
 
-struct HttpResponse {
+struct HttpSocket {
+    us_socket s;
+    int offset = 0;
 
-    void write() {
+    HttpSocket() {
 
     }
 
+    std::function<std::pair<const char *, int>(int)> outStream;
+    void stream(int length, decltype(outStream) stream);
 };
 
 // basically a HttpServer
 struct HttpContext {
-    us_socket_context *context;
-    struct Data {
+    us_socket_context context;
+    /*struct Data {
 
-    } *data;
+    } *data;*/
 
     static void httpBegin(us_socket *s);
+    // httpIn
     static void httpData(us_socket *s, void *data, int size);
+    static void httpOut(us_socket *s);
     static void httpEnd(us_socket *s);
 
-    HttpContext(us_loop *loop);
+    HttpContext();
     void listen(const char *host, int port, int options);
 };
 
