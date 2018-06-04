@@ -2,7 +2,7 @@
 
 µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is a WebSocket and HTTP implementation for clients and servers. Simple, efficient and lightweight.
 
-[Wiki pages & user manual](https://github.com/uNetworking/uWebSockets/wiki/User-manual-v0.14.x)
+[Wiki pages & user manual](https://github.com/uNetworking/uWebSockets/wiki/User-manual-v0.14.x) | [Care for a sneek peek?](https://github.com/uNetworking/uSockets)
 
 #### Build optimized WebSocket & HTTP servers & clients in no time.
 ```c++
