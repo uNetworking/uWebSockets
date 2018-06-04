@@ -28,13 +28,13 @@ int main() {
 }
 ```
 
-#### No strings attached.
-A free & open source ([Zlib](LICENSE)) hobby project of [mine](https://github.com/alexhultman) since 2016. Kindly sponsored by [BitMEX.com](https://bitmex.com) since 2018.
+#### Pay what you want.
+A free & open source ([Zlib](LICENSE)) hobby project of [mine](https://github.com/alexhultman) since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018.
 
-<a href="https://bitmex.com"><img src="https://www.bitmex.com/img/bitmex-logo-alt.png" height="50px"/></a>
+<div align="center"><img src="misc/images/2018.png"/></div>
 
 #### Excel across the board.
 <div align="center"><img src="misc/images/overview.png"/></div>
 
-#### Fast does not imply broken.
+#### Be fast, not broken.
 Gracefully passes the [entire Autobahn fuzzing test suite](http://htmlpreview.github.io/?https://github.com/uNetworking/uWebSockets/blob/master/misc/autobahn/index.html) with no failures or Valgrind/ASAN errors. With or without SSL/permessage-deflate.
