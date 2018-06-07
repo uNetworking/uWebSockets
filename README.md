@@ -33,6 +33,8 @@ A free & open source ([Zlib](LICENSE)) hobby project of [mine](https://github.co
 
 <div align="center"><img src="misc/images/2018.png"/></div>
 
+*Understand I don't take issue reports, suggestions or provide any support to free-riders. You want in? Become a sponsor.*
+
 #### Excel across the board.
 <div align="center"><img src="misc/images/overview.png"/></div>
 
