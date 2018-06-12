@@ -296,6 +296,7 @@ void WebSocket<isServer>::onEnd(uS::Socket *s) {
         webSocket->cancelTimeout();
     }
 
+    webSocket->template shutdown();
     webSocket->template closeSocket<WebSocket<isServer>>();
 
     while (!webSocket->messageQueue.empty()) {
