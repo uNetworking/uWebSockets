@@ -13,7 +13,7 @@ SOURCES += \
         uSockets/src/loop.c \
         src/Hub.cpp \
         src/Http.cpp \
-    src/Context.cpp
+        src/Context.cpp
 
 HEADERS += \
         src/Hub.h \
@@ -34,4 +34,4 @@ HEADERS += \
 
 INCLUDEPATH += uSockets/src src
 #QMAKE_CXXFLAGS += -fsanitize=address
-LIBS += -lasan -lssl -lcrypto
+LIBS += -lssl -lcrypto

@@ -78,7 +78,7 @@ struct Context {
         });
 
         us_socket_context_on_data(httpContext, [](us_socket *s, char *data, int length) {
-            //Data *data = (Data *) us_socket_context_ext(us_socket_get_context(s));
+            Data *contextData = (Data *) us_socket_context_ext(us_socket_get_context(s));
 
 
 
@@ -87,11 +87,16 @@ struct Context {
 
             //
 
-
+            HttpRequest req(data, length);
+            if (req.isComplete()) {
+                contextData->onHttpRequest((HttpSocket *) s, &req);
+            } else {
+                std::cout << "Got chunked HTTP headers!" << std::endl;
+            }
 
             // here we run the HTTP parser on this data
 
-            std::cout << std::string_view(data, length) << std::endl;
+
 
             // we always give pointers to us_socket?
             // same mistake as before?
