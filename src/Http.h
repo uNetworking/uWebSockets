@@ -70,17 +70,64 @@ struct HttpRequest {
 };
 
 
-// HttpSocket is the ext of us_socket
+// HttpSocket is an alias for us_socket
 struct HttpSocket {
 
-    // incomplete headers buffer
-    std::string headerBuffer;
+    // chunked response will be tricky with this buffering scheme
+    // if we do not fit, we can always use the header buffer for this (both in and out!)
+    // put first 8kb chunk in the http buffer, then from there it's the stream's job!
+    // httpheaders should only have 1 stream in and 1 stream out, but we can have helper wrappers
 
-    //
+    // data is stored in ext
+    struct Data {
+        // incomplete headers buffer
+        std::string headerBuffer;
+        int offset = 0;
 
-    HttpSocket() {
+        std::function<std::pair<const char *, int>(int)> outStream;
+    };
 
+    // cork is stored in hub
+    char *getCorkBuffer() {
+        // context -> hub -> cork buffer
+
+        us_socket *s = (us_socket *) this;
+
+        // get the loop from the context!
+        //return us_socket_context_loop(us_socket_get_context(s));
+
+
+        return corkBuffer;
     }
+
+    HttpSocket *writeStatus(int status) {
+        char *corkBuffer = getCorkBuffer();
+
+        char largeBuf[] = "HTTP/1.1 200 OK\r\nContent-Length: 512\r\n\r\n";
+
+        memcpy(corkBuffer + corkOffset, largeBuf, sizeof(largeBuf) - 1);
+        corkOffset += sizeof(largeBuf) - 1;
+
+        return this;
+    }
+
+    HttpSocket *writeHeader(char *key, char *value) {
+        return this;
+    }
+
+    void end(char *data, int length) {
+        us_socket *s = (us_socket *) this;
+
+        char *corkBuffer = getCorkBuffer();
+        memcpy(corkBuffer + corkOffset, data, length);
+        corkOffset += length;
+
+        us_socket_write(s, corkBuffer, corkOffset, 0);
+        corkOffset = 0;
+    }
+
+    // can't create this!
+    HttpSocket() = delete;
 
     // the HttpParser should maybe be moved out of this into its own HttpProtocol.h like with websocket?
     void parse(char *data, int length) {
@@ -89,10 +136,7 @@ struct HttpSocket {
 
     }
 
-    int offset = 0;
-
-    std::function<std::pair<const char *, int>(int)> outStream;
-    void stream(int length, decltype(outStream) stream);
+    void stream(int length, decltype(Data::outStream) stream);
 };
 
 #endif // HTTP_H

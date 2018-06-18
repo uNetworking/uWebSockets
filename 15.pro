@@ -18,7 +18,8 @@ SOURCES += \
 HEADERS += \
         src/Hub.h \
         src/Http.h \
-        src/Context.h
+        src/Context.h \
+        src/uWS.h
         #uSockets/libusockets.h \
         #uSockets/internal/eventing/epoll.h \
         #uSockets/internal/networking/bsd.h \
