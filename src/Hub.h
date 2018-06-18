@@ -10,9 +10,13 @@
 #include "Http.h"
 #include "Context.h"
 
+struct Hub;
+
 // maybe a Context is both TCP and SSL in one?
 template <bool isServer, bool isSSL>
 struct Context {
+
+    Hub &hub;
 
     struct Data {
         Data() {
@@ -22,11 +26,16 @@ struct Context {
 
         std::function<void(HttpSocket *)> onHttpConnection;
         std::function<void(HttpSocket *)> onHttpDisconnection;
-        std::function<void(HttpSocket *, HttpRequest *, char *data, unsigned int length)> onHttpRequest;
+        std::function<void(HttpSocket *, HttpRequest *)> onHttpRequest;
     } *data;
 
     us_socket_context *httpContext;
 
+    Context(Hub &hub) : hub(hub) {
+
+    }
+
+    // one for each? ssl and non-ssl?
     void init(us_loop *loop) {
         httpContext = us_create_socket_context(loop, sizeof(Data));
 
@@ -36,8 +45,17 @@ struct Context {
         us_socket_context_on_open(httpContext, [](us_socket *s) {
             Data *data = (Data *) us_socket_context_ext(us_socket_get_context(s));
 
+
+            // here we need to construct a HTTP socket on the ext!
+
+
+
             // we always give pointers to us_socket?
             // same mistake as before?
+
+            if (!data->onHttpConnection) {
+                return;
+            }
 
             // note: this is VERY tricky to keep bug-free!
             // we could give the ext here, and skip all bugs?
@@ -49,6 +67,10 @@ struct Context {
 
             // we always give pointers to us_socket?
             // same mistake as before?
+
+            if (!data->onHttpDisconnection) {
+                return;
+            }
 
             // note: this is VERY tricky to keep bug-free!
             // we could give the ext here, and skip all bugs?
@@ -86,13 +108,19 @@ struct Context {
     void onHttpDisconnection(decltype(Data::onHttpDisconnection) handler) {
         data->onHttpDisconnection = handler;
     }
-    void onHttpRequest(decltype(Data::onHttpRequest) handler) {
+    Hub &onHttpRequest(decltype(Data::onHttpRequest) handler) {
         data->onHttpRequest = handler;
+
+        return hub;
     }
 
     // this should only be enabled if we are server context!
-    void listen(const char *host, int port, int options) {
+
+    // should return Loop, not hub? or simply make it so that ALL contexts stem from some Hub? Hub is essentually the Loop abstraction? could work
+    Hub &listen(const char *host, int port, int options) {
         us_socket_context_listen(httpContext, host, port, options, sizeof(HttpSocket));
+
+        return hub;
     }
 };
 
@@ -123,7 +151,7 @@ struct Hub : Context<true, false> {
 
     }
 
-    Hub() : loop(us_create_loop(wakeupCb, preCb, postCb, sizeof(Data))) {
+    Hub() : loop(us_create_loop(wakeupCb, preCb, postCb, sizeof(Data))), Context<true, false>(*this) {
         new (data = (Data *) us_loop_ext(loop)) Data();
 
         Context<true, false>::init(loop);
@@ -137,5 +165,9 @@ struct Hub : Context<true, false> {
 
     }
 };
+
+namespace uWS {
+thread_local Hub defaultHub;
+}
 
 #endif // HUB_H
