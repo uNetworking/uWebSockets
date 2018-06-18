@@ -3,28 +3,32 @@
 #include <iostream>
 #include <string.h>
 
-//char largeBuf[] = "HTTP/1.1 200 OK\r\nContent-Length: 512\r\n\r\n";
-//int largeHttpBufSize = sizeof(largeBuf) + 512 - 1;
-
-char largeBuf[] = "HTTP/1.1 200 OK\r\nContent-Length: 52428800\r\n\r\n";
-int largeHttpBufSize = sizeof(largeBuf) + 52428800 - 1;
-
-char *largeHttpBuf;
-
 int main() {
     std::cout << "HttpSocket size: " << sizeof(HttpSocket) << std::endl;
 
-    largeHttpBuf = (char *) malloc(largeHttpBufSize);
-    memcpy(largeHttpBuf, largeBuf, sizeof(largeBuf) - 1);
+    // defaultHub is per thread ready for action
+    // uWS::defaultHub().onHttpRequest().listen().isListening().run();
 
     Hub h;
 
     h.onHttpConnection([](HttpSocket *s) {
-        //std::cout << "HTTP connection" << std::endl;
+        std::cout << "HTTP connection" << std::endl;
     });
 
     // req = ?, res = HttpSocket
+    // should be s, req, nothing more or less!
     h.onHttpRequest([](HttpSocket *s, auto req, char *data, unsigned int length) {
+
+        // an http socket can BOTH send buffered data AND have one stream in and one stream out!
+
+        // writeStatus(234314234)
+        // writeHeader(key, value)
+        // streamOut(asdasdasdsad)
+
+        // if some asshole posted data, stream it in
+        /*s->streamIn([]() {
+
+        });*/
 
         //std::cout << "Got data: " << std::string(data, length) << std::endl;
 
@@ -33,13 +37,14 @@ int main() {
 
         // if url == / then stream index.htm
 
-        s->stream(largeHttpBufSize, [](int offset) {
+        // stream out the response
+        /*s->stream(largeHttpBufSize, [](int offset) {
             return std::make_pair(largeHttpBuf + offset, largeHttpBufSize - offset);
-        });
+        });*/
     });
 
     h.onHttpDisconnection([](HttpSocket *s) {
-        //std::cout << "HTTP disconnection" << std::endl;
+        std::cout << "HTTP disconnection" << std::endl;
     });
 
     h.listen(nullptr, 3000, 0);
