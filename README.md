@@ -10,16 +10,24 @@ v0.15 is a complete rewrite of µWS using µSockets as foundation. This leads to
 #### Streams and helpers
 HttpSockets are proper streams in v0.15 and do scale for large sends as well as for small ones. "Streams" are in/out per-socket-callbacks for giving or storing streamed data.
 ```c++
-// Seamless swapping between SSL / non-SSL by using uWS::Context() instead!
-uWS::SSLContext(options).onHttpRequest([buffer](auto *s, HttpRequest *req) {
+    // Swap between SSL and non-SSL with no code change
+    //uWS::SSLContext c(options);
+    uWS::Context c;
 
-    if (req->getUrl() == "/") {
+    // Define high-level URL routes with args
+    c.route("GET", "/", [buffer](auto *s, HttpRequest *req, auto *args) {
+
+        // Chained build-up of responses
         s->writeStatus(200)->writeHeader("Hello", "World")->end(buffer, 512);
-    } else {
-        std::cout << "Got HTTP request at URL: " << req->getUrl() << std::endl;
-    }
 
-}).listen("localhost", 3000, 0);
+    }).route("GET", "/wrong", [buffer](auto *s, HttpRequest *req, auto *args) {
+
+        std::cout << "Wrong way!" << std::endl;
+
+    }).listen("localhost", 3000, 0);
+
+    // Default, per-thread Hubs
+    uWS::defaultHub.run();
 ```
 
 #### HTTP router helpers
