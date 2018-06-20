@@ -10,16 +10,14 @@ SOURCES += \
         uSockets/src/socket.c \
         uSockets/src/eventing/libuv.c \
         uSockets/src/ssl.c \
-        uSockets/src/loop.c \
-        src/Hub.cpp \
-        src/Http.cpp \
-        src/Context.cpp
+        uSockets/src/loop.c
 
 HEADERS += \
         src/Hub.h \
         src/Http.h \
         src/Context.h \
-        src/uWS.h
+        src/uWS.h \
+        src/HttpRouter.h
         #uSockets/libusockets.h \
         #uSockets/internal/eventing/epoll.h \
         #uSockets/internal/networking/bsd.h \

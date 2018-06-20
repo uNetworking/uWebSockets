@@ -2,6 +2,7 @@
 // much speaks for a header-only or header-mostly implementation now that uSockets is properly isolating its internal headers
 
 #include "Context.h"
+#include "HttpRouter.h"
 
 int main() {
 
@@ -14,13 +15,16 @@ int main() {
     options.cert_file_name = "/home/alexhultman/uWebSockets/misc/ssl/cert.pem";
     options.passphrase = "1234";
 
-    uWS::SSLContext(options).onHttpRequest([buffer](auto *s, HttpRequest *req) {
+    //uWS::SSLContext c(options);
+    uWS::Context c;
 
-        if (req->getUrl() == "/") {
-            s->writeStatus(200)->writeHeader("Hello", "World")->end(buffer, 512);
-        } else {
-            std::cout << "Got HTTP request at URL: " << req->getUrl() << std::endl;
-        }
+    c.route("GET", "/", [buffer](auto *s, HttpRequest *req, auto *args) {
+
+        s->writeStatus(200)->writeHeader("Hello", "World")->end(buffer, 512);
+
+    }).route("GET", "/wrong", [buffer](auto *s, HttpRequest *req, auto *args) {
+
+        std::cout << "Wrong way!" << std::endl;
 
     }).listen("localhost", 3000, 0);
 

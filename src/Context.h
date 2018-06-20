@@ -12,7 +12,7 @@
 
 #include "Http.h"
 
-//#define SWAP_F [](auto a, auto b){ if constexpr(SSL) return a; else return b; }
+#include "HttpRouter.h"
 
 namespace uWS {
 
@@ -51,6 +51,15 @@ protected:
 
 
     // client protocols
+
+    // we have a router too
+    struct UserData {
+        // pass whatever you need as user data
+        HttpSocket<SSL> *httpSocket;
+        HttpRequest *httpRequest;
+    };
+
+    HttpRouter<UserData *> r;
 
 public:
 
@@ -136,6 +145,20 @@ public:
     // for server
     ContextBase &onHttpRequest(decltype(Data::onHttpRequest) handler) {
         data->onHttpRequest = handler;
+
+        return *this;
+    }
+
+    ContextBase &route(std::string method, std::string pattern, std::function<void(HttpSocket<SSL> *, HttpRequest *, std::vector<std::string_view> *)> handler) {
+        // calling this function overrides any other onHttpRequest!
+        onHttpRequest([this](auto *s, HttpRequest *req) {
+            UserData user = {s, req};
+            r.route("GET", 3, req->getUrl().data(), req->getUrl().length(), &user);
+        });
+
+        r.add(method.c_str(), pattern.c_str(), [handler](UserData *user, auto *args) {
+            handler(user->httpSocket, user->httpRequest, args);
+        });
 
         return *this;
     }
