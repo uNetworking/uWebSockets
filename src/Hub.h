@@ -16,129 +16,37 @@ int corkOffset = 0;
 
 struct Hub;
 
-// maybe a Context is both TCP and SSL in one?
-template <bool isServer, bool isSSL>
-struct Context {
+// Hub::listen has to create the socket context (with SSL options) via first time init
+// what if you want to listen to another port with another SSL cert?
+// every listen has to correspond to a listen socket and a socket context, created for each call to listen
+// same with connect?
 
-    Hub &hub;
+// just remove Context altogether and just let Hub have all of this stuff
+// it really only needs to hold the listen socket and the socket context wrapped as ListenToken instead
+// ListenToken.close()
 
-    struct Data {
-        Data() {
-
-
-        }
-
-        std::function<void(HttpSocket *)> onHttpConnection;
-        std::function<void(HttpSocket *)> onHttpDisconnection;
-        std::function<void(HttpSocket *, HttpRequest *)> onHttpRequest;
-    } *data;
-
-    us_socket_context *httpContext;
-
-    Context(Hub &hub) : hub(hub) {
-
-    }
-
-    // one for each? ssl and non-ssl?
-    void init(us_loop *loop) {
-        httpContext = us_create_socket_context(loop, sizeof(Data));
-
-        new (data = (Data *) us_socket_context_ext(httpContext)) Data();
-
-        // register shims
-        us_socket_context_on_open(httpContext, [](us_socket *s) {
-            Data *data = (Data *) us_socket_context_ext(us_socket_get_context(s));
+// ListenContext?
 
 
-            // here we need to construct a HTTP socket on the ext!
+// instead of Context, have some kind of token for Listening and allow it to be stopped but not cloesed (you stop listening but keep sockets alive)
+// what if you then want to listen again? you don't want to create a new context that time?
+
+// imagine listening, then stopping, then continuing - maybe support PAUSING a listen socket without closing it? that way you listen once, pause listening, etc
+// this way we can solve the accept issue with listen-pause and listen timers?
+
+// ListenToken.pause(), .resume(), .close()
 
 
-
-            // we always give pointers to us_socket?
-            // same mistake as before?
-
-            if (!data->onHttpConnection) {
-                return;
-            }
-
-            // note: this is VERY tricky to keep bug-free!
-            // we could give the ext here, and skip all bugs?
-            data->onHttpConnection((HttpSocket *) s);
-        });
-
-        us_socket_context_on_close(httpContext, [](us_socket *s) {
-            Data *data = (Data *) us_socket_context_ext(us_socket_get_context(s));
-
-            // we always give pointers to us_socket?
-            // same mistake as before?
-
-            if (!data->onHttpDisconnection) {
-                return;
-            }
-
-            // note: this is VERY tricky to keep bug-free!
-            // we could give the ext here, and skip all bugs?
-            data->onHttpDisconnection((HttpSocket *) s);
-        });
-
-        us_socket_context_on_data(httpContext, [](us_socket *s, char *data, int length) {
-            Data *contextData = (Data *) us_socket_context_ext(us_socket_get_context(s));
+// eller så bara ändrar man gränssnittet så att man explicit skapar ett context?
 
 
+// createContext(ssl options eller inga options avgör om SSL eller inte)
+// eller bara sslContext(options).onHttplalala.listen().Hub().run();
 
+// hubben är underförstådd och du agerar egentligen alltid på ett context som antingen är ssl eller inte
 
-            // a HttpSocket is basically the Http state and everything needed for it, we use it to parse the data and it knows about its context
-
-            //
-
-            HttpRequest req(data, length);
-            if (req.isComplete()) {
-                contextData->onHttpRequest((HttpSocket *) s, &req);
-            } else {
-                std::cout << "Got chunked HTTP headers!" << std::endl;
-            }
-
-            // here we run the HTTP parser on this data
-
-
-
-            // we always give pointers to us_socket?
-            // same mistake as before?
-
-            // note: this is VERY tricky to keep bug-free!
-            // we could give the ext here, and skip all bugs?
-            //data->((HttpSocket *) s);
-        });
-    }
-
-    void onHttpConnection(decltype(Data::onHttpConnection) handler) {
-        data->onHttpConnection = handler;
-    }
-    void onHttpDisconnection(decltype(Data::onHttpDisconnection) handler) {
-        data->onHttpDisconnection = handler;
-    }
-    Hub &onHttpRequest(decltype(Data::onHttpRequest) handler) {
-        data->onHttpRequest = handler;
-
-        return hub;
-    }
-
-    // this should only be enabled if we are server context!
-
-    // should return Loop, not hub? or simply make it so that ALL contexts stem from some Hub? Hub is essentually the Loop abstraction? could work
-    Hub &listen(const char *host, int port, int options) {
-        us_socket_context_listen(httpContext, host, port, options, sizeof(HttpSocket));
-
-        return hub;
-    }
-};
-
-// are we SSL or regular hub?
-struct Hub : Context<true, false> {
+struct Hub {
     us_loop *loop;
-
-    using Context::onHttpConnection;
-    using Context<true, false>::listen;
 
     struct Data {
         Data() {
@@ -160,10 +68,8 @@ struct Hub : Context<true, false> {
 
     }
 
-    Hub() : loop(us_create_loop(wakeupCb, preCb, postCb, sizeof(Data))), Context<true, false>(*this) {
+    Hub() : loop(us_create_loop(wakeupCb, preCb, postCb, sizeof(Data))) {
         new (data = (Data *) us_loop_ext(loop)) Data();
-
-        Context<true, false>::init(loop);
     }
 
     void run() {

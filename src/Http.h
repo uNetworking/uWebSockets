@@ -71,6 +71,7 @@ struct HttpRequest {
 
 
 // HttpSocket is an alias for us_socket
+template <bool SSL>
 struct HttpSocket {
 
     // chunked response will be tricky with this buffering scheme
@@ -115,14 +116,21 @@ struct HttpSocket {
         return this;
     }
 
+    // this depends on SSL!
     void end(char *data, int length) {
-        us_socket *s = (us_socket *) this;
+        //us_ssl_socket *s = (us_ssl_socket *) this;
 
         char *corkBuffer = getCorkBuffer();
         memcpy(corkBuffer + corkOffset, data, length);
         corkOffset += length;
 
-        us_socket_write(s, corkBuffer, corkOffset, 0);
+
+        if constexpr(SSL) {
+            us_ssl_socket_write((us_ssl_socket *) this, corkBuffer, corkOffset);
+        } else {
+            us_socket_write((us_socket *) this, corkBuffer, corkOffset, 0);
+        }
+
         corkOffset = 0;
     }
 
