@@ -282,6 +282,7 @@ void HttpSocket<isServer>::onEnd(uS::Socket *s) {
         httpSocket->cancelTimeout();
     }
 
+    httpSocket->template shutdown();
     httpSocket->template closeSocket<HttpSocket<isServer>>();
 
     while (!httpSocket->messageQueue.empty()) {
