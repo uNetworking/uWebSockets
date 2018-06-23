@@ -4,8 +4,9 @@
 #include "libusockets.h"
 #include <type_traits>
 #include "Loop.h"
-#include "Http.h"
+#include "HttpSocket.h"
 #include "HttpRouter.h"
+#include "HttpRequest.h"
 
 namespace uWS {
 

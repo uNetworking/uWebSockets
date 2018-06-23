@@ -22,7 +22,15 @@ int main() {
 
     app.onGet("/", [](auto *s, auto *req, auto *args) {
 
-        s->writeStatus("200 OK")->writeHeader("Hello", "World")->end(buffer);
+        // this one is simple and okay for small sends
+        /*s->writeStatus("200 OK")
+         ->writeHeader("Server", "uWebSockets")
+         ->end(buffer);*/
+
+        // for large sends you want a stream!
+        s->writeStatus("200 OK")->write([](int offset) {
+            return std::string_view(buffer.data() + offset, buffer.length() - offset);
+        }, buffer.length());
 
     }).onWebSocket("/wsApi", []() {
 
