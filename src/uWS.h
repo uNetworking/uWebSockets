@@ -1,6 +1,6 @@
 #ifndef UWS_H
 #define UWS_H
 
-#include "Hub.h"
+#include "Loop.h"
 
 #endif // UWS_H

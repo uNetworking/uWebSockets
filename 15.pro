@@ -4,32 +4,20 @@ CONFIG -= app_bundle
 CONFIG -= qt
 
 SOURCES += \
-        main.cpp \
-        uSockets/src/eventing/epoll.c \
-        uSockets/src/context.c \
-        uSockets/src/socket.c \
-        uSockets/src/eventing/libuv.c \
-        uSockets/src/ssl.c \
-        uSockets/src/loop.c
+    main.cpp \
+    uSockets/src/eventing/epoll.c \
+    uSockets/src/context.c \
+    uSockets/src/socket.c \
+    uSockets/src/eventing/libuv.c \
+    uSockets/src/ssl.c \
+    uSockets/src/loop.c
 
 HEADERS += \
-        src/Hub.h \
-        src/Http.h \
-        src/Context.h \
-        src/uWS.h \
-        src/HttpRouter.h
-        #uSockets/libusockets.h \
-        #uSockets/internal/eventing/epoll.h \
-        #uSockets/internal/networking/bsd.h \
-        #uSockets/internal/eventing/libuv.h \
-        #uSockets/internal/common.h \
-        #uSockets/interfaces/timer.h \
-        #uSockets/interfaces/socket.h \
-        #uSockets/interfaces/poll.h \
-        #uSockets/interfaces/context.h \
-        #uSockets/interfaces/loop.h \
-        #uSockets/interfaces/ssl.h \
-        #uSockets/internal/loop.h
+    src/Http.h \
+    src/uWS.h \
+    src/HttpRouter.h \
+    src/Loop.h \
+    src/App.h
 
 INCLUDEPATH += uSockets/src src
 #QMAKE_CXXFLAGS += -fsanitize=address
