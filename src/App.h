@@ -125,7 +125,7 @@ public:
     }
 
     // for client and server
-    AppBase &onWebSocket(std::function<void()> handler) {
+    AppBase &onWebSocket(std::string pattern, std::function<void()> handler) {
         return *this;
     }
 

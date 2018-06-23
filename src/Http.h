@@ -2,6 +2,7 @@
 #define HTTP_H
 
 #include "libusockets.h"
+#include "Loop.h"
 #include <functional>
 #include <cstring>
 
@@ -88,50 +89,75 @@ struct HttpSocket {
         std::function<std::pair<const char *, int>(int)> outStream;
     };
 
-    // cork is stored in hub
-    char *getCorkBuffer() {
-        // context -> hub -> cork buffer
+    // only this one should be used!
+    void writeToCorkBuffer(const char *src, int length) {
+        uWS::Loop::Data *loopData = (uWS::Loop::Data *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) this)));
 
-        us_socket *s = (us_socket *) this;
-
-        // get the loop from the context!
-        //return us_socket_context_loop(us_socket_get_context(s));
-
-
-        return corkBuffer;
+        memcpy(loopData->corkBuffer + loopData->corkOffset, src, length);
+        loopData->corkOffset += length;
     }
 
-    HttpSocket *writeStatus(int status) {
-        char *corkBuffer = getCorkBuffer();
+    // sprintf is super slow, this one is a lot faster
+    int u32toa_naive(uint32_t value, char *dst) {
+        char temp[10];
+        char *p = temp;
+        do {
+            *p++ = char(value % 10) + '0';
+            value /= 10;
+        } while (value > 0);
 
-        char largeBuf[] = "HTTP/1.1 200 OK\r\nContent-Length: 512\r\n\r\n";
+        int ret = p - temp;
 
-        memcpy(corkBuffer + corkOffset, largeBuf, sizeof(largeBuf) - 1);
-        corkOffset += sizeof(largeBuf) - 1;
+        do {
+            *dst++ = *--p;
+        } while (p != temp);
 
-        return this;
+        return ret;
     }
 
-    HttpSocket *writeHeader(char *key, char *value) {
-        return this;
-    }
+    // never rely on this one!
+    void writeToCorkBufferAndReset(const char *src, int length) {
+        uWS::Loop::Data *loopData = (uWS::Loop::Data *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) this)));
 
-    // this depends on SSL!
-    void end(char *data, int length) {
-        //us_ssl_socket *s = (us_ssl_socket *) this;
+        memcpy(loopData->corkBuffer + loopData->corkOffset, "Content-Length: ", 16);
+        loopData->corkOffset += 16;
 
-        char *corkBuffer = getCorkBuffer();
-        memcpy(corkBuffer + corkOffset, data, length);
-        corkOffset += length;
+        loopData->corkOffset += u32toa_naive(length, loopData->corkBuffer + loopData->corkOffset);
 
+        memcpy(loopData->corkBuffer + loopData->corkOffset, "\r\n\r\n", 4);
+        loopData->corkOffset += 4;
+
+
+        memcpy(loopData->corkBuffer + loopData->corkOffset, src, length);
+        loopData->corkOffset += length;
 
         if constexpr(SSL) {
-            us_ssl_socket_write((us_ssl_socket *) this, corkBuffer, corkOffset);
+            us_ssl_socket_write((us_ssl_socket *) this, loopData->corkBuffer, loopData->corkOffset);
         } else {
-            us_socket_write((us_socket *) this, corkBuffer, corkOffset, 0);
+            us_socket_write((us_socket *) this, loopData->corkBuffer, loopData->corkOffset, 0);
         }
 
-        corkOffset = 0;
+        loopData->corkOffset = 0;
+    }
+
+    HttpSocket *writeStatus(std::string_view status) {
+        writeToCorkBuffer("HTTP/1.1 ", 9);
+        writeToCorkBuffer(status.data(), status.length());
+        writeToCorkBuffer("\r\n", 2);
+        return this;
+    }
+
+    HttpSocket *writeHeader(std::string_view key, std::string_view value) {
+        writeToCorkBuffer(key.data(), key.length());
+        writeToCorkBuffer(": ", 2);
+        writeToCorkBuffer(value.data(), value.length());
+        writeToCorkBuffer("\r\n", 2);
+        return this;
+    }
+
+    void end(std::string_view data) {
+        // end should not explicitly flush the cork buffer! delay to when done with all http data!
+        writeToCorkBufferAndReset(data.data(), data.length());
     }
 
     // can't create this!

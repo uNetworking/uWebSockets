@@ -1,7 +1,3 @@
-// should lie in hub and be connected with pre/post callbacks
-char *corkBuffer = new char[1024];
-int corkOffset = 0;
-
 #ifndef HUB_H
 #define HUB_H
 
@@ -16,8 +12,11 @@ struct Loop {
     us_loop *loop;
 
     struct Data {
-        Data() {
 
+        char *corkBuffer = new char[1024];
+        int corkOffset = 0;
+
+        Data() {
 
         }
 
