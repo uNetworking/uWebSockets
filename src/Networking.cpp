@@ -27,13 +27,13 @@ Context::~Context()
     }
 }
 
-struct Init {
-    Init() {SSL_library_init();}
-    ~Init() {/*EVP_cleanup();*/}
-} init;
-
 Context createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword)
 {
+    static struct Init {
+        Init() {SSL_library_init();}
+        ~Init() {/*EVP_cleanup();*/}
+    } init;
+    
     Context context(SSL_CTX_new(SSLv23_server_method()));
     if (!context.context) {
         return nullptr;
