@@ -6,14 +6,18 @@
 #include <new>
 #include <string_view>
 #include <iostream>
+#include <unistd.h>
 
 namespace uWS {
 struct Loop {
     us_loop *loop;
 
+    static const int CORK_BUFFER_SIZE = 16 * 1024;
+    static const int MAX_COPY_DISTANCE = 4 * 1024;
+
     struct Data {
 
-        char *corkBuffer = new char[1024];
+        char *corkBuffer = new char[CORK_BUFFER_SIZE];
         int corkOffset = 0;
 
         Data() {

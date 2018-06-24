@@ -10,6 +10,17 @@
 template <bool SSL>
 struct HttpSocket {
 
+    template <class A, class B>
+    static constexpr typename std::conditional<SSL, A, B>::type *static_dispatch(A *a, B *b) {
+        if constexpr(SSL) {
+            return a;
+        } else {
+            return b;
+        }
+    }
+
+    typedef typename std::conditional<SSL, us_ssl_socket, us_socket>::type SOCKET_TYPE;
+
     // chunked response will be tricky with this buffering scheme
     // if we do not fit, we can always use the header buffer for this (both in and out!)
     // put first 8kb chunk in the http buffer, then from there it's the stream's job!
@@ -21,7 +32,7 @@ struct HttpSocket {
         std::string headerBuffer;
         int offset = 0;
 
-        std::function<std::pair<const char *, int>(int)> outStream;
+        std::function<std::string_view(int)> outStream;
     };
 
     // only this one should be used!
@@ -51,13 +62,13 @@ struct HttpSocket {
     }
 
     // never rely on this one!
-    void writeToCorkBufferAndReset(const char *src, int length) {
+    void writeToCorkBufferAndReset(const char *src, int length, int contentLength) {
         uWS::Loop::Data *loopData = (uWS::Loop::Data *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) this)));
 
         memcpy(loopData->corkBuffer + loopData->corkOffset, "Content-Length: ", 16);
         loopData->corkOffset += 16;
 
-        loopData->corkOffset += u32toa_naive(length, loopData->corkBuffer + loopData->corkOffset);
+        loopData->corkOffset += u32toa_naive(contentLength, loopData->corkBuffer + loopData->corkOffset);
 
         memcpy(loopData->corkBuffer + loopData->corkOffset, "\r\n\r\n", 4);
         loopData->corkOffset += 4;
@@ -97,9 +108,42 @@ struct HttpSocket {
 
     // stream out (todo: fix up large sends and benchmark it again)
     void write(std::function<std::string_view(int)> cb, int length) {
+
+        // just assume this went fine
+        Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+
+        //httpData->offset = 0;//uWS::Loop::MAX_COPY_DISTANCE;
+
+        // now we start streaming as much as possible in each call!
         std::string_view chunk = cb(0);
 
-        writeToCorkBufferAndReset(chunk.data(), chunk.length());
+        // write that off!
+        if constexpr (SSL) {
+
+        } else {
+            httpData->offset = us_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
+        }
+
+        // if offset is at the end, we are done
+        if (httpData->offset < length) {
+            httpData->outStream = cb;
+        }
+    }
+
+    // this thing should only be reachable from App!
+    void onWritable() {
+        Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+
+
+        // now we start streaming as much as possible in each call!
+        std::string_view chunk = httpData->outStream(httpData->offset);
+
+        // write that off!
+        if constexpr (SSL) {
+
+        } else {
+            httpData->offset += us_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
+        }
     }
 
     // can't create this!

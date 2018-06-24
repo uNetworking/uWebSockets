@@ -66,7 +66,7 @@ protected:
             static_dispatch(us_ssl_socket_context_on_open, us_socket_context_on_open)(httpServerContext, [](auto *s) {
                 Data *data = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
 
-                // here we need to construct a HTTP socket on the ext!
+                new (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s)) typename HttpSocket<SSL>::Data;
 
                 if (!data->onHttpConnection) {
                     return;
@@ -77,6 +77,9 @@ protected:
 
             static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(httpServerContext, [](auto *s) {
                 Data *data = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
+
+                // todo: run the destructor!
+                //((typename HttpSocket<SSL>::Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s))->~(typename HttpSocket<SSL>::Data)();
 
                 if (!data->onHttpDisconnection) {
                     return;
@@ -89,10 +92,6 @@ protected:
 
                 Data *contextData = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
 
-                    // a HttpSocket is basically the Http state and everything needed for it, we use it to parse the data and it knows about its context
-
-                    //
-
                 HttpRequest req(data, length);
                 if (req.isComplete()) {
                     contextData->onHttpRequest((HttpSocket<SSL> *) s, &req);
@@ -100,13 +99,17 @@ protected:
                     std::cout << "Got chunked HTTP headers!" << std::endl;
                 }
             });
+
+            static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(httpServerContext, [](auto *s) {
+                ((HttpSocket<SSL> *) s)->onWritable();
+            });
         }
 
 public:
 
     // for server
     void listen(const char *host, int port, int options) {
-        static_dispatch(us_ssl_socket_context_listen, us_socket_context_listen)(httpServerContext, host, port, options, sizeof(HttpSocket<SSL>));
+        static_dispatch(us_ssl_socket_context_listen, us_socket_context_listen)(httpServerContext, host, port, options, sizeof(typename HttpSocket<SSL>::Data));
     }
 
     AppBase &onPost(std::string pattern, std::function<void(HttpSocket<SSL> *, HttpRequest *, std::vector<std::string_view> *)> handler) {

@@ -1,12 +1,25 @@
-#include "uWS.h"
+#include <string>
 
-std::string buffer;
+char largeBuf[] = "HTTP/1.1 200 OK\r\nContent-Length: 52428800\r\n\r\n";
+int largeHttpBufSize = sizeof(largeBuf) + 52428800 - 1;
+char *largeHttpBuf;
+
+#include "uWS.h"
 
 //#define USE_SSL
 
 int main() {
 
-    buffer = "Why hello there!";
+    std::string buffer;
+    buffer.resize(largeHttpBufSize);
+
+    std::vector<char> vec;
+    vec.resize(largeHttpBufSize);
+
+    // all STD-classes's memory cut throughput in half!
+    largeHttpBuf = (char *) buffer.data();//new char[largeHttpBufSize];//aligned_alloc(16, largeHttpBufSize);//std::aligned_alloc//vec.data();//malloc(largeHttpBufSize);
+    memcpy(largeHttpBuf, largeBuf, sizeof(largeBuf) - 1);
+    printf("%d\n", largeHttpBufSize);
 
     //uWS::init();
     //uWS::Loop loop();
@@ -22,15 +35,9 @@ int main() {
 
     app.onGet("/", [](auto *s, auto *req, auto *args) {
 
-        // this one is simple and okay for small sends
-        /*s->writeStatus("200 OK")
-         ->writeHeader("Server", "uWebSockets")
-         ->end(buffer);*/
-
-        // for large sends you want a stream!
-        s->writeStatus("200 OK")->write([](int offset) {
-            return std::string_view(buffer.data() + offset, buffer.length() - offset);
-        }, buffer.length());
+        s->/*writeStatus("200 OK")->*/write([](int offset) {
+            return std::string_view(largeHttpBuf + offset, largeHttpBufSize - offset);
+        }, largeHttpBufSize);
 
     }).onWebSocket("/wsApi", []() {
 
