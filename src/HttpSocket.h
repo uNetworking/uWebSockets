@@ -62,7 +62,7 @@ struct HttpSocket {
     }
 
     // never rely on this one!
-    void writeToCorkBufferAndReset(const char *src, int length, int contentLength) {
+    int writeToCorkBufferAndReset(const char *src, int length, int contentLength) {
         uWS::Loop::Data *loopData = (uWS::Loop::Data *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) this)));
 
         memcpy(loopData->corkBuffer + loopData->corkOffset, "Content-Length: ", 16);
@@ -77,13 +77,17 @@ struct HttpSocket {
         memcpy(loopData->corkBuffer + loopData->corkOffset, src, length);
         loopData->corkOffset += length;
 
+        int written;
+
         if constexpr(SSL) {
-            us_ssl_socket_write((us_ssl_socket *) this, loopData->corkBuffer, loopData->corkOffset);
+            written = us_ssl_socket_write((us_ssl_socket *) this, loopData->corkBuffer, loopData->corkOffset);
         } else {
-            us_socket_write((us_socket *) this, loopData->corkBuffer, loopData->corkOffset, 0);
+            written = us_socket_write((us_socket *) this, loopData->corkBuffer, loopData->corkOffset, 0);
         }
 
         loopData->corkOffset = 0;
+
+        return written;
     }
 
     HttpSocket *writeStatus(std::string_view status) {
@@ -103,30 +107,37 @@ struct HttpSocket {
 
     void end(std::string_view data) {
         // end should not explicitly flush the cork buffer! delay to when done with all http data!
-        writeToCorkBufferAndReset(data.data(), data.length());
+        writeToCorkBufferAndReset(data.data(), data.length(), data.length());
     }
 
     // stream out (todo: fix up large sends and benchmark it again)
     void write(std::function<std::string_view(int)> cb, int length) {
 
-        // just assume this went fine
-        Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
-
-        //httpData->offset = 0;//uWS::Loop::MAX_COPY_DISTANCE;
-
-        // now we start streaming as much as possible in each call!
         std::string_view chunk = cb(0);
 
-        // write that off!
-        if constexpr (SSL) {
-
+        if (length < uWS::Loop::MAX_COPY_DISTANCE) {
+            // what if the streamer cannot return any data?
+            // then it should return something to pause write, and then start it again
+            // basically we need throttling
+            writeToCorkBufferAndReset(chunk.data(), chunk.length(), length);
         } else {
-            httpData->offset = us_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
-        }
+            // basically finish off the header section and send it as separate syscall (we do not copy anthing in this strategy)
+            writeToCorkBufferAndReset(nullptr, 0, length);
 
-        // if offset is at the end, we are done
-        if (httpData->offset < length) {
-            httpData->outStream = cb;
+            // just assume this went fine
+            Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+
+            // write that off!
+            if constexpr (SSL) {
+
+            } else {
+                httpData->offset = us_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
+            }
+
+            // if offset is at the end, we are done
+            if (httpData->offset < length) {
+                httpData->outStream = cb;
+            }
         }
     }
 
