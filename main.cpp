@@ -4,11 +4,17 @@ std::string buffer;
 
 //#define USE_SSL
 
-int main() {
+int main(int argc, char **argv) {
 
-    buffer = "Hello world!";
-
-    //buffer.resize(512);
+    // dynamically set respinse size from arguments
+    if (argc == 2) {
+        int bytes = atoi(argv[1]);
+        std::cout << "Server going to respond with " << bytes << " bytes of data" << std::endl;
+        buffer.resize(bytes);
+    } else {
+        std::cout << "Usage: uWS_test bytesInResponse" << std::endl;
+        return -1;
+    }
 
     //uWS::init();
     //uWS::Loop loop();
