@@ -1,19 +1,27 @@
 #ifndef HTTPREQUEST_H
 #define HTTPREQUEST_H
 
+#include <string.h>
+#include <string_view>
+#include <utility>
+
 // holds the header pointers and wrappers
 struct HttpRequest {
 
     struct Header {
         char *key, *value;
         unsigned int keyLength, valueLength;
+
+        operator bool() {
+            return key;
+        }
     };
 
     #define MAX_HEADERS 100
     Header headers[MAX_HEADERS];
 
     // UNSAFETY NOTE: assumes *end == '\r' (might unref end pointer)
-    char *getHeaders(char *buffer, char *end, struct Header *headers, size_t maxHeaders) {
+    static char *getHeaders(char *buffer, char *end, struct Header *headers, size_t maxHeaders) {
         for (unsigned int i = 0; i < maxHeaders; i++) {
             for (headers->key = buffer; (*buffer != ':') & (*buffer > 32); *(buffer++) |= 32);
             if (*buffer == '\r') {
@@ -40,27 +48,45 @@ struct HttpRequest {
         return 0;
     }
 
-    std::string_view url;
 
-    HttpRequest(char *data, int length) {
-        // parse the shit
-        data[length] = '\r';
+    int consumePostPadded(char *data, int length) {
+        char *cursor = data;
 
-        if (getHeaders(data, data + length, headers, MAX_HEADERS)) {
-
+        if (cursor = getHeaders(data, data + length, headers, MAX_HEADERS)) {
+            // strip out the initial stuff
             headers->valueLength = std::max<int>(0, headers->valueLength - 9);
-
-            // headers should really just be string_view from the start!
-            url = std::string_view(headers[0].value, headers[0].valueLength);
         }
+
+        return cursor - data;
+    }
+
+    void fenceRegion(char *data, int length) {
+        data[length] = '\r';
+    }
+
+    Header getHeader(const char *key, size_t length) {
+        if (headers) {
+            for (Header *h = headers; *++h; ) {
+                if (h->keyLength == length && !strncmp(h->key, key, length)) {
+                    return *h;
+                }
+            }
+        }
+        return {nullptr, nullptr, 0, 0};
+    }
+
+    std::string_view getHeader(std::string_view header) {
+        Header h = getHeader(header.data(), header.length());
+
+        if (h.key) {
+            return std::string_view(h.value, h.valueLength);
+        }
+
+        return std::string_view(nullptr, 0);
     }
 
     std::string_view getUrl() {
-        return url;
-    }
-
-    bool isComplete() {
-        return url.length();
+        return std::string_view(headers[0].value, headers[0].valueLength);
     }
 
 };

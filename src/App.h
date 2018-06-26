@@ -25,6 +25,7 @@ protected:
     }
 
     typedef typename std::conditional<SSL, us_ssl_socket_context, us_socket_context>::type SOCKET_CONTEXT_TYPE;
+    typedef typename HttpSocket<SSL>::Data HTTP_SOCKET_DATA_TYPE;
 
     struct Data {
         Data() {
@@ -64,40 +65,28 @@ protected:
             new (data = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(httpServerContext)) Data();
 
             static_dispatch(us_ssl_socket_context_on_open, us_socket_context_on_open)(httpServerContext, [](auto *s) {
-                Data *data = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
+                Data *appData = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
 
-                new (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s)) typename HttpSocket<SSL>::Data;
+                new (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s)) HTTP_SOCKET_DATA_TYPE;
 
-                if (!data->onHttpConnection) {
-                    return;
+                if (appData->onHttpConnection) {
+                    appData->onHttpConnection((HttpSocket<SSL> *) s);
                 }
-
-                data->onHttpConnection((HttpSocket<SSL> *) s);
             });
 
             static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(httpServerContext, [](auto *s) {
-                Data *data = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
+                Data *appData = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
 
-                // todo: run the destructor!
-                //((typename HttpSocket<SSL>::Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s))->~(typename HttpSocket<SSL>::Data)();
+                ((HTTP_SOCKET_DATA_TYPE *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s))->~HTTP_SOCKET_DATA_TYPE();
 
-                if (!data->onHttpDisconnection) {
-                    return;
+                if (appData->onHttpDisconnection) {
+                    appData->onHttpDisconnection((HttpSocket<SSL> *) s);
                 }
-
-                data->onHttpDisconnection((HttpSocket<SSL> *) s);
             });
 
             static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(httpServerContext, [](auto *s, char *data, int length) {
-
-                Data *contextData = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
-
-                HttpRequest req(data, length);
-                if (req.isComplete()) {
-                    contextData->onHttpRequest((HttpSocket<SSL> *) s, &req);
-                } else {
-                    std::cout << "Got chunked HTTP headers!" << std::endl;
-                }
+                Data *appData = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
+                ((HttpSocket<SSL> *) s)->onData(data, length, appData->onHttpRequest);
             });
 
             static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(httpServerContext, [](auto *s) {

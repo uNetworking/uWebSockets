@@ -30,9 +30,18 @@ int main(int argc, char **argv) {
 
     app.onGet("/", [](auto *s, auto *req, auto *args) {
 
+        // streams need to expose more information about lifetime!
         s->writeStatus("200 OK")->write([](int offset) {
             return std::string_view(buffer.data() + offset, buffer.length() - offset);
         }, buffer.length());
+
+    }).onPost("/upload", [](auto *s, auto *req, auto *args) {
+
+        s->read([s](std::string_view chunk) {
+            std::cout << "Received chunk on URL /upload: <" << chunk << ">" << std::endl;
+
+            s->writeStatus("200 OK")->end("Thanks for posting!");
+        });
 
     }).onWebSocket("/wsApi", []() {
 
