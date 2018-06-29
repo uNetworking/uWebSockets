@@ -117,7 +117,7 @@ public:
 
     // think about better interface for this one. HttpParser::consumePostPadded<limit or not>(data, length, httpData, onHttpRequest)
     template <int LIMIT_TO_ONE_REQUEST>
-    int fenceAndConsumePostPadded(char *data, int length, void *user, HttpRequest *req, std::function<void(void *, HttpRequest *)> &requestHandler, std::function<void(void *, std::string_view)> &dataHandler) {
+    inline int fenceAndConsumePostPadded(char *data, int length, void *user, HttpRequest *req, std::function<void(void *, HttpRequest *)> &requestHandler, std::function<void(void *, std::string_view)> &dataHandler) {
         int ret = 0;
 
         int consumed = 0;
@@ -132,7 +132,7 @@ public:
             if (std::string_view contentLengthString = req->getHeader("content-length"); contentLengthString.length()) {
                 remainingStreamingBytes = str2int(contentLengthString.data(), contentLengthString.length());
                 int emittable = std::min(remainingStreamingBytes, length);
-                /*httpData->inStream*/dataHandler(user, std::string_view(data, emittable));
+                dataHandler(user, std::string_view(data, emittable));
                 remainingStreamingBytes -= emittable;
                 length -= emittable;
 
@@ -147,7 +147,7 @@ public:
     }
 
 
-    void consumePostPadded(char *data, int length, void *user, std::function<void(void *, HttpRequest *)> requestHandler, std::function<void(void *, std::string_view)> dataHandler, std::function<void(void *)> errorHandler) {
+    inline void consumePostPadded(char *data, int length, void *user, std::function<void(void *, HttpRequest *)> &&requestHandler, std::function<void(void *, std::string_view)> &&dataHandler, std::function<void(void *)> &&errorHandler) {
 
         HttpRequest req;
 

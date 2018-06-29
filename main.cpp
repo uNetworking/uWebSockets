@@ -1,5 +1,7 @@
 #include "uWS.h"
 
+#include "Tests.h"
+
 std::string buffer;
 
 //#define USE_SSL
@@ -15,6 +17,9 @@ int main(int argc, char **argv) {
         std::cout << "Usage: uWS_test bytesInResponse" << std::endl;
         return -1;
     }
+
+    // first of all we run a couple of benchmarks
+    testHttpParserPerformance();
 
     //uWS::init();
     //uWS::Loop loop();
