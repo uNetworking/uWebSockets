@@ -1,6 +1,8 @@
 #ifndef HTTPROUTER_HPP
 #define HTTPROUTER_HPP
 
+// this header also needs testing and fixing as a separate module
+
 #include <map>
 #include <functional>
 #include <vector>

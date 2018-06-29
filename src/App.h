@@ -6,7 +6,6 @@
 #include "Loop.h"
 #include "HttpSocket.h"
 #include "HttpRouter.h"
-#include "HttpRequest.h"
 
 namespace uWS {
 
@@ -86,6 +85,8 @@ protected:
 
             static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(httpServerContext, [](auto *s, char *data, int length) {
                 Data *appData = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
+
+                // onHttpRequest should probably be hard-coded to HttpRouter
                 ((HttpSocket<SSL> *) s)->onData(data, length, appData->onHttpRequest);
             });
 

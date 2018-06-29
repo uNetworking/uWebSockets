@@ -3,7 +3,7 @@
 
 #include "libusockets.h"
 #include "Loop.h"
-#include "HttpRequest.h"
+#include "HttpParser.h"
 #include <functional>
 #include <cstring>
 #include <algorithm>
@@ -42,27 +42,14 @@ struct HttpSocket {
         return ret;
     }
 
-    int str2int(const char *str, int len) {
-        int i;
-        int ret = 0;
-        for (i = 0; i < len; i++) {
-            ret = ret * 10 + (str[i] - '0');
-        }
-        return ret;
-    }
-
     // chunked response will be tricky with this buffering scheme
     // if we do not fit, we can always use the header buffer for this (both in and out!)
     // put first 8kb chunk in the http buffer, then from there it's the stream's job!
     // httpheaders should only have 1 stream in and 1 stream out, but we can have helper wrappers
 
-    // data is stored in ext
     struct Data {
-        // fallback buffering
-        std::string fallback;
+        HttpParser httpParser;
 
-        // these two control input streaming
-        int contentLength = 0;
         std::function<void(std::string_view)> inStream;
 
         // out streaming (.end should be a wrapper of this!)
@@ -177,102 +164,14 @@ struct HttpSocket {
     void onData(char *data, int length, std::function<void(HttpSocket<SSL> *, HttpRequest *)> &onHttpRequest) {
         Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
 
-        //std::cout << std::string_view(data, length) << std::endl;
-
-        HttpRequest req;
-
-        req.fenceRegion(data, length);
-
-        if (httpData->contentLength) {
-            // at this point we reset the timeout timer
-            if (httpData->contentLength >= length) {
-                httpData->inStream(std::string_view(data, length));
-                httpData->contentLength -= length;
-                // no change to the socket here!
-                return;
-            } else {
-                httpData->inStream(std::string_view(data, httpData->contentLength));
-
-                data += httpData->contentLength;
-                length -= httpData->contentLength;
-
-                httpData->contentLength = 0;
-            }
-        } else if (httpData->fallback.length()) {
-            int maxCopyDistance = std::min(MAX_FALLBACK_SIZE - httpData->fallback.length(), (size_t) length);
-
-            httpData->fallback.reserve(maxCopyDistance + 32); // padding should be same as libus
-            httpData->fallback.append(data, maxCopyDistance);
-
-
-            if (int consumed = req.consumePostPadded(httpData->fallback.data(), httpData->fallback.length()); consumed) {
-                httpData->fallback.clear();
-
-                data += consumed;
-                length -= consumed;
-
-                onHttpRequest(this, &req);
-
-                // see if we can read any posted data here (do we have contentLength header set?)
-            } else {
-                if (httpData->fallback.length() < MAX_FALLBACK_SIZE) {
-                    std::cout << "Http headers coming in chunks I see, fine I'll pass!" << std::endl;
-                } else {
-                    // here we failed to parse any header in the 4kb we were given!
-                    std::cout << "INVALID HTTP! no more chances!" << std::endl;
-                }
-                // no change in socket, or a closed socket!
-                return;
-            }
-        }
-
-        for (int consumed = 0; length && (consumed = req.consumePostPadded(data, length)); ) {
-
-            //std::cout << "Parsing now <" << std::string_view(data, length) << ">" << std::endl;
-
-            data += consumed;
-            length -= consumed;
-
-            // first emit the request
-            onHttpRequest(this, &req);
-
-            // then consume and stream any data!
-            if (std::string_view contentLength = req.getHeader("content-length"); contentLength.length()) {
-                // can we read everything off right now?
-
-                httpData->contentLength = str2int(contentLength.data(), contentLength.length());
-
-                //std::cout << "content length!" << std::endl;
-
-
-                int emittable = std::min(httpData->contentLength, length);
-
-
-                //std::cout << "Emittable: " << emittable << std::endl;
-
-                httpData->inStream(std::string_view(data, emittable));
-
-
-                httpData->contentLength -= emittable;
-
-
-                length -= emittable;
-
-                // otherwise, enter contentLength state!
-            } else {
-                //std::cout << "We don't have content-length!" << std::endl;
-            }
-
-        }
-
-        if (length) {
-            if (length < MAX_FALLBACK_SIZE) {
-                // buffer up for next
-            } else {
-                // invalid http!
-                std::cout << "invalid http! fuck off!" << std::endl;
-            }
-        }
+        // todo: this is where the HttpSocket binds together HttpParser and HttpRouter into one
+        httpData->httpParser.consumePostPadded(data, length, this, [&onHttpRequest](void *user, HttpRequest *httpRequest) {
+            onHttpRequest((HttpSocket<SSL> *) user, httpRequest);
+        }, [httpData](void *user, std::string_view data) {
+            httpData->inStream(data);
+        }, [](void *user) {
+            std::cout << "INVALID HTTP!" << std::endl;
+        });
     }
 
     void read(decltype(Data::inStream) stream) {
