@@ -58,6 +58,10 @@ struct HttpRequest {
             headers->valueLength = std::max<int>(0, headers->valueLength - 9);
         }
 
+        if (cursor == nullptr) {
+            return 0;
+        }
+
         return cursor - data;
     }
 
@@ -98,7 +102,7 @@ struct HttpRequest {
 };
 
 class HttpParser {
-private:
+public://private:
     std::string fallback;
     int remainingStreamingBytes = 0;
 
@@ -134,6 +138,8 @@ public:
                 int emittable = std::min(remainingStreamingBytes, length);
                 dataHandler(user, std::string_view(data, emittable));
                 remainingStreamingBytes -= emittable;
+
+                data += emittable; // denna var buggen?
                 length -= emittable;
 
                 ret += emittable;
@@ -177,9 +183,39 @@ public:
             fallback.reserve(maxCopyDistance + 32); // padding should be same as libus
             fallback.append(data, maxCopyDistance);
 
+            // helst ska denna inte emitta någon data alls, vi gör det efteråt!
             if (int consumed = fenceAndConsumePostPadded<true>(fallback.data(), fallback.length(), user, &req, requestHandler, dataHandler); consumed) {
+
+                // I guess?
+                fallback.clear();
+
                 data += consumed - had;
                 length -= consumed - had;
+
+                // ska vi inte tömma fallback här?
+
+
+                // exakt samma if-sats som ovan!
+                if (remainingStreamingBytes) {
+                    // at this point we reset the timeout timer, we are streaming and we got a chunk
+
+                    if (remainingStreamingBytes >= length) {
+                        dataHandler(user, std::string_view(data, length));
+                        remainingStreamingBytes -= length;
+                        // no change to the socket here! we read all data in the buffer, return
+                        return;
+                    } else {
+                        dataHandler(user, std::string_view(data, remainingStreamingBytes));
+
+                        data += remainingStreamingBytes;
+                        length -= remainingStreamingBytes;
+
+                        remainingStreamingBytes = 0;
+
+                        // okay we are done with that, let's parse some more
+                    }
+                }
+
             } else {
                 if (fallback.length() == MAX_FALLBACK_SIZE) {
                     // here we failed to parse any header in the 4kb we were given!
@@ -191,6 +227,7 @@ public:
         }
 
         int consumed = fenceAndConsumePostPadded<false>(data, length, user, &req, requestHandler, dataHandler);
+
         data += consumed;
         length -= consumed;
 
@@ -198,8 +235,8 @@ public:
             if (length < MAX_FALLBACK_SIZE) {
                 fallback.append(data, length);
             } else {
-                // invalid http!
-                std::cout << "invalid http! fuck off!" << std::endl;
+                std::cout << "tail is invalid http!" << std::endl;
+                exit(-1);
             }
         }
 
