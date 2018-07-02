@@ -5,17 +5,52 @@
 #include <functional>
 #include <cstring>
 
-struct HttpRequest {
+class HttpRequest {
 
+    friend class HttpParser;
+
+private:
     const static int MAX_HEADERS = 50;
     struct Header {
         std::string_view key, value;
     } headers[MAX_HEADERS];
 
-    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct Header *headers) {
+public:
+    std::string_view getHeader(std::string_view header) {
+        for (Header *h = headers; (++h)->key.length(); ) {
+            if (h->key.length() == header.length() && !strncmp(h->key.data(), header.data(), header.length())) {
+                return h->value;
+            }
+        }
+        return std::string_view(nullptr, 0);
+    }
+
+    std::string_view getUrl() {
+        return headers->value;
+    }
+
+};
+
+class HttpParser {
+
+private:
+    std::string fallback;
+    int remainingStreamingBytes = 0;
+
+    const size_t MAX_FALLBACK_SIZE = 1024 * 4;
+
+    static unsigned int toUnsignedInteger(std::string_view str) {
+        int unsignedIntegerValue = 0;
+        for (unsigned char c : str) {
+            unsignedIntegerValue = unsignedIntegerValue * 10 + (c - '0');
+        }
+        return unsignedIntegerValue;
+    }
+
+    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
 
-        for (unsigned int i = 0; i < MAX_HEADERS; i++) {
+        for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS; i++) {
             for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') & (*postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
             if (*postPaddedBuffer == '\r') {
                 if ((postPaddedBuffer != end) & (postPaddedBuffer[1] == '\n') & (i > 0)) {
@@ -41,44 +76,13 @@ struct HttpRequest {
         return 0;
     }
 
-    std::string_view getHeader(std::string_view header) {
-        for (Header *h = headers; (++h)->key.length(); ) {
-            if (h->key.length() == header.length() && !strncmp(h->key.data(), header.data(), header.length())) {
-                return h->value;
-            }
-        }
-        return std::string_view(nullptr, 0);
-    }
-
-    std::string_view getUrl() {
-        return headers->value;
-    }
-
-};
-
-class HttpParser {
-
-private:
-    std::string fallback;
-    int remainingStreamingBytes = 0;
-
-    const size_t MAX_FALLBACK_SIZE = 1024 * 4;
-
-    unsigned int toUnsignedInteger(std::string_view str) {
-        int unsignedIntegerValue = 0;
-        for (unsigned char c : str) {
-            unsignedIntegerValue = unsignedIntegerValue * 10 + (c - '0');
-        }
-        return unsignedIntegerValue;
-    }
-
     // the only caller of getHeaders
     template <int CONSUME_MINIMALLY>
     int fenceAndConsumePostPadded(char *data, int length, void *user, HttpRequest *req, std::function<void(void *, HttpRequest *)> &requestHandler, std::function<void(void *, std::string_view)> &dataHandler) {
         int consumedTotal = 0;
         data[length] = '\r';
 
-        for (int consumed; length && (consumed = HttpRequest::getHeaders(data, data + length, req->headers)); ) {
+        for (int consumed; length && (consumed = getHeaders(data, data + length, req->headers)); ) {
             data += consumed;
             length -= consumed;
             consumedTotal += consumed;
@@ -112,7 +116,7 @@ private:
 public:
 
     // todo: what can we do with the socket inside the handlers? we need to check on return from any handler if we closed or terminated or upgraded the socket
-    inline void consumePostPadded(char *data, int length, void *user, std::function<void(void *, HttpRequest *)> &&requestHandler, std::function<void(void *, std::string_view)> &&dataHandler, std::function<void(void *)> &&errorHandler) {
+    void consumePostPadded(char *data, int length, void *user, std::function<void(void *, HttpRequest *)> &&requestHandler, std::function<void(void *, std::string_view)> &&dataHandler, std::function<void(void *)> &&errorHandler) {
 
         HttpRequest req;
 
