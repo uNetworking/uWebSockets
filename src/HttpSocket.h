@@ -133,7 +133,7 @@ struct HttpSocket {
 
             // write that off!
             if constexpr (SSL) {
-
+                httpData->offset = us_ssl_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length());
             } else {
                 httpData->offset = us_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
             }
@@ -155,7 +155,7 @@ struct HttpSocket {
 
         // write that off!
         if constexpr (SSL) {
-
+            httpData->offset += us_ssl_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length());
         } else {
             httpData->offset += us_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
         }

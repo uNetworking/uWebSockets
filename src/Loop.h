@@ -13,7 +13,7 @@ struct Loop {
     us_loop *loop;
 
     static const int CORK_BUFFER_SIZE = 16 * 1024;
-    static const int MAX_COPY_DISTANCE = 4 * 1024;
+    static const int MAX_COPY_DISTANCE = 4096;
 
     struct Data {
 

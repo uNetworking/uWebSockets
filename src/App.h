@@ -71,6 +71,20 @@ protected:
                 if (appData->onHttpConnection) {
                     appData->onHttpConnection((HttpSocket<SSL> *) s);
                 }
+
+                // we should already be linked!
+                //static_dispatch(us_ssl_socket_context_link, us_socket_context_link)(httpServerContext, s);
+
+                // this should absolutely not be exposed like this!
+                // fix up timers!
+                // this goes hand in hand with fixing up shutdown also!
+                if constexpr (!SSL) {
+                    us_socket_context_link(us_socket_get_context(s), s);
+                }
+
+                // start a timeout on this socket of 10 seconds
+                std::cout << "Arming socket timeout" << std::endl;
+                static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, 10);
             });
 
             static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(httpServerContext, [](auto *s) {
@@ -97,6 +111,10 @@ protected:
             static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(httpServerContext, [](auto *s) {
                 ((HttpSocket<SSL> *) s)->onWritable();
             });
+
+            static_dispatch(us_ssl_socket_context_on_timeout, us_socket_context_on_timeout)(httpServerContext, [](auto *s) {
+                std::cout << "Some socket timed out!" << std::endl;
+            });
         }
 
 public:
@@ -118,6 +136,19 @@ public:
         data->r.add("GET", pattern.c_str(), [handler](typename Data::UserData *user, auto *args) {
             handler(user->httpSocket, user->httpRequest, args);
         });
+
+        return *this;
+    }
+
+    // why even bother with these?
+    AppBase &onHttpConnection(std::function<void(HttpSocket<SSL> *)> handler) {
+        data->onHttpConnection = handler;
+
+        return *this;
+    }
+
+    AppBase &onHttpDisconnection(std::function<void(HttpSocket<SSL> *)> handler) {
+        data->onHttpDisconnection = handler;
 
         return *this;
     }

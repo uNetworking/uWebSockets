@@ -158,7 +158,12 @@ public:
     }
 
     void route(const char *method, unsigned int method_length, const char *url, unsigned int url_length, USERDATA userData) {
-        handlers[lookup(url, url_length)](userData, &params);
+
+        int index = lookup(url, url_length);
+        if (index != -1) {
+            handlers[index](userData, &params);
+        }
+
         params.clear();
     }
 };
