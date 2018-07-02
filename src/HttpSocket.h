@@ -168,7 +168,9 @@ struct HttpSocket {
         httpData->httpParser.consumePostPadded(data, length, this, [&onHttpRequest](void *user, HttpRequest *httpRequest) {
             onHttpRequest((HttpSocket<SSL> *) user, httpRequest);
         }, [httpData](void *user, std::string_view data) {
-            httpData->inStream(data);
+            if (httpData->inStream) {
+                httpData->inStream(data);
+            }
         }, [](void *user) {
             std::cout << "INVALID HTTP!" << std::endl;
         });

@@ -18,8 +18,7 @@ HEADERS += \
     src/Loop.h \
     src/App.h \
     src/HttpSocket.h \
-    src/HttpParser.h \
-    src/Tests.h
+    src/HttpParser.h
 
 INCLUDEPATH += uSockets/src src
 #QMAKE_CXXFLAGS += -fsanitize=address

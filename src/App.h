@@ -88,6 +88,10 @@ protected:
 
                 // onHttpRequest should probably be hard-coded to HttpRouter
                 ((HttpSocket<SSL> *) s)->onData(data, length, appData->onHttpRequest);
+
+                // compared to routing directly
+                //typename Data::UserData user = {(HttpSocket<SSL> *) s, nullptr};
+                //appData->r.route("GET", 3, "/", 1, &user);
             });
 
             static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(httpServerContext, [](auto *s) {
