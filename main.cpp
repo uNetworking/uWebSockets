@@ -10,7 +10,7 @@ void respond(T *s) {
     }, SIZE);
 }
 
-//#define USE_SSL
+#define USE_SSL
 
 int main(int argc, char **argv) {
 
@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
         std::cout << "Connections: " << ++connections << std::endl;
     }).onHttpDisconnection([](auto *s) {
         std::cout << "Connections: " << --connections << std::endl;
-    }).listen("localhost", 3000, 0);
+    }).listen(nullptr, 3000, 0);
 
     uWS::run();
     // loop.run();

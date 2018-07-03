@@ -12,7 +12,7 @@
 template <bool SSL>
 struct HttpSocket {
 
-    const size_t MAX_FALLBACK_SIZE = 1024 * 4;
+    const size_t MAX_FALLBACK_SIZE = 4096;
 
     template <class A, class B>
     static constexpr typename std::conditional<SSL, A, B>::type *static_dispatch(A *a, B *b) {
@@ -66,7 +66,7 @@ struct HttpSocket {
     }
 
     // never rely on this one!
-    int writeToCorkBufferAndReset(const char *src, int length, int contentLength) {
+    int writeToCorkBufferAndReset(const char *src, int length, int contentLength, bool expectMore) {
         uWS::Loop::Data *loopData = (uWS::Loop::Data *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) this)));
 
         memcpy(loopData->corkBuffer + loopData->corkOffset, "Content-Length: ", 16);
@@ -81,13 +81,7 @@ struct HttpSocket {
         memcpy(loopData->corkBuffer + loopData->corkOffset, src, length);
         loopData->corkOffset += length;
 
-        int written;
-
-        if constexpr(SSL) {
-            written = us_ssl_socket_write((us_ssl_socket *) this, loopData->corkBuffer, loopData->corkOffset);
-        } else {
-            written = us_socket_write((us_socket *) this, loopData->corkBuffer, loopData->corkOffset, 0);
-        }
+        int written = static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, loopData->corkBuffer, loopData->corkOffset, expectMore);
 
         loopData->corkOffset = 0;
         return written;
@@ -111,7 +105,7 @@ struct HttpSocket {
     // this should not be anything other than a simple convenience wrapper of streams!
     void end(std::string_view data) {
         // end should not explicitly flush the cork buffer! delay to when done with all http data!
-        writeToCorkBufferAndReset(data.data(), data.length(), data.length());
+        writeToCorkBufferAndReset(data.data(), data.length(), data.length(), false);
     }
 
     // stream out (todo: fix up large sends and benchmark it again)
@@ -123,20 +117,16 @@ struct HttpSocket {
             // what if the streamer cannot return any data?
             // then it should return something to pause write, and then start it again
             // basically we need throttling
-            writeToCorkBufferAndReset(chunk.data(), chunk.length(), length);
+            writeToCorkBufferAndReset(chunk.data(), chunk.length(), length, false);
         } else {
             // basically finish off the header section and send it as separate syscall (we do not copy anthing in this strategy)
-            writeToCorkBufferAndReset(nullptr, 0, length);
+            writeToCorkBufferAndReset(nullptr, 0, length, true);
 
             // just assume this went fine
             Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
 
             // write that off!
-            if constexpr (SSL) {
-                httpData->offset = us_ssl_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length());
-            } else {
-                httpData->offset = us_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
-            }
+            static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
 
             // if offset is at the end, we are done
             if (httpData->offset < length) {
@@ -154,11 +144,7 @@ struct HttpSocket {
         std::string_view chunk = httpData->outStream(httpData->offset);
 
         // write that off!
-        if constexpr (SSL) {
-            httpData->offset += us_ssl_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length());
-        } else {
-            httpData->offset += us_socket_write((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
-        }
+        static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
     }
 
     void onData(char *data, int length, std::function<void(HttpSocket<SSL> *, HttpRequest *)> &onHttpRequest) {

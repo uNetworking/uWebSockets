@@ -14,6 +14,8 @@ class AppBase {
 
 protected:
 
+    static const unsigned int HTTP_IDLE_TIMEOUT_S = 10;
+
     template <class A, class B>
     static constexpr typename std::conditional<SSL, A, B>::type *static_dispatch(A *a, B *b) {
         if constexpr(SSL) {
@@ -66,25 +68,13 @@ protected:
             static_dispatch(us_ssl_socket_context_on_open, us_socket_context_on_open)(httpServerContext, [](auto *s) {
                 Data *appData = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
 
+                static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
+
                 new (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s)) HTTP_SOCKET_DATA_TYPE;
 
                 if (appData->onHttpConnection) {
                     appData->onHttpConnection((HttpSocket<SSL> *) s);
                 }
-
-                // we should already be linked!
-                //static_dispatch(us_ssl_socket_context_link, us_socket_context_link)(httpServerContext, s);
-
-                // this should absolutely not be exposed like this!
-                // fix up timers!
-                // this goes hand in hand with fixing up shutdown also!
-                if constexpr (!SSL) {
-                    us_socket_context_link(us_socket_get_context(s), s);
-                }
-
-                // start a timeout on this socket of 10 seconds
-                std::cout << "Arming socket timeout" << std::endl;
-                static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, 10);
             });
 
             static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(httpServerContext, [](auto *s) {
@@ -100,6 +90,8 @@ protected:
             static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(httpServerContext, [](auto *s, char *data, int length) {
                 Data *appData = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
 
+                static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
+
                 // onHttpRequest should probably be hard-coded to HttpRouter
                 ((HttpSocket<SSL> *) s)->onData(data, length, appData->onHttpRequest);
 
@@ -109,11 +101,16 @@ protected:
             });
 
             static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(httpServerContext, [](auto *s) {
+                static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
+
                 ((HttpSocket<SSL> *) s)->onWritable();
             });
 
             static_dispatch(us_ssl_socket_context_on_timeout, us_socket_context_on_timeout)(httpServerContext, [](auto *s) {
-                std::cout << "Some socket timed out!" << std::endl;
+
+                // basically, when any socket times out we want to close it
+
+                std::cout << "The server would now like to close a socket!" << std::endl;
             });
         }
 
