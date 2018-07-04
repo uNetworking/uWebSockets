@@ -458,6 +458,14 @@ public:
         }
 #endif
     }
+    
+    void setSendBuff(size_t size) {
+        setsockopt(getFd(), SOL_SOCKET, SO_SNDBUF, &size, sizeof(size));
+    }
+
+    void setRecvBuff(size_t size) {
+        setsockopt(getFd(), SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
+    }
 
     void shutdown() {
         if (ssl) {
