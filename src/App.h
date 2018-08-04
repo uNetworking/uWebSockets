@@ -90,6 +90,8 @@ protected:
             static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(httpServerContext, [](auto *s, char *data, int length) {
                 Data *appData = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
 
+                // warning: should NOT reset timer on any data, ONLY reset data on full HTTP requests!
+                // warning: if we are in shutdown state, resetting the timer is a security issue!
                 static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
 
                 // onHttpRequest should probably be hard-coded to HttpRouter
@@ -101,16 +103,30 @@ protected:
             });
 
             static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(httpServerContext, [](auto *s) {
+
+                // what if the client
+
+                // I think it's fair to never mind this one -> if we keep writing data after shutting down then that's an issue for us
                 static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
 
                 ((HttpSocket<SSL> *) s)->onWritable();
             });
 
+            static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(httpServerContext, [](auto *s) {
+                std::cout << "Socket was half-closed!" << std::endl;
+            });
+
             static_dispatch(us_ssl_socket_context_on_timeout, us_socket_context_on_timeout)(httpServerContext, [](auto *s) {
 
-                // basically, when any socket times out we want to close it
+                if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)(s)) {
+                    std::cout << "Forcefully closing socket since shutdown was not answered in time" << std::endl;
+                    static_dispatch(us_ssl_socket_close, us_socket_close)(s);
+                } else {
+                    std::cout << "Shutting down socket now" << std::endl;
+                    static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
+                    static_dispatch(us_ssl_socket_shutdown, us_socket_shutdown)(s);
+                }
 
-                std::cout << "The server would now like to close a socket!" << std::endl;
             });
         }
 

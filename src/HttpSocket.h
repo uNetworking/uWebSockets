@@ -113,20 +113,26 @@ struct HttpSocket {
 
         std::string_view chunk = cb(0);
 
+        // kopiera upp till (SSL eller icke-ssl) max copy distance
+
+        // om mer än detta, fortsätt skicka
+
+
+        // this strategy can be simplified to one, we can even have MAX_COPY_DISTANCE_SSL and MAX_COPY_DISTANCE
         if (length < uWS::Loop::MAX_COPY_DISTANCE) {
             // what if the streamer cannot return any data?
             // then it should return something to pause write, and then start it again
             // basically we need throttling
             writeToCorkBufferAndReset(chunk.data(), chunk.length(), length, false);
         } else {
-            // basically finish off the header section and send it as separate syscall (we do not copy anthing in this strategy)
-            writeToCorkBufferAndReset(nullptr, 0, length, true);
+            // copying some data with the headers is a good idea for SSL but probably not for non-SSL
+            writeToCorkBufferAndReset(chunk.data(), uWS::Loop::MAX_COPY_DISTANCE, length, true);
 
             // just assume this went fine
             Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
 
             // write that off!
-            static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
+            static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, chunk.data() + uWS::Loop::MAX_COPY_DISTANCE, chunk.length() - uWS::Loop::MAX_COPY_DISTANCE, 0);
 
             // if offset is at the end, we are done
             if (httpData->offset < length) {

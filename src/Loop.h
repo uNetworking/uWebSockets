@@ -38,7 +38,7 @@ struct Loop {
 
     }
 
-    Loop() : loop(us_create_loop(wakeupCb, preCb, postCb, sizeof(Data))) {
+    Loop() : loop(us_create_loop(1, wakeupCb, preCb, postCb, sizeof(Data))) {
         new (data = (Data *) us_loop_ext(loop)) Data();
     }
 
