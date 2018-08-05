@@ -35,6 +35,9 @@ A free & open source ([Zlib](LICENSE)) hobby project of [mine](https://github.co
 
 *Understand I don't take issue reports, suggestions or provide any support to free-riders. You want in? Become a sponsor.*
 
+#### Deploy with confidence.
+Feeling uncertain about your design? In need of professional help? I might have a few consulting hours for you and your business, send [me](https://github.com/alexhultman) a mail and we'll figure out the rest.
+
 #### Excel across the board.
 <div align="center"><img src="misc/images/overview.png"/></div>
 
