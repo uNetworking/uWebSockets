@@ -61,6 +61,8 @@ struct Loop {
     void doEpoll(int epollTimeout);
 
     void run();
+	
+	void run_one();
 
     void poll();
 

@@ -73,6 +73,7 @@ public:
     }
 
     using uS::Node::run;
+    using uS::Node::run_one;
     using uS::Node::poll;
     using uS::Node::getLoop;
     using Group<SERVER>::onConnection;
