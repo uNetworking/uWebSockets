@@ -35,20 +35,28 @@ void Loop::doEpoll(int epollTimeout) {
         callbacks[poll->state.cbIndex](poll, status, readyEvents[i].events);
     }
 
-    while (timers.size() && timers[0].timepoint < timepoint) {
-        Timer *timer = timers[0].timer;
-        cancelledLastTimer = false;
-        timers[0].cb(timers[0].timer);
+    if (timers.size()) {
+        if (timers[0].timepoint < timepoint) {
+            do {
+                Timer *timer = timers[0].timer;
+                processingTimer = timer; // processing this timer
+                cancelledLastTimer = false;
+                timers[0].cb(timers[0].timer);
 
-        if (cancelledLastTimer) {
-            continue;
-        }
+                if (cancelledLastTimer) {
+                    continue;
+                }
 
-        int repeat = timers[0].nextDelay;
-        auto cb = timers[0].cb;
-        timers.erase(timers.begin());
-        if (repeat) {
-            timer->start(cb, repeat, repeat);
+                int repeat = timers[0].nextDelay;
+                auto cb = timers[0].cb;
+                timers.erase(timers.begin());
+                if (repeat) {
+                    timer->start(cb, repeat, repeat);
+                }
+            } while (timers.size() && timers[0].timepoint < timepoint);
+
+        } else { // we have a timer but it did not process, so update our next delay
+            delay = std::max<int>(std::chrono::duration_cast<std::chrono::milliseconds>(timers[0].timepoint - timepoint).count(), 0);
         }
     }
 
