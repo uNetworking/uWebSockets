@@ -131,7 +131,6 @@ struct Timer {
 // 4 bytes
 struct Poll {
 protected:
-
     struct {
         int fd : 28;
         unsigned int cbIndex : 4;
