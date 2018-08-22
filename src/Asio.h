@@ -23,6 +23,10 @@ struct Loop : boost::asio::io_service {
         boost::asio::io_service::run();
     }
 
+    void run_one() {
+        boost::asio::io_service::run_one();
+    }
+
     void poll() {
         boost::asio::io_service::poll();
     }

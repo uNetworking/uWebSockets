@@ -64,6 +64,11 @@ void Node::run() {
     loop->run();
 }
 
+void Node::run_one() {
+    nodeData->tid = pthread_self();
+    loop->run_one();
+}
+
 void Node::poll() {
     loop->poll();
 }

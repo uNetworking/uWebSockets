@@ -82,6 +82,9 @@ public:
     /* Blocking */
     void run();
 
+    /* Blocking Once */
+    void run_one();
+
     /* Non-blocking */
     void poll();
 

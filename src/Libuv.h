@@ -25,6 +25,10 @@ struct Loop : uv_loop_t {
         uv_run(this, UV_RUN_DEFAULT);
     }
 
+    void run_one() {
+        uv_run(this, UV_RUN_ONCE);
+    }
+
     void poll() {
         uv_run(this, UV_RUN_NOWAIT);
     }
