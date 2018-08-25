@@ -1,6 +1,6 @@
 <div align="center"><img src="misc/images/logo.png"/></div>
 
-µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is fast and lightweight message passing for the modern web.
+µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient message passing for the modern web.
 
 [Wiki pages & user manual](https://github.com/uNetworking/uWebSockets/wiki/User-manual-v0.14.x) | [Care for a sneak peek?](https://github.com/uNetworking/v0.15)
 
