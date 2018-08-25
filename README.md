@@ -1,26 +1,16 @@
-# v0.15 of µWebSockets
+<div align="center"><img src="logo.png"/></div>
 
-µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is a modern C++17 implementation of WebSockets & HTTP. It focuses on performance & memory usage and has been shown to outperform Node.js v10 some 13x (8x with SSL) while still being just as easy to work with.
+µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient message passing for the modern web.
 
-µWS v0.15 is about 20% faster than v0.14 for small sends, 260% faster for large sends (50 MB).
+* Read the [fancy pants details & user manual](https://todo.sometime).
 
-#### Pub/sub
-One of the most popular usages of WebSockets is to deliver a message sent under a topic to all subscribers of said topic. This functionality is easy to implement and even easier to completely mess up, resulting in a very inefficient solution.
-
-With v0.15 we now have built-in protocol independent pub/sub support delivering top notch broadcast performance.
-
-```c++
-ws->sub("some/topic/*");
-ws->pub("another/topic/here", message);
-```
-
-#### Build optimized WebSocket & HTTP servers & clients in no time.
+#### Build optimized, standard web clients & servers in no time.
 ```c++
 uWS::App a; // or uWS::SSLApp(options) for SSL
 
 a.onGet("/", [](auto *s, auto *req, auto *args) {
 
-    s->writeStatus(200)->writeHeader("Hello", "World")->end(buffer, 512);
+    s->writeStatus("200 OK")->writeHeader("Hello", "World")->end(buffer);
 
 }).onGet("/largefile", [](auto *s, auto *req, auto *args) {
 
@@ -52,3 +42,15 @@ a.onGet("/", [](auto *s, auto *req, auto *args) {
 
 }).listen("localhost", 3000, 0);
 ```
+#### Deploy with confidence.
+Feeling uncertain about your design? In need of professional help? Want to talk about the weather? I might have a few consulting hours for you and your business, send [me, the author](https://github.com/alexhultman) a mail and we'll figure out the rest.
+
+#### Excel across the board.
+<todo: insert new image here>
+    
+#### Pay what you want.
+A free & open source ([Zlib](LICENSE)) project since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018.
+
+<div align="center"><img src="2018.png"/></div>
+
+*Become a paying sponsor of the project to unlock support, issue reporting, roadmaps and to drop suggestions.*
