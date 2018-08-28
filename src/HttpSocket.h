@@ -174,6 +174,10 @@ struct HttpSocket {
         httpData->inStream = stream;
     }
 
+    void close() {
+        static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) this);
+    }
+
     HttpSocket() = delete;
 };
 

@@ -62,9 +62,39 @@ int main(int argc, char **argv) {
     uWS::App app;
 #endif
 
-    // todo: add timeouts and socket shutdown!
+    struct UserData {
 
-    auto serve = [](auto *s, auto *req, auto *args) {
+    };
+
+    // serve a chat page with pub/sub and index.html and get (should be the main app of use)
+    // basically take the old web chat page and upgrade it
+
+    uWS::App a; // or uWS::SSLApp(options) for SSL
+
+    a/*.onGet("/", [](auto *s, auto *req, auto *args) {
+        std::cout << "URL: /" << std::endl;
+        std::cout << "user-agent: " << req->getHeader("user-agent") << std::endl;
+
+        std::cout << "upgrade: " << req->getHeader("upgrade") << std::endl;
+
+
+    })*/.onWebSocket<UserData>("/", [](auto *ws, auto *req, auto *args) {
+
+        std::cout << "WebSocket connected to /wsApi" << std::endl;
+
+    }).onMessage([](auto *ws, auto message/*, auto opCode*/) {
+
+        std::cout << "WebSocket data: " << message << std::endl;
+
+        //ws->send(message, opCode);
+
+    }).onClose([](/*auto *ws, int code, auto message*/) {
+
+        std::cout << "WebSocket disconnected from /wsApi" << std::endl;
+
+    }).listen("localhost", 3000, 0);
+
+    /*auto serve = [](auto *s, auto *req, auto *args) {
 
         //std::cout << "URL: " << req->getUrl() << std::endl;
 
@@ -82,7 +112,7 @@ int main(int argc, char **argv) {
             }
         }
 
-                /*writeHeader("Content-type", "text/html; charset=utf-8")->*/s->write([file](int offset) {
+        s->write([file](int offset) {
             return std::string_view(file.data() + offset, file.size() - offset);
         }, file.size());
 
@@ -112,7 +142,7 @@ int main(int argc, char **argv) {
         std::cout << "Connections: " << ++connections << std::endl;
     }).onHttpDisconnection([](auto *s) {
         std::cout << "Connections: " << --connections << std::endl;
-    }).listen(nullptr, 3000, 0);
+    }).listen(nullptr, 3000, 0);*/
 
     uWS::run();
     // loop.run();
