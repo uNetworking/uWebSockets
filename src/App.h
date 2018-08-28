@@ -65,7 +65,7 @@ protected:
     void init(us_loop *loop) {
             new (data = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(httpServerContext)) Data();
 
-            static_dispatch(us_ssl_socket_context_on_open, us_socket_context_on_open)(httpServerContext, [](auto *s) {
+            static_dispatch(us_ssl_socket_context_on_open, us_socket_context_on_open)(httpServerContext, [](auto *s, int is_client) {
                 Data *appData = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
 
                 static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
@@ -75,6 +75,8 @@ protected:
                 if (appData->onHttpConnection) {
                     appData->onHttpConnection((HttpSocket<SSL> *) s);
                 }
+
+                return s;
             });
 
             static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(httpServerContext, [](auto *s) {
@@ -85,6 +87,8 @@ protected:
                 if (appData->onHttpDisconnection) {
                     appData->onHttpDisconnection((HttpSocket<SSL> *) s);
                 }
+
+                return s;
             });
 
             static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(httpServerContext, [](auto *s, char *data, int length) {
@@ -100,6 +104,8 @@ protected:
                 // compared to routing directly
                 //typename Data::UserData user = {(HttpSocket<SSL> *) s, nullptr};
                 //appData->r.route("GET", 3, "/", 1, &user);
+
+                return s;
             });
 
             static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(httpServerContext, [](auto *s) {
@@ -110,10 +116,14 @@ protected:
                 static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
 
                 ((HttpSocket<SSL> *) s)->onWritable();
+
+                return s;
             });
 
             static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(httpServerContext, [](auto *s) {
                 std::cout << "Socket was half-closed!" << std::endl;
+
+                return s;
             });
 
             static_dispatch(us_ssl_socket_context_on_timeout, us_socket_context_on_timeout)(httpServerContext, [](auto *s) {
@@ -126,6 +136,8 @@ protected:
                     static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
                     static_dispatch(us_ssl_socket_shutdown, us_socket_shutdown)(s);
                 }
+
+                return s;
 
             });
         }

@@ -35,6 +35,8 @@ std::string_view getFile(std::string_view file) {
         char *key = (char *) malloc(file.length());
         memcpy(key, file.data(), file.length());
 
+        std::cout << "Size: " << oss.str().size() << std::endl;
+
         cache[std::string_view(key, file.length())] = std::string_view(cachedFile, oss.str().size());
 
         return getFile(file);
