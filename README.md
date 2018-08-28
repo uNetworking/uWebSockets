@@ -1,5 +1,5 @@
 <div align="center">
-<img src="logo.png" />
+<img src="misc/images/logo.png" />
     
 *µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient messaging for the modern web.*
 
