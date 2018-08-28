@@ -7,7 +7,7 @@
 
 </div>
 
-#### Time is of the essence.
+#### Express yourself briefly.
 ```c++
 uWS::App a; // or uWS::SSLApp(options) for SSL
 
@@ -41,8 +41,6 @@ a.onGet("/", [](auto *s, auto *req, auto *args) {
     
 }).listen("localhost", 3000, 0);
 ```
-#### In more than one way.
-![](https://github.com/uNetworking/uWebSockets/raw/master/misc/images/overview.png)
 
 #### Pay what you want.
 A free & open source ([Zlib](LICENSE)) project since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018.
@@ -51,5 +49,8 @@ A free & open source ([Zlib](LICENSE)) project since 2016. Kindly sponsored by [
 
 *Become a paying sponsor to unlock support, issue reporting, roadmaps and to drop suggestions.*
 
-#### Stay confident.
-If you're stuck, worried about design or just need help I might have a few consulting hours for you and your business. Throw [me, the author](https://github.com/alexhultman) a mail and we'll figure out the rest.
+#### Deploy like a boss.
+Commercial support is available via a per-hourly consulting plan or as otherwise negotiated. If you're stuck, worried about design or just in need of help don't hesitate throwing [me, the author](https://github.com/alexhultman) a mail and we'll figure out what's best for both parties. I want your business to have a proper understanding of the problem before rushing in to one of the many pitfalls.
+
+#### Excel across the board.
+![](https://github.com/uNetworking/uWebSockets/raw/master/misc/images/overview.png)
