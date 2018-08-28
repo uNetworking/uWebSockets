@@ -9,35 +9,33 @@
 
 #### Express yourself briefly.
 ```c++
-uWS::App a; // or uWS::SSLApp(options) for SSL
+uWS::App app; // or uWS::SSLApp(options) for SSL
 
-a.onGet("/", [](auto *s, auto *req, auto *args) {
+app.onGet("/", [](auto *res, auto *req, auto *args) {
 
-    s->writeStatus("200 OK")->writeHeader("Hello", "World")->end(buffer);
+    /* Respond with the web app on default route */
+    res->writeStatus("200 OK")
+       ->writeHeader("Content-Type", "text/html; charset=utf-8")
+       ->end(indexHtmlBuffer);
     
-}).onGet("/largefile", [](auto *s, auto *req, auto *args) {
+}).onWebSocket<UserData>("/ws/chat", [&](auto *ws, auto *req, auto *args) {
 
-    s->write([](int offset) {
-        return largeFile.substr(offset);
-    }, fileSize);
+    /* Subscribe to topic /chat */
+    ws->subscribe("/chat");
     
-}).onPost("/upload/:filename", [](auto *s, auto *req, auto *args) {
+}).onMessage([&](auto *ws, auto message, auto opCode) {
 
-    s->read([std::ofstream fout = args[0]](int offset, auto chunk) {
-        fout << chunk;
-    });
+    /* Parse incoming message according to some protocol & publish it */
+    if (seemsReasonable(message)) {
+        ws->publish("/chat", message);
+    } else {
+        ws->close();
+    }
     
-}).onWebSocket<UserData>("/wsApi", [](auto *ws, auto *req, auto *args) {
+}).onClose([&](auto *ws, int code, auto message) {
 
-    std::cout << "WebSocket connected to /wsApi" << std::endl;
-    
-}).onMessage([](auto *ws, auto message, auto opCode) {
-
-    ws->send(message, opCode);
-    
-}).onClose([](auto *ws, int code, auto message) {
-
-    std::cout << "WebSocket disconnected from /wsApi" << std::endl;
+    /* Remove websocket from this topic */
+    ws->unsubscribe("/chat");
     
 }).listen("localhost", 3000, 0);
 ```
