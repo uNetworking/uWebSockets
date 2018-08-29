@@ -27,9 +27,9 @@ public:
     }
 
     // todo: implement this
-    int getHeader(std::string_view header) {
+    /*int getHeader(std::string_view header) {
         return 0;
-    }
+    }*/
 
     std::string_view getUrl() {
         return std::string_view(headers->value.data(), querySeparator);

@@ -1,29 +1,20 @@
 #ifndef HTTP_H
 #define HTTP_H
 
-#include "libusockets.h"
-#include "Loop.h"
+#include "Socket.h"
 #include "HttpParser.h"
-#include <functional>
+
 #include <cstring>
 #include <algorithm>
 #include <string>
 
 template <bool SSL>
-struct HttpSocket {
+struct HttpSocket : Socket<SSL> {
 
     const size_t MAX_FALLBACK_SIZE = 4096;
 
-    template <class A, class B>
-    static constexpr typename std::conditional<SSL, A, B>::type *static_dispatch(A *a, B *b) {
-        if constexpr(SSL) {
-            return a;
-        } else {
-            return b;
-        }
-    }
-
-    typedef typename std::conditional<SSL, us_ssl_socket, us_socket>::type SOCKET_TYPE;
+    typedef typename Socket<SSL>::SOCKET_TYPE SOCKET_TYPE;
+    using Socket<SSL>::static_dispatch;
 
     int u32toa(uint32_t value, char *dst) {
         char temp[10];
@@ -174,6 +165,7 @@ struct HttpSocket {
         httpData->inStream = stream;
     }
 
+    // typical shared function?
     void close() {
         static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) this);
     }

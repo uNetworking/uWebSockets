@@ -7,6 +7,7 @@
 #include "HttpSocket.h"
 #include "HttpRouter.h"
 #include "libwshandshake.hpp"
+#include "WebSocket.h"
 
 namespace uWS {
 
@@ -75,6 +76,9 @@ protected:
 
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(webSocketServerContext, [](auto *s, char *data, int length) {
             WebSocketServerContextData *webSocketServerContextData = (WebSocketServerContextData *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s));
+
+
+            ((WebSocket<SSL, true> *) s)->onData(data, length/*, webSocketServerContextData->onMessage*/);
 
             // this is set via the setter?
             webSocketServerContextData->onMessage((HttpSocket<SSL> *) s, std::string_view(data, length));

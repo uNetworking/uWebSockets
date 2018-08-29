@@ -19,7 +19,10 @@ HEADERS += \
     src/App.h \
     src/HttpSocket.h \
     src/HttpParser.h \
-    src/libwshandshake.hpp
+    src/libwshandshake.hpp \
+    src/WebSocketProtocol.h \
+    src/WebSocket.h \
+    src/Socket.h
 
 INCLUDEPATH += uSockets/src src
 #QMAKE_CXXFLAGS += -fsanitize=address
