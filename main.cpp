@@ -71,14 +71,13 @@ int main(int argc, char **argv) {
 
     uWS::App a; // or uWS::SSLApp(options) for SSL
 
-    a/*.onGet("/", [](auto *s, auto *req, auto *args) {
-        std::cout << "URL: /" << std::endl;
-        std::cout << "user-agent: " << req->getHeader("user-agent") << std::endl;
+    a.onGet("/", [](auto *s, auto *req, auto *args) {
 
-        std::cout << "upgrade: " << req->getHeader("upgrade") << std::endl;
+        std::cout << "URL: <" << req->getUrl() << ">" << std::endl;
+        std::cout << "Query: <" << req->getQuery() << ">" << std::endl;
+        std::cout << "User-Agent: <" << req->getHeader("user-agent") << ">" << std::endl;
 
-
-    })*/.onWebSocket<UserData>("/", [](auto *ws, auto *req, auto *args) {
+    }).onWebSocket<UserData>("/ws", [](auto *ws, auto *req, auto *args) {
 
         std::cout << "WebSocket connected to /wsApi" << std::endl;
 

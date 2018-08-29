@@ -14,6 +14,7 @@ private:
     struct Header {
         std::string_view key, value;
     } headers[MAX_HEADERS];
+    int querySeparator;
 
 public:
     std::string_view getHeader(std::string_view header) {
@@ -25,8 +26,17 @@ public:
         return std::string_view(nullptr, 0);
     }
 
+    // todo: implement this
+    int getHeader(std::string_view header) {
+        return 0;
+    }
+
     std::string_view getUrl() {
-        return headers->value;
+        return std::string_view(headers->value.data(), querySeparator);
+    }
+
+    std::string_view getQuery() {
+        return std::string_view(headers->value.data() + querySeparator, headers->value.length() - querySeparator);
     }
 
 };
@@ -88,6 +98,10 @@ private:
             consumedTotal += consumed;
 
             req->headers->value = std::string_view(req->headers->value.data(), std::max<int>(0, req->headers->value.length() - 9));
+
+            // querySeparator is untested, todo: go through this
+            const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());
+            req->querySeparator = (querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data();
 
             requestHandler(user, req);
 
