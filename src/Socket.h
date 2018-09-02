@@ -17,6 +17,14 @@ struct Socket {
     }
 
     typedef typename std::conditional<SSL, us_ssl_socket, us_socket>::type SOCKET_TYPE;
+    typedef typename std::conditional<SSL, us_ssl_socket_context, us_socket_context>::type SOCKET_CONTEXT_TYPE;
+
+
+    void *getSocketContextExt() {
+        SOCKET_CONTEXT_TYPE *socketContext = static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) this);
+
+        return static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(socketContext);
+    }
 
 };
 

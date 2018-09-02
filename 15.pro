@@ -13,16 +13,17 @@ SOURCES += \
     uSockets/src/loop.c
 
 HEADERS += \
-    src/uWS.h \
-    src/HttpRouter.h \
+    src/http/HttpRouter.h \
     src/Loop.h \
     src/App.h \
-    src/HttpSocket.h \
-    src/HttpParser.h \
-    src/libwshandshake.hpp \
-    src/WebSocketProtocol.h \
-    src/WebSocket.h \
-    src/Socket.h
+    src/http/HttpSocket.h \
+    src/http/HttpParser.h \
+    src/websocket/libwshandshake.hpp \
+    src/websocket/WebSocketProtocol.h \
+    src/websocket/WebSocket.h \
+    src/Socket.h \
+    src/websocket/WebSocketApp.h \
+    src/http/HttpApp.h
 
 INCLUDEPATH += uSockets/src src
 #QMAKE_CXXFLAGS += -fsanitize=address

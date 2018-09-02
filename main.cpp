@@ -1,4 +1,4 @@
-#include "uWS.h"
+#include "App.h"
 
 #include <fstream>
 #include <sstream>
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
 
         std::cout << "WebSocket connected to /wsApi" << std::endl;
 
-    }).onMessage([](auto *ws, auto message/*, auto opCode*/) {
+    }).onMessage<true>([](auto *ws, auto message/*, auto opCode*/) {
 
         std::cout << "WebSocket data: " << message << std::endl;
 
@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
 
     }).onClose([](/*auto *ws, int code, auto message*/) {
 
-        std::cout << "WebSocket disconnected from /wsApi" << std::endl;
+        //std::cout << "WebSocket disconnected from /wsApi" << std::endl;
 
     }).listen("localhost", 3000, 0);
 
