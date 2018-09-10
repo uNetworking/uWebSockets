@@ -3,10 +3,11 @@
 
 // so what do we depend on?
 
+#include "HttpParser.h"
 #include <functional>
 
 template <bool SSL>
-struct HttpResponseData {
+struct HttpResponseData : HttpParser {
 
     std::function<void(std::string_view)> readHandler;
 

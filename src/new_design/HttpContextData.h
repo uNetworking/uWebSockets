@@ -27,7 +27,7 @@ public:
     HttpRouter<HttpRouterUserData> httpRouter;
 
     // placeholder handler for response
-    std::function<void(uWS::HttpResponse<SSL> *)> handler;
+    std::function<void(uWS::HttpResponse<SSL> *, HttpRequest *)> handler;
 
 };
 

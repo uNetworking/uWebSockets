@@ -12,6 +12,7 @@
 
 // we of course depend on our own data type
 #include "HttpContextData.h"
+#include "HttpResponseData.h"
 
 // we should opaqeuly depend on HttpResponse
 namespace uWS {
@@ -67,15 +68,15 @@ public:
 
             static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
 
-            /*new (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s)) HTTP_SOCKET_DATA_TYPE;
-*/
+            new (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s)) HttpResponseData<SSL>;
+
             return s;
         });
 
         static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(getSocketContext(), [](auto *s) {
             HttpContextData<SSL> *httpContextData = getSocketContextData(s);
 
-            //((HTTP_SOCKET_DATA_TYPE *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s))->~HTTP_SOCKET_DATA_TYPE();
+            ((HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s))->~HttpResponseData<SSL>();
 
             return s;
         });
@@ -83,29 +84,25 @@ public:
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
             HttpContextData<SSL> *httpContextData = getSocketContextData(s);
 
-            // warning: should NOT reset timer on any data, ONLY reset data on full HTTP requests!
-            // warning: if we are in shutdown state, resetting the timer is a security issue!
-            static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
+            HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
+            httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, HttpRequest *httpRequest) {
 
+                // warning: if we are in shutdown state, resetting the timer is a security issue!
+                static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) s, HTTP_IDLE_TIMEOUT_S);
 
-            // here we should totally parse and route this all on our own, no involving the HttpResponse at all!
+                // todo: route this according to our router
 
-            std::cout << "Got data!" << std::endl;
+                httpContextData->handler((uWS::HttpResponse<SSL> *) s, httpRequest);
 
-            //Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
-
-            // we can reach the HttpResponseData which holds the parser, so let's just run the data through it from here (no onData) bullshit in the httpsocket!
-
-            // todo: this is where the HttpSocket binds together HttpParser and HttpRouter into one
-            /*httpData->httpParser.consumePostPadded(data, length, this, [&onHttpRequest](void *user, HttpRequest *httpRequest) {
-                onHttpRequest((HttpSocket<SSL> *) user, httpRequest);
-            }, [httpData](void *user, std::string_view data) {
-                if (httpData->inStream) {
-                    httpData->inStream(data);
+            }, [httpResponseData](void *user, std::string_view data) {
+                if (httpResponseData->readHandler) {
+                    httpResponseData->readHandler(data);
                 }
             }, [](void *user) {
                 std::cout << "INVALID HTTP!" << std::endl;
-            });*/
+
+                // close it down
+            });
 
             return s;
         });
@@ -152,6 +149,8 @@ public:
 
         HttpContext *httpContext = (HttpContext *) us_create_socket_context(loop, sizeof(HttpContextData<SSL>));
 
+        new ((HttpContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)((SOCKET_CONTEXT_TYPE *) httpContext)) HttpContextData<SSL>();
+
         return httpContext->init();
     }
 
@@ -159,7 +158,7 @@ public:
         static_dispatch(us_ssl_socket_context_free, us_socket_context_free)(getSocketContext());
     }
 
-    void onGet(std::string_view pattern, std::function<void(uWS::HttpResponse<SSL> *)> handler) {
+    void onGet(std::string_view pattern, std::function<void(uWS::HttpResponse<SSL> *, HttpRequest *)> handler) {
         HttpContextData<SSL> *data = getSocketContextData();
 
         // add things to the router

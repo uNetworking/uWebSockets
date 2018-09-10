@@ -2,18 +2,22 @@
 #define HTTPRESPONSE_H
 
 #include "HttpResponseData.h"
+#include "StaticDispatch.h"
 
 // we will most probably depend on the LoopData to do corking and such
 
 namespace uWS {
 
 template <bool SSL>
-struct HttpResponse {
+struct HttpResponse : StaticDispatch<SSL> {
 private:
+
+    using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
+    using StaticDispatch<SSL>::static_dispatch;
 
     // helpers
     HttpResponseData<SSL> *getHttpResponseData() {
-
+        return (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
     }
 
 public:

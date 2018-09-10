@@ -57,9 +57,11 @@ int main(int argc, char **argv) {
     HttpContext<false> *httpContext = HttpContext<false>::create(loop.loop);
 
     // req, res?
-    httpContext->onGet("/", [](auto *res) { // maybe use the terminology of HttpRequest for both?
+    httpContext->onGet("/", [](auto *res, auto *req) { // maybe use the terminology of HttpRequest for both?
 
-        std::cout << "Why hello! How do we access the headers?" << std::endl;
+        std::cout << "URL: <" << req->getUrl() << ">" << std::endl;
+        std::cout << "Query: <" << req->getQuery() << ">" << std::endl;
+        std::cout << "User-Agent: <" << req->getHeader("user-agent") << ">" << std::endl;
 
         // read some data being passed
         res->read([](std::string_view chunk) {
