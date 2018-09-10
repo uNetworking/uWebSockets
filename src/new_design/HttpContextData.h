@@ -1,10 +1,9 @@
 #ifndef HTTPCONTEXTDATA_H
 #define HTTPCONTEXTDATA_H
 
-// this means we will depend on HttpRouter and HttpParser here!
-#include "../http/HttpParser.h"
-
-#include "../http/HttpRouter.h"
+// we depend on these
+#include "HttpParser.h"
+#include "HttpRouter.h"
 
 #include <functional>
 

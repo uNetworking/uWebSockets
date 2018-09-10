@@ -13,11 +13,11 @@ SOURCES += \
     uSockets/src/loop.c
 
 HEADERS += \
-    src/http/HttpRouter.h \
+    src/new_design/HttpRouter.h \
     src/Loop.h \
     src/App.h \
     src/http/HttpSocket.h \
-    src/http/HttpParser.h \
+    src/new_design/HttpParser.h \
     src/websocket/libwshandshake.hpp \
     src/websocket/WebSocketProtocol.h \
     src/websocket/WebSocket.h \

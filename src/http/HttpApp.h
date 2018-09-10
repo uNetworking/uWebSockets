@@ -1,10 +1,12 @@
 #ifndef HTTPAPP_H
 #define HTTPAPP_H
 
+// todo: move all this logic to HttpContext
+
 #include <type_traits>
 #include "Loop.h"
 #include "HttpSocket.h"
-#include "HttpRouter.h"
+#include "../new_design/HttpRouter.h"
 #include "websocket/libwshandshake.hpp"
 #include "websocket/WebSocket.h"
 

@@ -2,7 +2,7 @@
 #define HTTP_H
 
 #include "Socket.h"
-#include "HttpParser.h"
+#include "../new_design/HttpParser.h"
 
 #include <cstring>
 #include <algorithm>

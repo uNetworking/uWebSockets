@@ -48,6 +48,8 @@ public:
 
         // todo: inplace initialize the data struct!
 
+        // todo: actually register handlers on the socket context with the behavior of HTTP! (take from HttpApp.h)
+
         return (HttpContext *) us_create_socket_context(loop, sizeof(HttpContextData<SSL>));
     }
 
