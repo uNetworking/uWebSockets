@@ -45,7 +45,41 @@ std::string_view getFile(std::string_view file) {
     }
 }
 
+#include "new_design/HttpContext.h"
+#include "new_design/HttpResponse.h"
+
 int main(int argc, char **argv) {
+
+    // new stuff, hope it sticks together?
+
+    uWS::Loop loop;
+
+    HttpContext<false> *httpContext = HttpContext<false>::create(loop.loop);
+
+    // req, res?
+    httpContext->onGet("/", [](auto *res) { // maybe use the terminology of HttpRequest for both?
+
+        std::cout << "Why hello! How do we access the headers?" << std::endl;
+
+        // read some data being passed
+        res->read([](std::string_view chunk) {
+            std::cout << "Reading some streamed in data:" << chunk << std::endl;
+        });
+
+        // res->writeHeader()->write();
+
+        // req
+
+    });
+
+    httpContext->listen();
+
+    httpContext->free();
+
+    return 0;
+
+    ////////////////////////////////////////////////////////////////////////////////
+
 
     // 50 mb for huge
     buffer.resize(52428800);
