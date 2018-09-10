@@ -72,7 +72,9 @@ int main(int argc, char **argv) {
 
     });
 
-    httpContext->listen();
+    httpContext->listen(nullptr, 3000, 0);
+
+    loop.run();
 
     httpContext->free();
 
