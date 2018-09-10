@@ -1,4 +1,4 @@
-#ifndef HTTP_H
+#ifdef HTTP_H
 #define HTTP_H
 
 #include "Socket.h"
@@ -39,7 +39,7 @@ struct HttpSocket : Socket<SSL> {
     // httpheaders should only have 1 stream in and 1 stream out, but we can have helper wrappers
 
     struct Data {
-        HttpParser httpParser;
+        uWS::HttpParser httpParser;
 
         std::function<void(std::string_view)> inStream;
 
@@ -144,7 +144,7 @@ struct HttpSocket : Socket<SSL> {
         static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
     }
 
-    void onData(char *data, int length, std::function<void(HttpSocket<SSL> *, HttpRequest *)> &onHttpRequest) {
+    void onData(char *data, int length, std::function<void(HttpSocket<SSL> *, uWS::HttpRequest *)> &onHttpRequest) {
         Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
 
         // todo: this is where the HttpSocket binds together HttpParser and HttpRouter into one

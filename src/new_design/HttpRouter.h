@@ -10,6 +10,8 @@
 #include <iostream>
 #include <string_view>
 
+namespace uWS {
+
 template <class USERDATA>
 class HttpRouter {
 private:
@@ -167,5 +169,7 @@ public:
         params.clear();
     }
 };
+
+}
 
 #endif // HTTPROUTER_HPP

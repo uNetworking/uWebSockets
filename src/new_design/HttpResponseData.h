@@ -6,11 +6,15 @@
 #include "HttpParser.h"
 #include <functional>
 
+namespace uWS {
+
 template <bool SSL>
 struct HttpResponseData : HttpParser {
 
     std::function<void(std::string_view)> readHandler;
 
 };
+
+}
 
 #endif // HTTPRESPONSEDATA_H

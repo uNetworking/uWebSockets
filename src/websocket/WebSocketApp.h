@@ -1,4 +1,4 @@
-#ifndef WEBSOCKETAPP_H
+#ifdef WEBSOCKETAPP_H
 #define WEBSOCKETAPP_H
 
 #include "http/HttpApp.h"

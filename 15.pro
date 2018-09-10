@@ -15,15 +15,12 @@ SOURCES += \
 HEADERS += \
     src/new_design/HttpRouter.h \
     src/Loop.h \
-    src/App.h \
     src/http/HttpSocket.h \
     src/new_design/HttpParser.h \
     src/websocket/libwshandshake.hpp \
     src/websocket/WebSocketProtocol.h \
     src/websocket/WebSocket.h \
-    src/Socket.h \
     src/websocket/WebSocketApp.h \
-    src/http/HttpApp.h \
     src/new_design/HttpContext.h \
     src/new_design/HttpContextData.h \
     src/new_design/HttpResponseData.h \

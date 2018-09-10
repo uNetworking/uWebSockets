@@ -5,6 +5,8 @@
 #include <functional>
 #include <cstring>
 
+namespace uWS {
+
 class HttpRequest {
 
     friend class HttpParser;
@@ -201,5 +203,7 @@ public:
         }
     }
 };
+
+}
 
 #endif // HTTPPARSER_H

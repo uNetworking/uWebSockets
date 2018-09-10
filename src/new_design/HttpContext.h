@@ -1,31 +1,16 @@
 #ifndef HTTPCONTEXT_H
 #define HTTPCONTEXT_H
 
-// a more Cish implementaion
+#include "Loop.h"
+#include "HttpContextData.h"
+#include "HttpResponseData.h"
+#include "StaticDispatch.h"
 
 #include <string_view>
 #include <functional>
 
-// we depend on loop I guess
-// yes, the loop does not depend on us
-#include "Loop.h"
-
-// we of course depend on our own data type
-#include "HttpContextData.h"
-#include "HttpResponseData.h"
-
-// we should opaqeuly depend on HttpResponse
 namespace uWS {
-    template<bool>
-    struct HttpResponse;
-}
-
-// we parse everything only in the context?
-
-// would it be okay to depend on the context?
-
-// this basically should mean: libusockets wrapper
-#include "StaticDispatch.h"
+template<bool> struct HttpResponse;
 
 template <bool SSL>
 struct HttpContext : StaticDispatch<SSL> {
@@ -85,14 +70,16 @@ public:
             HttpContextData<SSL> *httpContextData = getSocketContextData(s);
 
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
-            httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, HttpRequest *httpRequest) {
+            httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, uWS::HttpRequest *httpRequest) {
 
                 // warning: if we are in shutdown state, resetting the timer is a security issue!
                 static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) s, HTTP_IDLE_TIMEOUT_S);
 
-                // todo: route this according to our router
-
-                httpContextData->handler((uWS::HttpResponse<SSL> *) s, httpRequest);
+                // route it!
+                typename uWS::HttpContextData<SSL>::UserData userData = {
+                    (HttpResponse<SSL> *) s, httpRequest
+                };
+                httpContextData->router.route("get", 3, httpRequest->getUrl().data(), httpRequest->getUrl().length(), &userData);
 
             }, [httpResponseData](void *user, std::string_view data) {
                 if (httpResponseData->readHandler) {
@@ -116,7 +103,7 @@ public:
 
 
             // why? WE should emit this event via the socket data that we access!
-            ((HttpSocket<SSL> *) s)->onWritable();
+            //((HttpSocket<SSL> *) s)->onWritable();
 
             return s;
         });
@@ -158,12 +145,15 @@ public:
         static_dispatch(us_ssl_socket_context_free, us_socket_context_free)(getSocketContext());
     }
 
-    void onGet(std::string_view pattern, std::function<void(uWS::HttpResponse<SSL> *, HttpRequest *)> handler) {
+    void onGet(std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *data = getSocketContextData();
 
         // add things to the router
 
-        data->handler = handler;
+        data->router.add("get", pattern.c_str(), [handler](typename HttpContextData<SSL>::UserData *user, auto *args) {
+            handler(user->httpResponse, user->httpRequest);
+        });
+
     }
 
     void listen(const char *host, int port, int options) {
@@ -171,5 +161,7 @@ public:
     }
 
 };
+
+}
 
 #endif // HTTPCONTEXT_H

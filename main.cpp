@@ -1,7 +1,6 @@
-#include "App.h"
-
 #include <fstream>
 #include <sstream>
+#include <iostream>
 
 std::string buffer;
 int connections = 0;
@@ -16,6 +15,7 @@ void respond(T *s) {
 #define USE_SSL
 
 #include <map>
+#include <cstring>
 
 std::string_view getFile(std::string_view file) {
     static std::map<std::string_view, std::string_view> cache;
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
 
     uWS::Loop loop;
 
-    HttpContext<false> *httpContext = HttpContext<false>::create(loop.loop);
+    uWS::HttpContext<false> *httpContext = uWS::HttpContext<false>::create(loop.loop);
 
     // req, res?
     httpContext->onGet("/", [](auto *res, auto *req) { // maybe use the terminology of HttpRequest for both?
@@ -74,6 +74,12 @@ int main(int argc, char **argv) {
 
     });
 
+    httpContext->onGet("/yolo", [](auto *res, auto *req) {
+        std::cout << "URL (/yolo route): <" << req->getUrl() << ">" << std::endl;
+        std::cout << "Query: <" << req->getQuery() << ">" << std::endl;
+        std::cout << "User-Agent: <" << req->getHeader("user-agent") << ">" << std::endl;
+    });
+
     httpContext->listen(nullptr, 3000, 0);
 
     loop.run();
@@ -86,7 +92,7 @@ int main(int argc, char **argv) {
 
 
     // 50 mb for huge
-    buffer.resize(52428800);
+   /* buffer.resize(52428800);
 
     //uWS::init();
     //uWS::Loop loop();
@@ -119,13 +125,13 @@ int main(int argc, char **argv) {
 
         std::cout << "WebSocket connected to /wsApi" << std::endl;
 
-    }).onMessage<true>([](auto *ws, auto message/*, auto opCode*/) {
+    }).onMessage<true>([](auto *ws, auto message) {
 
         std::cout << "WebSocket data: " << message << std::endl;
 
         //ws->send(message, opCode);
 
-    }).onClose([](/*auto *ws, int code, auto message*/) {
+    }).onClose([]() {
 
         //std::cout << "WebSocket disconnected from /wsApi" << std::endl;
 
