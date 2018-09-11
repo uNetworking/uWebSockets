@@ -40,11 +40,11 @@ protected:
         return (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((SOCKET_TYPE *) this)));
     }
 
+public:
+
     void *getExt() {
         return static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
     }
-
-public:
 
     // cork should bascially mark corked
     // if already corked, crash and burn!
@@ -86,8 +86,14 @@ public:
     }
 
     // when we are writable AND have buffer length, that's a really bad situation that should not happen!
-    void drain() {
+    void drain(std::string_view optionalChunk) {
 
+        // the question here is: should we recursively copy things to the cork buffer and try and send them off in one go?
+        // it would work in a recursively manner and since optionalChunk is optional, it would never increase the buffer size
+
+        // this function is called from onWritable and combines any buffered data with the chunk
+
+        // the cunk is optional meaning we do not care to buffer it up
     }
 
     // this one will write up to length and simply leave things be

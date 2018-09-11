@@ -1,6 +1,8 @@
 #ifndef HTTPCONTEXT_H
 #define HTTPCONTEXT_H
 
+/* This class defines the main behavior of HTTP and emits various events */
+
 #include "Loop.h"
 #include "HttpContextData.h"
 #include "HttpResponseData.h"
@@ -15,17 +17,15 @@ template<bool> struct HttpResponse;
 
 template <bool SSL>
 struct HttpContext : StaticDispatch<SSL> {
-
+private:
     using SOCKET_CONTEXT_TYPE = typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE;
     using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
     using StaticDispatch<SSL>::static_dispatch;
-
-    static const int HTTP_IDLE_TIMEOUT_S = 10;
-
-private:
     HttpContext() = delete;
 
-    // helper to get the socket context
+    /* Maximum delay allowed until an HTTP connection is terminated due to outstanding request (slow loris protection) */
+    static const int HTTP_IDLE_TIMEOUT_S = 10;
+
     SOCKET_CONTEXT_TYPE *getSocketContext() {
         return (SOCKET_CONTEXT_TYPE *) this;
     }
@@ -42,11 +42,11 @@ private:
         return (HttpContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(getSocketContext(s));
     }
 
-public:
-
+    /* Init the HttpContext by registering libusockets event handlers */
     HttpContext<SSL> *init() {
         //new (data = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(httpServerContext)) Data();
 
+        /* Handle socket connections */
         static_dispatch(us_ssl_socket_context_on_open, us_socket_context_on_open)(getSocketContext(), [](auto *s, int is_client) {
             HttpContextData<SSL> *httpContextData = getSocketContextData(s);
 
@@ -59,6 +59,7 @@ public:
             return s;
         });
 
+        /* Handle socket disconnections */
         static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(getSocketContext(), [](auto *s) {
             HttpContextData<SSL> *httpContextData = getSocketContextData(s);
 
@@ -67,6 +68,7 @@ public:
             return s;
         });
 
+        /* Handle HTTP data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
             HttpContextData<SSL> *httpContextData = getSocketContextData(s);
 
@@ -98,41 +100,40 @@ public:
             // uncork
             ((AsyncSocket<SSL> *) s)->uncork();
 
+            // how do we return a new socket here, from the http route?
+            // maybe hold upgradedSocket in the loopData and return that?
             return s;
         });
 
+        /* Handle HTTP write out */
         static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(getSocketContext(), [](auto *s) {
-
-            // what if the client
 
             // I think it's fair to never mind this one -> if we keep writing data after shutting down then that's an issue for us
             static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
 
+            AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
 
-            // why? WE should emit this event via the socket data that we access!
-            //((HttpSocket<SSL> *) s)->onWritable();
+            // get next chunk to send
+            HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
+            std::string_view chunk = httpResponseData->outStream(httpResponseData->offset);
 
-            // this thing should only be reachable from App!
-            /*void onWritable() {
-                Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
-
-
-                // now we start streaming as much as possible in each call!
-                std::string_view chunk = httpData->outStream(httpData->offset);
-
-                // write that off!
-                static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
-            }*/
+            // send, including any buffered up
+            asyncSocket->drain(chunk);
 
             return s;
         });
 
+        /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
         static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(getSocketContext(), [](auto *s) {
-            std::cout << "Socket was half-closed!" << std::endl;
+
+            // static_dispatch(us_ssl_socket_close, us_socket_close)(s);
+            AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
+            asyncSocket->close();
 
             return s;
         });
 
+        /* Handle socket timeouts */
         static_dispatch(us_ssl_socket_context_on_timeout, us_socket_context_on_timeout)(getSocketContext(), [](auto *s) {
 
             if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)(s)) {
@@ -151,6 +152,8 @@ public:
         return this;
     }
 
+public:
+    /* Construct a new HttpContext using specified loop */
     static HttpContext *create(us_loop *loop) {
         HttpContext *httpContext = (HttpContext *) us_create_socket_context(loop, sizeof(HttpContextData<SSL>));
 
@@ -158,6 +161,7 @@ public:
         return httpContext->init();
     }
 
+    /* Destruct the HttpContext, it does not follow RAII */
     void free() {
 
         // call destructor!
@@ -165,6 +169,7 @@ public:
         static_dispatch(us_ssl_socket_context_free, us_socket_context_free)(getSocketContext());
     }
 
+    /* Register an HTTP GET route handler acording to URL pattern */
     void onGet(std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
@@ -173,6 +178,7 @@ public:
         });
     }
 
+    /* Listen to port using this HttpContext */
     void listen(const char *host, int port, int options) {
         static_dispatch(us_ssl_socket_context_listen, us_socket_context_listen)(getSocketContext(), host, port, options, sizeof(HttpResponseData<SSL>));
     }
