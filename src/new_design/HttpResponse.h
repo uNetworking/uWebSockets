@@ -1,26 +1,26 @@
 #ifndef HTTPRESPONSE_H
 #define HTTPRESPONSE_H
 
+/* An HttpResponse is the channel on which you send back a response */
+
 #include "AsyncSocket.h"
 #include "HttpResponseData.h"
 
 namespace uWS {
 
+/* Some pre-defined status constants to use with writeStatus */
 const char *HTTP_200_OK = "200 OK";
 
 template <bool SSL>
 struct HttpResponse : public AsyncSocket<SSL> {
 private:
-
-    using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
-    using StaticDispatch<SSL>::static_dispatch;
-
     HttpResponseData<SSL> *getHttpResponseData() {
-        return (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+        return (HttpResponseData<SSL> *) AsyncSocket<SSL>::getExt();
     }
 
 public:
 
+    /* Write the HTTP status */
     HttpResponse *writeStatus(std::string_view status) {
         AsyncSocket<SSL>::write("HTTP/1.1 ", 9);
         AsyncSocket<SSL>::write(status.data(), status.length());
@@ -28,6 +28,7 @@ public:
         return this;
     }
 
+    /* Write an HTTP header with string value */
     HttpResponse *writeHeader(std::string_view key, std::string_view value) {
         AsyncSocket<SSL>::write(key.data(), key.length());
         AsyncSocket<SSL>::write(": ", 2);
@@ -36,12 +37,9 @@ public:
         return this;
     }
 
+    /* Attach a write handler for sending data. Length must be specified up front and chunks might be read more than once */
     void write(std::function<std::string_view(int)> cb, int length) {
-        // what if the streamer cannot return any data?
-        // then it should return something to pause write, and then start it again
-        // basically we need throttling
         std::string_view chunk = cb(0);
-
         AsyncSocket<SSL>::write("Content-Length: ", 16);
         AsyncSocket<SSL>::writeUnsigned(chunk.length());
         AsyncSocket<SSL>::write("\r\n\r\n", 4);
@@ -50,18 +48,10 @@ public:
         }
     }
 
-    // this will probably not be this clean: it will most probably want to do some active pulling of data?
+    /* Attach a read handler for data sent. Will be called with a chunk of size 0 when FIN */
     void read(std::function<void(std::string_view)> handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();
-
         data->inStream = handler;
-    }
-
-    // this should not be anything other than a simple convenience wrapper of streams!
-    void end(std::string_view data) {
-        writeStatus("200 OK")->write([data](int offset) {
-            return std::string_view(data.data() + offset, data.length() - offset);
-        }, data.length());
     }
 };
 

@@ -1,6 +1,8 @@
 #ifndef HTTPRESPONSEDATA_H
 #define HTTPRESPONSEDATA_H
 
+/* This data belongs to the HttpResponse */
+
 #include "HttpParser.h"
 #include <functional>
 

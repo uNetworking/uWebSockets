@@ -111,6 +111,10 @@ struct AsyncSocket : StaticDispatch<SSL> {
 
     }
 
+    void *getExt() {
+        return static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+    }
+
     void close() {
         static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) this);
     }

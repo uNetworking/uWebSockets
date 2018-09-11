@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
         });*/
 
         res->writeStatus(uWS::HTTP_200_OK)->write([](int offset) {
-            return std::string_view("Hello world!");
+            return std::string_view("Hello world!").substr(offset);
         }, 12);
 
     });
