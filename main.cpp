@@ -59,18 +59,18 @@ int main(int argc, char **argv) {
     // req, res?
     httpContext->onGet("/", [](auto *res, auto *req) { // maybe use the terminology of HttpRequest for both?
 
-        std::cout << "URL: <" << req->getUrl() << ">" << std::endl;
+        /*std::cout << "URL: <" << req->getUrl() << ">" << std::endl;
         std::cout << "Query: <" << req->getQuery() << ">" << std::endl;
         std::cout << "User-Agent: <" << req->getHeader("user-agent") << ">" << std::endl;
-
+*/
         // read some data being passed
-        res->read([](std::string_view chunk) {
+        /*res->read([](std::string_view chunk) {
             std::cout << "Reading some streamed in data:" << chunk << std::endl;
-        });
+        });*/
 
-        // res->writeHeader()->write();
-
-        // req
+        res->writeStatus(uWS::HTTP_200_OK)->write([](int offset) {
+            return std::string_view("Hello world!");
+        }, 12);
 
     });
 

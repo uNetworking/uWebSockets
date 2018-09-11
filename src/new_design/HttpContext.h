@@ -4,6 +4,7 @@
 #include "Loop.h"
 #include "HttpContextData.h"
 #include "HttpResponseData.h"
+#include "AsyncSocket.h"
 #include "StaticDispatch.h"
 
 #include <string_view>
@@ -69,6 +70,9 @@ public:
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
             HttpContextData<SSL> *httpContextData = getSocketContextData(s);
 
+            // cork this socket (move this to loop?)
+            ((AsyncSocket<SSL> *) s)->cork();
+
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
             httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, uWS::HttpRequest *httpRequest) {
 
@@ -82,14 +86,17 @@ public:
                 httpContextData->router.route("get", 3, httpRequest->getUrl().data(), httpRequest->getUrl().length(), &userData);
 
             }, [httpResponseData](void *user, std::string_view data) {
-                if (httpResponseData->readHandler) {
-                    httpResponseData->readHandler(data);
+                if (httpResponseData->inStream) {
+                    httpResponseData->inStream(data);
                 }
             }, [](void *user) {
                 std::cout << "INVALID HTTP!" << std::endl;
 
                 // close it down
             });
+
+            // uncork
+            ((AsyncSocket<SSL> *) s)->uncork();
 
             return s;
         });
@@ -104,6 +111,18 @@ public:
 
             // why? WE should emit this event via the socket data that we access!
             //((HttpSocket<SSL> *) s)->onWritable();
+
+            // this thing should only be reachable from App!
+            /*void onWritable() {
+                Data *httpData = (Data *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+
+
+                // now we start streaming as much as possible in each call!
+                std::string_view chunk = httpData->outStream(httpData->offset);
+
+                // write that off!
+                static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, chunk.data(), chunk.length(), 0);
+            }*/
 
             return s;
         });
@@ -133,33 +152,30 @@ public:
     }
 
     static HttpContext *create(us_loop *loop) {
-
         HttpContext *httpContext = (HttpContext *) us_create_socket_context(loop, sizeof(HttpContextData<SSL>));
 
         new ((HttpContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)((SOCKET_CONTEXT_TYPE *) httpContext)) HttpContextData<SSL>();
-
         return httpContext->init();
     }
 
     void free() {
+
+        // call destructor!
+
         static_dispatch(us_ssl_socket_context_free, us_socket_context_free)(getSocketContext());
     }
 
     void onGet(std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
-        HttpContextData<SSL> *data = getSocketContextData();
+        HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        // add things to the router
-
-        data->router.add("get", pattern.c_str(), [handler](typename HttpContextData<SSL>::UserData *user, auto *args) {
+        httpContextData->router.add("get", pattern.c_str(), [handler](typename HttpContextData<SSL>::UserData *user, auto *args) {
             handler(user->httpResponse, user->httpRequest);
         });
-
     }
 
     void listen(const char *host, int port, int options) {
-        static_dispatch(us_ssl_socket_context_listen, us_socket_context_listen)(getSocketContext(), host, port, options, sizeof(HttpContextData<SSL>));
+        static_dispatch(us_ssl_socket_context_listen, us_socket_context_listen)(getSocketContext(), host, port, options, sizeof(HttpResponseData<SSL>));
     }
-
 };
 
 }

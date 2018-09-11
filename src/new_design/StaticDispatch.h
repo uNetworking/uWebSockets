@@ -6,6 +6,8 @@
 #include <type_traits>
 #include <libusockets.h>
 
+namespace uWS {
+
 template <bool SSL>
 struct StaticDispatch {
     template <class A, class B>
@@ -20,5 +22,7 @@ struct StaticDispatch {
     typedef typename std::conditional<SSL, us_ssl_socket, us_socket>::type SOCKET_TYPE;
     typedef typename std::conditional<SSL, us_ssl_socket_context, us_socket_context>::type SOCKET_CONTEXT_TYPE;
 };
+
+}
 
 #endif // STATICDISPATCH_H

@@ -1,30 +1,15 @@
 #ifndef HUB_H
 #define HUB_H
 
-#include "libusockets.h"
-#include <functional>
-#include <new>
-#include <string_view>
-#include <iostream>
-#include <unistd.h>
+#include "new_design/LoopData.h"
+
+#include <libusockets.h>
+
+// Loop is a bit different, it holds the loop pointer, not as "this"
 
 namespace uWS {
 struct Loop {
     us_loop *loop;
-
-    static const int CORK_BUFFER_SIZE = 16 * 1024;
-    static const int MAX_COPY_DISTANCE = 4096;
-
-    struct Data {
-
-        char *corkBuffer = new char[CORK_BUFFER_SIZE];
-        int corkOffset = 0;
-
-        Data() {
-
-        }
-
-    } *data;
 
     static void wakeupCb(us_loop *loop) {
 
@@ -38,8 +23,9 @@ struct Loop {
 
     }
 
-    Loop() : loop(us_create_loop(1, wakeupCb, preCb, postCb, sizeof(Data))) {
-        new (data = (Data *) us_loop_ext(loop)) Data();
+    Loop() : loop(us_create_loop(1, wakeupCb, preCb, postCb, sizeof(LoopData))) {
+
+        new (us_loop_ext(loop)) LoopData();
     }
 
     void run() {
@@ -47,7 +33,7 @@ struct Loop {
     }
 
     ~Loop() {
-
+        // deconstruct the loopdata
     }
 };
 
