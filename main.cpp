@@ -25,7 +25,7 @@ std::string_view getFile(std::string_view file) {
     if (it == cache.end()) {
         std::cout << "Did not have file: " << file << std::endl;
 
-        std::ifstream fin("rocket_files/" + std::string(file), std::ios::binary);
+        std::ifstream fin(std::string(file), std::ios::binary);
         std::ostringstream oss;
         oss << fin.rdbuf();
 
@@ -59,21 +59,19 @@ int main(int argc, char **argv) {
     uWS::HttpContext<false> *httpContext = uWS::HttpContext<false>::create(loop.loop);
 
     // req, res?
-    httpContext->onGet("/", [](auto *res, auto *req) { // maybe use the terminology of HttpRequest for both?
+    httpContext->onGet("/:folder/:file", [](auto *res, auto *req) {
+        // what file are we serving?
+        std::string_view fileName = req->getUrl();
+        if (fileName == "/") {
+            // this is our index
+            fileName = "/rocket_files/rocket.html";
+        }
 
-        /*std::cout << "URL: <" << req->getUrl() << ">" << std::endl;
-        std::cout << "Query: <" << req->getQuery() << ">" << std::endl;
-        std::cout << "User-Agent: <" << req->getHeader("user-agent") << ">" << std::endl;
-*/
-        // read some data being passed
-        /*res->read([](std::string_view chunk) {
-            std::cout << "Reading some streamed in data:" << chunk << std::endl;
-        });*/
-
-        res->writeStatus(uWS::HTTP_200_OK)->write([](int offset) {
-            return std::string_view("Hello world!").substr(offset);
-        }, 12);
-
+        // load the file from cache and stream it as response
+        std::string_view file = getFile(fileName.substr(1));
+        res->writeStatus(uWS::HTTP_200_OK)->write([file](int offset) {
+            return file.substr(offset);
+        }, file.length());
     });
 
     httpContext->onGet("/yolo", [](auto *res, auto *req) {

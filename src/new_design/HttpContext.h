@@ -75,6 +75,9 @@ private:
             // cork this socket (move this to loop?)
             ((AsyncSocket<SSL> *) s)->cork();
 
+            // pass this pointer to pointer along with the routing and change it if upgraded
+            SOCKET_TYPE *returnedSocket = s;
+
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
             httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, uWS::HttpRequest *httpRequest) {
 
@@ -92,12 +95,11 @@ private:
                     httpResponseData->inStream(data);
                 }
             }, [](void *user) {
-                std::cout << "INVALID HTTP!" << std::endl;
-
-                // close it down
+                // close any socket on HTTP errors
+                //static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) user);
             });
 
-            // uncork
+            // uncork only if not closed
             ((AsyncSocket<SSL> *) s)->uncork();
 
             // how do we return a new socket here, from the http route?
@@ -115,10 +117,18 @@ private:
 
             // get next chunk to send
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
-            std::string_view chunk = httpResponseData->outStream(httpResponseData->offset);
 
-            // send, including any buffered up
-            asyncSocket->drain(chunk);
+            if (httpResponseData->outStream) {
+                std::string_view chunk = httpResponseData->outStream(httpResponseData->offset);
+
+                // send, including any buffered up
+                asyncSocket->mergeDrain(chunk);
+            } else {
+                std::cout << "We did not have any outStream!" << std::endl;
+
+                asyncSocket->mergeDrain(std::string_view(nullptr, 0));
+            }
+
 
             return s;
         });

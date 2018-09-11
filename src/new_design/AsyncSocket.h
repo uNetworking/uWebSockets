@@ -41,52 +41,110 @@ protected:
     }
 
 public:
-
     void *getExt() {
         return static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
     }
 
-    // cork should bascially mark corked
-    // if already corked, crash and burn!
+    /* Cork this socket. Only one socket may ever be corked per-loop at any given time */
     void cork() {
         LoopData *loopData = getLoopData();
         loopData->corked = true;
     }
 
-    // if not in corked mode, write & buffer. if in corked mode: either write & buffer or buffer
-    // that is, corking is optional
-    void write(const char *src, int length) {
+    /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer */
+    int write(const char *src, int length, bool optionally = false, int nextLength = 0) {
         LoopData *loopData = getLoopData();
 
-        // append it
-        memcpy(loopData->corkBuffer + loopData->corkOffset, src, length);
-        loopData->corkOffset += length;
+        if (length == 0) {
+            return 0;
+        }
+
+        if (loopData->corked) {
+
+            // prio 1: write to cork
+            if (LoopData::CORK_BUFFER_SIZE - loopData->corkOffset >= length) {
+                memcpy(loopData->corkBuffer + loopData->corkOffset, src, length);
+                loopData->corkOffset += length;
+            } else {
+                /* Strategy differences between SSL and non-SSL */
+                if constexpr(SSL) {
+                    /* For SSL we do not want to emit small chunks, so fill the cork (assuming the cork is about 16k) */
+                    int remainingCork = LoopData::CORK_BUFFER_SIZE - loopData->corkOffset;
+
+                    memcpy(loopData->corkBuffer + loopData->corkOffset, src, remainingCork);
+                    loopData->corkOffset += remainingCork;
+
+                    uncork(src + remainingCork, length - remainingCork);
+                } else {
+                    /* For non-SSL we take the penalty of two syscalls */
+                    uncork(src, length);
+                }
+            }
+        } else {
+            // not corked
+            // we should not write here if if have buffer!
+            int written = 0;
+
+            AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
+
+            if (!asyncSocketData->buffer.length()) {
+                written = static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, src, length, nextLength != 0);
+            }
+
+
+            if (written < length) {
+
+                // bail out if we can
+                if (optionally) {
+                    return written;
+                }
+
+                // shit, we are fucked
+                std::cout << "Buffering up per-socket" << std::endl;
+                AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
+
+                // at least reserve enough for next failure
+                if (nextLength) {
+                    asyncSocketData->buffer.reserve(asyncSocketData->buffer.length() + length + nextLength);
+                }
+
+                asyncSocketData->buffer.append(src, length);
+            }
+        }
+
+        return length;
     }
 
-    // should follow same rules as for write
+    /* Write an unsigned 32-bit integer */
     void writeUnsigned(unsigned int value) {
         LoopData *loopData = getLoopData();
 
-        loopData->corkOffset += u32toa(value, loopData->corkBuffer + loopData->corkOffset);
+        char buf[10];
+        int length = u32toa(value, buf);
+
+        // for now we do this copy
+        write(buf, length);
     }
 
-    // uncork should always send and clean the loop's cork buffer. anything that is not able to send, buffer it up in the socket
-    void uncork() {
+    /* Uncork this socket. It is essential to remember doing this. */
+    void uncork(const char *src = nullptr, int length = 0) {
         LoopData *loopData = getLoopData();
 
-        loopData->corked = false;
+        if (loopData->corked) {
+            loopData->corked = false;
 
-        // send it off now!
-
-        int written = static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, loopData->corkBuffer, loopData->corkOffset, false);
-
-        loopData->corkOffset = 0;
-
-        // buffer the rest up in the outbuffer of this asynsocket!
+            if (loopData->corkOffset) {
+                write(loopData->corkBuffer, loopData->corkOffset, false, length);
+                write(src, length, false, 0);
+                loopData->corkOffset = 0;
+            }
+        }
     }
 
-    // when we are writable AND have buffer length, that's a really bad situation that should not happen!
-    void drain(std::string_view optionalChunk) {
+    /* Drain any socket-buffer while also optionally sending a chunk */
+    void mergeDrain(std::string_view optionalChunk) {
+
+        std::cout << "mergeDrain" << std::endl;
 
         // the question here is: should we recursively copy things to the cork buffer and try and send them off in one go?
         // it would work in a recursively manner and since optionalChunk is optional, it would never increase the buffer size
@@ -94,45 +152,6 @@ public:
         // this function is called from onWritable and combines any buffered data with the chunk
 
         // the cunk is optional meaning we do not care to buffer it up
-    }
-
-    // this one will write up to length and simply leave things be
-    int writeOptionally(const char *src, int length) {
-
-        // not optional for now
-        AsyncSocket<SSL>::write(src, length);
-
-        return length;
-
-/*
-        // kopiera upp till (SSL eller icke-ssl) max copy distance
-
-        // om mer än detta, fortsätt skicka
-
-        // this entire strategy should be made entirely in AsyncSocket!
-
-        // this strategy can be simplified to one, we can even have MAX_COPY_DISTANCE_SSL and MAX_COPY_DISTANCE
-        if (length < LoopData::MAX_COPY_DISTANCE) {
-            AsyncSocket<SSL>::write("Content-Length: ", 16);
-            AsyncSocket<SSL>::writeUnsigned(chunk.length());
-            AsyncSocket<SSL>::write("\r\n\r\n", 4);
-            AsyncSocket<SSL>::write(chunk.data(), chunk.length());
-        } else {
-            // copying some data with the headers is a good idea for SSL but probably not for non-SSL
-            //writeToCorkBufferAndReset(chunk.data(), LoopData::MAX_COPY_DISTANCE, length, true);
-
-            // just assume this went fine
-            HttpResponseData<SSL> *httpData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
-
-            // write that off! (should never happen here!)
-            //static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, chunk.data() + LoopData::MAX_COPY_DISTANCE, chunk.length() - LoopData::MAX_COPY_DISTANCE, 0);
-
-            // if offset is at the end, we are done
-            if (httpData->offset < length) {
-                httpData->outStream = cb;
-            }
-        }*/
-
     }
 
     void close() {

@@ -19,7 +19,6 @@ private:
     }
 
 public:
-
     /* Write the HTTP status */
     HttpResponse *writeStatus(std::string_view status) {
         AsyncSocket<SSL>::write("HTTP/1.1 ", 9);
@@ -43,7 +42,8 @@ public:
         AsyncSocket<SSL>::write("Content-Length: ", 16);
         AsyncSocket<SSL>::writeUnsigned(chunk.length());
         AsyncSocket<SSL>::write("\r\n\r\n", 4);
-        if (AsyncSocket<SSL>::writeOptionally(chunk.data(), chunk.length()) < length) {
+        if (AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true) < length) {
+            std::cout << "HttpResponse::write failed to write everything" << std::endl;
             getHttpResponseData()->outStream = cb;
         }
     }

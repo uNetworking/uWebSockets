@@ -7,6 +7,7 @@ private:
 
 public:
 
+    /* Good 16k for SSL perf. */
     static const int CORK_BUFFER_SIZE = 16 * 1024;
 
     char *corkBuffer = new char[CORK_BUFFER_SIZE];
