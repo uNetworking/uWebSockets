@@ -1,6 +1,8 @@
 #ifndef HUB_H
 #define HUB_H
 
+// this header needs fixing! should not depend on source files!
+
 #include "new_design/LoopData.h"
 
 #include <libusockets.h>

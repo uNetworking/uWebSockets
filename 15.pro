@@ -26,7 +26,8 @@ HEADERS += \
     src/new_design/HttpResponse.h \
     src/new_design/StaticDispatch.h \
     src/new_design/LoopData.h \
-    src/new_design/AsyncSocket.h
+    src/new_design/AsyncSocket.h \
+    src/new_design/AsyncSocketData.h
 
 INCLUDEPATH += uSockets/src src
 #QMAKE_CXXFLAGS += -fsanitize=address

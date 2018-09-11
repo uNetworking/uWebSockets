@@ -3,6 +3,7 @@
 
 #include "StaticDispatch.h"
 #include "LoopData.h"
+#include "AsyncSocketData.h"
 
 // todo: this is where the magic happens
 
@@ -10,18 +11,14 @@ namespace uWS {
 
 template <bool SSL>
 struct AsyncSocket : StaticDispatch<SSL> {
+protected:
+    // this will probably be different on ssl and non-ssl
+    static const int MAX_COPY_DISTANCE = 4096;
 
     using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
     using StaticDispatch<SSL>::static_dispatch;
 
-    // control everything with write, cork, uncork, close
-    // have HttpResponseData derive from AsyncSocketData?
-
-    // HttpResponse will only need one buffer for outgoing - the corked up
-
-    // maybe better name would be CorkableSocket?
-
-    // this does not belong here!
+    // this will have to belong here for now
     int u32toa(uint32_t value, char *dst) {
         char temp[10];
         char *p = temp;
@@ -39,15 +36,43 @@ struct AsyncSocket : StaticDispatch<SSL> {
         return ret;
     }
 
-    void cork() {
-        LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) this)));
-
-        loopData->corked = true;
-
+    LoopData *getLoopData() {
+        return (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((SOCKET_TYPE *) this)));
     }
 
+    void *getExt() {
+        return static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+    }
+
+public:
+
+    // cork should bascially mark corked
+    // if already corked, crash and burn!
+    void cork() {
+        LoopData *loopData = getLoopData();
+        loopData->corked = true;
+    }
+
+    // if not in corked mode, write & buffer. if in corked mode: either write & buffer or buffer
+    // that is, corking is optional
+    void write(const char *src, int length) {
+        LoopData *loopData = getLoopData();
+
+        // append it
+        memcpy(loopData->corkBuffer + loopData->corkOffset, src, length);
+        loopData->corkOffset += length;
+    }
+
+    // should follow same rules as for write
+    void writeUnsigned(unsigned int value) {
+        LoopData *loopData = getLoopData();
+
+        loopData->corkOffset += u32toa(value, loopData->corkBuffer + loopData->corkOffset);
+    }
+
+    // uncork should always send and clean the loop's cork buffer. anything that is not able to send, buffer it up in the socket
     void uncork() {
-        LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) this)));
+        LoopData *loopData = getLoopData();
 
         loopData->corked = false;
 
@@ -60,19 +85,12 @@ struct AsyncSocket : StaticDispatch<SSL> {
         // buffer the rest up in the outbuffer of this asynsocket!
     }
 
-    void writeUnsigned(unsigned int value) {
-        LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) this)));
+    // when we are writable AND have buffer length, that's a really bad situation that should not happen!
+    void drain() {
 
-        loopData->corkOffset += u32toa(value, loopData->corkBuffer + loopData->corkOffset);
     }
 
-    void write(const char *src, int length) {
-        LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) this)));
-
-        memcpy(loopData->corkBuffer + loopData->corkOffset, src, length);
-        loopData->corkOffset += length;
-    }
-
+    // this one will write up to length and simply leave things be
     int writeOptionally(const char *src, int length) {
 
         // not optional for now
@@ -109,10 +127,6 @@ struct AsyncSocket : StaticDispatch<SSL> {
             }
         }*/
 
-    }
-
-    void *getExt() {
-        return static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
     }
 
     void close() {
