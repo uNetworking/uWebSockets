@@ -56,7 +56,12 @@ int main(int argc, char **argv) {
 
     uWS::Loop loop;
 
-    uWS::HttpContext<false> *httpContext = uWS::HttpContext<false>::create(loop.loop);
+    us_ssl_socket_context_options ssl_options;
+    ssl_options.key_file_name = "/home/alexhultman/uWebSockets/misc/ssl/key.pem";
+    ssl_options.cert_file_name = "/home/alexhultman/uWebSockets/misc/ssl/cert.pem";
+    ssl_options.passphrase = "1234";
+
+    uWS::HttpContext<true> *httpContext = uWS::HttpContext<true>::create(loop.loop, &ssl_options);
 
     // req, res?
     httpContext->onGet("/:folder/:file", [](auto *res, auto *req) {

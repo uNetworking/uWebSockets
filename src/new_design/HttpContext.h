@@ -31,7 +31,7 @@ private:
     }
 
     static SOCKET_CONTEXT_TYPE *getSocketContext(SOCKET_TYPE *s) {
-        return (SOCKET_CONTEXT_TYPE *) us_socket_get_context(s);
+        return (SOCKET_CONTEXT_TYPE *) static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s);
     }
 
     HttpContextData<SSL> *getSocketContextData() {
@@ -164,8 +164,15 @@ private:
 
 public:
     /* Construct a new HttpContext using specified loop */
-    static HttpContext *create(us_loop *loop) {
-        HttpContext *httpContext = (HttpContext *) us_create_socket_context(loop, sizeof(HttpContextData<SSL>));
+    static HttpContext *create(us_loop *loop, us_ssl_socket_context_options *ssl_options = nullptr) {
+        HttpContext *httpContext;
+
+        if constexpr(SSL) {
+            httpContext = (HttpContext *) us_create_ssl_socket_context(loop, sizeof(HttpContextData<SSL>), *ssl_options);
+        } else {
+            httpContext = (HttpContext *) us_create_socket_context(loop, sizeof(HttpContextData<SSL>));
+        }
+
 
         new ((HttpContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)((SOCKET_CONTEXT_TYPE *) httpContext)) HttpContextData<SSL>();
         return httpContext->init();

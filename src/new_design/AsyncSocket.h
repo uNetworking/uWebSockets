@@ -37,7 +37,11 @@ protected:
     }
 
     LoopData *getLoopData() {
-        return (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((SOCKET_TYPE *) this)));
+        if constexpr(SSL) {
+            return (LoopData *) us_loop_ext(us_ssl_socket_context_loop(us_ssl_socket_get_context((SOCKET_TYPE *) this)));
+        } else {
+            return (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((SOCKET_TYPE *) this)));
+        }
     }
 
 public:
