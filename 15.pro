@@ -14,7 +14,6 @@ SOURCES += \
 
 HEADERS += \
     src/new_design/HttpRouter.h \
-    src/Loop.h \
     src/new_design/HttpParser.h \
     src/websocket/libwshandshake.hpp \
     src/websocket/WebSocketProtocol.h \
@@ -27,7 +26,8 @@ HEADERS += \
     src/new_design/StaticDispatch.h \
     src/new_design/LoopData.h \
     src/new_design/AsyncSocket.h \
-    src/new_design/AsyncSocketData.h
+    src/new_design/AsyncSocketData.h \
+    src/new_design/Loop.h
 
 INCLUDEPATH += uSockets/src src
 QMAKE_CXXFLAGS += -fsanitize=address

@@ -167,13 +167,13 @@ private:
 
 public:
     /* Construct a new HttpContext using specified loop */
-    static HttpContext *create(us_loop *loop, us_ssl_socket_context_options *ssl_options = nullptr) {
+    static HttpContext *create(Loop *loop, us_ssl_socket_context_options *ssl_options = nullptr) {
         HttpContext *httpContext;
 
         if constexpr(SSL) {
-            httpContext = (HttpContext *) us_create_ssl_socket_context(loop, sizeof(HttpContextData<SSL>), *ssl_options);
+            httpContext = (HttpContext *) us_create_ssl_socket_context((us_loop *) loop, sizeof(HttpContextData<SSL>), *ssl_options);
         } else {
-            httpContext = (HttpContext *) us_create_socket_context(loop, sizeof(HttpContextData<SSL>));
+            httpContext = (HttpContext *) us_create_socket_context((us_loop *) loop, sizeof(HttpContextData<SSL>));
         }
 
 

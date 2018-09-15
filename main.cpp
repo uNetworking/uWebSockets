@@ -50,18 +50,20 @@ std::string_view getFile(std::string_view file) {
 
 int main(int argc, char **argv) {
 
-    // new stuff, hope it sticks together?
-
-
-
-    uWS::Loop loop;
+    // test per-thread loopery
+    uWS::Loop::defaultLoop();
+    new std::thread([]() {
+        uWS::Loop::defaultLoop();
+        uWS::Loop::defaultLoop();
+    });
+    uWS::Loop::defaultLoop();
 
     us_ssl_socket_context_options ssl_options;
     ssl_options.key_file_name = "/home/alexhultman/uWebSockets/misc/ssl/key.pem";
     ssl_options.cert_file_name = "/home/alexhultman/uWebSockets/misc/ssl/cert.pem";
     ssl_options.passphrase = "1234";
 
-    uWS::HttpContext<true> *httpContext = uWS::HttpContext<true>::create(loop.loop, &ssl_options);
+    uWS::HttpContext<true> *httpContext = uWS::HttpContext<true>::create(uWS::Loop::defaultLoop(), &ssl_options);
 
     // req, res?
     httpContext->onGet("/:folder/:file", [](auto *res, auto *req) {
@@ -87,9 +89,10 @@ int main(int argc, char **argv) {
 
     httpContext->listen(nullptr, 3000, 0);
 
-    loop.run();
+    uWS::run();
 
     httpContext->free();
+    uWS::Loop::defaultLoop()->free();
 
     return 0;
 
@@ -192,6 +195,5 @@ int main(int argc, char **argv) {
         std::cout << "Connections: " << --connections << std::endl;
     }).listen(nullptr, 3000, 0);*/
 
-    uWS::run();
     // loop.run();
 }

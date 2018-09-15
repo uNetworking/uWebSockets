@@ -56,11 +56,11 @@ public:
     int write(const char *src, int length, bool optionally = false, int nextLength = 0) {
         LoopData *loopData = getLoopData();
 
-        std::cout << "Write called with length: " << length << ", optionally: " << optionally << std::endl;
+        //std::cout << "Write called with length: " << length << ", optionally: " << optionally << std::endl;
 
         /* Do nothing for a null sized chunk */
         if (length == 0) {
-            std::cout << "Write returned: 0" << std::endl;
+            //std::cout << "Write returned: 0" << std::endl;
             return 0;
         }
 
@@ -69,7 +69,7 @@ public:
         /* Do not write anything if we have a per-socket buffer */
         if (asyncSocketData->buffer.length()) {
             if (optionally) {
-                std::cout << "Write returned: 0" << std::endl;
+                //std::cout << "Write returned: 0" << std::endl;
                 return 0;
             } else {
                 std::cout << "Buffering at top of write!" << std::endl;
@@ -81,7 +81,7 @@ public:
 
                 /* Buffer this chunk */
                 asyncSocketData->buffer.append(src, length);
-                std::cout << "Write returned: " << length << std::endl;
+                //std::cout << "Write returned: " << length << std::endl;
                 return length;
             }
         }
@@ -100,12 +100,12 @@ public:
 
                     /* Optionally matters here though */
                     written += uncork(src + written, length - written, optionally);
-                    std::cout << "Write returned: " << written << std::endl;
+                    //std::cout << "Write returned: " << written << std::endl;
                     return written;
                 } else {
                     /* For non-SSL we take the penalty of two syscalls */
                     int written = uncork(src, length, optionally);
-                    std::cout << "Write returned: " << written << std::endl;
+                    //std::cout << "Write returned: " << written << std::endl;
                     return written;
                 }
             }
@@ -117,7 +117,7 @@ public:
             if (written < length) {
                 /* If the write was optional then just bail out */
                 if (optionally) {
-                    std::cout << "Write returned: " << written << std::endl;
+                    //std::cout << "Write returned: " << written << std::endl;
                     return written;
                 }
 
@@ -134,7 +134,7 @@ public:
             }
         }
 
-        std::cout << "Write returned: " << length << std::endl;
+        //std::cout << "Write returned: " << length << std::endl;
         return length;
     }
 
