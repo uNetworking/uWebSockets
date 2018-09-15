@@ -1,9 +1,9 @@
 <div align="center">
 <img src="logo.png" />
-    
+
 *µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient messaging for the modern web.*
 
-• [Fancy pants details & user manual](http://)
+• [Fancy pants details & user manual](READMORE.md)
 
 </div>
 
