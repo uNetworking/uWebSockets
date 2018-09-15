@@ -37,13 +37,11 @@ std::string_view getFile(std::string_view file) {
 
 int main(int argc, char **argv) {
 
-    // this part is a bit too C-ish?
-    us_ssl_socket_context_options sslOptions;
-    sslOptions.key_file_name = "/home/alexhultman/uWebSockets/misc/ssl/key.pem";
-    sslOptions.cert_file_name = "/home/alexhultman/uWebSockets/misc/ssl/cert.pem";
-    sslOptions.passphrase = "1234";
-
-    uWS::SSLApp(sslOptions).get("/hello", [](auto *res, auto *req) {
+    uWS::SSLApp({
+        .key_file_name = "/home/alexhultman/uWebSockets/misc/ssl/key.pem",
+        .cert_file_name = "/home/alexhultman/uWebSockets/misc/ssl/cert.pem",
+        .passphrase = "1234"
+    }).get("/hello", [](auto *res, auto *req) {
         res->writeStatus(uWS::HTTP_200_OK)->write("Hello world!");
     }).get("/:folder/:file", [](auto *res, auto *req) {
         res->writeStatus(uWS::HTTP_200_OK)->write(getFile((req->getUrl() == "/" ? "/rocket_files/rocket.html" : req->getUrl()).substr(1)));
