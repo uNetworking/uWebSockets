@@ -137,6 +137,8 @@ public:
             /* We should only return with new writes, not things written to cork already */
             return write(src, length, optionally, 0);
         }
+
+        return 0;
     }
 
     /* Drain any socket-buffer while also optionally sending a chunk */

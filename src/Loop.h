@@ -44,10 +44,8 @@ public:
         if (!defaultLoop) {
             ownsDefaultLoop = true;
             defaultLoop = create(true);
-            std::cout << "Created default loop " << defaultLoop << " for thread " << std::this_thread::get_id() << std::endl;
             return defaultLoop;
         } else if (ownsDefaultLoop) {
-            std::cout << "Returned default loop " << defaultLoop << " for thread " << std::this_thread::get_id() << std::endl;
             return defaultLoop;
         }
 
@@ -55,10 +53,8 @@ public:
         static thread_local Loop *threadLocalLoop;
         if (!threadLocalLoop) {
             threadLocalLoop = create(false);
-            std::cout << "Created non-default loop " << threadLocalLoop << " for thread " << std::this_thread::get_id() << std::endl;
             return threadLocalLoop;
         }
-        std::cout << "Returned non-default loop " << threadLocalLoop << " for thread " << std::this_thread::get_id() << std::endl;
         return threadLocalLoop;
     }
 

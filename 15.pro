@@ -27,7 +27,8 @@ HEADERS += \
     src/LoopData.h \
     src/AsyncSocket.h \
     src/AsyncSocketData.h \
-    src/Loop.h
+    src/Loop.h \
+    src/App.h
 
 INCLUDEPATH += uSockets/src src
 QMAKE_CXXFLAGS += -fsanitize=address

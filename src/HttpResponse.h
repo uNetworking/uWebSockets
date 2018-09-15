@@ -75,6 +75,13 @@ public:
         }
     }
 
+    /* Convenience function for static data (I don't like this one!) */
+    void write(std::string_view data) {
+        write([data](int offset) {
+            return data.substr(offset);
+        }, data.length());
+    }
+
     /* Attach a read handler for data sent. Will be called with a chunk of size 0 when FIN */
     void read(std::function<void(std::string_view)> handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();

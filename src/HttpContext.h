@@ -199,8 +199,8 @@ public:
     }
 
     /* Listen to port using this HttpContext */
-    void listen(const char *host, int port, int options) {
-        static_dispatch(us_ssl_socket_context_listen, us_socket_context_listen)(getSocketContext(), host, port, options, sizeof(HttpResponseData<SSL>));
+    us_listen_socket *listen(const char *host, int port, int options) {
+        return static_dispatch(us_ssl_socket_context_listen, us_socket_context_listen)(getSocketContext(), host, port, options, sizeof(HttpResponseData<SSL>));
     }
 };
 

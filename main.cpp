@@ -1,22 +1,12 @@
+#include "App.h"
+
+#include <map>
+#include <cstring>
 #include <fstream>
 #include <sstream>
 #include <iostream>
 
-std::string buffer;
-int connections = 0;
-
-template<int SIZE, class T>
-void respond(T *s) {
-    s->writeStatus("200 OK")->write([](int offset) {
-        return std::string_view(buffer.data() + offset, SIZE - offset);
-    }, SIZE);
-}
-
-#define USE_SSL
-
-#include <map>
-#include <cstring>
-
+// should probably fix this one up a bit some time
 std::string_view getFile(std::string_view file) {
     static std::map<std::string_view, std::string_view> cache;
 
@@ -45,155 +35,22 @@ std::string_view getFile(std::string_view file) {
     }
 }
 
-#include "HttpContext.h"
-#include "HttpResponse.h"
-
 int main(int argc, char **argv) {
 
-    // test per-thread loopery
-    uWS::Loop::defaultLoop();
-    new std::thread([]() {
-        uWS::Loop::defaultLoop();
-        uWS::Loop::defaultLoop();
-    });
-    uWS::Loop::defaultLoop();
+    // this part is a bit too C-ish?
+    us_ssl_socket_context_options sslOptions;
+    sslOptions.key_file_name = "/home/alexhultman/uWebSockets/misc/ssl/key.pem";
+    sslOptions.cert_file_name = "/home/alexhultman/uWebSockets/misc/ssl/cert.pem";
+    sslOptions.passphrase = "1234";
 
-    us_ssl_socket_context_options ssl_options;
-    ssl_options.key_file_name = "/home/alexhultman/uWebSockets/misc/ssl/key.pem";
-    ssl_options.cert_file_name = "/home/alexhultman/uWebSockets/misc/ssl/cert.pem";
-    ssl_options.passphrase = "1234";
-
-    uWS::HttpContext<true> *httpContext = uWS::HttpContext<true>::create(uWS::Loop::defaultLoop(), &ssl_options);
-
-    // req, res?
-    httpContext->onGet("/:folder/:file", [](auto *res, auto *req) {
-        // what file are we serving?
-        std::string_view fileName = req->getUrl();
-        if (fileName == "/") {
-            // this is our index
-            fileName = "/rocket_files/rocket.html";
+    uWS::SSLApp(sslOptions).get("/hello", [](auto *res, auto *req) {
+        res->writeStatus(uWS::HTTP_200_OK)->write("Hello world!");
+    }).get("/:folder/:file", [](auto *res, auto *req) {
+        res->writeStatus(uWS::HTTP_200_OK)->write(getFile((req->getUrl() == "/" ? "/rocket_files/rocket.html" : req->getUrl()).substr(1)));
+    }).listen(3000, [](auto *token) {
+        if (token) {
+            std::cout << "Listening on port " << 3000 << std::endl;
         }
+    }).run();
 
-        // load the file from cache and stream it as response
-        std::string_view file = getFile(fileName.substr(1));
-        res->writeStatus(uWS::HTTP_200_OK)->write([file](int offset) {
-            return file.substr(offset);
-        }, file.length());
-    });
-
-    httpContext->onGet("/yolo", [](auto *res, auto *req) {
-        std::cout << "URL (/yolo route): <" << req->getUrl() << ">" << std::endl;
-        std::cout << "Query: <" << req->getQuery() << ">" << std::endl;
-        std::cout << "User-Agent: <" << req->getHeader("user-agent") << ">" << std::endl;
-    });
-
-    httpContext->listen(nullptr, 3000, 0);
-
-    uWS::run();
-
-    httpContext->free();
-    uWS::Loop::defaultLoop()->free();
-
-    return 0;
-
-    ////////////////////////////////////////////////////////////////////////////////
-
-
-    // 50 mb for huge
-   /* buffer.resize(52428800);
-
-    //uWS::init();
-    //uWS::Loop loop();
-
-#ifdef USE_SSL
-    uWS::SSLApp app(uWS::SSLOptions()
-                  .keyFileName("/home/alexhultman/uWebSockets/misc/ssl/key.pem")
-                  .certFileName("/home/alexhultman/uWebSockets/misc/ssl/cert.pem")
-                  .passphrase("1234"));
-#else
-    uWS::App app;
-#endif
-
-    struct UserData {
-
-    };
-
-    // serve a chat page with pub/sub and index.html and get (should be the main app of use)
-    // basically take the old web chat page and upgrade it
-
-    uWS::App a; // or uWS::SSLApp(options) for SSL
-
-    a.onGet("/", [](auto *s, auto *req, auto *args) {
-
-        std::cout << "URL: <" << req->getUrl() << ">" << std::endl;
-        std::cout << "Query: <" << req->getQuery() << ">" << std::endl;
-        std::cout << "User-Agent: <" << req->getHeader("user-agent") << ">" << std::endl;
-
-    }).onWebSocket<UserData>("/ws", [](auto *ws, auto *req, auto *args) {
-
-        std::cout << "WebSocket connected to /wsApi" << std::endl;
-
-    }).onMessage<true>([](auto *ws, auto message) {
-
-        std::cout << "WebSocket data: " << message << std::endl;
-
-        //ws->send(message, opCode);
-
-    }).onClose([]() {
-
-        //std::cout << "WebSocket disconnected from /wsApi" << std::endl;
-
-    }).listen("localhost", 3000, 0);
-
-    /*auto serve = [](auto *s, auto *req, auto *args) {
-
-        //std::cout << "URL: " << req->getUrl() << std::endl;
-
-        s->writeStatus("200 OK");
-        std::string_view file;
-        if (args->size() != 2) {
-            file = getFile("rocket.html");
-        } else {
-            file = getFile((*args)[1]);
-
-            std::string_view name = (*args)[1];
-
-            if (name.length() > 4 && name.substr(name.length() - 4) == ".svg") {
-                s->writeHeader("Content-type", "image/svg+xml");
-            }
-        }
-
-        s->write([file](int offset) {
-            return std::string_view(file.data() + offset, file.size() - offset);
-        }, file.size());
-
-    };
-
-    app.onGet("/", serve).onGet("/:folder/:file", serve).onGet("/tiny", [](auto *s, auto *req, auto *args) {
-        respond<512>(s);
-    }).onGet("/small", [](auto *s, auto *req, auto *args) {
-        respond<4096>(s);
-    }).onGet("/medium", [](auto *s, auto *req, auto *args) {
-        respond<16384>(s);
-    }).onGet("/large", [](auto *s, auto *req, auto *args) {
-        respond<51200>(s);
-    }).onGet("/huge", [](auto *s, auto *req, auto *args) {
-        respond<52428800>(s);
-    }).onPost("/upload", [](auto *s, auto *req, auto *args) {
-
-        s->read([s](std::string_view chunk) {
-            std::cout << "Received chunk on URL /upload: <" << chunk << ">" << std::endl;
-
-            s->writeStatus("200 OK")->end("Thanks for posting!");
-        });
-
-    }).onWebSocket("/wsApi", []() {
-
-    }).onHttpConnection([](auto *s) {
-        std::cout << "Connections: " << ++connections << std::endl;
-    }).onHttpDisconnection([](auto *s) {
-        std::cout << "Connections: " << --connections << std::endl;
-    }).listen(nullptr, 3000, 0);*/
-
-    // loop.run();
 }
