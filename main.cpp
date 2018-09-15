@@ -45,8 +45,8 @@ std::string_view getFile(std::string_view file) {
     }
 }
 
-#include "new_design/HttpContext.h"
-#include "new_design/HttpResponse.h"
+#include "HttpContext.h"
+#include "HttpResponse.h"
 
 int main(int argc, char **argv) {
 

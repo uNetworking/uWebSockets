@@ -13,21 +13,21 @@ SOURCES += \
     uSockets/src/loop.c
 
 HEADERS += \
-    src/new_design/HttpRouter.h \
-    src/new_design/HttpParser.h \
+    src/HttpRouter.h \
+    src/HttpParser.h \
     src/websocket/libwshandshake.hpp \
     src/websocket/WebSocketProtocol.h \
     src/websocket/WebSocket.h \
     src/websocket/WebSocketApp.h \
-    src/new_design/HttpContext.h \
-    src/new_design/HttpContextData.h \
-    src/new_design/HttpResponseData.h \
-    src/new_design/HttpResponse.h \
-    src/new_design/StaticDispatch.h \
-    src/new_design/LoopData.h \
-    src/new_design/AsyncSocket.h \
-    src/new_design/AsyncSocketData.h \
-    src/new_design/Loop.h
+    src/HttpContext.h \
+    src/HttpContextData.h \
+    src/HttpResponseData.h \
+    src/HttpResponse.h \
+    src/StaticDispatch.h \
+    src/LoopData.h \
+    src/AsyncSocket.h \
+    src/AsyncSocketData.h \
+    src/Loop.h
 
 INCLUDEPATH += uSockets/src src
 QMAKE_CXXFLAGS += -fsanitize=address
