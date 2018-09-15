@@ -84,6 +84,9 @@ private:
                 // warning: if we are in shutdown state, resetting the timer is a security issue!
                 static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) s, HTTP_IDLE_TIMEOUT_S);
 
+                HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
+                httpResponseData->offset = 0;
+
                 // route it!
                 typename uWS::HttpContextData<SSL>::UserData userData = {
                     (HttpResponse<SSL> *) s, httpRequest
@@ -122,7 +125,7 @@ private:
                 std::string_view chunk = httpResponseData->outStream(httpResponseData->offset);
 
                 // send, including any buffered up
-                asyncSocket->mergeDrain(chunk);
+                httpResponseData->offset += asyncSocket->mergeDrain(chunk);
             } else {
                 std::cout << "We did not have any outStream!" << std::endl;
 

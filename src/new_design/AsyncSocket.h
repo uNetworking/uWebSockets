@@ -1,20 +1,17 @@
 #ifndef ASYNCSOCKET_H
 #define ASYNCSOCKET_H
 
+/* This class implements async socket memory management strategies */
+
 #include "StaticDispatch.h"
 #include "LoopData.h"
 #include "AsyncSocketData.h"
-
-// todo: this is where the magic happens
 
 namespace uWS {
 
 template <bool SSL>
 struct AsyncSocket : StaticDispatch<SSL> {
 protected:
-    // this will probably be different on ssl and non-ssl
-    static const int MAX_COPY_DISTANCE = 4096;
-
     using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
     using StaticDispatch<SSL>::static_dispatch;
 
@@ -59,63 +56,85 @@ public:
     int write(const char *src, int length, bool optionally = false, int nextLength = 0) {
         LoopData *loopData = getLoopData();
 
+        std::cout << "Write called with length: " << length << ", optionally: " << optionally << std::endl;
+
+        /* Do nothing for a null sized chunk */
         if (length == 0) {
+            std::cout << "Write returned: 0" << std::endl;
             return 0;
         }
 
-        if (loopData->corked) {
+        AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
 
-            // prio 1: write to cork
+        /* Do not write anything if we have a per-socket buffer */
+        if (asyncSocketData->buffer.length()) {
+            if (optionally) {
+                std::cout << "Write returned: 0" << std::endl;
+                return 0;
+            } else {
+                std::cout << "Buffering at top of write!" << std::endl;
+
+                /* At least we can reserve room for next chunk if we know it up front */
+                if (nextLength) {
+                    asyncSocketData->buffer.reserve(asyncSocketData->buffer.length() + length + nextLength);
+                }
+
+                /* Buffer this chunk */
+                asyncSocketData->buffer.append(src, length);
+                std::cout << "Write returned: " << length << std::endl;
+                return length;
+            }
+        }
+
+        if (loopData->corked) {
+            /* We are corked */
             if (LoopData::CORK_BUFFER_SIZE - loopData->corkOffset >= length) {
+                /* If the entire chunk fits in cork buffer */
                 memcpy(loopData->corkBuffer + loopData->corkOffset, src, length);
                 loopData->corkOffset += length;
             } else {
                 /* Strategy differences between SSL and non-SSL */
                 if constexpr(SSL) {
-                    /* For SSL we do not want to emit small chunks, so fill the cork (assuming the cork is about 16k) */
-                    int remainingCork = LoopData::CORK_BUFFER_SIZE - loopData->corkOffset;
+                    /* Cork up as much as we can, optionally does not matter here as we know it will fit in cork */
+                    int written = write(src, std::min(LoopData::CORK_BUFFER_SIZE - loopData->corkOffset, length), false, 0);
 
-                    memcpy(loopData->corkBuffer + loopData->corkOffset, src, remainingCork);
-                    loopData->corkOffset += remainingCork;
-
-                    uncork(src + remainingCork, length - remainingCork);
+                    /* Optionally matters here though */
+                    written += uncork(src + written, length - written, optionally);
+                    std::cout << "Write returned: " << written << std::endl;
+                    return written;
                 } else {
                     /* For non-SSL we take the penalty of two syscalls */
-                    uncork(src, length);
+                    int written = uncork(src, length, optionally);
+                    std::cout << "Write returned: " << written << std::endl;
+                    return written;
                 }
             }
         } else {
-            // not corked
-            // we should not write here if if have buffer!
-            int written = 0;
+            /* We are not corked */
+            int written = static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, src, length, nextLength != 0);
 
-            AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
-
-            if (!asyncSocketData->buffer.length()) {
-                written = static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, src, length, nextLength != 0);
-            }
-
-
+            /* Did we fail? */
             if (written < length) {
-
-                // bail out if we can
+                /* If the write was optional then just bail out */
                 if (optionally) {
+                    std::cout << "Write returned: " << written << std::endl;
                     return written;
                 }
 
-                // shit, we are fucked
-                std::cout << "Buffering up per-socket" << std::endl;
-                AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
+                std::cout << "Buffering at bottom of write!" << std::endl;
 
-                // at least reserve enough for next failure
+                /* Fall back to worst possible case (should be very rare for HTTP) */
+                /* At least we can reserve room for next chunk if we know it up front */
                 if (nextLength) {
                     asyncSocketData->buffer.reserve(asyncSocketData->buffer.length() + length + nextLength);
                 }
 
+                /* Buffer this chunk */
                 asyncSocketData->buffer.append(src, length);
             }
         }
 
+        std::cout << "Write returned: " << length << std::endl;
         return length;
     }
 
@@ -130,32 +149,43 @@ public:
         write(buf, length);
     }
 
-    /* Uncork this socket. It is essential to remember doing this. */
-    void uncork(const char *src = nullptr, int length = 0) {
+    /* Uncork this socket and flush or buffer any corked and/or passed data. It is essential to remember doing this. */
+    /* It does NOT count bytes written from cork buffer (they are already accounted for in the write call responsible for its corking)! */
+    int uncork(const char *src = nullptr, int length = 0, bool optionally = false) {
         LoopData *loopData = getLoopData();
 
         if (loopData->corked) {
             loopData->corked = false;
 
             if (loopData->corkOffset) {
+                /* Corked data is already accounted for via its write call */
                 write(loopData->corkBuffer, loopData->corkOffset, false, length);
-                write(src, length, false, 0);
                 loopData->corkOffset = 0;
             }
+
+            /* We should only return with new writes, not things written to cork already */
+            return write(src, length, optionally, 0);
         }
     }
 
     /* Drain any socket-buffer while also optionally sending a chunk */
-    void mergeDrain(std::string_view optionalChunk) {
+    int mergeDrain(std::string_view optionalChunk) {
 
-        std::cout << "mergeDrain" << std::endl;
+        // strategy: if we have two parts and both will fit in cork buffer then cork them and recursively send them off
 
-        // the question here is: should we recursively copy things to the cork buffer and try and send them off in one go?
-        // it would work in a recursively manner and since optionalChunk is optional, it would never increase the buffer size
+        // write any per-socket buffer and optionally more
 
-        // this function is called from onWritable and combines any buffered data with the chunk
+        AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
 
-        // the cunk is optional meaning we do not care to buffer it up
+        // not handled yet
+        if (asyncSocketData->buffer.length()) {
+            std::cout << "ERROR! has socket buffer!" << std::endl;
+            exit(0);
+        }
+
+
+        /* Write the optional part */
+        return write(optionalChunk.data(), optionalChunk.length(), true, 0);
     }
 
     void close() {
