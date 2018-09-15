@@ -11,18 +11,15 @@ struct HttpRequest;
 
 template <bool SSL>
 struct HttpContextData {
-
 private:
 
 public:
-
     struct UserData {
         HttpResponse<SSL> *httpResponse;
         HttpRequest *httpRequest;
     };
 
     HttpRouter<UserData *> router;
-
 };
 
 }

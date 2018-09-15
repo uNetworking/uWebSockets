@@ -1,17 +1,14 @@
 #ifndef ASYNCSOCKETDATA_H
 #define ASYNCSOCKETDATA_H
 
-#include <string>
+/* Depending on how we want AsyncSocket to function, this will need to change */
 
-// todo: think about chains of AsyncSocketData too!
-// we want to buffer things up in one buffer, or in many separate ones (like with websockets)
+#include <string>
 
 template <bool SSL>
 struct AsyncSocketData {
-
-    // we need a buffer
+    /* This will do for now */
     std::string buffer;
-
 };
 
 #endif // ASYNCSOCKETDATA_H

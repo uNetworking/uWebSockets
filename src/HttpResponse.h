@@ -18,6 +18,32 @@ private:
         return (HttpResponseData<SSL> *) AsyncSocket<SSL>::getExt();
     }
 
+    int u32toa(uint32_t value, char *dst) {
+        char temp[10];
+        char *p = temp;
+        do {
+            *p++ = (char) (value % 10) + '0';
+            value /= 10;
+        } while (value > 0);
+
+        int ret = p - temp;
+
+        do {
+            *dst++ = *--p;
+        } while (p != temp);
+
+        return ret;
+    }
+
+    /* Write an unsigned 32-bit integer */
+    void writeUnsigned(unsigned int value) {
+        char buf[10];
+        int length = u32toa(value, buf);
+
+        /* For now we do this copy */
+        AsyncSocket<SSL>::write(buf, length);
+    }
+
 public:
     /* Write the HTTP status */
     HttpResponse *writeStatus(std::string_view status) {
@@ -40,7 +66,7 @@ public:
     void write(std::function<std::string_view(int)> cb, int length) {
         std::string_view chunk = cb(0);
         AsyncSocket<SSL>::write("Content-Length: ", 16);
-        AsyncSocket<SSL>::writeUnsigned(chunk.length());
+        writeUnsigned(chunk.length());
         AsyncSocket<SSL>::write("\r\n\r\n", 4);
         if (int written; (written = AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true)) < length) {
             std::cout << "HttpResponse::write failed to write everything" << std::endl;

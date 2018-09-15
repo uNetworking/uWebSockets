@@ -1,7 +1,7 @@
 #ifndef STATICDISPATCH_H
 #define STATICDISPATCH_H
 
-// this headers is basically a statically dispatched libusockets wrapper base
+/* This headers is basically a statically dispatched libusockets wrapper base */
 
 #include <type_traits>
 #include <libusockets.h>

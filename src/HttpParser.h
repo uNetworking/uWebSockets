@@ -1,6 +1,8 @@
 #ifndef HTTPPARSER_H
 #define HTTPPARSER_H
 
+/* The HTTP parser is an independent module subject to unit testing / fuzz testing */
+
 #include <string>
 #include <functional>
 #include <cstring>

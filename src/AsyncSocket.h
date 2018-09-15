@@ -15,24 +15,6 @@ protected:
     using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
     using StaticDispatch<SSL>::static_dispatch;
 
-    // this will have to belong here for now
-    int u32toa(uint32_t value, char *dst) {
-        char temp[10];
-        char *p = temp;
-        do {
-            *p++ = (char) (value % 10) + '0';
-            value /= 10;
-        } while (value > 0);
-
-        int ret = p - temp;
-
-        do {
-            *dst++ = *--p;
-        } while (p != temp);
-
-        return ret;
-    }
-
     LoopData *getLoopData() {
         if constexpr(SSL) {
             return (LoopData *) us_loop_ext(us_ssl_socket_context_loop(us_ssl_socket_get_context((SOCKET_TYPE *) this)));
@@ -136,17 +118,6 @@ public:
 
         //std::cout << "Write returned: " << length << std::endl;
         return length;
-    }
-
-    /* Write an unsigned 32-bit integer */
-    void writeUnsigned(unsigned int value) {
-        LoopData *loopData = getLoopData();
-
-        char buf[10];
-        int length = u32toa(value, buf);
-
-        // for now we do this copy
-        write(buf, length);
     }
 
     /* Uncork this socket and flush or buffer any corked and/or passed data. It is essential to remember doing this. */

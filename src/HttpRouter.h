@@ -1,7 +1,8 @@
 #ifndef HTTPROUTER_HPP
 #define HTTPROUTER_HPP
 
-// this header also needs testing and fixing as a separate module
+/* HTTP router is an independent module subject to unit testing and fuzz testing */
+/* TODO: this module needs much work and fixes */
 
 #include <map>
 #include <functional>
