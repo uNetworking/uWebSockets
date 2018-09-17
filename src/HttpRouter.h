@@ -29,8 +29,11 @@ private:
     std::string compiled_tree;
 
     void add(std::vector<std::string> route, short handler) {
+        //std::cout << "add" << std::endl;
         Node *parent = tree;
         for (std::string node : route) {
+            //std::cout << "Node: <" << node << ">" << std::endl;
+
             if (parent->children.find(node) == parent->children.end()) {
                 parent->children[node] = new Node({node, {}, handler});
             }
@@ -50,13 +53,13 @@ private:
         compiledNode.append((char *) &nodeLength, sizeof(nodeLength));
         compiledNode.append((char *) &nodeNameLength, sizeof(nodeNameLength));
         compiledNode.append((char *) &n->handler, sizeof(n->handler));
-        compiledNode.append(n->name.data(), n->name.length());
+        compiledNode.append(n->name.data(), /*n->name.length()*/ nodeNameLength);
 
         compiled_tree = compiledNode + compiled_tree;
         return nodeLength;
     }
 
-    inline const char *find_node(const char *parent_node, const char *name, int name_length) {
+    inline const char *find_node(const char *parent_node, const char *name, int name_length, bool *foundWildcard) {
         unsigned short nodeLength = *(unsigned short *) &parent_node[0];
         unsigned short nodeNameLength = *(unsigned short *) &parent_node[2];
 
@@ -69,7 +72,8 @@ private:
             unsigned short nodeNameLength = *(unsigned short *) &candidate[2];
 
             // whildcard, parameter, equal
-            if (nodeNameLength == 0) {
+            if (nodeNameLength == 1 && candidate[6] == '*') {
+                *foundWildcard = true;
                 return candidate;
             } else if (candidate[6] == ':') {
                 // parameter
@@ -102,14 +106,21 @@ private:
 
         const char *treeStart = (char *) compiled_tree.data();
 
+        bool foundWildcard = false;
+
         const char *stop, *start = url, *end_ptr = url + length;
         do {
             stop = getNextSegment(start, end_ptr);
 
             //std::cout << "Matching(" << std::string(start, stop - start) << ")" << std::endl;
 
-            if(nullptr == (treeStart = find_node(treeStart, start, stop - start))) {
+            if(nullptr == (treeStart = find_node(treeStart, start, stop - start, &foundWildcard))) {
                 return -1;
+            }
+
+            // if the candidate was a wildcard, we do not care for the rest
+            if (foundWildcard) {
+                break;
             }
 
             start = stop + 1;
@@ -165,6 +176,8 @@ public:
         int index = lookup(url, url_length);
         if (index != -1) {
             handlers[index](userData, &params);
+        } else {
+            std::cout << "Did not find route for URL: " << std::string_view(url, url_length) << std::endl;
         }
 
         params.clear();

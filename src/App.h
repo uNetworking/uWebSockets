@@ -23,7 +23,7 @@ public:
         httpContext = other.httpContext;
     }
 
-    TemplatedApp(us_ssl_socket_context_options sslOptions) {
+    TemplatedApp(us_ssl_socket_context_options sslOptions = {}) {
         httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::defaultLoop(), &sslOptions);
     }
 
