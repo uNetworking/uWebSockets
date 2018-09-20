@@ -37,7 +37,7 @@ std::string_view getFile(std::string_view file) {
 
 #include <set>
 
-std::set<uWS::HttpResponse<true> *> delayedResponses;
+std::set<uWS::HttpResponse<false> *> delayedResponses;
 
 int main(int argc, char **argv) {
 
@@ -56,13 +56,22 @@ int main(int argc, char **argv) {
 
     }, 1000, 1000);
 
-    uWS::SSLApp({
+    uWS::/*SSL*/App(/*{
         .key_file_name = "/home/alexhultman/uWebSockets/misc/ssl/key.pem",
         .cert_file_name = "/home/alexhultman/uWebSockets/misc/ssl/cert.pem",
         .dh_params_file_name = "/home/alexhultman/dhparams.pem",
         .passphrase = "1234"
-    }).get("/", [](auto *res, auto *req) {
+    }*/).get("/", [](auto *res, auto *req) {
         res->writeStatus(uWS::HTTP_200_OK)->write("Hello world!");
+    }).get("/endless", [](auto *res, auto *req) {
+        /* This route doesn't specify any length and only returns 1 char per chunk */
+        res->write([](int offset) {
+            std::string_view data("<html><body><h1>Hello, world</h1></body></html>");
+            if (offset < data.length()) {
+                return std::make_pair<bool, std::string_view>(offset < data.length() - 1, data.substr(offset, 1));
+            }
+            return uWS::HTTP_STREAM_FIN;
+        });
     }).get("/delayed", [](auto *res, auto *req) {
         /* This route streams back chunks of data in delayed fashion */
         res->writeStatus(uWS::HTTP_200_OK)->write([res](int offset) {

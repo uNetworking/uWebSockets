@@ -35,6 +35,7 @@ public:
     }
 
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer */
+    // todo: consider supporting nextLength = UNKNOWN as -1 (more but unknown size)
     int write(const char *src, int length, bool optionally = false, int nextLength = 0) {
         LoopData *loopData = getLoopData();
 

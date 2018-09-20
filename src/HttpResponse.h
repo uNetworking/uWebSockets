@@ -138,7 +138,15 @@ public:
         httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
         if (length) {
             httpResponseData->state |= HttpResponseData<SSL>::HTTP_KNOWN_STREAM_OUT_SIZE;
+
+            /* Rely on FIN to signal end if we do not pass any length */
+            AsyncSocket<SSL>::write("Content-Length: ", 16);
+            writeUnsigned(length);
+            AsyncSocket<SSL>::write("\r\n", 2);
         }
+
+        /* HTTP body separator */
+        AsyncSocket<SSL>::write("\r\n", 2);
 
         // int tail, int head. tail is what has been sent off, head is where we read from. they can differ - does it matter?
 
@@ -156,45 +164,64 @@ public:
 
 
 
+        // flow below should be:
 
-        // this check should be its own shared function?
-        auto [msg_more, chunk] = cb(0);
+        // 1. pull a chunk
+        // 2. check for signals in this chunk and break appropriately
+        // 3. if no signals, send this chunk
+        // 4. if sent fine but still has data to write, goto 1
+        // 5. if sent less than expected, set offset and callback to httpResponseData and exit
 
+        int offset = 0;
+        while (true) {
+            // pull chunk
+            auto [msg_more, chunk] = cb(offset);
 
-        if (length) {
-            /* Rely on FIN to signal end if we do not pass any length */
-            AsyncSocket<SSL>::write("Content-Length: ", 16);
-            writeUnsigned(chunk.length());
-            AsyncSocket<SSL>::write("\r\n", 2);
+            // check for signals
+            if (chunk.length() == 0) {
+                if (chunk == HTTP_STREAM_FIN.second) {
+                    // flush and FIN
+                    AsyncSocket<SSL>::uncork();
+                    us_socket_shutdown((us_socket *) this);
+                    return;
+                } else {
+                    std::cout << "Paused stream!" << std::endl;
+                }
+
+                // skip sending optional, yet keep refusing to call onWritable while in paused mode (SSL may poll for writable!)
+                // we thus need a status: paused to check for before requesting more data (also check for this in resume call!)
+                return;
+            }
+
+            // send this chunk
+            int written = AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true);
+
+            // if we sent less than expected, always end
+            if (written < chunk.length()) {
+                std::cout << "HttpResponse::write failed to write everything" << std::endl;
+                httpResponseData->offset = offset + written;
+                httpResponseData->outStream = cb;
+            }
+
+            // we have more to send or are still not FINed
+            if (length == 0 || offset + written < length) {
+                offset += written;
+                continue;
+            }
+
+            // when do we get here?
+            std::cout << "How did we get here?" << std::endl;
+            break;
         }
 
-        /* HTTP body separator */
-        AsyncSocket<SSL>::write("\r\n", 2);
 
-        /* Did the user pause ? */
-        if (chunk.length() == 0) {
-
-            // skip sending optional, yet keep refusing to call onWritable while in paused mode (SSL may poll for writable!)
-
-            // we thus need a status: paused to check for before requesting more data (also check for this in resume call!)
-
-            std::cout << "Paused stream!" << std::endl;
-            return;
-        }
-
-        /* Write as much as possible, optionally */
-        if (int written; (written = AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true)) < length) {
-            std::cout << "HttpResponse::write failed to write everything" << std::endl;
-            httpResponseData->offset = written;
-            httpResponseData->outStream = cb;
-        }
     }
 
     /* Convenience function for static data */
     void write(std::string_view data, std::function<void(std::string_view)> cb = nullptr) {
         if (cb) {
             // todo: think about how the stream will signal done (streams API challenge overall)
-            write([data](int offset, int length) {
+            write([data](int offset) {
 
                 // if offset == length then we know it is end
 
@@ -202,12 +229,12 @@ public:
 
 
 
-                return {false, data.substr(offset)};
+                return std::make_pair<bool, std::string_view>(false, data.substr(offset));//{false, data.substr(offset)};
             }, data.length());
         } else {
             // requires no extra alloc
             write([data](int offset) {
-                return {false, data.substr(offset)};
+                return std::make_pair<bool, std::string_view>(false, data.substr(offset));//{false, data.substr(offset)};
             }, data.length());
         }
     }
