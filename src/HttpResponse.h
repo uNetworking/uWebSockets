@@ -108,21 +108,7 @@ public:
         // no, basically just write this off and if all written, call streamOut callback
     }
 
-    /* Attach a write handler for sending data. Length must be specified up front and chunks might be read more than once */
-
-    // chunk = stream(int offset) is current interface
-
-    // we need more information such as:
-
-    // 1. (RETURN) was the short response of data meant to be msg_more-d? basically: should the stream be called again? needed to allow expose of msg_more to streamer!
-
-    // 2. (RETURN) what data are we returning, or are we returning no data (pause signal)
-
-    // 3. (RETURN) how do we signal FIN for length-less data? return a different string_view with 0 length? HTTP_STREAM_FIN?
-
-    // 4. (INPUT ARGS) how much has been acked of what we send? int offset is an indication? what about indicating ONLY the ack?
-
-
+    /* Attach a write handler for sending data. Chunks might be read more than once */
     void write(std::function<std::pair<bool, std::string_view>(int)> cb, int length = 0) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
@@ -148,73 +134,43 @@ public:
         /* HTTP body separator */
         AsyncSocket<SSL>::write("\r\n", 2);
 
-        // int tail, int head. tail is what has been sent off, head is where we read from. they can differ - does it matter?
-
-        // just do resume() and pause() to throttle onwritable calling
-        // also add bool isAck to writable stream to be treated as ack signalling  (return is never mind)
-
-        // we need resume() to resume sending (very simple to just call the onWritable callback again)
-        // returning less than the kernel buffer will pause the streaming, so a return of 0 length is a pause
-        // returning less than but still something should call the callback again!
-
-        // with no length, it makes sense to use chunked transfer? keep alive
-
-        // if we have 0 length we fall back to connection close!
-        // return uWS::HTTP_STREAM_FIN to signal closure
-
-
-
-        // flow below should be:
-
-        // 1. pull a chunk
-        // 2. check for signals in this chunk and break appropriately
-        // 3. if no signals, send this chunk
-        // 4. if sent fine but still has data to write, goto 1
-        // 5. if sent less than expected, set offset and callback to httpResponseData and exit
-
-        int offset = 0;
-        while (true) {
-            // pull chunk
+        for (int offset = 0; length == 0 || offset < length; ) {
+            /* Pull a chunk from stream */
             auto [msg_more, chunk] = cb(offset);
 
-            // check for signals
+            /* Handle PAUSE and FIN */
             if (chunk.length() == 0) {
                 if (chunk == HTTP_STREAM_FIN.second) {
-                    // flush and FIN
+                    /* Try flush and shut down */
                     AsyncSocket<SSL>::uncork();
-                    us_socket_shutdown((us_socket *) this);
-                    return;
+                    if (!AsyncSocket<SSL>::hasBuffer()) {
+                        /* Uncork finished with no buffered data */
+                        us_socket_shutdown((us_socket *) this);
+                    } else {
+                        /* Let it shut down when drained */
+                        httpResponseData->state |= HttpResponseData<SSL>::HTTP_ENDED_STREAM_OUT;
+                    }
                 } else {
-                    std::cout << "Paused stream!" << std::endl;
-                }
+                    std::cout << "Paused stream is not implemented!" << std::endl;
 
-                // skip sending optional, yet keep refusing to call onWritable while in paused mode (SSL may poll for writable!)
-                // we thus need a status: paused to check for before requesting more data (also check for this in resume call!)
+                    // skip sending optional, yet keep refusing to call onWritable while in paused mode (SSL may poll for writable!)
+                    // we thus need a status: paused to check for before requesting more data (also check for this in resume call!)
+                }
                 return;
             }
 
-            // send this chunk
+            /* Send off the chunk */
             int written = AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true);
 
-            // if we sent less than expected, always end
+            /* If we failed to send everything, exit */
             if (written < chunk.length()) {
-                std::cout << "HttpResponse::write failed to write everything" << std::endl;
                 httpResponseData->offset = offset + written;
                 httpResponseData->outStream = cb;
+                return;
             }
 
-            // we have more to send or are still not FINed
-            if (length == 0 || offset + written < length) {
-                offset += written;
-                continue;
-            }
-
-            // when do we get here?
-            std::cout << "How did we get here?" << std::endl;
-            break;
+            offset += written;
         }
-
-
     }
 
     /* Convenience function for static data */

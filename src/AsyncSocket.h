@@ -142,6 +142,11 @@ public:
         return 0;
     }
 
+    /* Check if this socket has buffered data */
+    bool hasBuffer() {
+        return ((AsyncSocketData<SSL> *) getExt())->buffer.length() > 0;
+    }
+
     /* Drain any socket-buffer while also optionally sending a chunk */
     int mergeDrain(std::string_view optionalChunk) {
 

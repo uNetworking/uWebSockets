@@ -19,7 +19,8 @@ private:
         HTTP_STATUS_SENT = 1,
         HTTP_WRITE_CALLED = 2,
         HTTP_KNOWN_STREAM_OUT_SIZE = 4,
-        HTTP_PAUSED_STREAM_OUT = 8
+        HTTP_PAUSED_STREAM_OUT = 8,
+        HTTP_ENDED_STREAM_OUT = 16
     };
 
     std::function<void(std::string_view)> inStream;
