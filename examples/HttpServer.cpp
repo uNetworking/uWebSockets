@@ -3,13 +3,13 @@
 #include <App.h>
 
 /* Helpers for this example */
-#include "FileCache.h"
-#include "Middleware.h"
+#include "helpers/FileCache.h"
+#include "helpers/Middleware.h"
 
 int main(int argc, char **argv) {
 
-    if (argc < 3 || argc > 6) {
-        std::cout << "Usage: static_http_server root port [ssl_cert ssl_key ssl_passphrase]" << std::endl;
+    if (argc < 3 || argc > 7) {
+        std::cout << "Usage: HttpServer root port [ssl_cert ssl_key ssl_dh_params ssl_passphrase]" << std::endl;
         return 0;
     }
 
@@ -19,12 +19,13 @@ int main(int argc, char **argv) {
     FileCache fileCache(root);
 
     /* Either serve over HTTP or HTTPS */
-    if (argc > 4) {
+    if (argc > 5) {
         /* HTTPS */
         uWS::SSLApp({
-            .cert_file_name = argv[3],
-            .key_file_name = argv[4],
-            .passphrase = (argc == 6 ? argv[5] : nullptr)
+            .cert_file_name = argv[3], /* Required */
+            .key_file_name = argv[4], /* Required */
+            .dh_params_file_name = argv[5], /* Required (in this example) */
+            .passphrase = (argc == 7 ? argv[6] : nullptr) /* Passphrase is optional */
         }).get("/*", [&fileCache](auto *res, auto *req) {
             serveFile(res, req)->write(fileCache.getFile(req->getUrl()));
         }).listen(port, [port, root](auto *token) {

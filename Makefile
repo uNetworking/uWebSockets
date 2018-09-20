@@ -1,8 +1,8 @@
 default:
 	rm *.o
 	clang -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
-	clang++ -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/static_http_server.cpp
-	clang++ -flto -O3 -s *.o -o static_http_server -lssl -lcrypto -lpthread -lstdc++fs
+	clang++ -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/HttpServer.cpp
+	clang++ -flto -O3 -s *.o -o HttpServer -lssl -lcrypto -lpthread -lstdc++fs
 
 main:
 	rm *.o
