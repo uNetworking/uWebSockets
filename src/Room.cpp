@@ -3,7 +3,7 @@
 namespace uWS {
 
 template <bool isServer>
-Room<isServer>::Room(uS::Loop *loop) {
+Room<isServer>::Room(uS::Loop */*loop*/) {
 
     // we need to hook into the loop's post and pre-callbacks
     // every loop can have many rooms
@@ -11,12 +11,12 @@ Room<isServer>::Room(uS::Loop *loop) {
 }
 
 template <bool isServer>
-void Room<isServer>::add(WebSocket<isServer> *ws) {
+void Room<isServer>::add(WebSocket<isServer> */*ws*/) {
     // simple sorted vector add for now
 }
 
 template <bool isServer>
-void Room<isServer>::remove(WebSocket<isServer> *ws) {
+void Room<isServer>::remove(WebSocket<isServer> */*ws*/) {
     // simple vector remove
 }
 
@@ -26,7 +26,7 @@ void Room<isServer>::flush() {
 }
 
 template <bool isServer>
-void Room<isServer>::send(const char *message, size_t length, OpCode opCode, WebSocket<isServer> *excludedSender) {
+void Room<isServer>::send(const char */*message*/, size_t /*length*/, OpCode /*opCode*/, WebSocket<isServer> */*excludedSender*/) {
 
 }
 

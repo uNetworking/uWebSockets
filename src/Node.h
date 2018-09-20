@@ -15,12 +15,12 @@ enum ListenOptions : int {
 class WIN32_EXPORT Node {
 protected:
     template <void C(Socket *p, bool error)>
-    static void connect_cb(Poll *p, int status, int events) {
+    static void connect_cb(Poll *p, int status, int /*events*/) {
         C((Socket *) p, status < 0);
     }
 
     template <void A(Socket *s)>
-    static void accept_poll_cb(Poll *p, int status, int events) {
+    static void accept_poll_cb(Poll *p, int /*status*/, int /*events*/) {
         ListenSocket *listenData = (ListenSocket *) p;
         accept_cb<A, false>(listenData);
     }
@@ -127,7 +127,7 @@ public:
 
     // todo: hostname, backlog
     template <void A(Socket *s)>
-    bool listen(const char *host, int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void *user) {
+    bool listen(const char *host, int port, uS::TLS::Context sslContext, int options, uS::NodeData *nodeData, void */*user*/) {
         addrinfo hints, *result;
         memset(&hints, 0, sizeof(addrinfo));
 

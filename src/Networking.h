@@ -161,7 +161,7 @@ protected:
     SSL_CTX *context = nullptr;
     std::shared_ptr<std::string> password;
 
-    static int passwordCallback(char *buf, int size, int rwflag, void *u)
+    static int passwordCallback(char *buf, int size, int /*rwflag*/, void *u)
     {
         std::string *password = (std::string *) u;
         int length = std::min<int>(size, (int) password->length());

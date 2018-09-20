@@ -172,11 +172,11 @@ struct HttpResponse {
                void *callbackData = nullptr) {
 
         struct NoopTransformer {
-            static size_t estimate(const char *data, size_t length) {
+            static size_t estimate(const char */*data*/, size_t length) {
                 return length;
             }
 
-            static size_t transform(const char *src, char *dst, size_t length, int transformData) {
+            static size_t transform(const char *src, char *dst, size_t length, int /*transformData*/) {
                 memcpy(dst, src, length);
                 return length;
             }
@@ -198,7 +198,7 @@ struct HttpResponse {
         struct HttpTransformer {
 
             // todo: this should get TransformData!
-            static size_t estimate(const char *data, size_t length) {
+            static size_t estimate(const char */*data*/, size_t length) {
                 return length + 128;
             }
 
