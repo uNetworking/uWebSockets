@@ -35,14 +35,45 @@ std::string_view getFile(std::string_view file) {
     }
 }
 
+#include <set>
+
+std::set<uWS::HttpResponse<true> *> delayedResponses;
+
 int main(int argc, char **argv) {
+
+    // create a timer that resumes sockets
+    auto *timer = us_create_timer((us_loop *) uWS::Loop::defaultLoop(), 1, 0);
+    us_timer_set(timer, [](auto *timer) {
+
+        for (auto *x : delayedResponses) {
+            std::cout << "Resuming a response now!" << std::endl;
+
+            // resume should take a string_view!
+            x->resume();
+        }
+
+        delayedResponses.clear();
+
+    }, 1000, 1000);
 
     uWS::SSLApp({
         .key_file_name = "/home/alexhultman/uWebSockets/misc/ssl/key.pem",
         .cert_file_name = "/home/alexhultman/uWebSockets/misc/ssl/cert.pem",
+        .dh_params_file_name = "/home/alexhultman/dhparams.pem",
         .passphrase = "1234"
-    }).get("/hello", [](auto *res, auto *req) {
+    }).get("/", [](auto *res, auto *req) {
         res->writeStatus(uWS::HTTP_200_OK)->write("Hello world!");
+    }).get("/delayed", [](auto *res, auto *req) {
+        /* This route streams back chunks of data in delayed fashion */
+        res->writeStatus(uWS::HTTP_200_OK)->write([res](int offset) {
+
+            std::cout << "Delaying stream now" << std::endl;
+            delayedResponses.insert(res);
+
+            //asyncFetchData(res)
+            return uWS::HTTP_STREAM_PAUSE;
+
+        }, 100);
     }).get("/:folder/:file", [](auto *res, auto *req) {
         res->writeStatus(uWS::HTTP_200_OK)->write(getFile((req->getUrl() == "/" ? "/rocket_files/rocket.html" : req->getUrl()).substr(1)));
     }).listen(3000, [](auto *token) {

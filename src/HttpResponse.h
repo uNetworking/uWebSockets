@@ -11,6 +11,12 @@ namespace uWS {
 /* Some pre-defined status constants to use with writeStatus */
 const char *HTTP_200_OK = "200 OK";
 
+/* Return this from a stream callback to signal pause */
+const std::pair<bool, std::string_view> HTTP_STREAM_PAUSE = {false, std::string_view(nullptr, 0)};
+
+/* Return this from a stream callback to signal FIN */
+const std::pair<bool, std::string_view> HTTP_STREAM_FIN = {false, std::string_view((const char *) 1, 0)};
+
 template <bool SSL>
 struct HttpResponse : public AsyncSocket<SSL> {
 private:
@@ -47,6 +53,16 @@ private:
 public:
     /* Write the HTTP status */
     HttpResponse *writeStatus(std::string_view status) {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        /* Do not allow writing more than one status */
+        if (httpResponseData->state & HttpResponseData<SSL>::HTTP_STATUS_SENT) {
+            return this;
+        }
+
+        /* Update status */
+        httpResponseData->state |= HttpResponseData<SSL>::HTTP_STATUS_SENT;
+
         AsyncSocket<SSL>::write("HTTP/1.1 ", 9);
         AsyncSocket<SSL>::write(status.data(), status.length());
         AsyncSocket<SSL>::write("\r\n", 2);
@@ -62,24 +78,138 @@ public:
         return this;
     }
 
+    /* Write an HTTP header with unsigned int value */
+    HttpResponse *writeHeader(std::string_view key, unsigned int value) {
+        AsyncSocket<SSL>::write(key.data(), key.length());
+        AsyncSocket<SSL>::write(": ", 2);
+        writeUnsigned(value);
+        AsyncSocket<SSL>::write("\r\n", 2);
+        return this;
+    }
+
+    /* Resume response streaming as far as possible */
+    void resume(std::string_view chunk = {}) {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        /* Do nothing if not even paused */
+        if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT)) {
+            return;
+        }
+
+        /* Remove paused status */
+        httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
+
+        int written = AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true);
+
+        if (written == chunk.length()) {
+            // pull a new chunk from the callback (basically call onWritable)
+        }
+
+        // no, basically just write this off and if all written, call streamOut callback
+    }
+
     /* Attach a write handler for sending data. Length must be specified up front and chunks might be read more than once */
-    void write(std::function<std::string_view(int)> cb, int length) {
-        std::string_view chunk = cb(0);
-        AsyncSocket<SSL>::write("Content-Length: ", 16);
-        writeUnsigned(chunk.length());
-        AsyncSocket<SSL>::write("\r\n\r\n", 4);
+
+    // chunk = stream(int offset) is current interface
+
+    // we need more information such as:
+
+    // 1. (RETURN) was the short response of data meant to be msg_more-d? basically: should the stream be called again? needed to allow expose of msg_more to streamer!
+
+    // 2. (RETURN) what data are we returning, or are we returning no data (pause signal)
+
+    // 3. (RETURN) how do we signal FIN for length-less data? return a different string_view with 0 length? HTTP_STREAM_FIN?
+
+    // 4. (INPUT ARGS) how much has been acked of what we send? int offset is an indication? what about indicating ONLY the ack?
+
+
+    void write(std::function<std::pair<bool, std::string_view>(int)> cb, int length = 0) {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        /* Do not allow write if already called */
+        if (httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED) {
+            return;
+        }
+
+        /* Write 200 OK if not already written any status */
+        writeStatus(HTTP_200_OK);
+
+        /* Update status */
+        httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
+        if (length) {
+            httpResponseData->state |= HttpResponseData<SSL>::HTTP_KNOWN_STREAM_OUT_SIZE;
+        }
+
+        // int tail, int head. tail is what has been sent off, head is where we read from. they can differ - does it matter?
+
+        // just do resume() and pause() to throttle onwritable calling
+        // also add bool isAck to writable stream to be treated as ack signalling  (return is never mind)
+
+        // we need resume() to resume sending (very simple to just call the onWritable callback again)
+        // returning less than the kernel buffer will pause the streaming, so a return of 0 length is a pause
+        // returning less than but still something should call the callback again!
+
+        // with no length, it makes sense to use chunked transfer? keep alive
+
+        // if we have 0 length we fall back to connection close!
+        // return uWS::HTTP_STREAM_FIN to signal closure
+
+
+
+
+        // this check should be its own shared function?
+        auto [msg_more, chunk] = cb(0);
+
+
+        if (length) {
+            /* Rely on FIN to signal end if we do not pass any length */
+            AsyncSocket<SSL>::write("Content-Length: ", 16);
+            writeUnsigned(chunk.length());
+            AsyncSocket<SSL>::write("\r\n", 2);
+        }
+
+        /* HTTP body separator */
+        AsyncSocket<SSL>::write("\r\n", 2);
+
+        /* Did the user pause ? */
+        if (chunk.length() == 0) {
+
+            // skip sending optional, yet keep refusing to call onWritable while in paused mode (SSL may poll for writable!)
+
+            // we thus need a status: paused to check for before requesting more data (also check for this in resume call!)
+
+            std::cout << "Paused stream!" << std::endl;
+            return;
+        }
+
+        /* Write as much as possible, optionally */
         if (int written; (written = AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true)) < length) {
             std::cout << "HttpResponse::write failed to write everything" << std::endl;
-            getHttpResponseData()->offset = written;
-            getHttpResponseData()->outStream = cb;
+            httpResponseData->offset = written;
+            httpResponseData->outStream = cb;
         }
     }
 
-    /* Convenience function for static data (I don't like this one!) */
-    void write(std::string_view data) {
-        write([data](int offset) {
-            return data.substr(offset);
-        }, data.length());
+    /* Convenience function for static data */
+    void write(std::string_view data, std::function<void(std::string_view)> cb = nullptr) {
+        if (cb) {
+            // todo: think about how the stream will signal done (streams API challenge overall)
+            write([data](int offset, int length) {
+
+                // if offset == length then we know it is end
+
+                // what if we want to return both fin and data? can't do that
+
+
+
+                return {false, data.substr(offset)};
+            }, data.length());
+        } else {
+            // requires no extra alloc
+            write([data](int offset) {
+                return {false, data.substr(offset)};
+            }, data.length());
+        }
     }
 
     /* Attach a read handler for data sent. Will be called with a chunk of size 0 when FIN */

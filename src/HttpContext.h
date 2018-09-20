@@ -86,6 +86,7 @@ private:
 
                 HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
                 httpResponseData->offset = 0;
+                httpResponseData->state = 0;
 
                 // route it!
                 typename uWS::HttpContextData<SSL>::UserData userData = {
@@ -122,7 +123,7 @@ private:
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
 
             if (httpResponseData->outStream) {
-                std::string_view chunk = httpResponseData->outStream(httpResponseData->offset);
+                auto [msg_more, chunk] = httpResponseData->outStream(httpResponseData->offset);
 
                 // send, including any buffered up
                 httpResponseData->offset += asyncSocket->mergeDrain(chunk);
