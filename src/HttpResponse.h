@@ -17,6 +17,9 @@ const std::pair<bool, std::string_view> HTTP_STREAM_PAUSE = {false, std::string_
 /* Return this from a stream callback to signal FIN */
 const std::pair<bool, std::string_view> HTTP_STREAM_FIN = {false, std::string_view((const char *) 1, 0)};
 
+/* Nobody cares what value this one has */
+const auto HTTP_STREAM_IGNORE = HTTP_STREAM_FIN;
+
 template <bool SSL>
 struct HttpResponse : public AsyncSocket<SSL> {
 private:

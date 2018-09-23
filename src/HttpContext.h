@@ -135,6 +135,8 @@ private:
         /* Handle HTTP write out */
         static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(getSocketContext(), [](auto *s) {
 
+            std::cout << "Writable event!" << std::endl;
+
             /* Silence any spurious writable events due to SSL_read failing to write */
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
@@ -162,8 +164,17 @@ private:
 
             if (httpResponseData->outStream) {
                 /* Regular path, request more data */
-                auto [msg_more, chunk] = httpResponseData->outStream(httpResponseData->offset);
-                httpResponseData->offset += asyncSocket->mergeDrain(chunk);
+
+                // todo: share this path with HttpResponse::write (it is exatly the same logic!)
+                while (true) {
+                    auto [msg_more, chunk] = httpResponseData->outStream(httpResponseData->offset);
+                    int written = asyncSocket->mergeDrain(chunk);
+                    httpResponseData->offset += written;
+                    // this is not correct, we can reach the end!
+                    if (written < chunk.length()) {
+                        break;
+                    }
+                }
 
                 // todo: we should loop until we cannot send anymore just like we do in HttpResponse::write(stream)!
             } else {

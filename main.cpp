@@ -1,58 +1,10 @@
 #include "App.h"
 
-#include <map>
-#include <cstring>
-#include <fstream>
-#include <sstream>
-#include <iostream>
+#include "examples/helpers/AsyncFileReader.h"
 
-// should probably fix this one up a bit some time
-std::string_view getFile(std::string_view file) {
-    static std::map<std::string_view, std::string_view> cache;
-
-    auto it = cache.find(file);
-
-    if (it == cache.end()) {
-        std::cout << "Did not have file: " << file << std::endl;
-
-        std::ifstream fin(std::string(file), std::ios::binary);
-        std::ostringstream oss;
-        oss << fin.rdbuf();
-
-        char *cachedFile = (char *) malloc(oss.str().size());
-        memcpy(cachedFile, oss.str().data(), oss.str().size());
-
-        char *key = (char *) malloc(file.length());
-        memcpy(key, file.data(), file.length());
-
-        std::cout << "Size: " << oss.str().size() << std::endl;
-
-        cache[std::string_view(key, file.length())] = std::string_view(cachedFile, oss.str().size());
-
-        return getFile(file);
-    } else {
-        return it->second;
-    }
-}
-
-#include <set>
-
-std::set<uWS::HttpResponse<false> *> delayedResponses;
+AsyncFileReader asyncFileReader("/home/alexhultman/v0.15/sintel.mkv");
 
 int main(int argc, char **argv) {
-
-    // create a timer that resumes sockets
-    auto *timer = us_create_timer((us_loop *) uWS::Loop::defaultLoop(), 1, 0);
-    us_timer_set(timer, [](auto *timer) {
-
-        for (auto *x : delayedResponses) {
-            std::cout << "Resuming a response now!" << std::endl;
-            x->resume();
-        }
-
-        delayedResponses.clear();
-
-    }, 1000, 1000);
 
     uWS::/*SSL*/App(/*{
         .key_file_name = "/home/alexhultman/uWebSockets/misc/ssl/key.pem",
@@ -70,25 +22,53 @@ int main(int argc, char **argv) {
             }
             return uWS::HTTP_STREAM_FIN;
         });
-    }).get("/delayed", [](auto *res, auto *req) {
+    }).get("/async/sintel.mkv", [](auto *res, auto *req) {
+
+        // res->write(asyncFileReader.stream(res))
+        // asyncFileReader.getAsStream()
+
         /* This route streams back chunks of data in delayed fashion */
         res->writeStatus(uWS::HTTP_200_OK)->write([res](int offset) {
 
-            /* Handle aborted stream out */
+            /* Handle broken stream */
             if (offset == -1) {
-                std::cout << "Removing closed stream!" << std::endl;
-                delayedResponses.erase(res);
-                return uWS::HTTP_STREAM_FIN;
+                std::cout << "Stream was closed by peer!" << std::endl;
+                return uWS::HTTP_STREAM_IGNORE;
             }
 
-            /* Delay stream out */
-            std::cout << "Delaying stream now" << std::endl;
-            delayedResponses.insert(res);
-            return uWS::HTTP_STREAM_PAUSE;
+            /* Peek from cache */
+            std::string_view chunk = asyncFileReader.peek(offset);
+            if (chunk.length()) {
+                /* We had parts of this file cached already */
+                return std::pair<bool, std::string_view>(false, chunk);
+            } else {
 
-        }, 100);
-    }).get("/:folder/:file", [](auto *res, auto *req) {
-        res->writeStatus(uWS::HTTP_200_OK)->write(getFile((req->getUrl() == "/" ? "/rocket_files/rocket.html" : req->getUrl()).substr(1)));
+                std::string_view outerChunk;
+
+                /* We had nothing readily available right now, request async chunk and pause the stream until we have */
+                asyncFileReader.request(offset, [&outerChunk, res](std::string_view chunk) {
+
+                    /* We were aborted */
+                    if (!chunk.length()) {
+                        std::cout << "Async File Read request was aborted!" << std::endl;
+                        // close the socket here?
+                        // we need a way to NOT resume a paused socket! essentially close!
+                    } else {
+                        /* We finally got the data, resume stream with this chunk */
+                        //res->resume(chunk);
+                        outerChunk = chunk;
+                    }
+                });
+
+                std::cout << "Returning chunk of size: " << outerChunk.length() << std::endl;
+                return std::pair<bool, std::string_view>(false, outerChunk);
+
+                // what if we resumed before we paused! we cannot do that!
+
+                std::cout << "PAusing stream out due to empty cache!" << std::endl;
+                return uWS::HTTP_STREAM_PAUSE;
+            }
+        }, asyncFileReader.getFileSize());
     }).listen(3000, [](auto *token) {
         if (token) {
             std::cout << "Listening on port " << 3000 << std::endl;
