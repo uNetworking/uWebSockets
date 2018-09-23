@@ -100,7 +100,7 @@ public:
             return;
         }
 
-        std::cout << "Resume called and we really are paused" << std::endl;
+        //std::cout << "Resume called and we really are paused" << std::endl;
 
         /* Remove paused status */
         httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
@@ -122,7 +122,7 @@ public:
 
                     // break on pause!
             if (chunk.length() == 0) {
-                std::cout << "Resume paused!" << std::endl;
+                //std::cout << "Resume paused!" << std::endl;
                 httpResponseData->state |= HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
                 break;
             }

@@ -135,7 +135,7 @@ private:
         /* Handle HTTP write out */
         static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(getSocketContext(), [](auto *s) {
 
-            std::cout << "Writable event!" << std::endl;
+            //std::cout << "Writable event!" << std::endl;
 
             /* Silence any spurious writable events due to SSL_read failing to write */
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
@@ -170,7 +170,7 @@ private:
                     auto [msg_more, chunk] = httpResponseData->outStream(httpResponseData->offset);
 
                             if (chunk.length() == 0) {
-                                std::cout << "onwritable paused!" << std::endl;
+                                //std::cout << "onwritable paused!" << std::endl;
                                 httpResponseData->state |= HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
                                 break;
                             }

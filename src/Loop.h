@@ -16,7 +16,7 @@ namespace uWS {
 struct Loop {
 private:
     static void wakeupCb(us_loop *loop) {
-        std::cout << "wakeupCB called" << std::endl;
+        //std::cout << "wakeupCB called" << std::endl;
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
         /* Swap current deferQueue */
@@ -83,13 +83,13 @@ public:
     void defer(std::function<void()> cb) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
 
-        std::cout << "defer called" << std::endl;
+        //std::cout << "defer called" << std::endl;
         //if (std::thread::get_id() == ) // todo: add fast path for same thread id
         loopData->deferMutex.lock();
         loopData->deferQueues[loopData->currentDeferQueue].emplace_back(cb);
         loopData->deferMutex.unlock();
 
-        std::cout << "us_wakeup_loop called" << std::endl;
+        //std::cout << "us_wakeup_loop called" << std::endl;
         us_wakeup_loop((us_loop *) this);
     }
 

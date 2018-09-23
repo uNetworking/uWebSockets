@@ -19,12 +19,13 @@ private:
     std::function<void(std::string_view)> pendingReadCb;
 
     int fileSize;
+    std::string fileName;
     std::ifstream fin;
     uWS::Loop *loop;
 
 public:
     /* Construct a demo async. file reader for fileName */
-    AsyncFileReader(std::string fileName) {
+    AsyncFileReader(std::string fileName) : fileName(fileName) {
         fin.open(fileName, std::ios::binary);
 
         // get fileSize
@@ -53,7 +54,14 @@ public:
         if (hasCache && offset >= cacheOffset && ((offset - cacheOffset) < cache.length())) {
             /* Cache hit */
             //std::cout << "Cache hit!" << std::endl;
-            return std::string_view(cache.data() + offset - cacheOffset, cache.length() - offset + cacheOffset);
+
+            if (fileSize - offset < cache.length()) {
+                std::cout << "LESS THAN WHAT WE HAVE!" << std::endl;
+            }
+
+            int chunkSize = std::min<int>(fileSize - offset, cache.length() - offset + cacheOffset);
+
+            return std::string_view(cache.data() + offset - cacheOffset, chunkSize);
         } else {
             /* Cache miss */
             //std::cout << "Cache miss!" << std::endl;
@@ -77,17 +85,28 @@ public:
         hasCache = false;
 
         std::async(std::launch::async, [this, cb, offset]() {
-            std::cout << "ASYNC Caching 1 MB at offset = " << offset << std::endl;
+            //std::cout << "ASYNC Caching 1 MB at offset = " << offset << std::endl;
 
 
 
+            // den har stängts! öppna igen!
+            if (!fin.good()) {
+                fin.close();
+                std::cout << "Reopening fin!" << std::endl;
+                fin.open(fileName, std::ios::binary);
+            }
             fin.seekg(offset, fin.beg);
             fin.read(cache.data(), cache.length());
+
             cacheOffset = offset;
 
-            loop->defer([this, cb]() {
+            loop->defer([this, cb, offset]() {
 
-                int chunkSize = std::min(cache.length(), fileSize - offset);
+                int chunkSize = std::min<int>(cache.length(), fileSize - offset);
+
+                if (chunkSize == 0) {
+                    std::cout << "Zero size!?" << std::endl;
+                }
 
                 if (chunkSize != cache.length()) {
                     std::cout << "LESS THAN A CACHE 1 MB!" << std::endl;

@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
                 /* We had nothing readily available right now, request async chunk and pause the stream until we have */
                 asyncFileReader.request(offset, [res](std::string_view chunk) {
 
-                    std::cout << "We came here!" << std::endl;
+                    //std::cout << "We came here!" << std::endl;
 
                     /* We were aborted */
                     if (!chunk.length()) {
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
 
                 // what if we resumed before we paused! we cannot do that!
 
-                std::cout << "PAusing stream out due to empty cache!" << std::endl;
+                //std::cout << "PAusing stream out due to empty cache!" << std::endl;
                 return uWS::HTTP_STREAM_PAUSE;
             }
         }, asyncFileReader.getFileSize());
