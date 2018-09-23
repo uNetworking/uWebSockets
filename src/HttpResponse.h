@@ -96,19 +96,25 @@ public:
             return;
         }
 
+        std::cout << "Resume called and we really are paused" << std::endl;
+
         /* Remove paused status */
         httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
 
-        int written = AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true);
+        if (chunk.length()) {
+            int written = AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true);
 
-        if (written == chunk.length()) {
-            // pull a new chunk from the callback (basically call onWritable)
+            if (written == chunk.length()) {
+                // pull a new chunk from the callback (basically call onWritable)
+            }
         }
+
+
 
         // no, basically just write this off and if all written, call streamOut callback
     }
 
-    /* Attach a write handler for sending data. Chunks might be read more than once */
+    /* Attach an output stream function. Chunks may be read more than once. Negative offset mean broken stream */
     void write(std::function<std::pair<bool, std::string_view>(int)> cb, int length = 0) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
@@ -140,21 +146,21 @@ public:
 
             /* Handle PAUSE and FIN */
             if (chunk.length() == 0) {
-                if (chunk == HTTP_STREAM_FIN.second) {
+                /* FIN */
+                if (chunk.data()) {
                     /* Try flush and shut down */
                     AsyncSocket<SSL>::uncork();
                     if (!AsyncSocket<SSL>::hasBuffer()) {
                         /* Uncork finished with no buffered data */
-                        us_socket_shutdown((us_socket *) this);
+                        AsyncSocket<SSL>::shutdown();
                     } else {
                         /* Let it shut down when drained */
                         httpResponseData->state |= HttpResponseData<SSL>::HTTP_ENDED_STREAM_OUT;
                     }
                 } else {
-                    std::cout << "Paused stream is not implemented!" << std::endl;
-
-                    // skip sending optional, yet keep refusing to call onWritable while in paused mode (SSL may poll for writable!)
-                    // we thus need a status: paused to check for before requesting more data (also check for this in resume call!)
+                    /* Disable timeout and mark this stream as paused (important to silence spurious onWritable events) */
+                    AsyncSocket<SSL>::timeout(0);
+                    httpResponseData->state |= HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
                 }
                 return;
             }

@@ -148,7 +148,7 @@ public:
     }
 
     /* Drain any socket-buffer while also optionally sending a chunk */
-    int mergeDrain(std::string_view optionalChunk) {
+    int mergeDrain(std::string_view optionalChunk = {}) {
 
         // strategy: if we have two parts and both will fit in cork buffer then cork them and recursively send them off
 
@@ -167,8 +167,17 @@ public:
         return write(optionalChunk.data(), optionalChunk.length(), true, 0);
     }
 
-    void close() {
-        static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) this);
+    /* These should not be public to the user! */
+    void timeout(unsigned int seconds) {
+        static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) this, seconds);
+    }
+
+    void shutdown() {
+        static_dispatch(us_ssl_socket_shutdown, us_socket_shutdown)((SOCKET_TYPE *) this);
+    }
+
+    SOCKET_TYPE *close() {
+        return static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) this);
     }
 };
 

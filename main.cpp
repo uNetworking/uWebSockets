@@ -47,8 +47,6 @@ int main(int argc, char **argv) {
 
         for (auto *x : delayedResponses) {
             std::cout << "Resuming a response now!" << std::endl;
-
-            // resume should take a string_view!
             x->resume();
         }
 
@@ -76,10 +74,16 @@ int main(int argc, char **argv) {
         /* This route streams back chunks of data in delayed fashion */
         res->writeStatus(uWS::HTTP_200_OK)->write([res](int offset) {
 
+            /* Handle aborted stream out */
+            if (offset == -1) {
+                std::cout << "Removing closed stream!" << std::endl;
+                delayedResponses.erase(res);
+                return uWS::HTTP_STREAM_FIN;
+            }
+
+            /* Delay stream out */
             std::cout << "Delaying stream now" << std::endl;
             delayedResponses.insert(res);
-
-            //asyncFetchData(res)
             return uWS::HTTP_STREAM_PAUSE;
 
         }, 100);

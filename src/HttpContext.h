@@ -44,16 +44,12 @@ private:
 
     /* Init the HttpContext by registering libusockets event handlers */
     HttpContext<SSL> *init() {
-        //new (data = (Data *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(httpServerContext)) Data();
-
         /* Handle socket connections */
         static_dispatch(us_ssl_socket_context_on_open, us_socket_context_on_open)(getSocketContext(), [](auto *s, int is_client) {
-            HttpContextData<SSL> *httpContextData = getSocketContextData(s);
-
-            std::cout << "Opened http connection" << std::endl;
-
+            /* Any connected socket should timeout until it has a request */
             static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
 
+            /* Init socket ext */
             new (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s)) HttpResponseData<SSL>;
 
             return s;
@@ -61,9 +57,21 @@ private:
 
         /* Handle socket disconnections */
         static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(getSocketContext(), [](auto *s) {
-            HttpContextData<SSL> *httpContextData = getSocketContextData(s);
+            /* Get socket ext */
+            HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
 
-            ((HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s))->~HttpResponseData<SSL>();
+            /* Signal broken out stream */
+            if (httpResponseData->outStream) {
+                httpResponseData->outStream(-1);
+            }
+
+            /* Signal broken in stream */
+            if (httpResponseData->inStream) {
+                httpResponseData->inStream(std::string_view(nullptr, 0));
+            }
+
+            /* Destruct socket ext */
+            httpResponseData->~HttpResponseData<SSL>();
 
             return s;
         });
@@ -72,7 +80,14 @@ private:
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
             HttpContextData<SSL> *httpContextData = getSocketContextData(s);
 
-            // cork this socket (move this to loop?)
+            /* Do not accept any data while in shutdown state */
+            if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)((SOCKET_TYPE *) s)) {
+                return s;
+            }
+
+            // basically, when getting a new request we need to disable timeouts and enter paused mode!
+
+            /* Cork this socket */
             ((AsyncSocket<SSL> *) s)->cork();
 
             // pass this pointer to pointer along with the routing and change it if upgraded
@@ -81,9 +96,13 @@ private:
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
             httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, uWS::HttpRequest *httpRequest) {
 
+                // whenever we get (the first) request we should disable timeout?
+
                 // warning: if we are in shutdown state, resetting the timer is a security issue!
+                // todo: do not reset timer, disable it to allow hang requests!
                 static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) s, HTTP_IDLE_TIMEOUT_S);
 
+                /* Reset httpResponse */
                 HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
                 httpResponseData->offset = 0;
                 httpResponseData->state = 0;
@@ -93,6 +112,8 @@ private:
                     (HttpResponse<SSL> *) s, httpRequest
                 };
                 httpContextData->router.route("get", 3, httpRequest->getUrl().data(), httpRequest->getUrl().length(), &userData);
+
+                // here we can be closed and in shutdown?
 
             }, [httpResponseData](void *user, std::string_view data) {
                 if (httpResponseData->inStream) {
@@ -114,25 +135,41 @@ private:
         /* Handle HTTP write out */
         static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(getSocketContext(), [](auto *s) {
 
-            // I think it's fair to never mind this one -> if we keep writing data after shutting down then that's an issue for us
-            static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
-
+            /* Silence any spurious writable events due to SSL_read failing to write */
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
-
-            // get next chunk to send
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
-
-            if (httpResponseData->outStream) {
-                auto [msg_more, chunk] = httpResponseData->outStream(httpResponseData->offset);
-
-                // send, including any buffered up
-                httpResponseData->offset += asyncSocket->mergeDrain(chunk);
-            } else {
-                std::cout << "We did not have any outStream!" << std::endl;
-
-                asyncSocket->mergeDrain(std::string_view(nullptr, 0));
+            if (httpResponseData->state & HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT) {
+                return s;
             }
 
+            /* Writing data should reset the timeout */
+            static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
+
+            /* Are we already ended and just waiting for a drain / shutdown? */
+            if (httpResponseData->state & HttpResponseData<SSL>::HTTP_ENDED_STREAM_OUT) {
+
+                /* Try and send everything buffered up */
+                asyncSocket->mergeDrain();
+
+                /* If we succeed with drainage we can finally shut down */
+                if (!asyncSocket->hasBuffer()) {
+                    asyncSocket->shutdown();
+                }
+
+                /* Nothing here for us */
+                return s;
+            }
+
+            if (httpResponseData->outStream) {
+                /* Regular path, request more data */
+                auto [msg_more, chunk] = httpResponseData->outStream(httpResponseData->offset);
+                httpResponseData->offset += asyncSocket->mergeDrain(chunk);
+
+                // todo: we should loop until we cannot send anymore just like we do in HttpResponse::write(stream)!
+            } else {
+                /* We can come here if we only have socket buffers to drain yet no attached stream */
+                asyncSocket->mergeDrain();
+            }
 
             return s;
         });
@@ -140,26 +177,18 @@ private:
         /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
         static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(getSocketContext(), [](auto *s) {
 
-            // static_dispatch(us_ssl_socket_close, us_socket_close)(s);
+            /* We do not care for half closed sockets */
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
-            asyncSocket->close();
+            return asyncSocket->close();
 
-            return s;
         });
 
-        /* Handle socket timeouts */
+        /* Handle socket timeouts, simply close them so to not confuse client with FIN */
         static_dispatch(us_ssl_socket_context_on_timeout, us_socket_context_on_timeout)(getSocketContext(), [](auto *s) {
 
-            if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)(s)) {
-                std::cout << "Forcefully closing socket since shutdown was not answered in time" << std::endl;
-                static_dispatch(us_ssl_socket_close, us_socket_close)(s);
-            } else {
-                std::cout << "Shutting down socket now" << std::endl;
-                static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
-                static_dispatch(us_ssl_socket_shutdown, us_socket_shutdown)(s);
-            }
-
-            return s;
+            /* Force close rather than gracefully shutdown and risk confusing the client with a complete download */
+            AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
+            return asyncSocket->close();
 
         });
 
@@ -177,16 +206,22 @@ public:
             httpContext = (HttpContext *) us_create_socket_context((us_loop *) loop, sizeof(HttpContextData<SSL>));
         }
 
+        if (!httpContext) {
+            return nullptr;
+        }
 
+        /* Init socket context data */
         new ((HttpContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)((SOCKET_CONTEXT_TYPE *) httpContext)) HttpContextData<SSL>();
         return httpContext->init();
     }
 
     /* Destruct the HttpContext, it does not follow RAII */
     void free() {
+        /* Destruct socket context data */
+        HttpContextData<SSL> *httpContextData = getSocketContextData();
+        httpContextData->~HttpContextData<SSL>();
 
-        // call destructor!
-
+        /* Free the socket context in whole */
         static_dispatch(us_ssl_socket_context_free, us_socket_context_free)(getSocketContext());
     }
 
