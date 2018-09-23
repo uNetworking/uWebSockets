@@ -1,9 +1,11 @@
+**Psst!** v0.15 dropping in a few weeks with major perf. advancements
+
 <div align="center">
 <img src="misc/images/logo.png" />
     
 *µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient messaging for the modern web.*
 
-• [Wiki pages & user manual](https://github.com/uNetworking/uWebSockets/wiki/User-manual-v0.14.x) | [Care for a sneak peek?](https://github.com/uNetworking/v0.15)
+• [Wiki pages & user manual](https://github.com/uNetworking/uWebSockets/wiki/User-manual-v0.14.x)
 
 </div>
 
