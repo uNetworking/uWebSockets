@@ -96,6 +96,7 @@ public:
 
         /* Do nothing if not even paused */
         if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT)) {
+            std::cout << "Resue called but we are not even in paused state!" << std::endl;
             return;
         }
 
@@ -104,11 +105,33 @@ public:
         /* Remove paused status */
         httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
 
-        if (chunk.length()) {
+        /*if (chunk.length()) {
             int written = AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true);
 
             if (written == chunk.length()) {
                 // pull a new chunk from the callback (basically call onWritable)
+                std::cout << "Wrote everything off!" << std::endl;
+            }
+        }*/
+
+        AsyncSocket<SSL> *asyncSocket = this;
+
+        // again, this path is shared with onwritable, write and here!
+        while (true) {
+            auto [msg_more, chunk] = httpResponseData->outStream(httpResponseData->offset);
+
+                    // break on pause!
+            if (chunk.length() == 0) {
+                std::cout << "Resume paused!" << std::endl;
+                httpResponseData->state |= HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
+                break;
+            }
+
+            int written = asyncSocket->mergeDrain(chunk);
+            httpResponseData->offset += written;
+            // this is not correct, we can reach the end!
+            if (written < chunk.length()) {
+                break;
             }
         }
 
@@ -164,6 +187,10 @@ public:
                     /* Disable timeout and mark this stream as paused (important to silence spurious onWritable events) */
                     AsyncSocket<SSL>::timeout(0);
                     httpResponseData->state |= HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
+
+                    // forgot about this path, if we sent things off and then ended up pausing!
+                    httpResponseData->offset = offset;
+                    httpResponseData->outStream = cb;
                 }
                 return;
             }

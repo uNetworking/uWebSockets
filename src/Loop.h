@@ -7,13 +7,29 @@
 
 #include <libusockets.h>
 
-#include <thread>
+
+
+
+#include <iostream>
 
 namespace uWS {
 struct Loop {
 private:
     static void wakeupCb(us_loop *loop) {
+        std::cout << "wakeupCB called" << std::endl;
+        LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
+        /* Swap current deferQueue */
+        loopData->deferMutex.lock();
+        int oldDeferQueue = loopData->currentDeferQueue;
+        loopData->currentDeferQueue = (loopData->currentDeferQueue + 1) % 2;
+        loopData->deferMutex.unlock();
+
+        /* Drain the queue */
+        for (auto &x : loopData->deferQueues[oldDeferQueue]) {
+            x();
+        }
+        loopData->deferQueues[oldDeferQueue].clear();
     }
 
     static void preCb(us_loop *loop) {
@@ -61,6 +77,20 @@ public:
     /* Freeing the default loop should be done once */
     void free() {
         us_loop_free((us_loop *) this);
+    }
+
+    /* Defer this callback on Loop's thread of execution */
+    void defer(std::function<void()> cb) {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+
+        std::cout << "defer called" << std::endl;
+        //if (std::thread::get_id() == ) // todo: add fast path for same thread id
+        loopData->deferMutex.lock();
+        loopData->deferQueues[loopData->currentDeferQueue].emplace_back(cb);
+        loopData->deferMutex.unlock();
+
+        std::cout << "us_wakeup_loop called" << std::endl;
+        us_wakeup_loop((us_loop *) this);
     }
 
     /* Actively block and run this loop */

@@ -168,6 +168,13 @@ private:
                 // todo: share this path with HttpResponse::write (it is exatly the same logic!)
                 while (true) {
                     auto [msg_more, chunk] = httpResponseData->outStream(httpResponseData->offset);
+
+                            if (chunk.length() == 0) {
+                                std::cout << "onwritable paused!" << std::endl;
+                                httpResponseData->state |= HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
+                                break;
+                            }
+
                     int written = asyncSocket->mergeDrain(chunk);
                     httpResponseData->offset += written;
                     // this is not correct, we can reach the end!

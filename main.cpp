@@ -43,10 +43,12 @@ int main(int argc, char **argv) {
                 return std::pair<bool, std::string_view>(false, chunk);
             } else {
 
-                std::string_view outerChunk;
+                //std::string_view outerChunk;
 
                 /* We had nothing readily available right now, request async chunk and pause the stream until we have */
-                asyncFileReader.request(offset, [&outerChunk, res](std::string_view chunk) {
+                asyncFileReader.request(offset, [res](std::string_view chunk) {
+
+                    std::cout << "We came here!" << std::endl;
 
                     /* We were aborted */
                     if (!chunk.length()) {
@@ -55,13 +57,12 @@ int main(int argc, char **argv) {
                         // we need a way to NOT resume a paused socket! essentially close!
                     } else {
                         /* We finally got the data, resume stream with this chunk */
-                        //res->resume(chunk);
-                        outerChunk = chunk;
+                        res->resume(chunk);
                     }
                 });
 
-                std::cout << "Returning chunk of size: " << outerChunk.length() << std::endl;
-                return std::pair<bool, std::string_view>(false, outerChunk);
+                //std::cout << "Returning chunk of size: " << outerChunk.length() << std::endl;
+                //return std::pair<bool, std::string_view>(false, outerChunk);
 
                 // what if we resumed before we paused! we cannot do that!
 
