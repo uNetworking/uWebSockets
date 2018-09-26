@@ -11,20 +11,38 @@ namespace uWS {
 /* Some pre-defined status constants to use with writeStatus */
 const char *HTTP_200_OK = "200 OK";
 
-/* Return this from a stream callback to signal pause */
-const std::pair<bool, std::string_view> HTTP_STREAM_PAUSE = {false, std::string_view(nullptr, 0)};
-
-/* Return this from a stream callback to signal FIN */
-const std::pair<bool, std::string_view> HTTP_STREAM_FIN = {false, std::string_view((const char *) 1, 0)};
-
-/* Nobody cares what value this one has */
-const auto HTTP_STREAM_IGNORE = HTTP_STREAM_FIN;
-
 template <bool SSL>
 struct HttpResponse : public AsyncSocket<SSL> {
 private:
     HttpResponseData<SSL> *getHttpResponseData() {
         return (HttpResponseData<SSL> *) AsyncSocket<SSL>::getExt();
+    }
+
+    int u32toaHex(uint32_t value, char *dst) {
+        char palette[] = "0123456789abcdef";
+        char temp[10];
+        char *p = temp;
+        do {
+            *p++ = palette[value % 16];
+            value /= 16;
+        } while (value > 0);
+
+        int ret = p - temp;
+
+        do {
+            *dst++ = *--p;
+        } while (p != temp);
+
+        return ret;
+    }
+
+    /* Write an unsigned 32-bit integer in hex */
+    void writeUnsignedHex(unsigned int value) {
+        char buf[10];
+        int length = u32toaHex(value, buf);
+
+        /* For now we do this copy */
+        AsyncSocket<SSL>::write(buf, length);
     }
 
     int u32toa(uint32_t value, char *dst) {
@@ -90,58 +108,66 @@ public:
         return this;
     }
 
-    /* Resume response streaming as far as possible */
-    void resume(std::string_view chunk = {}) {
+    /* End the response with an optional data chunk */
+    void end(std::string_view data = {}) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
-        /* Do nothing if not even paused */
-        if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT)) {
-            std::cout << "Resue called but we are not even in paused state!" << std::endl;
-            return;
+        if (httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED) {
+            /* Do not allow sending 0 chunk here */
+            if (data.length()) {
+                AsyncSocket<SSL>::write("\r\n", 2);
+                writeUnsignedHex(data.length());
+                AsyncSocket<SSL>::write("\r\n", 2);
+                AsyncSocket<SSL>::write(data.data(), data.length());
+            }
+
+            /* Terminating 0 chunk */
+            AsyncSocket<SSL>::write("\r\n0\r\n\r\n", 7);
+        } else {
+            /* We have a known send size */
+            AsyncSocket<SSL>::write("Content-Length: ", 16);
+            writeUnsigned(data.length());
+            AsyncSocket<SSL>::write("\r\n\r\n", 4);
+
+            AsyncSocket<SSL>::write(data.data(), data.length());
         }
-
-        //std::cout << "Resume called and we really are paused" << std::endl;
-
-        /* Remove paused status */
-        httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
-
-        /*if (chunk.length()) {
-            int written = AsyncSocket<SSL>::write(chunk.data(), chunk.length(), true);
-
-            if (written == chunk.length()) {
-                // pull a new chunk from the callback (basically call onWritable)
-                std::cout << "Wrote everything off!" << std::endl;
-            }
-        }*/
-
-        AsyncSocket<SSL> *asyncSocket = this;
-
-        // again, this path is shared with onwritable, write and here!
-        while (true) {
-            auto [msg_more, chunk] = httpResponseData->outStream(httpResponseData->offset);
-
-                    // break on pause!
-            if (chunk.length() == 0) {
-                //std::cout << "Resume paused!" << std::endl;
-                httpResponseData->state |= HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
-                break;
-            }
-
-            int written = asyncSocket->mergeDrain(chunk);
-            httpResponseData->offset += written;
-            // this is not correct, we can reach the end!
-            if (written < chunk.length()) {
-                break;
-            }
-        }
-
-
-
-        // no, basically just write this off and if all written, call streamOut callback
     }
 
+    /* Write parts of the response in chunking fashion */
+    bool write(std::string_view data) {
+        /* Do not allow sending 0 chunks, they mark end of response */
+        if (!data.length()) {
+            return true; // are we corked still?
+        }
+
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
+            writeHeader("Transfer-Encoding", "chunked");
+            httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
+        }
+
+        AsyncSocket<SSL>::write("\r\n", 2);
+        writeUnsignedHex(data.length());
+        AsyncSocket<SSL>::write("\r\n", 2);
+        AsyncSocket<SSL>::write(data.data(), data.length());
+
+        // are we corked still?
+        return true;
+    }
+
+    // we really want tryEnd(data) integer to try and stream something with known size
+
+    // write/tryWrite called first should enter into chunked?
+
+    // tryWrite(char *, length) int
+
+    // write(char *, length) bool
+
+
+
     /* Attach an output stream function. Chunks may be read more than once. Negative offset mean broken stream */
-    void write(std::function<std::pair<bool, std::string_view>(int)> cb, int length = 0) {
+    void writeOldRemoveMe(std::function<std::pair<bool, std::string_view>(int)> cb, int length = 0) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         /* Do not allow write if already called */
@@ -206,28 +232,6 @@ public:
             }
 
             offset += written;
-        }
-    }
-
-    /* Convenience function for static data */
-    void write(std::string_view data, std::function<void(std::string_view)> cb = nullptr) {
-        if (cb) {
-            // todo: think about how the stream will signal done (streams API challenge overall)
-            write([data](int offset) {
-
-                // if offset == length then we know it is end
-
-                // what if we want to return both fin and data? can't do that
-
-
-
-                return std::make_pair<bool, std::string_view>(false, data.substr(offset));//{false, data.substr(offset)};
-            }, data.length());
-        } else {
-            // requires no extra alloc
-            write([data](int offset) {
-                return std::make_pair<bool, std::string_view>(false, data.substr(offset));//{false, data.substr(offset)};
-            }, data.length());
         }
     }
 
