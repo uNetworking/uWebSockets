@@ -32,6 +32,11 @@ public:
         return *this;
     }
 
+    TemplatedApp &unhandled(std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+        //httpContext->onGet(pattern, handler);
+        return *this;
+    }
+
     TemplatedApp &listen(int port, std::function<void(us_listen_socket *)> handler) {
         handler(httpContext->listen(nullptr, port, 0));
         return *this;

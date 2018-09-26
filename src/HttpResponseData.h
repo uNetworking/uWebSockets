@@ -16,12 +16,16 @@ struct HttpResponseData : HttpParser, AsyncSocketData<SSL> {
 private:
     /* Bits of status */
     enum {
-        HTTP_STATUS_SENT = 1,
-        HTTP_WRITE_CALLED = 2,
-        HTTP_KNOWN_STREAM_OUT_SIZE = 4,
-        HTTP_PAUSED_STREAM_OUT = 8,
-        HTTP_ENDED_STREAM_OUT = 16
+        HTTP_STATUS_SENT = 1, // used
+        HTTP_WRITE_CALLED = 2, // used
+        HTTP_KNOWN_STREAM_OUT_SIZE = 4, // not used
+        HTTP_PAUSED_STREAM_OUT = 8, // not used
+        HTTP_ENDED_STREAM_OUT = 16 // not used
     };
+
+    /* Per socket event handlers */
+    std::function<void()> onWritable;
+    //std::function<void()> onData;
 
     std::function<void(std::string_view)> inStream;
     std::function<std::pair<bool, std::string_view>(int)> outStream;
