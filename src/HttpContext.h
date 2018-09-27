@@ -135,59 +135,37 @@ private:
         /* Handle HTTP write out */
         static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(getSocketContext(), [](auto *s) {
 
-            //std::cout << "Writable event!" << std::endl;
+            std::cout << "Writable event!" << std::endl;
 
-            /* Silence any spurious writable events due to SSL_read failing to write */
-            AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
-            HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
-            if (httpResponseData->state & HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT) {
-                return s;
-            }
 
             /* Writing data should reset the timeout */
             static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
 
-            /* Are we already ended and just waiting for a drain / shutdown? */
-            if (httpResponseData->state & HttpResponseData<SSL>::HTTP_ENDED_STREAM_OUT) {
+            AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
+            HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
 
-                /* Try and send everything buffered up */
-                asyncSocket->mergeDrain();
-
-                /* If we succeed with drainage we can finally shut down */
-                if (!asyncSocket->hasBuffer()) {
-                    asyncSocket->shutdown();
-                }
-
-                /* Nothing here for us */
-                return s;
-            }
-
-            if (httpResponseData->outStream) {
-                /* Regular path, request more data */
-
-                // todo: share this path with HttpResponse::write (it is exatly the same logic!)
-                while (true) {
-                    auto [msg_more, chunk] = httpResponseData->outStream(httpResponseData->offset);
-
-                            if (chunk.length() == 0) {
-                                //std::cout << "onwritable paused!" << std::endl;
-                                httpResponseData->state |= HttpResponseData<SSL>::HTTP_PAUSED_STREAM_OUT;
-                                break;
-                            }
-
-                    int written = asyncSocket->mergeDrain(chunk);
-                    httpResponseData->offset += written;
-                    // this is not correct, we can reach the end!
-                    if (written < chunk.length()) {
-                        break;
-                    }
-                }
-
-                // todo: we should loop until we cannot send anymore just like we do in HttpResponse::write(stream)!
+            // if this, then it means it finished with no issues so we need to empty any buffers?
+            if (httpResponseData->onWritable) {
+                httpResponseData->onWritable(httpResponseData->offset);
             } else {
-                /* We can come here if we only have socket buffers to drain yet no attached stream */
-                asyncSocket->mergeDrain();
+                // lets drain here
+                std::cout << "LEts drain!" << std::endl;
+
+                // mergeDrain
+                asyncSocket->write(nullptr, 0, true, 0);
             }
+
+
+
+            // bascially just empty the buffer and if successful also call onWritable (bad strategy!)
+            //asyncSocket->mergeDrain();
+
+            // what we want is to immediately call onWritable and have AsyncSocket::write calls always try and empty any buffers at the same time?
+            // AsyncSocket::write can take boolean drain = true to know it should try and drain the buffers according to whatever strategy
+            // mergeDrain is basically AsyncSocket::write with boolean drain = true!
+
+
+            // on writable should return whether it wants more data or not?
 
             return s;
         });
