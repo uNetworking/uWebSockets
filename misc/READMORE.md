@@ -1,3 +1,6 @@
+## FAQ
+You can read the frequently asked questions [here](FAQ.md).
+
 ## Motivation and goals
 µWebSockets is a simple to use yet thoroughly optimized implementation of HTTP and WebSockets.
 It comes with built-in pub/sub support, HTTP routing, TLS 1.3, IPv6, permessage-deflate and is thorougly battle tested as one of the most popular implementations.
