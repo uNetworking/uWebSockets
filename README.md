@@ -1,5 +1,5 @@
 <div align="center">
-<img src="logo.png" />
+<img src="misc/logo.png" />
 
 *µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient messaging for the modern web.*
 
@@ -43,7 +43,7 @@ app.onGet("/", [](auto *res, auto *req, auto *args) {
 #### Pay what you want.
 A free & open source ([Zlib](LICENSE)) project since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018.
 
-<div align="center"><img src="2018.png"/></div>
+<div align="center"><img src="misc/2018.png"/></div>
 
 *Become a paying sponsor to unlock support, issue reporting, roadmaps and to drop suggestions.*
 
