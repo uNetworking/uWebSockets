@@ -3,7 +3,7 @@
 
 *µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient messaging for the modern web.*
 
-• [Fancy pants details & user manual](misc/READMORE.md)
+• [Fancy pants details, user manual and FAQ](misc/READMORE.md)
 
 </div>
 
