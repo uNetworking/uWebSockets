@@ -139,11 +139,11 @@ protected:
                 /* Fall back to worst possible case (should be very rare for HTTP) */
                 /* At least we can reserve room for next chunk if we know it up front */
                 if (nextLength) {
-                    asyncSocketData->buffer.reserve(asyncSocketData->buffer.length() + length + nextLength);
+                    asyncSocketData->buffer.reserve(asyncSocketData->buffer.length() + length - written + nextLength);
                 }
 
                 /* Buffer this chunk */
-                asyncSocketData->buffer.append(src, length);
+                asyncSocketData->buffer.append(src + written, length - written);
             }
         }
 
