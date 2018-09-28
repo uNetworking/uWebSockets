@@ -9,9 +9,10 @@
 
 #### Express yourself briefly.
 ```c++
-uWS::App app; // or uWS::SSLApp(options) for SSL
-
-app.onGet("/", [](auto *res, auto *req, auto *args) {
+uWS::SSLApp({
+    .cert_file_name = "cert.pem",
+    .key_file_name = "key.pem"
+}).onGet("/", [](auto *res, auto *req, auto *args) {
 
     /* Respond with the web app on default route */
     res->writeStatus("200 OK")
@@ -37,7 +38,7 @@ app.onGet("/", [](auto *res, auto *req, auto *args) {
     /* Remove websocket from this topic */
     ws->unsubscribe("/chat");
     
-}).listen("localhost", 3000, 0);
+}).listen("localhost", 3000, 0).run();
 ```
 
 #### Pay what you want.
