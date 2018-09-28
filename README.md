@@ -1,7 +1,7 @@
 <div align="center">
 <img src="misc/logo.png" />
 
-*µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient*[[1]](benchmarks) *messaging for the modern web.*
+*µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient<sup>[[1]](benchmarks)</sup> messaging for the modern web.*
 
 • [Fancy pants details, user manual and FAQ](misc/READMORE.md)
 
