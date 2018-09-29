@@ -32,5 +32,5 @@ HEADERS += \
     ../src/Utilities.h
 
 INCLUDEPATH += ../uSockets/src ../src
-#QMAKE_CXXFLAGS += -fsanitize=address
-LIBS += -pthread -lssl -lcrypto
+QMAKE_CXXFLAGS += -fsanitize=address
+LIBS += -lasan -pthread -lssl -lcrypto -lstdc++fs

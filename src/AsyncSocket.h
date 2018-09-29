@@ -42,7 +42,7 @@ protected:
 
     /* Cork this socket. Only one socket may ever be corked per-loop at any given time */
     void cork() {
-        std::cout << "Cork called" << std::endl;
+        //std::cout << "Cork called" << std::endl;
 
         LoopData *loopData = getLoopData();
         loopData->corked = true;
@@ -53,7 +53,7 @@ protected:
     int write(const char *src, int length, bool optionally = false, int nextLength = 0) {
         LoopData *loopData = getLoopData();
 
-        std::cout << "Write called with length: " << length << ", optionally: " << optionally << std::endl;
+        //std::cout << "Write called with length: " << length << ", optionally: " << optionally << std::endl;
 
         AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
 
@@ -104,7 +104,7 @@ protected:
 
         /* Do nothing for a null sized chunk */
         if (!length) {
-            std::cout << "Trying to write 0 length!" << std::endl;
+            //std::cout << "Trying to write 0 length!" << std::endl;
             return 0;
         }
 
@@ -156,7 +156,7 @@ protected:
             }
         }
 
-        std::cout << "Write returned: " << length << std::endl;
+        //std::cout << "Write returned: " << length << std::endl;
         return length;
     }
 
@@ -164,7 +164,7 @@ protected:
     /* It does NOT count bytes written from cork buffer (they are already accounted for in the write call responsible for its corking)! */
     int uncork(const char *src = nullptr, int length = 0, bool optionally = false) {
 
-        std::cout << "Uncork called with length: " << length << std::endl;
+        //std::cout << "Uncork called with length: " << length << std::endl;
 
         LoopData *loopData = getLoopData();
 
@@ -180,7 +180,7 @@ protected:
             /* We should only return with new writes, not things written to cork already */
             return write(src, length, optionally, 0);
         } else {
-            std::cout << "Not even corked!" << std::endl;
+            //std::cout << "Not even corked!" << std::endl;
         }
 
         return 0;

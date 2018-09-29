@@ -55,9 +55,9 @@ public:
             /* Cache hit */
             //std::cout << "Cache hit!" << std::endl;
 
-            if (fileSize - offset < cache.length()) {
+            /*if (fileSize - offset < cache.length()) {
                 std::cout << "LESS THAN WHAT WE HAVE!" << std::endl;
-            }
+            }*/
 
             int chunkSize = std::min<int>(fileSize - offset, cache.length() - offset + cacheOffset);
 
@@ -92,7 +92,7 @@ public:
             // den har stängts! öppna igen!
             if (!fin.good()) {
                 fin.close();
-                std::cout << "Reopening fin!" << std::endl;
+                //std::cout << "Reopening fin!" << std::endl;
                 fin.open(fileName, std::ios::binary);
             }
             fin.seekg(offset, fin.beg);
@@ -104,6 +104,7 @@ public:
 
                 int chunkSize = std::min<int>(cache.length(), fileSize - offset);
 
+                // båda dessa sker, wtf?
                 if (chunkSize == 0) {
                     std::cout << "Zero size!?" << std::endl;
                 }

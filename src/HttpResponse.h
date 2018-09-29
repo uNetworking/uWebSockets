@@ -39,6 +39,9 @@ private:
     }
 
 public:
+
+    using Super::close;
+
     /* Write the HTTP status */
     HttpResponse *writeStatus(std::string_view status) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
@@ -167,13 +170,13 @@ public:
             int written = Super::write(data.data(), data.length(), true);
 
             httpResponseData->offset += written;
-            std::cout << "Offset is now: " << httpResponseData->offset << std::endl;
+            //std::cout << "Offset is now: " << httpResponseData->offset << std::endl;
 
             return written == data.length();
         }
 
         // this path is completely wrong!
-        std::cout << "tryEnd returning " << (httpResponseData->offset == /*totalSize*/ data.length()) << std::endl;
+        //std::cout << "tryEnd returning " << (httpResponseData->offset == /*totalSize*/ data.length()) << std::endl;
         return httpResponseData->offset == /*totalSize*/ data.length();
     }
 
