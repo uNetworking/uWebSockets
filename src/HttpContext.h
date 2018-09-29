@@ -60,15 +60,15 @@ private:
             /* Get socket ext */
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
 
-            /* Signal broken out stream */
-            if (httpResponseData->outStream) {
-                httpResponseData->outStream(-1);
+            std::cout << "Close event!" << std::endl;
+
+            /* Signal broken HTTP request */
+            if (httpResponseData->onAborted) {
+                httpResponseData->onAborted();
             }
 
-            /* Signal broken in stream */
-            if (httpResponseData->inStream) {
-                httpResponseData->inStream(std::string_view(nullptr, 0));
-            }
+            // we might want to also signal the read stream?
+            // smash onAborted together with read?
 
             /* Destruct socket ext */
             httpResponseData->~HttpResponseData<SSL>();
@@ -132,11 +132,10 @@ private:
             return s;
         });
 
-        /* Handle HTTP write out */
+        /* Handle HTTP write out (note: SSL_read may trigger this spuriously, the app need to handle spurious calls) */
         static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(getSocketContext(), [](auto *s) {
 
-            std::cout << "Writable event!" << std::endl;
-
+            std::cout << "HttpContext::onWritable event fired!" << std::endl;
 
             /* Writing data should reset the timeout */
             static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
@@ -146,32 +145,23 @@ private:
 
             // if this, then it means it finished with no issues so we need to empty any buffers?
             if (httpResponseData->onWritable) {
-                httpResponseData->onWritable(httpResponseData->offset);
-            } else {
-                // lets drain here
-                std::cout << "LEts drain!" << std::endl;
+                /* We expect the developer to return whether or not write was successful (true) */
+                bool success = httpResponseData->onWritable(httpResponseData->offset);
 
-                // mergeDrain
+                // on writable should return whether it wants more data or not
+                // but we don't need to know that here? we cannot drain because a sucessful write should mean there is no buffer to drain
+            } else {
+                /* This is used to drain any buffers we might have */
                 asyncSocket->write(nullptr, 0, true, 0);
             }
-
-
-
-            // bascially just empty the buffer and if successful also call onWritable (bad strategy!)
-            //asyncSocket->mergeDrain();
-
-            // what we want is to immediately call onWritable and have AsyncSocket::write calls always try and empty any buffers at the same time?
-            // AsyncSocket::write can take boolean drain = true to know it should try and drain the buffers according to whatever strategy
-            // mergeDrain is basically AsyncSocket::write with boolean drain = true!
-
-
-            // on writable should return whether it wants more data or not?
 
             return s;
         });
 
         /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
         static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(getSocketContext(), [](auto *s) {
+
+            std::cout << "FIN sent" << std::endl;
 
             /* We do not care for half closed sockets */
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;

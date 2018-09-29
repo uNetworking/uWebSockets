@@ -24,7 +24,8 @@ private:
     };
 
     /* Per socket event handlers */
-    std::function<void(int)> onWritable;
+    std::function<bool(int)> onWritable;
+    std::function<void()> onAborted;
     //std::function<void()> onData;
 
     std::function<void(std::string_view)> inStream;

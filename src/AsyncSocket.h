@@ -57,34 +57,37 @@ protected:
 
         AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
 
-        /* Do nothing for a null sized chunk */
-        if (length == 0 && !asyncSocketData->buffer.length()) {
-            //std::cout << "Write returned: 0" << std::endl;
-            return 0;
-        }
-
-        /* Do not write anything if we have a per-socket buffer */
+        /* We are limited if we have a per-socket buffer */
         if (asyncSocketData->buffer.length()) {
+
+            std::cout << "WHAT THE FUCK WE HAVE BUFFER!" << std::endl;
+
+            // probably want to swap the hierarchy here to: if buffer, if length, if optionally
+
+            /* We only try and drain if we are in optional mode */
             if (optionally) {
 
 
-                // we have buffer and we are optionally, if drain then drain else quit
-
-                // drain here
-                std::cout << "Drain path" << std::endl;
-
-                // will just end up in a loop!
-                int written = static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, asyncSocketData->buffer.data(), asyncSocketData->buffer.length(), nextLength != 0);//write(asyncSocketData->buffer.data(), asyncSocketData->buffer.length(), optionally, 0, true);
-
-                // removeBuffer
-                asyncSocketData->buffer = asyncSocketData->buffer.substr(written);
-
-                // should we really return this here? should be 0 as we took 0 new data!
-                return 0;
+                /* Is this a merge drain or not? */
+                if (length) {
+                    // merge drain may happen if the developer continues to write data despite having buffered up content
 
 
+                    // for now we do not support this yet
+                    return 0;
 
+                } else {
+                    /* Write off as much as we can */
+                    int written = static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, asyncSocketData->buffer.data(), asyncSocketData->buffer.length(), nextLength != 0);
+
+                    /* Update buffering (should probably have different allocation strategies here) */
+                    asyncSocketData->buffer = asyncSocketData->buffer.substr(written);
+
+                    /* We consumed no new data */
+                    return 0;
+                }
             } else {
+                /* Currently there is no drainage for non-optional writes */
                 std::cout << "Buffering at top of write (really bad)!" << std::endl;
 
                 /* At least we can reserve room for next chunk if we know it up front */
@@ -97,6 +100,12 @@ protected:
                 //std::cout << "Write returned: " << length << std::endl;
                 return length;
             }
+        }
+
+        /* Do nothing for a null sized chunk */
+        if (!length) {
+            std::cout << "Trying to write 0 length!" << std::endl;
+            return 0;
         }
 
         if (loopData->corked) {
@@ -130,7 +139,7 @@ protected:
             if (written < length) {
                 /* If the write was optional then just bail out */
                 if (optionally) {
-                    //std::cout << "Write returned: " << written << std::endl;
+                    std::cout << "Write returned: " << written << std::endl;
                     return written;
                 }
 
@@ -147,7 +156,7 @@ protected:
             }
         }
 
-        //std::cout << "Write returned: " << length << std::endl;
+        std::cout << "Write returned: " << length << std::endl;
         return length;
     }
 

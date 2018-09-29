@@ -156,7 +156,7 @@ public:
             if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_END_CALLED)) {
                 /* We have a known send size */
                 Super::write("Content-Length: ", 16);
-                writeUnsigned(data.length());
+                writeUnsigned(/*data.length()*/totalSize);
                 Super::write("\r\n\r\n", 4);
 
                 /* Mark end called */
@@ -164,14 +164,27 @@ public:
             }
 
             /* Write as much as possible without causing backpressure */
-            httpResponseData->offset += Super::write(data.data(), data.length(), true);
+            int written = Super::write(data.data(), data.length(), true);
+
+            httpResponseData->offset += written;
+            std::cout << "Offset is now: " << httpResponseData->offset << std::endl;
+
+            return written == data.length();
         }
 
-        return httpResponseData->offset == totalSize;
+        // this path is completely wrong!
+        std::cout << "tryEnd returning " << (httpResponseData->offset == /*totalSize*/ data.length()) << std::endl;
+        return httpResponseData->offset == /*totalSize*/ data.length();
+    }
+
+    int getWriteOffset() {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        return httpResponseData->offset;
     }
 
     /* Attach handler for writable HTTP response */
-    HttpResponse *onWritable(std::function<void(int)> handler) {
+    HttpResponse *onWritable(std::function<bool(int)> handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         httpResponseData->onWritable = handler;
