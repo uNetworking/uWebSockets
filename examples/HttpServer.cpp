@@ -4,6 +4,7 @@
 
 /* Helpers for this example */
 #include "helpers/AsyncFileReader.h"
+#include "helpers/AsyncFileStreamer.h"
 #include "helpers/Middleware.h"
 
 /* optparse */
@@ -19,68 +20,54 @@ int main(int argc, char **argv) {
     struct optparse_long longopts[] = {
         {"port", 'p', OPTPARSE_REQUIRED},
         {"help", 'h', OPTPARSE_NONE},
-        {"color", 'c', OPTPARSE_REQUIRED},
-        {"delay", 'd', OPTPARSE_OPTIONAL},
+        {"passphrase", 'a', OPTPARSE_REQUIRED},
+        {"key", 'k', OPTPARSE_REQUIRED},
+        {"cert", 'c', OPTPARSE_REQUIRED},
+        {"dh_params", 'd', OPTPARSE_REQUIRED},
         {0}
     };
 
     int port = 3000;
+    struct us_ssl_socket_context_options ssl_options = {};
 
     while ((option = optparse_long(&options, longopts, nullptr)) != -1) {
         switch (option) {
         case 'p':
-            port = /*options.optarg ? */atoi(options.optarg);// : port;
+            port = atoi(options.optarg);
             break;
-        case 'h':
-
-            //break;
-        /*case 'b':
-            brief = true;
+        case 'a':
+            ssl_options.passphrase = options.optarg;
             break;
         case 'c':
-            color = options.optarg;
+            ssl_options.cert_file_name = options.optarg;
+            break;
+        case 'k':
+            ssl_options.key_file_name = options.optarg;
             break;
         case 'd':
-            delay = options.optarg ? atoi(options.optarg) : 1;
-            break;*/
+            ssl_options.dh_params_file_name = options.optarg;
+            break;
+        case 'h':
         case '?':
-            std::cout << "Usage: " << argv[0] << " [--help] [--port <port>] [--ssl <cert> <key>] [--passphrase <ssl key passphrase>] [--dh_params <ssl dh params file>] <public root>" << std::endl;
-
+            fail:
+            std::cout << "Usage: " << argv[0] << " [--help] [--port <port>] [--key <ssl key>] [--cert <ssl cert>] [--passphrase <ssl key passphrase>] [--dh_params <ssl dh params file>] <public root>" << std::endl;
             return 0;
-            //fprintf(stderr, "%s: %s\n", argv[0], options.errmsg);
-            //exit(EXIT_FAILURE);
         }
     }
 
-    /* Print remaining arguments. */
-    char *arg;
-       while ((arg = optparse_arg(&options)))
-           printf("%s\n", arg);
-
-    std::cout << "Port is " << port << std::endl;
-
-    return 0;
-
-    if (argc < 3 || argc > 7) {
-        std::cout << "Usage: HttpServer root port [ssl_cert ssl_key ssl_dh_params ssl_passphrase]" << std::endl;
-        return 0;
+    char *root = optparse_arg(&options);
+    if (!root) {
+        goto fail;
     }
 
-    //int port = atoi(argv[2]);
-    const char *root = argv[1];
-    /* Cache files of root folder */
-    //FileCache fileCache(root);
+    AsyncFileStreamer asyncFileStreamer(root);
 
     /* Either serve over HTTP or HTTPS */
-    if (argc > 5) {
+    struct us_ssl_socket_context_options empty_ssl_options = {};
+    if (memcmp(&ssl_options, &empty_ssl_options, sizeof(empty_ssl_options))) {
         /* HTTPS */
-        uWS::SSLApp({
-            .cert_file_name = argv[3], /* Required */
-            .key_file_name = argv[4], /* Required */
-            .dh_params_file_name = argv[5], /* Required (in this example) */
-            .passphrase = (argc == 7 ? argv[6] : nullptr) /* Passphrase is optional */
-        }).get("/*", [](auto *res, auto *req) {
-            //serveFile(res, req)->write(fileCache.getFile(req->getUrl()));
+        uWS::SSLApp(ssl_options).get("/*", [&asyncFileStreamer](auto *res, auto *req) {
+            //asyncFileStreamer.streamFile(res, req->getUrl());
         }).listen(port, [port, root](auto *token) {
             if (token) {
                 std::cout << "Serving " << root << " over HTTPS a " << port << std::endl;
@@ -88,8 +75,8 @@ int main(int argc, char **argv) {
         }).run();
     } else {
         /* HTTP */
-        uWS::App().get("/*", [](auto *res, auto *req) {
-            //serveFile(res, req)->write(fileCache.getFile(req->getUrl()));
+        uWS::App().get("/*", [&asyncFileStreamer](auto *res, auto *req) {
+            asyncFileStreamer.streamFile(res, req->getUrl());
         }).listen(port, [port, root](auto *token) {
             if (token) {
                 std::cout << "Serving " << root << " over HTTP a " << port << std::endl;
