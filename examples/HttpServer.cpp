@@ -67,6 +67,7 @@ int main(int argc, char **argv) {
     if (memcmp(&ssl_options, &empty_ssl_options, sizeof(empty_ssl_options))) {
         /* HTTPS */
         uWS::SSLApp(ssl_options).get("/*", [&asyncFileStreamer](auto *res, auto *req) {
+            serveFile(res, req);
             asyncFileStreamer.streamFile(res, req->getUrl());
         }).listen(port, [port, root](auto *token) {
             if (token) {
@@ -76,6 +77,7 @@ int main(int argc, char **argv) {
     } else {
         /* HTTP */
         uWS::App().get("/*", [&asyncFileStreamer](auto *res, auto *req) {
+            serveFile(res, req);
             asyncFileStreamer.streamFile(res, req->getUrl());
         }).listen(port, [port, root](auto *token) {
             if (token) {
