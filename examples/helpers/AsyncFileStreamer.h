@@ -36,39 +36,35 @@ struct AsyncFileStreamer {
     static void streamFile(uWS::HttpResponse<false> *res, AsyncFileReader *asyncFileReader) {
         /* Peek from cache */
         std::string_view chunk = asyncFileReader->peek(res->getWriteOffset());
-
-        //std::cout << "Chunk size: " << chunk.length() << std::endl;
-
-        // fel check! vad om vi är klara!
         if (!chunk.length() || res->tryEnd(chunk, asyncFileReader->getFileSize())) {
             /* Request new chunk */
             // todo: we need to abort this callback if peer closed!
-            // this also means Loop::defer needs to support aborting
+            // this also means Loop::defer needs to support aborting (functions should embedd an atomic boolean abort or something)
+
+            // Loop::defer(f) -> integer
+            // Loop::abort(integer)
+
+            // hmm? no?
 
             // us_socket_up_ref eftersom vi delar ägandeskapet
 
-            // om chunk var mindre än 1 mb, skippa detta!
-            if (chunk.length() < 1024 * 1024) {
-                //std::cout << "Okay, we're done" << std::endl;
-                return;
+            if (chunk.length() < asyncFileReader->getFileSize()) {
+                asyncFileReader->request(res->getWriteOffset(), [res, asyncFileReader](std::string_view chunk) {
+                    // check if we were closed in the mean time
+                    //if (us_socket_is_closed()) {
+                        // free it here
+                        //return;
+                    //}
+
+                    /* We were aborted for some reason */
+                    if (!chunk.length()) {
+                        // todo: make sure to check for is_closed internally after all callbacks!
+                        res->close();
+                    } else {
+                        streamFile(res, asyncFileReader);
+                    }
+                });
             }
-
-            // none of this should be needed for rocket page!
-            asyncFileReader->request(res->getWriteOffset(), [res, asyncFileReader](std::string_view chunk) {
-                // check if we were closed in the mean time
-                //if (us_socket_is_closed()) {
-                    // free it here
-                    //return;
-                //}
-
-                /* We were aborted for some reason */
-                if (!chunk.length()) {
-                    // todo: make sure to check for is_closed internally after all callbacks!
-                    res->close();
-                } else {
-                    streamFile(res, asyncFileReader);
-                }
-            });
         } else {
             /* We failed writing everything, so let's continue when we can */
             res->onWritable([res, asyncFileReader](int offset) {
