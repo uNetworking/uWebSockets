@@ -36,6 +36,10 @@ struct AsyncFileStreamer {
     static void streamFile(uWS::HttpResponse<false> *res, AsyncFileReader *asyncFileReader) {
         /* Peek from cache */
         std::string_view chunk = asyncFileReader->peek(res->getWriteOffset());
+
+        //std::cout << "Chunk size: " << chunk.length() << std::endl;
+
+        // fel check! vad om vi är klara!
         if (!chunk.length() || res->tryEnd(chunk, asyncFileReader->getFileSize())) {
             /* Request new chunk */
             // todo: we need to abort this callback if peer closed!
@@ -43,6 +47,13 @@ struct AsyncFileStreamer {
 
             // us_socket_up_ref eftersom vi delar ägandeskapet
 
+            // om chunk var mindre än 1 mb, skippa detta!
+            if (chunk.length() < 1024 * 1024) {
+                //std::cout << "Okay, we're done" << std::endl;
+                return;
+            }
+
+            // none of this should be needed for rocket page!
             asyncFileReader->request(res->getWriteOffset(), [res, asyncFileReader](std::string_view chunk) {
                 // check if we were closed in the mean time
                 //if (us_socket_is_closed()) {
