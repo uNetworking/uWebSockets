@@ -24,7 +24,8 @@ struct AsyncFileStreamer {
         }
     }
 
-    void streamFile(uWS::HttpResponse<false> *res, std::string_view url) {
+    template <bool SSL>
+    void streamFile(uWS::HttpResponse<SSL> *res, std::string_view url) {
         auto it = asyncFileReaders.find(url);
         if (it == asyncFileReaders.end()) {
             std::cout << "Did not find file: " << url << std::endl;
@@ -33,7 +34,8 @@ struct AsyncFileStreamer {
         }
     }
 
-    static void streamFile(uWS::HttpResponse<false> *res, AsyncFileReader *asyncFileReader) {
+    template <bool SSL>
+    static void streamFile(uWS::HttpResponse<SSL> *res, AsyncFileReader *asyncFileReader) {
         /* Peek from cache */
         std::string_view chunk = asyncFileReader->peek(res->getWriteOffset());
         if (!chunk.length() || res->tryEnd(chunk, asyncFileReader->getFileSize())) {

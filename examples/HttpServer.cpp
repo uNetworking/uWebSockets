@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
     if (memcmp(&ssl_options, &empty_ssl_options, sizeof(empty_ssl_options))) {
         /* HTTPS */
         uWS::SSLApp(ssl_options).get("/*", [&asyncFileStreamer](auto *res, auto *req) {
-            //asyncFileStreamer.streamFile(res, req->getUrl());
+            asyncFileStreamer.streamFile(res, req->getUrl());
         }).listen(port, [port, root](auto *token) {
             if (token) {
                 std::cout << "Serving " << root << " over HTTPS a " << port << std::endl;
