@@ -33,7 +33,7 @@ public:
     }
 
     TemplatedApp &unhandled(std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        //httpContext->onGet(pattern, handler);
+        httpContext->onUnhandled(handler);
         return *this;
     }
 

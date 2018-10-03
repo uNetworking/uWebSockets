@@ -18,6 +18,7 @@ class HttpRouter {
 private:
     std::vector<std::function<void(USERDATA, std::vector<std::string_view> *)>> handlers;
     std::vector<std::string_view> params;
+    std::function<void(USERDATA, std::vector<std::string_view> *)> unhandledHandler;
 
     struct Node {
         std::string name;
@@ -135,6 +136,10 @@ public:
         params.reserve(100);
     }
 
+    HttpRouter *unhandled(std::function<void(USERDATA, std::vector<std::string_view> *)> handler) {
+        unhandledHandler = handler;
+    }
+
     HttpRouter *add(const char *method, const char *pattern, std::function<void(USERDATA, std::vector<std::string_view> *)> handler) {
 
         // step over any initial slash
@@ -178,6 +183,7 @@ public:
             handlers[index](userData, &params);
         } else {
             std::cout << "Did not find route for URL: " << std::string_view(url, url_length) << std::endl;
+            unhandledHandler(userData, &params);
         }
 
         params.clear();

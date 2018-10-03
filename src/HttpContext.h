@@ -220,6 +220,14 @@ public:
         });
     }
 
+    void onUnhandled(std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
+        HttpContextData<SSL> *httpContextData = getSocketContextData();
+
+        httpContextData->router.unhandled([handler](typename HttpContextData<SSL>::UserData *user, auto *args) {
+            handler(user->httpResponse, user->httpRequest);
+        });
+    }
+
     /* Listen to port using this HttpContext */
     us_listen_socket *listen(const char *host, int port, int options) {
         return static_dispatch(us_ssl_socket_context_listen, us_socket_context_listen)(getSocketContext(), host, port, options, sizeof(HttpResponseData<SSL>));

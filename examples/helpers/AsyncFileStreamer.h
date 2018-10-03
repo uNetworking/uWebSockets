@@ -63,7 +63,7 @@ struct AsyncFileStreamer {
                         // todo: make sure to check for is_closed internally after all callbacks!
                         res->close();
                     } else {
-                        streamFile(res, asyncFileReader);
+                        AsyncFileStreamer::streamFile(res, asyncFileReader);
                     }
                 });
             }
@@ -73,7 +73,7 @@ struct AsyncFileStreamer {
 
                 // här kan skiten avbrytas!
 
-                streamFile(res, asyncFileReader);
+                AsyncFileStreamer::streamFile(res, asyncFileReader);
                 // todo: I don't really know what this is supposed to mean?
                 return false;
             })->onAborted([]() {
