@@ -32,6 +32,11 @@ public:
         return *this;
     }
 
+    TemplatedApp &post(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+        httpContext->onPost(pattern, handler);
+        return *this;
+    }
+
     TemplatedApp &unhandled(std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onUnhandled(handler);
         return *this;

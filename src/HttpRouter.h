@@ -24,14 +24,13 @@ private:
         std::string name;
         std::map<std::string, Node *> children;
         short handler;
-    };
+    } tree;
 
-    Node *tree = new Node({"GET", {}, -1});
     std::string compiled_tree;
 
     void add(std::vector<std::string> route, short handler) {
         //std::cout << "add" << std::endl;
-        Node *parent = tree;
+        Node *parent = &tree;
         for (std::string node : route) {
             //std::cout << "Node: <" << node << ">" << std::endl;
 
@@ -42,6 +41,7 @@ private:
         }
     }
 
+    // serialize tree
     unsigned short compile_tree(Node *n) {
         unsigned short nodeLength = 6 + n->name.length();
         for (auto c : n->children) {
@@ -99,18 +99,24 @@ private:
         return stop ? stop : end;
     }
 
-    // should take method also!
-    inline int lookup(const char *url, int length) {
+    inline int lookup(const char *method, int method_length, const char *url, int length) {
         // all urls start with /
         url++;
         length--;
 
         const char *treeStart = (char *) compiled_tree.data();
-
         bool foundWildcard = false;
+
+        // step1: lookup this method (we lookup treeStart)
+        treeStart = find_node(treeStart, method, method_length, &foundWildcard);
+        if (treeStart == 0) {
+            //std::cout << "We do not even have this method!" << std::endl;
+            return -1;
+        }
 
         const char *stop, *start = url, *end_ptr = url + length;
         do {
+            // start and stop are pointers in the URL we are getting, end_ptr is the end of url
             stop = getNextSegment(start, end_ptr);
 
             //std::cout << "Matching(" << std::string(start, stop - start) << ")" << std::endl;
@@ -148,22 +154,17 @@ public:
         }
 
         std::vector<std::string> nodes;
-        //nodes.push_back(method);
+        nodes.push_back(method);
 
         const char *stop, *start = pattern, *end_ptr = pattern + strlen(pattern);
         do {
             stop = getNextSegment(start, end_ptr);
-
             //std::cout << "Segment(" << std::string(start, stop - start) << ")" << std::endl;
-
             nodes.push_back(std::string(start, stop - start));
-
             start = stop + 1;
         } while (stop != end_ptr);
 
-
-        // if pattern starts with / then move 1+ and run inline slash parser
-
+        // add this path to the tree
         add(nodes, handlers.size());
         handlers.push_back(handler);
 
@@ -173,19 +174,20 @@ public:
 
     void compile() {
         compiled_tree.clear();
-        compile_tree(tree);
+        compile_tree(&tree);
     }
 
     void route(const char *method, unsigned int method_length, const char *url, unsigned int url_length, USERDATA userData) {
 
-        int index = lookup(url, url_length);
+        // todo: simplify so that unhandled is 0!
+        int index = lookup(method, method_length, url, url_length);
         if (index != -1) {
             handlers[index](userData, &params);
         } else {
-            std::cout << "Did not find route for URL: " << std::string_view(url, url_length) << std::endl;
             unhandledHandler(userData, &params);
         }
 
+        // will this counter the reserve?
         params.clear();
     }
 };

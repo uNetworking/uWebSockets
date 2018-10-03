@@ -111,7 +111,7 @@ private:
                 typename uWS::HttpContextData<SSL>::UserData userData = {
                     (HttpResponse<SSL> *) s, httpRequest
                 };
-                httpContextData->router.route("get", 3, httpRequest->getUrl().data(), httpRequest->getUrl().length(), &userData);
+                httpContextData->router.route(httpRequest->getMethod().data(), httpRequest->getMethod().length(), httpRequest->getUrl().data(), httpRequest->getUrl().length(), &userData);
 
                 // here we can be closed and in shutdown?
 
@@ -216,6 +216,14 @@ public:
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
         httpContextData->router.add("get", pattern.c_str(), [handler](typename HttpContextData<SSL>::UserData *user, auto *args) {
+            handler(user->httpResponse, user->httpRequest);
+        });
+    }
+
+    void onPost(std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
+        HttpContextData<SSL> *httpContextData = getSocketContextData();
+
+        httpContextData->router.add("post", pattern.c_str(), [handler](typename HttpContextData<SSL>::UserData *user, auto *args) {
             handler(user->httpResponse, user->httpRequest);
         });
     }

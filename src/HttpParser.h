@@ -39,6 +39,10 @@ public:
         return std::string_view(headers->value.data(), querySeparator);
     }
 
+    std::string_view getMethod() {
+        return std::string_view(headers->key.data(), headers->key.length());
+    }
+
     std::string_view getQuery() {
         return std::string_view(headers->value.data() + querySeparator, headers->value.length() - querySeparator);
     }
