@@ -12,22 +12,28 @@ int main(int argc, char **argv) {
         .cert_file_name = "/home/alexhultman/uWebSockets/misc/ssl/cert.pem",
         .dh_params_file_name = "/home/alexhultman/dhparams.pem",
         .passphrase = "1234"
-    }*/).get("/*", [](auto *res, auto *req) {
+    }*/)/*.get("/*", [](auto *res, auto *req) {
 
         res->end("GET /WILDCARD");
 
-    }).post("/hello", [asyncFileStreamer](auto *res, auto *req) {
+    })*/.get("/:param1/:param2", [](auto *res, auto *req/*, auto &params*/) {
+
+        // todo: read from params (req->getParameter(0))
+        res->write("GET /:param1/:param2 = ");
+        res->end(req->getUrl());
+
+    }).post("/hello", [asyncFileStreamer](auto *res, auto *req/*, auto &params*/) {
 
         // depending on the file type we want to also add mime!
         //asyncFileStreamer->streamFile(res, req->getUrl());
 
         res->end("POST /hello");
 
-    }).get("/hello", [](auto *res, auto *req) {
+    }).get("/hello", [](auto *res, auto *req/*, auto &params*/) {
 
         res->end("GET /hello");
 
-    }).unhandled([](auto *res, auto *req) {
+    }).unhandled([](auto *res, auto *req/*, auto &params*/) {
 
         res->end("Here's nothing for you to see!");
 

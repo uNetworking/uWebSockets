@@ -111,7 +111,7 @@ private:
                 typename uWS::HttpContextData<SSL>::UserData userData = {
                     (HttpResponse<SSL> *) s, httpRequest
                 };
-                httpContextData->router.route(httpRequest->getMethod().data(), httpRequest->getMethod().length(), httpRequest->getUrl().data(), httpRequest->getUrl().length(), &userData);
+                httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), &userData);
 
                 // here we can be closed and in shutdown?
 
@@ -215,7 +215,10 @@ public:
     void onGet(std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.add("get", pattern.c_str(), [handler](typename HttpContextData<SSL>::UserData *user, auto *args) {
+        httpContextData->router.add("get", pattern, [handler](typename HttpContextData<SSL>::UserData *user, auto &args) {
+
+            // todo: attach params to the req here!
+
             handler(user->httpResponse, user->httpRequest);
         });
     }
@@ -223,7 +226,7 @@ public:
     void onPost(std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.add("post", pattern.c_str(), [handler](typename HttpContextData<SSL>::UserData *user, auto *args) {
+        httpContextData->router.add("post", pattern, [handler](typename HttpContextData<SSL>::UserData *user, auto &args) {
             handler(user->httpResponse, user->httpRequest);
         });
     }
@@ -231,7 +234,7 @@ public:
     void onUnhandled(std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.unhandled([handler](typename HttpContextData<SSL>::UserData *user, auto *args) {
+        httpContextData->router.unhandled([handler](typename HttpContextData<SSL>::UserData *user, auto &args) {
             handler(user->httpResponse, user->httpRequest);
         });
     }

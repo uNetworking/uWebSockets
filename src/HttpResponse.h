@@ -107,6 +107,8 @@ public:
 
     /* Write parts of the response in chunking fashion */
     bool write(std::string_view data) {
+        writeStatus(HTTP_200_OK);
+
         /* Do not allow sending 0 chunks, they mark end of response */
         if (!data.length()) {
             return true; // are we corked still?

@@ -2,7 +2,7 @@
 #define HTTPROUTER_HPP
 
 /* HTTP router is an independent module subject to unit testing and fuzz testing */
-/* TODO: this module needs much work and fixes */
+/* This module is not fully optimized yet, waiting for more features before doing so */
 
 #include <map>
 #include <functional>
@@ -10,185 +10,245 @@
 #include <cstring>
 #include <iostream>
 #include <string_view>
+#include <sstream>
+#include <string>
 
 namespace uWS {
 
 template <class USERDATA>
 class HttpRouter {
 private:
-    std::vector<std::function<void(USERDATA, std::vector<std::string_view> *)>> handlers;
-    std::vector<std::string_view> params;
-    std::function<void(USERDATA, std::vector<std::string_view> *)> unhandledHandler;
+    static const unsigned int MAX_URL_SEGMENTS = 100;
+
+    /* Basically a pre-allocated stack */
+    struct RouteParameters {
+        friend class HttpRouter;
+    private:
+        std::string_view params[MAX_URL_SEGMENTS];
+        int paramsTop;
+
+        void reset() {
+            paramsTop = -1;
+        }
+
+        void push(std::string_view param) {
+            /* We check these bounds indirectly via the urlSegments limit */
+            params[++paramsTop] = param;
+        }
+
+        void pop() {
+            /* Same here, we cannot pop outside */
+            paramsTop--;
+        }
+    public:
+        std::string_view operator[](unsigned int index) {
+            if ((int) index <= paramsTop) {
+                return params[index];
+            } else {
+                return {};
+            }
+        }
+    } routeParameters;
+
+    std::vector<std::function<void(USERDATA, RouteParameters &)>> handlers;
 
     struct Node {
         std::string name;
-        std::map<std::string, Node *> children;
-        short handler;
+        std::vector<Node *> children;
+        short handler = 0; // unhandled
     } tree;
 
-    std::string compiled_tree;
+    std::string_view currentUrl;
+    std::string_view urlSegmentVector[MAX_URL_SEGMENTS];
+    int urlSegmentTop;
 
-    void add(std::vector<std::string> route, short handler) {
-        //std::cout << "add" << std::endl;
+    /* Set URL for router. Will reset any URL cache */
+    inline void setUrl(std::string_view url) {
+        /* Remove / from input URL */
+        currentUrl = url.substr(1);
+        urlSegmentTop = -1;
+    }
+
+    /* Lazily parse or read from cache */
+    inline std::string_view getUrlSegment(int urlSegment) {
+        if (urlSegment > urlSegmentTop) {
+            /* Return empty segment if we are out of URL or stack space, but never for first url segment */
+            if (!currentUrl.length() || urlSegment > 99) {
+                return {};
+            }
+
+            auto segmentLength = currentUrl.find('/');
+            if (segmentLength == std::string::npos) {
+                segmentLength = currentUrl.length();
+
+                /* Push to url segment vector */
+                urlSegmentVector[urlSegment] = currentUrl.substr(0, segmentLength);
+                urlSegmentTop++;
+
+                /* Update currentUrl */
+                currentUrl = currentUrl.substr(segmentLength);
+            } else {
+                /* Push to url segment vector */
+                urlSegmentVector[urlSegment] = currentUrl.substr(0, segmentLength);
+                urlSegmentTop++;
+
+                /* Update currentUrl */
+                currentUrl = currentUrl.substr(segmentLength + 1);
+            }
+        }
+        /* In any case we return it */
+        return urlSegmentVector[urlSegment];
+    }
+
+    int matchUrlSegment(Node *parent, int urlSegment) {
+        /* If we have no more URL and not on first round, return where we may stand */
+        if (urlSegment && !getUrlSegment(urlSegment).length()) {
+            return parent->handler;
+        }
+
+        for (auto *p : parent->children) {
+            if (p->name.length() && p->name[0] == '*') {
+                /* Wildcard match */
+                return p->handler;
+            } else if (p->name.length() && p->name[0] == ':' && getUrlSegment(urlSegment).length()) {
+                /* Parameter match */
+                routeParameters.push(getUrlSegment(urlSegment));
+                int handler = matchUrlSegment(p, urlSegment + 1);
+                if (handler) {
+                    return handler;
+                } else {
+                    // unwind parameter stack
+                    routeParameters.pop();
+                }
+            } else if (p->name == getUrlSegment(urlSegment)) {
+                /* Static match */
+                int handler = matchUrlSegment(p, urlSegment + 1);
+                if (handler) {
+                    return handler;
+                }
+            }
+        }
+        return 0;
+    }
+
+    /* Route method and url to handlerIndex */
+    int lookupNew(std::string_view method, std::string_view url) {
+        setUrl(url);
+        routeParameters.reset();
+
+        /* Begin by finding the method node */
         Node *parent = &tree;
-        for (std::string node : route) {
-            //std::cout << "Node: <" << node << ">" << std::endl;
-
-            if (parent->children.find(node) == parent->children.end()) {
-                parent->children[node] = new Node({node, {}, handler});
+        for (auto &p : parent->children) {
+            if (p->name == method) {
+                parent = p;
             }
-            parent = parent->children[node];
+        }
+
+        if (parent != &tree) {
+            return matchUrlSegment(parent, 0);
+        } else {
+            return 0;
         }
     }
 
-    // serialize tree
-    unsigned short compile_tree(Node *n) {
-        unsigned short nodeLength = 6 + n->name.length();
-        for (auto c : n->children) {
-            nodeLength += compile_tree(c.second);
+    void printNode(Node *node, int indentation) {
+        for (int i = 0; i < indentation; i++) {
+            std::cout << "   ";
         }
-
-        unsigned short nodeNameLength = n->name.length();
-
-        std::string compiledNode;
-        compiledNode.append((char *) &nodeLength, sizeof(nodeLength));
-        compiledNode.append((char *) &nodeNameLength, sizeof(nodeNameLength));
-        compiledNode.append((char *) &n->handler, sizeof(n->handler));
-        compiledNode.append(n->name.data(), /*n->name.length()*/ nodeNameLength);
-
-        compiled_tree = compiledNode + compiled_tree;
-        return nodeLength;
-    }
-
-    inline const char *find_node(const char *parent_node, const char *name, int name_length, bool *foundWildcard) {
-        unsigned short nodeLength = *(unsigned short *) &parent_node[0];
-        unsigned short nodeNameLength = *(unsigned short *) &parent_node[2];
-
-        //std::cout << "Finding node: <" << std::string(name, name_length) << ">" << std::endl;
-
-        const char *stoppp = parent_node + nodeLength;
-        for (const char *candidate = parent_node + 6 + nodeNameLength; candidate < stoppp; ) {
-
-            unsigned short nodeLength = *(unsigned short *) &candidate[0];
-            unsigned short nodeNameLength = *(unsigned short *) &candidate[2];
-
-            // whildcard, parameter, equal
-            if (nodeNameLength == 1 && candidate[6] == '*') {
-                *foundWildcard = true;
-                return candidate;
-            } else if (candidate[6] == ':') {
-                // parameter
-
-                // todo: push this pointer on the stack of args!
-                params.push_back(std::string_view(name, name_length));
-
-                return candidate;
-            } else if (nodeNameLength == name_length && !memcmp(candidate + 6, name, name_length)) {
-                return candidate;
-            }
-
-            candidate = candidate + nodeLength;
+        std::cout << node->name << "(" << node->handler << ")" << std::endl;
+        for (auto *p : node->children) {
+            printNode(p, indentation + 1);
         }
-
-        return nullptr;
-    }
-
-    // returns next slash from start or end
-    inline const char *getNextSegment(const char *start, const char *end) {
-        const char *stop = (const char *) memchr(start, '/', end - start);
-        return stop ? stop : end;
-    }
-
-    inline int lookup(const char *method, int method_length, const char *url, int length) {
-        // all urls start with /
-        url++;
-        length--;
-
-        const char *treeStart = (char *) compiled_tree.data();
-        bool foundWildcard = false;
-
-        // step1: lookup this method (we lookup treeStart)
-        treeStart = find_node(treeStart, method, method_length, &foundWildcard);
-        if (treeStart == 0) {
-            //std::cout << "We do not even have this method!" << std::endl;
-            return -1;
-        }
-
-        const char *stop, *start = url, *end_ptr = url + length;
-        do {
-            // start and stop are pointers in the URL we are getting, end_ptr is the end of url
-            stop = getNextSegment(start, end_ptr);
-
-            //std::cout << "Matching(" << std::string(start, stop - start) << ")" << std::endl;
-
-            if(nullptr == (treeStart = find_node(treeStart, start, stop - start, &foundWildcard))) {
-                return -1;
-            }
-
-            // if the candidate was a wildcard, we do not care for the rest
-            if (foundWildcard) {
-                break;
-            }
-
-            start = stop + 1;
-        } while (stop != end_ptr);
-
-        return *(short *) &treeStart[4];
     }
 
 public:
     HttpRouter() {
-        // maximum 100 parameters
-        params.reserve(100);
+        /* Make sure unhandled is at index 0 */
+        unhandled([](USERDATA, auto args) {
+
+        });
     }
 
-    HttpRouter *unhandled(std::function<void(USERDATA, std::vector<std::string_view> *)> handler) {
-        unhandledHandler = handler;
+    ~HttpRouter() {
+        // todo: delete all Nodes or use unique_ptr
     }
 
-    HttpRouter *add(const char *method, const char *pattern, std::function<void(USERDATA, std::vector<std::string_view> *)> handler) {
+    /* For debugging you may want to print this */
+    void printTree() {
+        printNode(&tree, -1);
+    }
 
-        // step over any initial slash
-        if (pattern[0] == '/') {
-            pattern++;
+    /* Captures all unhandled routes */
+    HttpRouter *unhandled(std::function<void(USERDATA, RouteParameters &)> handler) {
+        if (handlers.size()) {
+            handlers[0] = handler;
+        } else {
+            handlers.push_back(handler);
         }
-
-        std::vector<std::string> nodes;
-        nodes.push_back(method);
-
-        const char *stop, *start = pattern, *end_ptr = pattern + strlen(pattern);
-        do {
-            stop = getNextSegment(start, end_ptr);
-            //std::cout << "Segment(" << std::string(start, stop - start) << ")" << std::endl;
-            nodes.push_back(std::string(start, stop - start));
-            start = stop + 1;
-        } while (stop != end_ptr);
-
-        // add this path to the tree
-        add(nodes, handlers.size());
-        handlers.push_back(handler);
-
-        compile();
         return this;
     }
 
-    void compile() {
-        compiled_tree.clear();
-        compile_tree(&tree);
-    }
-
-    void route(const char *method, unsigned int method_length, const char *url, unsigned int url_length, USERDATA userData) {
-
-        // todo: simplify so that unhandled is 0!
-        int index = lookup(method, method_length, url, url_length);
-        if (index != -1) {
-            handlers[index](userData, &params);
-        } else {
-            unhandledHandler(userData, &params);
+    /* Register a route to be routed */
+    HttpRouter *add(std::string method, std::string_view pattern, std::function<void(USERDATA, RouteParameters &)> handler) {
+        /* Step over any initial slash */
+        if (pattern[0] == '/') {
+            pattern = pattern.substr(1);
         }
 
-        // will this counter the reserve?
-        params.clear();
+        /* Parse the route as a vector of strings */
+        std::vector<std::string> route;
+        route.push_back(method);
+
+        std::stringstream test;
+        test << pattern;
+
+        /* Empty pattern or / is the default */
+        if (!pattern.length()) {
+            route.push_back("");
+        }
+
+        std::string segment;
+        while(std::getline(test, segment, '/')) {
+           route.push_back(segment);
+        }
+
+        /* Add this handler to the list of handlers */
+        short handlerIndex = handlers.size();
+        handlers.push_back(handler);
+
+        /* Build the routing tree */
+        Node *parent = &tree;
+        for (unsigned int i = 0; i < route.size(); i++) {
+            std::string node = route[i];
+            // do we already have this?
+            Node *found = nullptr;
+            for (auto *child : parent->children) {
+                if (child->name == node) {
+                    found = child;
+                    break;
+                }
+            }
+
+            if (!found) {
+                if (i == route.size() - 1) {
+                    // only ever touch the handler id on the leaf node
+                    parent->children.push_back(found = new Node({node, {}, handlerIndex}));
+                } else {
+                    parent->children.push_back(found = new Node({node, {}, 0}));
+                }
+            } else if (i == route.size() - 1) {
+                // touch leaf node of existing path
+                found->handler = handlerIndex;
+            }
+            parent = found;
+        }
+
+        return this;
+    }
+
+    /* Route the method and url pair. Calls registered callback or unhandled handler */
+    void route(std::string_view method, std::string_view url, USERDATA userData) {
+        handlers[lookupNew(method, url)](userData, routeParameters);
     }
 };
 
