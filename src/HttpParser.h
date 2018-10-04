@@ -20,6 +20,8 @@ private:
     } headers[MAX_HEADERS];
     int querySeparator;
 
+    std::pair<int, std::string_view *> currentParameters;
+
 public:
     std::string_view getHeader(std::string_view header) {
         for (Header *h = headers; (++h)->key.length(); ) {
@@ -45,6 +47,18 @@ public:
 
     std::string_view getQuery() {
         return std::string_view(headers->value.data() + querySeparator, headers->value.length() - querySeparator);
+    }
+
+    void setParameters(std::pair<int, std::string_view *> parameters) {
+        currentParameters = parameters;
+    }
+
+    std::string_view getParameter(int index) {
+        if (currentParameters.first < index) {
+            return {};
+        } else {
+            return currentParameters.second[index];
+        }
     }
 
 };

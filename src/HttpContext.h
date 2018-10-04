@@ -215,9 +215,10 @@ public:
     void onGet(std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.add("get", pattern, [handler](typename HttpContextData<SSL>::UserData *user, auto &args) {
+        httpContextData->router.add("get", pattern, [handler](typename HttpContextData<SSL>::UserData *user, std::pair<int, std::string_view *> params) {
 
             // todo: attach params to the req here!
+            user->httpRequest->setParameters(params);
 
             handler(user->httpResponse, user->httpRequest);
         });
@@ -226,7 +227,7 @@ public:
     void onPost(std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.add("post", pattern, [handler](typename HttpContextData<SSL>::UserData *user, auto &args) {
+        httpContextData->router.add("post", pattern, [handler](typename HttpContextData<SSL>::UserData *user, std::pair<int, std::string_view *> params) {
             handler(user->httpResponse, user->httpRequest);
         });
     }
@@ -234,7 +235,7 @@ public:
     void onUnhandled(std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.unhandled([handler](typename HttpContextData<SSL>::UserData *user, auto &args) {
+        httpContextData->router.unhandled([handler](typename HttpContextData<SSL>::UserData *user, std::pair<int, std::string_view *> params) {
             handler(user->httpResponse, user->httpRequest);
         });
     }

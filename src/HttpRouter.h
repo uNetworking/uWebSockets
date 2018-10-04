@@ -40,17 +40,9 @@ private:
             /* Same here, we cannot pop outside */
             paramsTop--;
         }
-    public:
-        std::string_view operator[](unsigned int index) {
-            if ((int) index <= paramsTop) {
-                return params[index];
-            } else {
-                return {};
-            }
-        }
     } routeParameters;
 
-    std::vector<std::function<void(USERDATA, RouteParameters &)>> handlers;
+    std::vector<std::function<void(USERDATA, std::pair<int, std::string_view *>)>> handlers;
 
     struct Node {
         std::string name;
@@ -179,7 +171,7 @@ public:
     }
 
     /* Captures all unhandled routes */
-    HttpRouter *unhandled(std::function<void(USERDATA, RouteParameters &)> handler) {
+    HttpRouter *unhandled(std::function<void(USERDATA, std::pair<int, std::string_view *> params)> handler) {
         if (handlers.size()) {
             handlers[0] = handler;
         } else {
@@ -189,7 +181,7 @@ public:
     }
 
     /* Register a route to be routed */
-    HttpRouter *add(std::string method, std::string_view pattern, std::function<void(USERDATA, RouteParameters &)> handler) {
+    HttpRouter *add(std::string method, std::string_view pattern, std::function<void(USERDATA, std::pair<int, std::string_view *>)> handler) {
         /* Step over any initial slash */
         if (pattern[0] == '/') {
             pattern = pattern.substr(1);
@@ -248,7 +240,7 @@ public:
 
     /* Route the method and url pair. Calls registered callback or unhandled handler */
     void route(std::string_view method, std::string_view url, USERDATA userData) {
-        handlers[lookupNew(method, url)](userData, routeParameters);
+        handlers[lookupNew(method, url)](userData, {routeParameters.paramsTop, routeParameters.params});
     }
 };
 

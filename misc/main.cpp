@@ -16,24 +16,25 @@ int main(int argc, char **argv) {
 
         res->end("GET /WILDCARD");
 
-    })*/.get("/:param1/:param2", [](auto *res, auto *req/*, auto &params*/) {
+    })*/.get("/:param1/:param2", [](auto *res, auto *req) {
 
-        // todo: read from params (req->getParameter(0))
         res->write("GET /:param1/:param2 = ");
-        res->end(req->getUrl());
+        res->write(req->getParameter(0));
+        res->write(" and ");
+        res->end(req->getParameter(1));
 
-    }).post("/hello", [asyncFileStreamer](auto *res, auto *req/*, auto &params*/) {
+    }).post("/hello", [asyncFileStreamer](auto *res, auto *req) {
 
         // depending on the file type we want to also add mime!
         //asyncFileStreamer->streamFile(res, req->getUrl());
 
         res->end("POST /hello");
 
-    }).get("/hello", [](auto *res, auto *req/*, auto &params*/) {
+    }).get("/hello", [](auto *res, auto *req) {
 
         res->end("GET /hello");
 
-    }).unhandled([](auto *res, auto *req/*, auto &params*/) {
+    }).unhandled([](auto *res, auto *req) {
 
         res->end("Here's nothing for you to see!");
 
