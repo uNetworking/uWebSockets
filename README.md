@@ -1,7 +1,7 @@
 <div align="center">
 <img src="misc/logo.png" />
 
-*µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient<sup>[[1]](benchmarks)</sup> messaging for the modern web.*
+*µWS ("[micro](https://en.wikipedia.org/wiki/Micro-)WS") is simple and efficient*<sup>[[1]](benchmarks)</sup> *messaging for the modern web.*
 
 • [Fancy pants details, user manual and FAQ](misc/READMORE.md)
 
@@ -10,25 +10,28 @@
 #### Express yourself briefly.
 ```c++
 uWS::SSLApp({
+
+    /* There are tons of SSL options */
     .cert_file_name = "cert.pem",
     .key_file_name = "key.pem"
-}).onGet("/", [](auto *res, auto *req, auto *args) {
+    
+}).onGet("/", [](auto *res, auto *req) {
 
     /* Respond with the web app on default route */
     res->writeStatus("200 OK")
        ->writeHeader("Content-Type", "text/html; charset=utf-8")
        ->end(indexHtmlBuffer);
     
-}).onWebSocket<UserData>("/ws/chat", [&](auto *ws, auto *req, auto *args) {
+}).onWebSocket<UserData>("/ws/chat", [&](auto *ws, auto *req) {
 
     /* Subscribe to topic /chat */
-    ws->subscribe("/chat");
+    ws->subscribe("chat");
     
 }).onMessage([&](auto *ws, auto message, auto opCode) {
 
     /* Parse incoming message according to some protocol & publish it */
     if (seemsReasonable(message)) {
-        ws->publish("/chat", message);
+        ws->publish("chat", message);
     } else {
         ws->close();
     }
@@ -36,7 +39,7 @@ uWS::SSLApp({
 }).onClose([&](auto *ws, int code, auto message) {
 
     /* Remove websocket from this topic */
-    ws->unsubscribe("/chat");
+    ws->unsubscribe("chat");
     
 }).listen("localhost", 3000, 0).run();
 ```
