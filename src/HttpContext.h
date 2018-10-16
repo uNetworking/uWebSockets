@@ -78,6 +78,13 @@ private:
 
         /* Handle HTTP data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
+
+            // total overhead is about 210k down to 180k
+            // ~210k req/sec is the original perf with write in data
+            // ~200k req/sec is with cork and formatting
+            // ~190k req/sec is with http parsing
+            // ~180k - 190k req/sec is with varying routing
+
             HttpContextData<SSL> *httpContextData = getSocketContextData(s);
 
             /* Do not accept any data while in shutdown state */
