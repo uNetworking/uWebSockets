@@ -12,6 +12,9 @@
 #include <string_view>
 #include <functional>
 
+/* This is a hack for now on, update uSockets */
+extern "C" int us_internal_socket_is_closed(struct us_socket *s);
+
 namespace uWS {
 template<bool> struct HttpResponse;
 
@@ -114,11 +117,10 @@ private:
                 httpResponseData->offset = 0;
                 httpResponseData->state = 0;
 
-                // route it!
-                typename uWS::HttpContextData<SSL>::UserData userData = {
-                    (HttpResponse<SSL> *) s, httpRequest
-                };
-                httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), &userData);
+                /* Route the method and URL */
+                httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), {
+                                                  (HttpResponse<SSL> *) s, httpRequest
+                                              });
 
                 // here we can be closed and in shutdown?
 
@@ -129,7 +131,13 @@ private:
             }, [](void *user) {
                 // close any socket on HTTP errors
                 //static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) user);
+
             });
+
+            if (us_internal_socket_is_closed((struct us_socket *) s)) {
+                // do you really return s? I guess so?
+                return s;
+            }
 
             // uncork only if not closed
             ((AsyncSocket<SSL> *) s)->uncork();
@@ -219,31 +227,23 @@ public:
     }
 
     /* Register an HTTP GET route handler acording to URL pattern */
-    void onGet(std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
+    void onHttp(std::string method, std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.add("get", pattern, [handler](typename HttpContextData<SSL>::UserData *user, std::pair<int, std::string_view *> params) {
+        httpContextData->router.add(method, pattern, [handler](typename HttpContextData<SSL>::RouterData user, std::pair<int, std::string_view *> params) {
 
             // todo: attach params to the req here!
-            user->httpRequest->setParameters(params);
+            user.httpRequest->setParameters(params);
 
-            handler(user->httpResponse, user->httpRequest);
-        });
-    }
-
-    void onPost(std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
-        HttpContextData<SSL> *httpContextData = getSocketContextData();
-
-        httpContextData->router.add("post", pattern, [handler](typename HttpContextData<SSL>::UserData *user, std::pair<int, std::string_view *> params) {
-            handler(user->httpResponse, user->httpRequest);
+            handler(user.httpResponse, user.httpRequest);
         });
     }
 
     void onUnhandled(std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.unhandled([handler](typename HttpContextData<SSL>::UserData *user, std::pair<int, std::string_view *> params) {
-            handler(user->httpResponse, user->httpRequest);
+        httpContextData->router.unhandled([handler](typename HttpContextData<SSL>::RouterData user, std::pair<int, std::string_view *> params) {
+            handler(user.httpResponse, user.httpRequest);
         });
     }
 

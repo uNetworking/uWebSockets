@@ -28,12 +28,47 @@ public:
     }
 
     TemplatedApp &get(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onGet(pattern, handler);
+        httpContext->onHttp("get", pattern, handler);
         return *this;
     }
 
     TemplatedApp &post(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onPost(pattern, handler);
+        httpContext->onHttp("post", pattern, handler);
+        return *this;
+    }
+
+    TemplatedApp &options(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+        httpContext->onHttp("options", pattern, handler);
+        return *this;
+    }
+
+    TemplatedApp &del(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+        httpContext->onHttp("delete", pattern, handler);
+        return *this;
+    }
+
+    TemplatedApp &patch(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+        httpContext->onHttp("patch", pattern, handler);
+        return *this;
+    }
+
+    TemplatedApp &put(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+        httpContext->onHttp("put", pattern, handler);
+        return *this;
+    }
+
+    TemplatedApp &head(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+        httpContext->onHttp("head", pattern, handler);
+        return *this;
+    }
+
+    TemplatedApp &connect(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+        httpContext->onHttp("connect", pattern, handler);
+        return *this;
+    }
+
+    TemplatedApp &trace(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+        httpContext->onHttp("trace", pattern, handler);
         return *this;
     }
 
