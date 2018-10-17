@@ -110,7 +110,7 @@ private:
 
     // the only caller of getHeaders
     template <int CONSUME_MINIMALLY>
-    int fenceAndConsumePostPadded(char *data, int length, void *user, HttpRequest *req, std::function<void(void *, HttpRequest *)> &requestHandler, std::function<void(void *, std::string_view)> &dataHandler) {
+    std::pair<int, void *> fenceAndConsumePostPadded(char *data, int length, void *user, HttpRequest *req, std::function<void *(void *, HttpRequest *)> &requestHandler, std::function<void *(void *, std::string_view)> &dataHandler) {
         int consumedTotal = 0;
         data[length] = '\r';
 
@@ -125,8 +125,19 @@ private:
             const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());
             req->querySeparator = (querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data();
 
-            requestHandler(user, req);
+            // this one should return socket and exit on closed
+            // what happens with data left for websockets?
+            void *returnedUser = requestHandler(user, req);
+            if (returnedUser != user) {
+                // upgraded socket, or otherwise broken
 
+                // return pair of consumed and user
+                return {consumedTotal, returnedUser};
+            }
+
+            // do not check this for GET!
+
+            // todo: also support reading chunked streams
             std::string_view contentLengthString = req->getHeader("content-length");
             if (contentLengthString.length()) {
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
@@ -146,29 +157,36 @@ private:
                 break;
             }
         }
-        return consumedTotal;
+        return {consumedTotal, user};
     }
 
 public:
 
     // todo: what can we do with the socket inside the handlers? we need to check on return from any handler if we closed or terminated or upgraded the socket
-    void consumePostPadded(char *data, int length, void *user, std::function<void(void *, HttpRequest *)> &&requestHandler, std::function<void(void *, std::string_view)> &&dataHandler, std::function<void(void *)> &&errorHandler) {
+    void *consumePostPadded(char *data, int length, void *user, std::function<void *(void *, HttpRequest *)> &&requestHandler, std::function<void *(void *, std::string_view)> &&dataHandler, std::function<void *(void *)> &&errorHandler) {
 
         HttpRequest req;
 
         if (remainingStreamingBytes) {
+
+            // this is exactly the same as below!
             if (remainingStreamingBytes >= length) {
-                dataHandler(user, std::string_view(data, length));
+                void *returnedUser = dataHandler(user, std::string_view(data, length));
                 remainingStreamingBytes -= length;
-                return;
+                return returnedUser;
             } else {
-                dataHandler(user, std::string_view(data, remainingStreamingBytes));
+                void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes));
 
                 data += remainingStreamingBytes;
                 length -= remainingStreamingBytes;
 
                 remainingStreamingBytes = 0;
+
+                if (returnedUser != user) {
+                    return returnedUser;
+                }
             }
+
         } else if (fallback.length()) {
             int had = fallback.length();
 
@@ -177,50 +195,67 @@ public:
             fallback.reserve(maxCopyDistance + 32); // padding should be same as libus
             fallback.append(data, maxCopyDistance);
 
-            int consumed = fenceAndConsumePostPadded<true>(fallback.data(), fallback.length(), user, &req, requestHandler, dataHandler);
-            if (consumed) {
+            // break here on break
+            std::pair<int, void *> consumed = fenceAndConsumePostPadded<true>(fallback.data(), fallback.length(), user, &req, requestHandler, dataHandler);
+            if (consumed.second != user) {
+                return consumed.second;
+            }
+
+            if (consumed.first) {
 
                 fallback.clear();
 
-                data += consumed - had;
-                length -= consumed - had;
+                data += consumed.first - had;
+                length -= consumed.first - had;
 
-                // this is exactly the same as above!
                 if (remainingStreamingBytes) {
+                    // this is exactly the same as above!
                     if (remainingStreamingBytes >= length) {
-                        dataHandler(user, std::string_view(data, length));
+                        void *returnedUser = dataHandler(user, std::string_view(data, length));
                         remainingStreamingBytes -= length;
-                        return;
+                        return returnedUser;
                     } else {
-                        dataHandler(user, std::string_view(data, remainingStreamingBytes));
+                        void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes));
 
                         data += remainingStreamingBytes;
                         length -= remainingStreamingBytes;
 
                         remainingStreamingBytes = 0;
+
+                        if (returnedUser != user) {
+                            return returnedUser;
+                        }
                     }
                 }
 
             } else {
                 if (fallback.length() == MAX_FALLBACK_SIZE) {
-                    errorHandler(user);
+                    // you don't really need error handler, just return something strange!
+                    // we could have it return a constant pointer to denote error!
+                    return errorHandler(user);
                 }
-                return;
+                return user;
             }
         }
 
-        int consumed = fenceAndConsumePostPadded<false>(data, length, user, &req, requestHandler, dataHandler);
+        std::pair<int, void *> consumed = fenceAndConsumePostPadded<false>(data, length, user, &req, requestHandler, dataHandler);
+        if (consumed.second != user) {
+            return consumed.second;
+        }
 
-        data += consumed;
-        length -= consumed;
+        data += consumed.first;
+        length -= consumed.first;
 
         if (length) {
             if (length < MAX_FALLBACK_SIZE) {
                 fallback.append(data, length);
             } else {
-                errorHandler(user);
+                return errorHandler(user);
             }
         }
+
+        // added for now
+        return user;
     }
 };
 

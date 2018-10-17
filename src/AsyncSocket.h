@@ -9,6 +9,11 @@
 
 namespace uWS {
 
+// we need a variant of this where any failed write triggers a timeout!
+// AsyncSocket needs to derive from a uSockets base we can select like so:
+
+// HttpResponse -> AsyncSocket<T> -> TimeoutSocket or Socket (make StaticDispath Socket)
+
 template <bool SSL>
 struct AsyncSocket : StaticDispatch<SSL> {
     template <bool> friend struct HttpContext;
@@ -38,6 +43,11 @@ protected:
 
     SOCKET_TYPE *close() {
         return static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) this);
+    }
+
+    bool isFullyOpen() {
+        // todo:: not shutdown or closed
+        return true;
     }
 
     /* Cork this socket. Only one socket may ever be corked per-loop at any given time */

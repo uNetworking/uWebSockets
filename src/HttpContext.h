@@ -26,7 +26,7 @@ private:
     using StaticDispatch<SSL>::static_dispatch;
     HttpContext() = delete;
 
-    /* Maximum delay allowed until an HTTP connection is terminated due to outstanding request (slow loris protection) */
+    /* Maximum delay allowed until an HTTP connection is terminated due to outstanding request or rejected data (slow loris protection) */
     static const int HTTP_IDLE_TIMEOUT_S = 10;
 
     SOCKET_CONTEXT_TYPE *getSocketContext() {
@@ -95,22 +95,22 @@ private:
                 return s;
             }
 
-            // basically, when getting a new request we need to disable timeouts and enter paused mode!
+            HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
 
             /* Cork this socket */
             ((AsyncSocket<SSL> *) s)->cork();
 
-            // pass this pointer to pointer along with the routing and change it if upgraded
-            SOCKET_TYPE *returnedSocket = s;
+            void *returnedSocket = httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
-            HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
-            httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, uWS::HttpRequest *httpRequest) {
+                // we need HttpAsyncSocket to derive from AsyncSocket where any failed write will trigger the timeout?
 
-                // whenever we get (the first) request we should disable timeout?
+                // http timeout logic in a nutshell:
+                // whenever a httpsocket writes and it fails, start a timer until onwritable, reset timer in next onwritable or next successful write
+                // if .end succeeds, then start a new timeout for the next request
 
-                // warning: if we are in shutdown state, resetting the timer is a security issue!
-                // todo: do not reset timer, disable it to allow hang requests!
-                static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) s, HTTP_IDLE_TIMEOUT_S);
+                /* For every request we reset the timeout and hang until user makes action */
+                /* Warning: if we are in shutdown state, resetting the timer is a security issue! */
+                static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) s, 0);
 
                 /* Reset httpResponse */
                 HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
@@ -118,32 +118,64 @@ private:
                 httpResponseData->state = 0;
 
                 /* Route the method and URL */
+
+                // I guess upgrade will have to write to a global variable we check afterwards
                 httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), {
                                                   (HttpResponse<SSL> *) s, httpRequest
                                               });
 
-                // here we can be closed and in shutdown?
 
-            }, [httpResponseData](void *user, std::string_view data) {
+                //if (isFullyOpen) return s otherwise return nullptr;
+
+
+                /* Was the socket closed? */
+                if (us_internal_socket_is_closed((struct us_socket *) s)) {
+                    return nullptr;
+                }
+
+                /* We absolutely have to terminate parsing if shutdown */
+                if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)((SOCKET_TYPE *) s)) {
+                    return nullptr;
+                }
+
+                /* Was the socket upgraded? */
+                // return new pointer to websocket
+
+                /* If we return anything other than user, then that means STOP PARSING and this new value should be returned all the way? */
+
+                /* Continue parsing */
+                return s;
+
+            }, [httpResponseData](void *user, std::string_view data) -> void * {
                 if (httpResponseData->inStream) {
                     httpResponseData->inStream(data);
                 }
-            }, [](void *user) {
-                // close any socket on HTTP errors
-                //static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) user);
 
+                /* Was the socket closed? */
+                if (us_internal_socket_is_closed((struct us_socket *) user)) {
+                    return nullptr;
+                }
+
+                /* We absolutely have to terminate parsing if shutdown */
+                if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)((SOCKET_TYPE *) user)) {
+                    return nullptr;
+                }
+
+                return user;
+            }, [](void *user) {
+                 /* Close any socket on HTTP errors */
+                static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) user);
+                return nullptr;
             });
 
-            if (us_internal_socket_is_closed((struct us_socket *) s)) {
-                // do you really return s? I guess so?
-                return s;
+            /* Only uncork still valid sockets */
+            if (returnedSocket == s) {
+                ((AsyncSocket<SSL> *) s)->uncork();
+            } else {
+                // was this socket upgraded?
+                std::cout << "Socket was closed or shut down in handler or maybe upgraded" << std::endl;
             }
 
-            // uncork only if not closed
-            ((AsyncSocket<SSL> *) s)->uncork();
-
-            // how do we return a new socket here, from the http route?
-            // maybe hold upgradedSocket in the loopData and return that?
             return s;
         });
 
@@ -152,8 +184,8 @@ private:
 
             std::cout << "HttpContext::onWritable event fired!" << std::endl;
 
-            /* Writing data should reset the timeout */
-            static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, HTTP_IDLE_TIMEOUT_S);
+            /* We are now writable, so hang timeout again */
+            static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, 0);
 
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
@@ -176,7 +208,7 @@ private:
         /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
         static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(getSocketContext(), [](auto *s) {
 
-            std::cout << "FIN sent" << std::endl;
+            //std::cout << "FIN sent" << std::endl;
 
             /* We do not care for half closed sockets */
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
@@ -226,15 +258,12 @@ public:
         static_dispatch(us_ssl_socket_context_free, us_socket_context_free)(getSocketContext());
     }
 
-    /* Register an HTTP GET route handler acording to URL pattern */
+    /* Register an HTTP route handler acording to URL pattern */
     void onHttp(std::string method, std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
         httpContextData->router.add(method, pattern, [handler](typename HttpContextData<SSL>::RouterData user, std::pair<int, std::string_view *> params) {
-
-            // todo: attach params to the req here!
             user.httpRequest->setParameters(params);
-
             handler(user.httpResponse, user.httpRequest);
         });
     }

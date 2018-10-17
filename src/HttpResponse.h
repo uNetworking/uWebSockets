@@ -103,6 +103,8 @@ public:
 
             Super::write(data.data(), data.length());
         }
+
+        // todo: calling end should start a timeout of the socket!
     }
 
     /* Write parts of the response in chunking fashion */
