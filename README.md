@@ -55,4 +55,4 @@ A free & open source ([Zlib](LICENSE)) project since 2016. Kindly sponsored by [
 Commercial support is available via a per-hourly consulting plan or as otherwise negotiated. If you're stuck, worried about design or just in need of help don't hesitate throwing [me, the author](https://github.com/alexhultman) a mail and we'll figure out what's best for both parties. I want your business to have a proper understanding of the problem before rushing in to one of the many pitfalls.
 
 #### Excel across the board.
-![](https://github.com/uNetworking/uWebSockets/raw/master/misc/images/overview.png)
+![](misc/bigshot_lineup.png)
