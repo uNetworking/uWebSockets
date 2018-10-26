@@ -36,7 +36,9 @@ int main(int argc, char **argv) {
 
     }).unhandled([](auto *res, auto *req) {
 
-        res->end("Here's nothing for you to see!");
+        res->writeStatus("404 Not Found");
+        res->writeHeader("Content-Type", "text/html; charset=utf-8");
+        res->end("<h1>404 Not Found</h1><i>µWebSockets v0.15</i>");
 
     }).listen(3000, [](auto *token) {
         if (token) {
