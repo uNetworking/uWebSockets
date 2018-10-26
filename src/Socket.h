@@ -8,7 +8,7 @@ namespace uS {
 struct TransferData {
     // Connection state
     uv_os_sock_t fd;
-    SSL *ssl;
+    std::shared_ptr<mbedtls_ssl_context> ssl;
 
     // Poll state
     void (*pollCb)(Poll *, int, int);
@@ -30,14 +30,14 @@ protected:
         int shuttingDown : 4;
     } state = {0, false};
 
-    SSL *ssl;
+    std::shared_ptr<mbedtls_ssl_context> ssl;
     void *user = nullptr;
     NodeData *nodeData;
 
     // this is not needed by HttpSocket!
     struct Queue {
         struct Message {
-            const char *data;
+            const unsigned char *data;
             size_t length;
             Message *nextMessage = nullptr;
             void (*callback)(void *socket, void *data, bool cancelled, void *reserved) = nullptr;
@@ -150,27 +150,29 @@ protected:
             return;
         }
 
-        if (!socket->messageQueue.empty() && ((events & UV_WRITABLE) || SSL_want(socket->ssl) == SSL_READING)) {
+        if (!socket->messageQueue.empty() && ((events & UV_WRITABLE) || mbedtls_ssl_get_bytes_avail(socket->ssl.get()) != 0)) {
             socket->cork(true);
             while (true) {
                 Queue::Message *messagePtr = socket->messageQueue.front();
-                int sent = SSL_write(socket->ssl, messagePtr->data, (int) messagePtr->length);
-                if (sent == (ssize_t) messagePtr->length) {
+                size_t offset = 0;
+                int sent = mbedtls_ssl_write(socket->ssl.get(), messagePtr->data + offset, (int) messagePtr->length - offset);
+                offset += sent;
+                if (offset == (ssize_t) messagePtr->length) {
                     if (messagePtr->callback) {
                         messagePtr->callback(p, messagePtr->callbackData, false, messagePtr->reserved);
                     }
                     socket->messageQueue.pop();
                     if (socket->messageQueue.empty()) {
-                        if ((socket->state.poll & UV_WRITABLE) && SSL_want(socket->ssl) != SSL_WRITING) {
+                        if (socket->state.poll & UV_WRITABLE) {
                             socket->change(socket->nodeData->loop, socket, socket->setPoll(UV_READABLE));
                         }
                         break;
                     }
                 } else if (sent <= 0) {
-                    switch (SSL_get_error(socket->ssl, sent)) {
-                    case SSL_ERROR_WANT_READ:
+                    switch (sent) {
+                    case MBEDTLS_ERR_SSL_WANT_READ:
                         break;
-                    case SSL_ERROR_WANT_WRITE:
+                    case MBEDTLS_ERR_SSL_WANT_WRITE:
                         if ((socket->getPoll() & UV_WRITABLE) == 0) {
                             socket->change(socket->nodeData->loop, socket, socket->setPoll(socket->getPoll() | UV_WRITABLE));
                         }
@@ -187,12 +189,12 @@ protected:
 
         if (events & UV_READABLE) {
             do {
-                int length = SSL_read(socket->ssl, socket->nodeData->recvBuffer, socket->nodeData->recvLength);
+                int length = mbedtls_ssl_read(socket->ssl.get(), socket->nodeData->recvBuffer, socket->nodeData->recvLength);
                 if (length <= 0) {
-                    switch (SSL_get_error(socket->ssl, length)) {
-                    case SSL_ERROR_WANT_READ:
+                    switch (length) {
+                    case MBEDTLS_ERR_SSL_WANT_READ:
                         break;
-                    case SSL_ERROR_WANT_WRITE:
+                    case MBEDTLS_ERR_SSL_WANT_WRITE:
                         if ((socket->getPoll() & UV_WRITABLE) == 0) {
                             socket->change(socket->nodeData->loop, socket, socket->setPoll(socket->getPoll() | UV_WRITABLE));
                         }
@@ -209,7 +211,7 @@ protected:
                         return;
                     }
                 }
-            } while (SSL_pending(socket->ssl));
+            } while (mbedtls_ssl_get_bytes_avail(socket->ssl.get()));
         }
     }
 
@@ -287,7 +289,7 @@ protected:
     Queue::Message *allocMessage(size_t length, const char *data = 0) {
         Queue::Message *messagePtr = (Queue::Message *) new char[sizeof(Queue::Message) + length];
         messagePtr->length = length;
-        messagePtr->data = ((char *) messagePtr) + sizeof(Queue::Message);
+        messagePtr->data = ((unsigned char *) messagePtr) + sizeof(Queue::Message);
         messagePtr->nextMessage = nullptr;
 
         if (data) {
@@ -306,15 +308,15 @@ protected:
         if (messageQueue.empty()) {
 
             if (ssl) {
-                sent = SSL_write(ssl, message->data, (int) message->length);
+                sent = mbedtls_ssl_write(ssl.get(), message->data, (int) message->length);
                 if (sent == (ssize_t) message->length) {
                     wasTransferred = false;
                     return true;
                 } else if (sent < 0) {
-                    switch (SSL_get_error(ssl, (int) sent)) {
-                    case SSL_ERROR_WANT_READ:
+                    switch (sent) {
+                    case MBEDTLS_ERR_SSL_WANT_READ:
                         break;
-                    case SSL_ERROR_WANT_WRITE:
+                    case MBEDTLS_ERR_SSL_WANT_WRITE:
                         if ((getPoll() & UV_WRITABLE) == 0) {
                             setPoll(getPoll() | UV_WRITABLE);
                             changePoll(this);
@@ -359,7 +361,7 @@ protected:
                 int memoryIndex = nodeData->getMemoryBlockIndex(memoryLength);
 
                 Queue::Message *messagePtr = (Queue::Message *) nodeData->getSmallMemoryBlock(memoryIndex);
-                messagePtr->data = ((char *) messagePtr) + sizeof(Queue::Message);
+                messagePtr->data = ((unsigned char *) messagePtr) + sizeof(Queue::Message);
                 messagePtr->length = T::transform(message, (char *) messagePtr->data, length, transformData);
 
                 bool wasTransferred;
@@ -411,12 +413,10 @@ protected:
     }
 
 public:
-    Socket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, SSL *ssl) : Poll(loop, fd), ssl(ssl), nodeData(nodeData) {
-        if (ssl) {
-            // OpenSSL treats SOCKETs as int
-            SSL_set_fd(ssl, (int) fd);
-            SSL_set_mode(ssl, SSL_MODE_RELEASE_BUFFERS);
-        }
+    Socket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, std::shared_ptr<mbedtls_ssl_context> ssl) : Poll(loop, fd), ssl(ssl), nodeData(nodeData) {
+        // Voir comment récupérer net_context et pas ssl_context
+        // if (ssl)
+        //     ssl->fd = fd;
     }
 
     NodeData *getNodeData() {
@@ -462,7 +462,7 @@ public:
     void shutdown() {
         if (ssl) {
             //todo: poll in/out - have the io_cb recall shutdown if failed
-            SSL_shutdown(ssl);
+            mbedtls_ssl_close_notify(ssl.get());
         } else {
             ::shutdown(getFd(), SHUT_WR);
         }
@@ -476,7 +476,7 @@ public:
         netContext->closeSocket(fd);
 
         if (ssl) {
-            SSL_free(ssl);
+            mbedtls_ssl_free(ssl.get());
         }
 
         Poll::close(nodeData->loop, [](Poll *p) {
@@ -494,7 +494,7 @@ public:
 
 struct ListenSocket : Socket {
 
-    ListenSocket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, SSL *ssl) : Socket(nodeData, loop, fd, ssl) {
+    ListenSocket(NodeData *nodeData, Loop *loop, uv_os_sock_t fd, std::shared_ptr<mbedtls_ssl_context> ssl) : Socket(nodeData, loop, fd, ssl) {
 
     }
 

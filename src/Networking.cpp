@@ -4,54 +4,33 @@ namespace uS {
 
 namespace TLS {
 
-Context::Context(const Context &other)
-{
-    if (other.context) {
-        context = other.context;
-        SSL_CTX_up_ref(context);
-    }
-}
-
-Context &Context::operator=(const Context &other) {
-    if (other.context) {
-        context = other.context;
-        SSL_CTX_up_ref(context);
-    }
-    return *this;
-}
-
-Context::~Context()
-{
-    if (context) {
-        SSL_CTX_free(context);
-    }
-}
-
-struct Init {
-    Init() {SSL_library_init();}
-    ~Init() {/*EVP_cleanup();*/}
-} init;
-
 Context createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword)
 {
-    Context context(SSL_CTX_new(SSLv23_server_method()));
+    auto *mbed_context = new mbedtls_ssl_context;
+    mbedtls_ssl_init(mbed_context);
+
+    auto *mbed_config = new mbedtls_ssl_config;
+    mbedtls_ssl_config_init(mbed_config);
+
+    Context context(mbed_context);
     if (!context.context) {
         return nullptr;
     }
 
-    if (keyFilePassword.length()) {
-        context.password.reset(new std::string(keyFilePassword));
-        SSL_CTX_set_default_passwd_cb_userdata(context.context, context.password.get());
-        SSL_CTX_set_default_passwd_cb(context.context, Context::passwordCallback);
-    }
+    auto *mbed_x509 = new mbedtls_x509_crt;
+    mbedtls_x509_crt_init(mbed_x509);
+    int ret = mbedtls_x509_crt_parse_file(mbed_x509, certChainFileName.c_str());
+    if (ret != 0)
+      return nullptr;
 
-    SSL_CTX_set_options(context.context, SSL_OP_NO_SSLv3);
+    auto *mbed_pk = new mbedtls_pk_context;
+    mbedtls_pk_init(mbed_pk);
 
-    if (SSL_CTX_use_certificate_chain_file(context.context, certChainFileName.c_str()) != 1) {
-        return nullptr;
-    } else if (SSL_CTX_use_PrivateKey_file(context.context, keyFileName.c_str(), SSL_FILETYPE_PEM) != 1) {
-        return nullptr;
-    }
+    ret = mbedtls_pk_parse_keyfile(mbed_pk, keyFileName.c_str(), keyFilePassword.c_str());
+    if (ret != 0)
+      return nullptr;
+
+    mbedtls_ssl_conf_own_cert(mbed_config, mbed_x509, mbed_pk);
 
     return context;
 }

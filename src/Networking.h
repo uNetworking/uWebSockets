@@ -4,11 +4,9 @@
 #ifndef NETWORKING_UWS_H
 #define NETWORKING_UWS_H
 
-#include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-#define SSL_CTX_up_ref(x) x->references++
-#define SSL_up_ref(x) x->references++
-#endif
+#include <memory>
+
+#include <mbedtls/ssl.h>
 
 #ifndef __linux
 #define MSG_NOSIGNAL 0
@@ -158,7 +156,7 @@ namespace TLS {
 
 class WIN32_EXPORT Context {
 protected:
-    SSL_CTX *context = nullptr;
+    std::shared_ptr<mbedtls_ssl_context> context;
     std::shared_ptr<std::string> password;
 
     static int passwordCallback(char *buf, int size, int rwflag, void *u)
@@ -172,19 +170,20 @@ protected:
 
 public:
     friend Context WIN32_EXPORT createContext(std::string certChainFileName, std::string keyFileName, std::string keyFilePassword);
-    Context(SSL_CTX *context) : context(context) {
+    Context(mbedtls_ssl_context *context) : context(context, mbedtls_ssl_free) {
 
     }
 
     Context() = default;
-    Context(const Context &other);
-    Context &operator=(const Context &other);
-    ~Context();
+    Context(const Context &other) = default;
+    Context &operator=(const Context &other) = default;
+    ~Context() = default;
+
     operator bool() {
-        return context;
+        return static_cast<bool>(context);
     }
 
-    SSL_CTX *getNativeContext() {
+    std::shared_ptr<mbedtls_ssl_context> getNativeContext() {
         return context;
     }
 };
@@ -197,15 +196,15 @@ struct Socket;
 
 // NodeData is like a Context, maybe merge them?
 struct WIN32_EXPORT NodeData {
-    char *recvBufferMemoryBlock;
-    char *recvBuffer;
+    unsigned char *recvBufferMemoryBlock;
+    unsigned char *recvBuffer;
     int recvLength;
     Loop *loop;
     uS::Context *netContext;
     void *user = nullptr;
     static const int preAllocMaxSize = 1024;
     char **preAlloc;
-    SSL_CTX *clientContext;
+    std::shared_ptr<mbedtls_ssl_context> clientContext;
 
     Async *async = nullptr;
     pthread_t tid;

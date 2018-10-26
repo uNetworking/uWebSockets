@@ -1,6 +1,6 @@
 #include "Hub.h"
 #include "HTTPSocket.h"
-#include <openssl/sha.h>
+#include <mbedtls/ssl.h>
 #include <string>
 
 namespace uWS {
@@ -10,7 +10,7 @@ z_stream *Hub::allocateDefaultCompressor(z_stream *zStream) {
     return zStream;
 }
 
-char *Hub::deflate(char *data, size_t &length, z_stream *slidingDeflateWindow) {
+unsigned char *Hub::deflate(char *data, size_t &length, z_stream *slidingDeflateWindow) {
     dynamicZlibBuffer.clear();
 
     z_stream *compressor = slidingDeflateWindow ? slidingDeflateWindow : &deflationStream;
@@ -44,7 +44,7 @@ char *Hub::deflate(char *data, size_t &length, z_stream *slidingDeflateWindow) {
         dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - compressor->avail_out);
 
         length = dynamicZlibBuffer.length() - 4;
-        return (char *) dynamicZlibBuffer.data();
+        return (unsigned char *) dynamicZlibBuffer.data();
     }
 
     length = DEFLATE_OUTPUT_CHUNK - compressor->avail_out - 4;
@@ -235,7 +235,7 @@ void Hub::connect(std::string uri, void *user, std::map<std::string, std::string
     }
 }
 
-void Hub::upgrade(uv_os_sock_t fd, const char *secKey, SSL *ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup) {
+void Hub::upgrade(uv_os_sock_t fd, const char *secKey, std::shared_ptr<mbedtls_ssl_context> ssl, const char *extensions, size_t extensionsLength, const char *subprotocol, size_t subprotocolLength, Group<SERVER> *serverGroup) {
     if (!serverGroup) {
         serverGroup = &getDefaultGroup<SERVER>();
     }

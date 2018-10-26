@@ -59,10 +59,9 @@ protected:
             listenSocket->start(listenSocket->nodeData->loop, listenSocket, UV_READABLE);
         }
         do {
-            SSL *ssl = nullptr;
+            std::shared_ptr<mbedtls_ssl_context> ssl;
             if (listenSocket->sslContext) {
-                ssl = SSL_new(listenSocket->sslContext.getNativeContext());
-                SSL_set_accept_state(ssl);
+                ssl = listenSocket->sslContext.getNativeContext();
             }
 
             Socket *socket = new Socket(listenSocket->nodeData, listenSocket->nodeData->loop, clientFd, ssl);
@@ -110,11 +109,11 @@ public:
         ::connect(fd, result->ai_addr, result->ai_addrlen);
         freeaddrinfo(result);
 
-        SSL *ssl = nullptr;
+        std::shared_ptr<mbedtls_ssl_context> ssl;
         if (secure) {
-            ssl = SSL_new(nodeData->clientContext);
-            SSL_set_connect_state(ssl);
-            SSL_set_tlsext_host_name(ssl, hostname);
+            ssl = nodeData->clientContext;
+            mbedtls_ssl_set_hostname(ssl.get(), hostname);
+            // SSL_set_connect_state(ssl); // semble inutile en mbedtls !
         }
 
         Socket initialSocket(nodeData, getLoop(), fd, ssl);

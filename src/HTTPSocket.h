@@ -130,7 +130,7 @@ protected:
     friend struct uS::Socket;
     friend struct HttpResponse;
     friend struct Hub;
-    static uS::Socket *onData(uS::Socket *s, char *data, size_t length);
+    static uS::Socket *onData(uS::Socket *s, unsigned char *data, size_t length);
     static void onEnd(uS::Socket *s);
 };
 

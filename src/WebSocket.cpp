@@ -49,9 +49,9 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
             return length + HEADER_LENGTH;
         }
 
-        static size_t transform(const char *src, char *dst, size_t length, TransformData transformData) {
+        static size_t transform(const unsigned char *src, unsigned char *dst, size_t length, TransformData transformData) {
             if (transformData.compress) {
-                char *deflated = Group<isServer>::from(transformData.s)->hub->deflate((char *) src, length, (z_stream *) transformData.s->slidingDeflateWindow);
+                unsigned char *deflated = Group<isServer>::from(transformData.s)->hub->deflate((char *) src, length, (z_stream *) transformData.s->slidingDeflateWindow);
                 return WebSocketProtocol<isServer, WebSocket<isServer>>::formatMessage(dst, deflated, length, transformData.opCode, length, true);
             }
 
@@ -72,9 +72,9 @@ void WebSocket<isServer>::send(const char *message, size_t length, OpCode opCode
  *
  */
 template <bool isServer>
-typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessage(char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved)) {
+typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessage(unsigned char *data, size_t length, OpCode opCode, bool compressed, void(*callback)(WebSocket<isServer> *webSocket, void *data, bool cancelled, void *reserved)) {
     PreparedMessage *preparedMessage = new PreparedMessage;
-    preparedMessage->buffer = new char[length + 10];
+    preparedMessage->buffer = new unsigned char[length + 10];
     preparedMessage->length = WebSocketProtocol<isServer, WebSocket<isServer>>::formatMessage(preparedMessage->buffer, data, length, opCode, length, compressed);
     preparedMessage->references = 1;
     preparedMessage->callback = (void(*)(void *, void *, bool, void *)) callback;
@@ -100,7 +100,7 @@ typename WebSocket<isServer>::PreparedMessage *WebSocket<isServer>::prepareMessa
     }
 
     PreparedMessage *preparedMessage = new PreparedMessage;
-    preparedMessage->buffer = new char[batchLength + 10 * messages.size()];
+    preparedMessage->buffer = new unsigned char[batchLength + 10 * messages.size()];
 
     int offset = 0;
     for (size_t i = 0; i < messages.size(); i++) {
@@ -188,7 +188,7 @@ void WebSocket<isServer>::finalizeMessage(typename WebSocket<isServer>::Prepared
 }
 
 template <bool isServer>
-uS::Socket *WebSocket<isServer>::onData(uS::Socket *s, char *data, size_t length) {
+uS::Socket *WebSocket<isServer>::onData(uS::Socket *s, unsigned char *data, size_t length) {
     WebSocket<isServer> *webSocket = static_cast<WebSocket<isServer> *>(s);
 
     webSocket->hasOutstandingPong = false;

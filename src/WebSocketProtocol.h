@@ -63,13 +63,13 @@ public:
     static const unsigned int LONG_MESSAGE_HEADER = isServer ? 14 : 10;
 
 protected:
-    static inline bool isFin(char *frame) {return *((unsigned char *) frame) & 128;}
-    static inline unsigned char getOpCode(char *frame) {return *((unsigned char *) frame) & 15;}
-    static inline unsigned char payloadLength(char *frame) {return ((unsigned char *) frame)[1] & 127;}
-    static inline bool rsv23(char *frame) {return *((unsigned char *) frame) & 48;}
-    static inline bool rsv1(char *frame) {return *((unsigned char *) frame) & 64;}
+    static inline bool isFin(unsigned char *frame) {return *(frame) & 128;}
+    static inline unsigned char getOpCode(unsigned char *frame) {return *(frame) & 15;}
+    static inline unsigned char payloadLength(unsigned char *frame) {return (frame)[1] & 127;}
+    static inline bool rsv23(unsigned char *frame) {return *(frame) & 48;}
+    static inline bool rsv1(unsigned char *frame) {return *(frame) & 64;}
 
-    static inline void unmaskImprecise(char *dst, char *src, char *mask, unsigned int length) {
+    static inline void unmaskImprecise(unsigned char *dst, unsigned char *src, char *mask, unsigned int length) {
         for (unsigned int n = (length >> 2) + 1; n; n--) {
             *(dst++) = *(src++) ^ mask[0];
             *(dst++) = *(src++) ^ mask[1];
@@ -78,7 +78,7 @@ protected:
         }
     }
 
-    static inline void unmaskImpreciseCopyMask(char *dst, char *src, char *maskPtr, unsigned int length) {
+    static inline void unmaskImpreciseCopyMask(unsigned char *dst, unsigned char *src, unsigned char *maskPtr, unsigned int length) {
         char mask[4] = {maskPtr[0], maskPtr[1], maskPtr[2], maskPtr[3]};
         unmaskImprecise(dst, src, mask, length);
     }
@@ -91,7 +91,7 @@ protected:
         mask[(3 + offset) % 4] = originalMask[3];
     }
 
-    static inline void unmaskInplace(char *data, char *stop, char *mask) {
+    static inline void unmaskInplace(unsigned char *data, unsigned char *stop, char *mask) {
         while (data < stop) {
             *(data++) ^= mask[0];
             *(data++) ^= mask[1];
@@ -107,7 +107,7 @@ protected:
     };
 
     template <unsigned int MESSAGE_HEADER, typename T>
-    static inline bool consumeMessage(T payLength, char *&src, unsigned int &length, WebSocketState<isServer> *wState) {
+    static inline bool consumeMessage(T payLength, unsigned char *&src, unsigned int &length, WebSocketState<isServer> *wState) {
         if (getOpCode(src)) {
             if (wState->state.opStack == 1 || (!wState->state.lastFin && getOpCode(src) < 2)) {
                 Impl::forceClose(wState);
@@ -276,7 +276,7 @@ public:
         return 0;
     }
 
-    static inline size_t formatMessage(char *dst, const char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed) {
+    static inline size_t formatMessage(unsigned char *dst, const unsigned char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed) {
         size_t messageLength;
         size_t headerLength;
         if (reportedLength < 126) {
@@ -326,7 +326,7 @@ public:
         return messageLength;
     }
 
-    static inline void consume(char *src, unsigned int length, WebSocketState<isServer> *wState) {
+    static inline void consume(unsigned char *src, unsigned int length, WebSocketState<isServer> *wState) {
         if (wState->state.spillLength) {
             src -= wState->state.spillLength;
             length += wState->state.spillLength;

@@ -36,7 +36,7 @@ void NodeData::asyncCallback(Async *async)
 
 Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop) {
     nodeData = new NodeData;
-    nodeData->recvBufferMemoryBlock = new char[recvLength];
+    nodeData->recvBufferMemoryBlock = new unsigned char[recvLength];
     nodeData->recvBuffer = nodeData->recvBufferMemoryBlock + prePadding;
     nodeData->recvLength = recvLength - prePadding - postPadding;
 
@@ -55,8 +55,7 @@ Node::Node(int recvLength, int prePadding, int postPadding, bool useDefaultLoop)
         nodeData->preAlloc[i] = nullptr;
     }
 
-    nodeData->clientContext = SSL_CTX_new(SSLv23_client_method());
-    SSL_CTX_set_options(nodeData->clientContext, SSL_OP_NO_SSLv3);
+    nodeData->clientContext = std::shared_ptr<mbedtls_ssl_context>(new mbedtls_ssl_context, mbedtls_ssl_free);
 }
 
 void Node::run() {
@@ -70,7 +69,6 @@ void Node::poll() {
 
 Node::~Node() {
     delete [] nodeData->recvBufferMemoryBlock;
-    SSL_CTX_free(nodeData->clientContext);
 
     int indices = NodeData::getMemoryBlockIndex(NodeData::preAllocMaxSize) + 1;
     for (int i = 0; i < indices; i++) {
