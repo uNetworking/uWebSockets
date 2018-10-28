@@ -66,7 +66,7 @@ private:
 
             std::cout << "Close event!" << std::endl;
 
-            /* Signal broken HTTP request */
+            /* Signal broken HTTP request only if we have a pending request */
             if (httpResponseData->onAborted) {
                 httpResponseData->onAborted();
             }

@@ -105,6 +105,13 @@ private:
                 Super::timeout(HTTP_TIMEOUT_S);
             }
 
+            /* Remove onAborted function if we reach the end */
+            if (httpResponseData->offset == totalSize) {
+                httpResponseData->onAborted = nullptr;
+                /* Also remove onWritable so that we do not emit when draining behind the scenes. */
+                httpResponseData->onWritable = nullptr;
+            }
+
             return success;
         }
     }
