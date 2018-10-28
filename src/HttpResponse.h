@@ -12,6 +12,9 @@ namespace uWS {
 /* Some pre-defined status constants to use with writeStatus */
 const char *HTTP_200_OK = "200 OK";
 
+/* The general timeout for HTTP sockets */
+const int HTTP_TIMEOUT_S = 10;
+
 template <bool SSL>
 struct HttpResponse : public AsyncSocket<SSL> {
     typedef AsyncSocket<SSL> Super;
@@ -38,9 +41,81 @@ private:
         Super::write(buf, length);
     }
 
+    /* Returns true on success, indicating that it might be feasible to write more data.
+     * Will start timeout if stream reaches totalSize or write failure. */
+    bool internalEnd(std::string_view data, int totalSize, bool optional) {
+        /* Write status if not already done */
+        writeStatus(HTTP_200_OK);
+
+        /* If no total size given then assume this chunk is everything */
+        if (!totalSize) {
+            totalSize = data.length();
+        }
+
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+        if (httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED) {
+
+            // we do not listen to optional here!
+
+            /* Do not allow sending 0 chunk here */
+            if (data.length()) {
+                Super::write("\r\n", 2);
+                writeUnsignedHex(data.length());
+                Super::write("\r\n", 2);
+
+                // should be optional
+                Super::write(data.data(), data.length());
+            }
+
+            /* Terminating 0 chunk */
+            Super::write("\r\n0\r\n\r\n", 7);
+
+            // what about timeout here!?
+
+            // always start timeout here!
+            Super::timeout(HTTP_TIMEOUT_S);
+
+            // unclear about this path really
+            return true;
+
+        } else {
+            /* Write content-length on first call */
+            if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_END_CALLED)) {
+                /* We have a known send size */
+                Super::write("Content-Length: ", 16);
+                writeUnsigned(totalSize);
+                Super::write("\r\n\r\n", 4);
+
+                /* Mark end called */
+                httpResponseData->state |= HttpResponseData<SSL>::HTTP_END_CALLED;
+            }
+
+            /* Even if we supply no new data to write, its failed boolean is useful to know
+             * if it failed to drain any prior failed header writes */
+
+            /* Write as much as possible without causing backpressure */
+            auto [written, failed] = Super::write(data.data(), data.length(), optional);
+            httpResponseData->offset += written;
+
+            /* Success is when we wrote the entire thing without any failures */
+            bool success = written == data.length() && !failed;
+
+            /* If we are now at the end, start a timeout. Also start a timeout if we failed. */
+            if (!success || httpResponseData->offset == totalSize) {
+                Super::timeout(HTTP_TIMEOUT_S);
+            }
+
+            return success;
+        }
+    }
+
 public:
 
+    /* Immediately terminate this Http response */
     using Super::close;
+
+    /* Note: Headers are not checked in regards to timeout.
+     * We only check when you actively push data or end the request */
 
     /* Write the HTTP status */
     HttpResponse *writeStatus(std::string_view status) {
@@ -78,42 +153,29 @@ public:
         return this;
     }
 
-    /* End the response with an optional data chunk */
+    /* End the response with an optional data chunk. Always starts a timeout. */
     void end(std::string_view data = {}) {
-        writeStatus(HTTP_200_OK);
+        internalEnd(data, data.length(), false);
+    }
 
-        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+    /* Try and end the response. Returns true on success. Starts a timeout in some cases. */
+    bool tryEnd(std::string_view data, int totalSize = 0) {
+        bool succeeded = internalEnd(data, totalSize, true);
 
-        if (httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED) {
-            /* Do not allow sending 0 chunk here */
-            if (data.length()) {
-                Super::write("\r\n", 2);
-                writeUnsignedHex(data.length());
-                Super::write("\r\n", 2);
-                Super::write(data.data(), data.length());
-            }
+        std::cout << "tryEnd with size " << data.length() << " returned " << succeeded << std::endl;
 
-            /* Terminating 0 chunk */
-            Super::write("\r\n0\r\n\r\n", 7);
-        } else {
-            /* We have a known send size */
-            Super::write("Content-Length: ", 16);
-            writeUnsigned(data.length());
-            Super::write("\r\n\r\n", 4);
-
-            Super::write(data.data(), data.length());
-        }
-
-        // todo: calling end should start a timeout of the socket!
+        return succeeded;
     }
 
     /* Write parts of the response in chunking fashion */
+    // fic this up and add tryWrite (will require more state!)
     bool write(std::string_view data) {
         writeStatus(HTTP_200_OK);
 
         /* Do not allow sending 0 chunks, they mark end of response */
         if (!data.length()) {
-            return true; // are we corked still?
+            /* If you called us, then according to you it was fine to call us so it's fine to still call us */
+            return true;
         }
 
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
@@ -126,64 +188,17 @@ public:
         Super::write("\r\n", 2);
         writeUnsignedHex(data.length());
         Super::write("\r\n", 2);
+
+        // this should essentially return what we want to return from here!
         Super::write(data.data(), data.length());
+
+        // we want write to return whether the user may call write again, basically if we are polling for writable
 
         // are we corked still?
         return true;
     }
 
-    // todo: share this code in a function
-    bool tryEnd(std::string_view data, int totalSize = 0) {
-        /* Write status if not already done */
-        writeStatus(HTTP_200_OK);
-
-        /* If no total size given then assume this chunk is everything */
-        if (!totalSize) {
-            totalSize = data.length();
-        }
-
-        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
-
-        if (httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED) {
-            /* Do not allow sending 0 chunk here */
-            if (data.length()) {
-                Super::write("\r\n", 2);
-                writeUnsignedHex(data.length());
-                Super::write("\r\n", 2);
-
-                // should be optional
-                Super::write(data.data(), data.length());
-            }
-
-            /* Terminating 0 chunk */
-            Super::write("\r\n0\r\n\r\n", 7);
-        } else {
-            // if not already ended! should we call tryWrite after this? we need an extra flag! end called!
-
-            if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_END_CALLED)) {
-                /* We have a known send size */
-                Super::write("Content-Length: ", 16);
-                writeUnsigned(/*data.length()*/totalSize);
-                Super::write("\r\n\r\n", 4);
-
-                /* Mark end called */
-                httpResponseData->state |= HttpResponseData<SSL>::HTTP_END_CALLED;
-            }
-
-            /* Write as much as possible without causing backpressure */
-            int written = Super::write(data.data(), data.length(), true);
-
-            httpResponseData->offset += written;
-            //std::cout << "Offset is now: " << httpResponseData->offset << std::endl;
-
-            return written == data.length();
-        }
-
-        // this path is completely wrong!
-        //std::cout << "tryEnd returning " << (httpResponseData->offset == /*totalSize*/ data.length()) << std::endl;
-        return httpResponseData->offset == /*totalSize*/ data.length();
-    }
-
+    /* Get the current byte write offset for this Http response */
     int getWriteOffset() {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
