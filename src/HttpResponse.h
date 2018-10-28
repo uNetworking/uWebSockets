@@ -141,6 +141,8 @@ public:
 
     /* Write an HTTP header with string value */
     HttpResponse *writeHeader(std::string_view key, std::string_view value) {
+        writeStatus(HTTP_200_OK);
+
         Super::write(key.data(), key.length());
         Super::write(": ", 2);
         Super::write(value.data(), value.length());
