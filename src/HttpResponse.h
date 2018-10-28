@@ -7,6 +7,8 @@
 #include "HttpResponseData.h"
 #include "Utilities.h"
 
+/* todo: tryWrite is missing currently, only send smaller segments with write */
+
 namespace uWS {
 
 /* Some pre-defined status constants to use with writeStatus */
@@ -55,7 +57,7 @@ private:
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
         if (httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED) {
 
-            // we do not listen to optional here!
+            /* We do not have tryWrite-like functionalities, so ignore optional in this path */
 
             /* Do not allow sending 0 chunk here */
             if (data.length()) {
@@ -63,21 +65,16 @@ private:
                 writeUnsignedHex(data.length());
                 Super::write("\r\n", 2);
 
-                // should be optional
+                /* Ignoring optional for now */
                 Super::write(data.data(), data.length());
             }
 
             /* Terminating 0 chunk */
             Super::write("\r\n0\r\n\r\n", 7);
 
-            // what about timeout here!?
-
-            // always start timeout here!
+            /* tryEnd can never fail when in chunked mode, since we do not have tryWrite (yet), only write */
             Super::timeout(HTTP_TIMEOUT_S);
-
-            // unclear about this path really
             return true;
-
         } else {
             /* Write content-length on first call */
             if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_END_CALLED)) {
@@ -167,15 +164,10 @@ public:
 
     /* Try and end the response. Returns true on success. Starts a timeout in some cases. */
     bool tryEnd(std::string_view data, int totalSize = 0) {
-        bool succeeded = internalEnd(data, totalSize, true);
-
-        std::cout << "tryEnd with size " << data.length() << " returned " << succeeded << std::endl;
-
-        return succeeded;
+        return internalEnd(data, totalSize, true);
     }
 
-    /* Write parts of the response in chunking fashion */
-    // fic this up and add tryWrite (will require more state!)
+    /* Write parts of the response in chunking fashion. Starts timeout if failed. */
     bool write(std::string_view data) {
         writeStatus(HTTP_200_OK);
 
@@ -196,13 +188,13 @@ public:
         writeUnsignedHex(data.length());
         Super::write("\r\n", 2);
 
-        // this should essentially return what we want to return from here!
-        Super::write(data.data(), data.length());
+        auto [written, failed] = Super::write(data.data(), data.length());
+        if (failed) {
+            Super::timeout(HTTP_TIMEOUT_S);
+        }
 
-        // we want write to return whether the user may call write again, basically if we are polling for writable
-
-        // are we corked still?
-        return true;
+        /* If we did not fail the write, accept more */
+        return !failed;
     }
 
     /* Get the current byte write offset for this Http response */
