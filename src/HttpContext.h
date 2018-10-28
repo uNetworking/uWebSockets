@@ -5,6 +5,7 @@
 
 #include "Loop.h"
 #include "HttpContextData.h"
+
 #include "HttpResponseData.h"
 #include "AsyncSocket.h"
 #include "StaticDispatch.h"
@@ -41,7 +42,7 @@ private:
         return (HttpContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(getSocketContext());
     }
 
-    static HttpContextData<SSL> *getSocketContextData(SOCKET_TYPE *s) {
+    static HttpContextData<SSL> *getSocketContextDataS(SOCKET_TYPE *s) {
         return (HttpContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(getSocketContext(s));
     }
 
@@ -88,7 +89,7 @@ private:
             // ~190k req/sec is with http parsing
             // ~180k - 190k req/sec is with varying routing
 
-            HttpContextData<SSL> *httpContextData = getSocketContextData(s);
+            HttpContextData<SSL> *httpContextData = getSocketContextDataS(s);
 
             /* Do not accept any data while in shutdown state */
             if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)((SOCKET_TYPE *) s)) {
@@ -101,13 +102,6 @@ private:
             ((AsyncSocket<SSL> *) s)->cork();
 
             void *returnedSocket = httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, uWS::HttpRequest *httpRequest) -> void * {
-
-                // we need HttpAsyncSocket to derive from AsyncSocket where any failed write will trigger the timeout?
-
-                // http timeout logic in a nutshell:
-                // whenever a httpsocket writes and it fails, start a timer until onwritable, reset timer in next onwritable or next successful write
-                // if .end succeeds, then start a new timeout for the next request
-
                 /* For every request we reset the timeout and hang until user makes action */
                 /* Warning: if we are in shutdown state, resetting the timer is a security issue! */
                 static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) s, 0);
@@ -118,15 +112,9 @@ private:
                 httpResponseData->state = 0;
 
                 /* Route the method and URL */
-
-                // I guess upgrade will have to write to a global variable we check afterwards
                 httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), {
                                                   (HttpResponse<SSL> *) s, httpRequest
                                               });
-
-
-                //if (isFullyOpen) return s otherwise return nullptr;
-
 
                 /* Was the socket closed? */
                 if (us_internal_socket_is_closed((struct us_socket *) s)) {
@@ -139,9 +127,7 @@ private:
                 }
 
                 /* Was the socket upgraded? */
-                // return new pointer to websocket
-
-                /* If we return anything other than user, then that means STOP PARSING and this new value should be returned all the way? */
+                // if (some global variable in this loop)
 
                 /* Continue parsing */
                 return s;
@@ -149,18 +135,17 @@ private:
             }, [httpResponseData](void *user, std::string_view data) -> void * {
                 if (httpResponseData->inStream) {
                     httpResponseData->inStream(data);
-                }
 
-                /* Was the socket closed? */
-                if (us_internal_socket_is_closed((struct us_socket *) user)) {
-                    return nullptr;
-                }
+                    /* Was the socket closed? */
+                    if (us_internal_socket_is_closed((struct us_socket *) user)) {
+                        return nullptr;
+                    }
 
-                /* We absolutely have to terminate parsing if shutdown */
-                if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)((SOCKET_TYPE *) user)) {
-                    return nullptr;
+                    /* We absolutely have to terminate parsing if shutdown */
+                    if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)((SOCKET_TYPE *) user)) {
+                        return nullptr;
+                    }
                 }
-
                 return user;
             }, [](void *user) {
                  /* Close any socket on HTTP errors */
@@ -170,7 +155,11 @@ private:
 
             /* Only uncork still valid sockets */
             if (returnedSocket == s) {
-                ((AsyncSocket<SSL> *) s)->uncork();
+                /* Timeout on uncork failure */
+                auto [written, failed] = ((AsyncSocket<SSL> *) s)->uncork();
+                if (failed) {
+                    ((AsyncSocket<SSL> *) s)->timeout(HTTP_IDLE_TIMEOUT_S);
+                }
             } else {
                 // was this socket upgraded?
                 std::cout << "Socket was closed or shut down in handler or maybe upgraded" << std::endl;
@@ -190,16 +179,23 @@ private:
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
 
-            // if this, then it means it finished with no issues so we need to empty any buffers?
+            /* Ask the developer to write data and return success (true) or failure (false), OR skip sending anything and return success (true). */
             if (httpResponseData->onWritable) {
-                /* We expect the developer to return whether or not write was successful (true) */
+                /* We expect the developer to return whether or not write was successful (true).
+                 * If write was never called, the developer should still return true so that we may drain. */
                 bool success = httpResponseData->onWritable(httpResponseData->offset);
 
-                // on writable should return whether it wants more data or not
-                // but we don't need to know that here? we cannot drain because a sucessful write should mean there is no buffer to drain
-            } else {
-                /* This is used to drain any buffers we might have */
-                asyncSocket->write(nullptr, 0, true, 0);
+                /* The developer indicated that their onWritable failed. */
+                if (!success) {
+                    /* Skip testing if we can drain anything since that might perform an extra syscall */
+                    return s;
+                }
+            }
+
+            /* Drain any socket buffer and timeout on failure */
+            auto [written, failed] = asyncSocket->write(nullptr, 0, true, 0);
+            if (failed) {
+                asyncSocket->timeout(HTTP_IDLE_TIMEOUT_S);
             }
 
             return s;
@@ -207,8 +203,6 @@ private:
 
         /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
         static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(getSocketContext(), [](auto *s) {
-
-            //std::cout << "FIN sent" << std::endl;
 
             /* We do not care for half closed sockets */
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
