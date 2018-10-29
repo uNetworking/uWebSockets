@@ -22,12 +22,17 @@
 
 #include "HttpContext.h"
 #include "HttpResponse.h"
+#include "WebSocketContext.h"
+
+#include "websocket/libwshandshake.hpp"
 
 namespace uWS {
 template <bool SSL>
 struct TemplatedApp {
 private:
     HttpContext<SSL> *httpContext;
+
+    // the app does not own a websocket context, it is created on .ws(...) calls on demand!
 
 public:
 
@@ -41,6 +46,73 @@ public:
 
     TemplatedApp(us_ssl_socket_context_options sslOptions = {}) {
         httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::defaultLoop(), &sslOptions);
+
+        // construct the websocket cintext? no! on demand!
+    }
+
+    // this method creates a new websocket context and attaches it to a path
+    TemplatedApp &ws(std::string pattern, std::function<void(void *, HttpRequest *)> connectHandler) {
+        // init the websocket context here!
+        uWS::WebSocketContext<SSL> *webSocketContext = uWS::WebSocketContext<SSL>::create(uWS::Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
+
+        return get(pattern, [webSocketContext, this, connectHandler](auto *res, auto *req) {
+
+            std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
+            if (secWebSocketKey.length()) {
+
+                // note: OpenSSL can be used here to speed this up somewhat
+                char secWebSocketAccept[29] = {};
+                WebSocketHandshake::generate(secWebSocketKey.data(), secWebSocketAccept);
+
+                res->writeStatus("101 Switching Protocols")
+                    ->writeHeader("Upgrade", "websocket")
+                    ->writeHeader("Connection", "Upgrade")
+                    ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept)
+                    ->end();
+
+                std::cout << "Adopting" << std::endl;
+
+                // adopting will immediately delete the socket! we cannot rely on reading anything on it
+                // rely on http context data
+
+
+                //typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *socketContext = (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((typename StaticDispatch<SSL>::SOCKET_TYPE *) res);
+                //StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(socketContext);
+
+
+
+                void *newSocket = StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
+                            (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, 15);
+
+                httpContext->upgradeToWebSocket(
+                            newSocket
+                            );
+
+                std::cout << "Adopted!" << std::endl;
+
+
+                // we should hand the new socket to the handler
+                connectHandler(newSocket, req);
+
+
+                /*res->upgradeToWebSocket(
+                            StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
+                               (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, 15));*/
+
+
+
+            } else {
+
+                std::cout << "This is not a websocket so fuck off!" << std::endl;
+
+                // maybe pass this one to a HTTP handler on the websocket
+
+                // note: this calls the http close handler inline
+                res->close();
+            }
+
+
+        });
     }
 
     TemplatedApp &get(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {

@@ -28,6 +28,7 @@ struct HttpRequest;
 template <bool SSL>
 struct HttpContextData {
     template <bool> friend struct HttpContext;
+    template <bool> friend struct HttpResponse;
 private:
     struct RouterData {
         HttpResponse<SSL> *httpResponse;
@@ -35,6 +36,7 @@ private:
     };
 
     HttpRouter<RouterData> router;
+    void *upgradedWebSocket;
 };
 
 }

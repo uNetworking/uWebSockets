@@ -5,6 +5,20 @@
 
 int main(int argc, char **argv) {
 
+    // do websockets here
+
+    uWS::App().get("/hello", [](auto *res, auto *req) {
+        res->end("Hello HTTP!");
+    }).ws("/*", [](auto *ws, auto *req) {
+        std::cout << "WebSocket conntected to URL: " << req->getUrl() << std::endl;
+    }).listen(3000, [](auto *token) {
+        if (token) {
+            std::cout << "Listening on port " << 3000 << std::endl;
+        }
+    }).run();
+
+    return 0;
+
     AsyncFileStreamer *asyncFileStreamer = new AsyncFileStreamer("/home/alexhultman/v0.15/public");
 
     uWS::/*SSL*/App(/*{

@@ -21,6 +21,7 @@
 
 #include "AsyncSocket.h"
 #include "HttpResponseData.h"
+#include "HttpContextData.h"
 #include "Utilities.h"
 
 /* todo: tryWrite is missing currently, only send smaller segments with write */
@@ -130,6 +131,47 @@ private:
     }
 
 public:
+
+    // this should probably not be public
+    bool upgradeToWebSocket(void *newSocket) {
+
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+
+        // this flag is not really needed to keep state of, could be per http content state
+        httpResponseData->state |= HttpResponseData<SSL>::HTTP_UPGRADED_TO_WEBSOCKET;
+
+        // also set pointer to the websocketcontext?
+
+        // you can just check if the context of the socket changed? buy youi don't know the socket ptr!
+
+        HttpContextData<SSL> *httpContextData = (HttpContextData<SSL> *) Super::static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
+
+                    Super::static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((typename Super::SOCKET_TYPE *) this)
+
+                    );
+
+        httpContextData->upgradedWebSocket = newSocket;
+
+
+        /*SOCKET_CONTEXT_TYPE *getSocketContext() {
+            return (SOCKET_CONTEXT_TYPE *) this;
+        }
+
+        static SOCKET_CONTEXT_TYPE *getSocketContext(SOCKET_TYPE *s) {
+            return (SOCKET_CONTEXT_TYPE *) static_dispatch(us_ssl_socket_get_context, us_socket_get_context)(s);
+        }
+
+        HttpContextData<SSL> *getSocketContextData() {
+            return (HttpContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(getSocketContext());
+        }
+
+        static HttpContextData<SSL> *getSocketContextDataS(SOCKET_TYPE *s) {
+            return (HttpContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(getSocketContext(s));
+        }*/
+
+        //return (HttpContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(getSocketContext(s));
+    }
 
     /* Immediately terminate this Http response */
     using Super::close;

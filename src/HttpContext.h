@@ -117,6 +117,8 @@ private:
             /* Cork this socket */
             ((AsyncSocket<SSL> *) s)->cork();
 
+            // clients need to know the cursor after http parse, not servers!
+            // how far did we read then? we need to know to continue with websocket parsing data? or?
             void *returnedSocket = httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, uWS::HttpRequest *httpRequest) -> void * {
                 /* For every request we reset the timeout and hang until user makes action */
                 /* Warning: if we are in shutdown state, resetting the timer is a security issue! */
@@ -131,6 +133,24 @@ private:
                 httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), {
                                                   (HttpResponse<SSL> *) s, httpRequest
                                               });
+
+                /* First of all we need to check if this socket was deleted due to upgrade */
+                if (httpContextData->upgradedWebSocket) {
+                    return httpContextData->upgradedWebSocket;
+                }
+
+                /* Did we upgrade this guy? */
+//                if (httpResponseData->state & HttpResponseData<SSL>::HTTP_UPGRADED_TO_WEBSOCKET) {
+//                    std::cout << "we upgraded from the handler!" << std::endl;
+
+
+//                    std::cout << "We were upgraded to: " << httpContextData->upgradedWebSocket << std::endl;
+
+//                    return httpContextData->upgradedWebSocket;
+
+
+//                    // here we should adopt the socket and transition to websocket parsing, returning a socket different will halt parsing
+//                }
 
                 /* Was the socket closed? */
                 if (us_internal_socket_is_closed((struct us_socket *) s)) {
@@ -168,6 +188,23 @@ private:
                 static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) user);
                 return nullptr;
             });
+
+            // basically we need to uncork in all cases, except for nullptr
+            if (returnedSocket != nullptr) {
+                /* Timeout on uncork failure */
+                auto [written, failed] = ((AsyncSocket<SSL> *) returnedSocket)->uncork();
+                if (failed) {
+                    // do we have the same timeout for websockets?
+                    ((AsyncSocket<SSL> *) s)->timeout(HTTP_IDLE_TIMEOUT_S);
+                }
+
+                return (SOCKET_TYPE *) returnedSocket;
+            } else {
+                // we cannot return nullptr to the underlying stack in any case
+                return s;
+            }
+
+            // below is never reached
 
             /* Only uncork still valid sockets */
             if (returnedSocket == s) {
@@ -284,6 +321,13 @@ public:
         httpContextData->router.unhandled([handler](typename HttpContextData<SSL>::RouterData user, std::pair<int, std::string_view *> params) {
             handler(user.httpResponse, user.httpRequest);
         });
+    }
+
+    // this should not be public
+    void upgradeToWebSocket(void *newSocket) {
+        HttpContextData<SSL> *httpContextData = getSocketContextData();
+
+        httpContextData->upgradedWebSocket = newSocket;
     }
 
     /* Listen to port using this HttpContext */

@@ -29,7 +29,9 @@ HEADERS += \
     ../src/AsyncSocketData.h \
     ../src/Loop.h \
     ../src/App.h \
-    ../src/Utilities.h
+    ../src/Utilities.h \
+    ../src/WebSocketContext.h \
+    ../src/WebSocketContextData.h
 
 INCLUDEPATH += ../uSockets/src ../src
 QMAKE_CXXFLAGS += -fsanitize=address
