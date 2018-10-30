@@ -2,10 +2,12 @@
 #define WEBSOCKETDATA_H
 
 #include "WebSocketProtocol.h"
+#include "AsyncSocketData.h"
 
 namespace uWS {
 
-struct WebSocketData : WebSocketState<true> {
+// take care with get_ext here !
+struct WebSocketData : AsyncSocketData<false>, WebSocketState<true> {
 private:
 
 public:

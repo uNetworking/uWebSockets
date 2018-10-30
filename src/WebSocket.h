@@ -2,31 +2,30 @@
 #define WEBSOCKET_H
 
 #include "WebSocketData.h"
-
 #include "WebSocketProtocol.h"
+#include "AsyncSocket.h"
 
 #include <string_view>
 
 namespace uWS {
 
 template <bool SSL, bool isServer>
-struct WebSocket {
+struct WebSocket : AsyncSocket<SSL> {
 private:
-
+    typedef AsyncSocket<SSL> Super;
 public:
 
     void send(std::string_view message) {
 
-        // this path should use AsyncSocket with cork and everything
+        // if corkAllocate(size) then corkFree(unused)
 
         // format the response
         char buf[100];
         int writeLength = WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::formatMessage(buf, message.data(), message.length(), uWS::OpCode::TEXT, message.length(), false);
 
 
-        us_socket_write((us_socket *) this, buf, writeLength, false);
 
-
+        Super::write(buf, writeLength);
 
     }
 

@@ -9,6 +9,8 @@
 
 #include "WebSocketData.h"
 
+#include "AsyncSocket.h"
+
 namespace uWS {
 
 template <bool SSL>
@@ -75,11 +77,19 @@ private:
         /* Handle HTTP data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
 
+
+            AsyncSocket<SSL> *webSocket = (AsyncSocket<SSL> *) s;
+
+            webSocket->cork();
+
             // get the data
             WebSocketData *wsState = (WebSocketData *) us_socket_ext(s);
 
             // this parser requires almost no time -> 215k req/sec of 215k possible
             uWS::WebSocketProtocol<true, WebSocketProtcolImplementation<true>>::consume(data, length, wsState, s);
+
+
+            webSocket->uncork();
 
             return s;
         });
