@@ -1,4 +1,4 @@
-**Psst!** v0.15 dropping in a few weeks with major perf. advancements
+**Psst!** v0.15 dropping in a few weeks with major perf. advancements (think at least 33% boost over v0.14).
 
 <div align="center">
 <img src="misc/images/logo.png" />
