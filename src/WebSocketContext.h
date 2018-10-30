@@ -5,7 +5,9 @@
 #include "WebSocketContextData.h"
 
 // the context depend on the PARSER but not the formatter!
-#include "websocket/WebSocketProtocol.h"
+#include "WebSocketProtocol.h"
+
+#include "WebSocketData.h"
 
 namespace uWS {
 
@@ -20,6 +22,38 @@ private:
     SOCKET_CONTEXT_TYPE *getSocketContext() {
         return (SOCKET_CONTEXT_TYPE *) this;
     }
+
+    // I don't even.. merge this with the context itself!
+    template <bool isServer>
+    struct WebSocketProtcolImplementation {
+        static bool setCompressed(uWS::WebSocketState<isServer> *wState) {
+            std::cout << "set compressed" << std::endl;
+            return true;
+        }
+
+        static void forceClose(uWS::WebSocketState<isServer> *wState) {
+            std::cout << "force close" << std::endl;
+        }
+
+        static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, uWS::WebSocketState<isServer> *webSocketState, void *s) {
+
+            // this path should use AsyncSocket with cork and everything
+
+            // format the response
+            char buf[100];
+            int writeLength = WebSocketProtocol<isServer, WebSocketProtcolImplementation<isServer>>::formatMessage(buf, data, length, (uWS::OpCode) opCode, length, false);
+            us_socket_write((SOCKET_TYPE *) s, buf, writeLength, false);
+
+            // why does it not do anything immediately on true?
+            return false;
+
+        }
+
+        static bool refusePayloadLength(uint64_t length, uWS::WebSocketState<isServer> *wState) {
+            //std::cout << "refusepayloadlength" << std::endl;
+            return false;
+        }
+    };
 
     WebSocketContext<SSL> *init() {
 
@@ -36,10 +70,11 @@ private:
         /* Handle HTTP data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
 
+            // get the data
+            WebSocketData *wsState = (WebSocketData *) us_socket_ext(s);
 
-            // the socket is a websocket parser just like an http socket is an http parser
-
-            std::cout << "data: " << std::endl;
+            // this parser requires almost no time -> 215k req/sec of 215k possible
+            uWS::WebSocketProtocol<true, WebSocketProtcolImplementation<true>>::consume(data, length, wsState, s);
 
             return s;
         });
@@ -87,7 +122,7 @@ public:
         WebSocketContext *webSocketContext;
 
         // todo: sizeof
-        webSocketContext = (WebSocketContext *) static_dispatch(us_create_child_ssl_socket_context, us_create_child_socket_context)(parentSocketContext, 15);
+        webSocketContext = (WebSocketContext *) static_dispatch(us_create_child_ssl_socket_context, us_create_child_socket_context)(parentSocketContext, 100);
         if (!webSocketContext) {
             return nullptr;
         }

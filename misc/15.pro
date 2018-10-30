@@ -15,10 +15,8 @@ SOURCES += \
 HEADERS += \
     ../src/HttpRouter.h \
     ../src/HttpParser.h \
-    ../src/websocket/libwshandshake.hpp \
-    ../src/websocket/WebSocketProtocol.h \
-    ../src/websocket/WebSocket.h \
-    ../src/websocket/WebSocketApp.h \
+    ../src/libwshandshake.hpp \
+    ../src/WebSocketProtocol.h \
     ../src/HttpContext.h \
     ../src/HttpContextData.h \
     ../src/HttpResponseData.h \
@@ -30,6 +28,8 @@ HEADERS += \
     ../src/Loop.h \
     ../src/App.h \
     ../src/Utilities.h \
+    ../src/WebSocket.h \
+    ../src/WebSocketData.h \
     ../src/WebSocketContext.h \
     ../src/WebSocketContextData.h
 

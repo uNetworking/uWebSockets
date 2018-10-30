@@ -23,8 +23,9 @@
 #include "HttpContext.h"
 #include "HttpResponse.h"
 #include "WebSocketContext.h"
+#include "WebSocket.h"
 
-#include "websocket/libwshandshake.hpp"
+#include "libwshandshake.hpp"
 
 namespace uWS {
 template <bool SSL>
@@ -75,31 +76,20 @@ public:
                 // adopting will immediately delete the socket! we cannot rely on reading anything on it
                 // rely on http context data
 
+                // todo: sizeof websocket
+                WebSocket<SSL> *webSocket = (WebSocket<SSL> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
+                            (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, 150);
 
-                //typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *socketContext = (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((typename StaticDispatch<SSL>::SOCKET_TYPE *) res);
-                //StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(socketContext);
+                webSocket->init();
 
-
-
-                void *newSocket = StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
-                            (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, 15);
+                std::cout << "adopted" << std::endl;
 
                 httpContext->upgradeToWebSocket(
-                            newSocket
+                            webSocket
                             );
 
-                std::cout << "Adopted!" << std::endl;
-
-
                 // we should hand the new socket to the handler
-                connectHandler(newSocket, req);
-
-
-                /*res->upgradeToWebSocket(
-                            StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
-                               (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, 15));*/
-
-
+                connectHandler(webSocket, req);
 
             } else {
 

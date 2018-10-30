@@ -138,7 +138,7 @@ protected:
     };
 
     template <unsigned int MESSAGE_HEADER, typename T>
-    static inline bool consumeMessage(T payLength, char *&src, unsigned int &length, WebSocketState<isServer> *wState) {
+    static inline bool consumeMessage(T payLength, char *&src, unsigned int &length, WebSocketState<isServer> *wState, void *user) {
         if (getOpCode(src)) {
             if (wState->state.opStack == 1 || (!wState->state.lastFin && getOpCode(src) < 2)) {
                 Impl::forceClose(wState);
@@ -159,11 +159,11 @@ protected:
         if (payLength + MESSAGE_HEADER <= length) {
             if (isServer) {
                 unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, (unsigned int) payLength);
-                if (Impl::handleFragment(src + MESSAGE_HEADER - 4, payLength, 0, wState->state.opCode[wState->state.opStack], isFin(src), wState)) {
+                if (Impl::handleFragment(src + MESSAGE_HEADER - 4, payLength, 0, wState->state.opCode[wState->state.opStack], isFin(src), wState, user)) {
                     return true;
                 }
             } else {
-                if (Impl::handleFragment(src + MESSAGE_HEADER, payLength, 0, wState->state.opCode[wState->state.opStack], isFin(src), wState)) {
+                if (Impl::handleFragment(src + MESSAGE_HEADER, payLength, 0, wState->state.opCode[wState->state.opStack], isFin(src), wState, user)) {
                     return true;
                 }
             }
@@ -188,12 +188,12 @@ protected:
             } else {
                 src += MESSAGE_HEADER;
             }
-            Impl::handleFragment(src, length - MESSAGE_HEADER, wState->remainingBytes, wState->state.opCode[wState->state.opStack], fin, wState);
+            Impl::handleFragment(src, length - MESSAGE_HEADER, wState->remainingBytes, wState->state.opCode[wState->state.opStack], fin, wState, user);
             return true;
         }
     }
 
-    static inline bool consumeContinuation(char *&src, unsigned int &length, WebSocketState<isServer> *wState) {
+    static inline bool consumeContinuation(char *&src, unsigned int &length, WebSocketState<isServer> *wState, void *user) {
         if (wState->remainingBytes <= length) {
             if (isServer) {
                 int n = wState->remainingBytes >> 2;
@@ -203,7 +203,7 @@ protected:
                 }
             }
 
-            if (Impl::handleFragment(src, wState->remainingBytes, 0, wState->state.opCode[wState->state.opStack], wState->state.lastFin, wState)) {
+            if (Impl::handleFragment(src, wState->remainingBytes, 0, wState->state.opCode[wState->state.opStack], wState->state.lastFin, wState, user)) {
                 return false;
             }
 
@@ -221,7 +221,7 @@ protected:
             }
 
             wState->remainingBytes -= length;
-            if (Impl::handleFragment(src, length, wState->remainingBytes, wState->state.opCode[wState->state.opStack], wState->state.lastFin, wState)) {
+            if (Impl::handleFragment(src, length, wState->remainingBytes, wState->state.opCode[wState->state.opStack], wState->state.lastFin, wState, user)) {
                 return false;
             }
 
@@ -357,7 +357,7 @@ public:
         return messageLength;
     }
 
-    static inline void consume(char *src, unsigned int length, WebSocketState<isServer> *wState) {
+    static inline void consume(char *src, unsigned int length, WebSocketState<isServer> *wState, void *user) {
         if (wState->state.spillLength) {
             src -= wState->state.spillLength;
             length += wState->state.spillLength;
@@ -375,18 +375,18 @@ public:
                 }
 
                 if (payloadLength(src) < 126) {
-                    if (consumeMessage<SHORT_MESSAGE_HEADER, uint8_t>(payloadLength(src), src, length, wState)) {
+                    if (consumeMessage<SHORT_MESSAGE_HEADER, uint8_t>(payloadLength(src), src, length, wState, user)) {
                         return;
                     }
                 } else if (payloadLength(src) == 126) {
                     if (length < MEDIUM_MESSAGE_HEADER) {
                         break;
-                    } else if(consumeMessage<MEDIUM_MESSAGE_HEADER, uint16_t>(ntohs(*(uint16_t *) &src[2]), src, length, wState)) {
+                    } else if(consumeMessage<MEDIUM_MESSAGE_HEADER, uint16_t>(ntohs(*(uint16_t *) &src[2]), src, length, wState, user)) {
                         return;
                     }
                 } else if (length < LONG_MESSAGE_HEADER) {
                     break;
-                } else if (consumeMessage<LONG_MESSAGE_HEADER, uint64_t>(be64toh(*(uint64_t *) &src[2]), src, length, wState)) {
+                } else if (consumeMessage<LONG_MESSAGE_HEADER, uint64_t>(be64toh(*(uint64_t *) &src[2]), src, length, wState, user)) {
                     return;
                 }
             }
@@ -394,7 +394,7 @@ public:
                 memcpy(wState->state.spill, src, length);
                 wState->state.spillLength = length;
             }
-        } else if (consumeContinuation(src, length, wState)) {
+        } else if (consumeContinuation(src, length, wState, user)) {
             goto parseNext;
         }
     }
