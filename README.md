@@ -55,4 +55,8 @@ A free & open source ([Zlib](LICENSE)) project since 2016. Kindly sponsored by [
 Commercial support is available via a per-hourly consulting plan or as otherwise negotiated. If you're stuck, worried about design or just in need of help don't hesitate throwing [me, the author](https://github.com/alexhultman) a mail and we'll figure out what's best for both parties. I want your business to have a proper understanding of the problem before rushing in to one of the many pitfalls.
 
 #### Excel across the board.
-![](misc/bigshot_lineup.png)
+All that glitters is not gold. Especially so in a market driven by flashy logos, hype and pointless badges.
+
+Http | WebSockets
+--- | ---
+![](misc/bigshot_lineup.png) | ![](misc/websocket_lineup.png)
