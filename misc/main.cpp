@@ -11,6 +11,8 @@ int main(int argc, char **argv) {
         res->end("Hello HTTP!");
     }).ws("/*", [](auto *ws, auto *req) {
         std::cout << "WebSocket conntected to URL: " << req->getUrl() << std::endl;
+    }, [](auto *ws, std::string_view message) {
+        ws->send(message);
     }).listen(3000, [](auto *token) {
         if (token) {
             std::cout << "Listening on port " << 3000 << std::endl;

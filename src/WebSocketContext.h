@@ -13,6 +13,7 @@ namespace uWS {
 
 template <bool SSL>
 struct WebSocketContext : StaticDispatch<SSL> {
+    template <bool> friend struct TemplatedApp;
 private:
     using SOCKET_CONTEXT_TYPE = typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE;
     using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
@@ -21,6 +22,10 @@ private:
 
     SOCKET_CONTEXT_TYPE *getSocketContext() {
         return (SOCKET_CONTEXT_TYPE *) this;
+    }
+
+    WebSocketContextData<SSL> *getExt() {
+        return (WebSocketContextData<SSL> *) us_socket_context_ext((SOCKET_CONTEXT_TYPE *) this);
     }
 
     // I don't even.. merge this with the context itself!
@@ -37,16 +42,16 @@ private:
 
         static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, uWS::WebSocketState<isServer> *webSocketState, void *s) {
 
-            // this path should use AsyncSocket with cork and everything
+            // this is maybe not the most elegant but who cares
+            WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(us_socket_get_context((us_socket *) s));
 
-            // format the response
-            char buf[100];
-            int writeLength = WebSocketProtocol<isServer, WebSocketProtcolImplementation<isServer>>::formatMessage(buf, data, length, (uWS::OpCode) opCode, length, false);
-            us_socket_write((SOCKET_TYPE *) s, buf, writeLength, false);
+            // emit message
+            webSocketContextData->messageHandler((WebSocket<SSL, true> *) s, std::string_view(data, length));
+
+            // the only thing here to check is probably closed
 
             // why does it not do anything immediately on true?
             return false;
-
         }
 
         static bool refusePayloadLength(uint64_t length, uWS::WebSocketState<isServer> *wState) {

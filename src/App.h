@@ -52,9 +52,11 @@ public:
     }
 
     // this method creates a new websocket context and attaches it to a path
-    TemplatedApp &ws(std::string pattern, std::function<void(void *, HttpRequest *)> connectHandler) {
+    TemplatedApp &ws(std::string pattern, std::function<void(void *, HttpRequest *)> connectHandler, std::function<void(uWS::WebSocket<SSL, true> *, std::string_view)> messageHandler) {
         // init the websocket context here!
         uWS::WebSocketContext<SSL> *webSocketContext = uWS::WebSocketContext<SSL>::create(uWS::Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
+
+        webSocketContext->getExt()->messageHandler = messageHandler;
 
         return get(pattern, [webSocketContext, this, connectHandler](auto *res, auto *req) {
 
@@ -77,7 +79,7 @@ public:
                 // rely on http context data
 
                 // todo: sizeof websocket
-                WebSocket<SSL> *webSocket = (WebSocket<SSL> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
+                WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
                             (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, 150);
 
                 webSocket->init();
