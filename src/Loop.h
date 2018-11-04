@@ -122,7 +122,7 @@ public:
 };
 
 /* Can be called from any thread to run the thread local loop */
-void run() {
+inline void run() {
     Loop::defaultLoop()->run();
 }
 

@@ -29,10 +29,10 @@
 namespace uWS {
 
 /* Some pre-defined status constants to use with writeStatus */
-const char *HTTP_200_OK = "200 OK";
+static const char *HTTP_200_OK = "200 OK";
 
 /* The general timeout for HTTP sockets */
-const int HTTP_TIMEOUT_S = 10;
+static const int HTTP_TIMEOUT_S = 10;
 
 template <bool SSL>
 struct HttpResponse : public AsyncSocket<SSL> {
