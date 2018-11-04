@@ -4,6 +4,8 @@
 #include <functional>
 #include <string_view>
 
+#include "WebSocketProtocol.h"
+
 namespace uWS {
 
 template <bool, bool> struct WebSocket;
@@ -11,7 +13,7 @@ template <bool, bool> struct WebSocket;
 template <bool SSL>
 struct WebSocketContextData {
 
-    std::function<void(WebSocket<SSL, true> *, std::string_view)> messageHandler;
+    std::function<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler;
 };
 
 }

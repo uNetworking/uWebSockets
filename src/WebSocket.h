@@ -15,13 +15,13 @@ private:
     typedef AsyncSocket<SSL> Super;
 public:
 
-    void send(std::string_view message) {
+    void send(std::string_view message, uWS::OpCode opCode) {
 
         // if corkAllocate(size) then corkFree(unused)
 
         // format the response
         char buf[100];
-        int writeLength = WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::formatMessage(buf, message.data(), message.length(), uWS::OpCode::TEXT, message.length(), false);
+        int writeLength = WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::formatMessage(buf, message.data(), message.length(), opCode, message.length(), false);
 
 
 

@@ -53,7 +53,9 @@ private:
     }
 
     static void postCb(us_loop *loop) {
+        LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
+        loopData->postHandler((Loop *) loop);
     }
 
     Loop() = delete;
@@ -93,6 +95,13 @@ public:
     /* Freeing the default loop should be done once */
     void free() {
         us_loop_free((us_loop *) this);
+    }
+
+    /* Set postCb callback */
+    void setPostHandler(std::function<void(Loop *)> handler) {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+
+        loopData->postHandler = handler;
     }
 
     /* Defer this callback on Loop's thread of execution */

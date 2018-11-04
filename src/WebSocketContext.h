@@ -48,7 +48,7 @@ private:
             WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(us_socket_get_context((us_socket *) s));
 
             // emit message
-            webSocketContextData->messageHandler((WebSocket<SSL, true> *) s, std::string_view(data, length));
+            webSocketContextData->messageHandler((WebSocket<SSL, true> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
 
             // the only thing here to check is probably closed
 

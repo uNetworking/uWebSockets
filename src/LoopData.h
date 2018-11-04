@@ -24,12 +24,16 @@
 
 namespace uWS {
 
+struct Loop;
+
 struct LoopData {
     friend struct Loop;
 private:
     std::mutex deferMutex;
     int currentDeferQueue = 0;
     std::vector<std::function<void()>> deferQueues[2];
+
+    std::function<void(Loop *)> postHandler;
 
 public:
     /* Good 16k for SSL perf. */

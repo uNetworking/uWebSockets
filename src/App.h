@@ -52,7 +52,7 @@ public:
     }
 
     // this method creates a new websocket context and attaches it to a path
-    TemplatedApp &ws(std::string pattern, std::function<void(void *, HttpRequest *)> connectHandler, std::function<void(uWS::WebSocket<SSL, true> *, std::string_view)> messageHandler) {
+    TemplatedApp &ws(std::string pattern, std::function<void(void *, HttpRequest *)> connectHandler, std::function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler) {
         // init the websocket context here!
         uWS::WebSocketContext<SSL> *webSocketContext = uWS::WebSocketContext<SSL>::create(uWS::Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
 
