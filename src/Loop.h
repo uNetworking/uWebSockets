@@ -61,7 +61,7 @@ private:
     Loop() = delete;
 
     Loop *init() {
-        new (us_loop_ext((us_loop *) this)) LoopData();
+        new (us_loop_ext((us_loop *) this)) LoopData;
         return this;
     }
 
