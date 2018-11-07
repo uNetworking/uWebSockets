@@ -55,7 +55,9 @@ private:
     static void postCb(us_loop *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
-        loopData->postHandler((Loop *) loop);
+        if (loopData->postHandler) {
+            loopData->postHandler((Loop *) loop);
+        }
     }
 
     Loop() = delete;
