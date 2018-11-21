@@ -17,37 +17,32 @@ uWS::SSLApp({
     .cert_file_name = "cert.pem",
     .key_file_name = "key.pem"
     
-}).onGet("/", [](auto *res, auto *req) {
+}).get("/hello", [](auto *res, auto *req) {
 
-    /* Respond with the web app on default route */
-    res->writeStatus("200 OK")
-       ->writeHeader("Content-Type", "text/html; charset=utf-8")
-       ->end(indexHtmlBuffer);
+    /* You can efficiently stream huge files too */
+    res->writeHeader("Content-Type", "text/html; charset=utf-8")->end("Hello HTTP!");
     
-}).onWebSocket<UserData>("/ws/chat", [&](auto *ws, auto *req) {
+}).ws<UserData>("/*", {
 
-    /* Subscribe to topic /chat */
-    ws->subscribe("chat");
-    
-}).onMessage([&](auto *ws, auto message, auto opCode) {
-
-    /* Parse incoming message according to some protocol & publish it */
-    if (seemsReasonable(message)) {
-        ws->publish("chat", message);
-    } else {
-        ws->close();
+    /* Just a few of the available handlers */
+    .open = [](auto *ws, auto *req) {
+        ws->subscribe("buzzword weekly");
+    },
+    .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
+        ws->send(message, opCode);
     }
     
-}).onClose([&](auto *ws, int code, auto message) {
+}).listen(9001, [](auto *token) {
 
-    /* Remove websocket from this topic */
-    ws->unsubscribe("chat");
+    if (token) {
+        std::cout << "Listening on port " << 9001 << std::endl;
+    }
     
-}).listen("localhost", 3000, 0).run();
+}).run();
 ```
 
 #### Pay what you want.
-A free & open source ([Zlib](LICENSE)) project since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018.
+A free & open source ([permissive](LICENSE)) project since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018.
 
 <div align="center"><img src="misc/2018.png"/></div>
 
