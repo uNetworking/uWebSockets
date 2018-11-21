@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
         std::cout << "WebSocket conntected to URL: " << req->getUrl() << std::endl;
     }, [](auto *ws, std::string_view message, uWS::OpCode opCode) {
         ws->send(message, opCode);
-    }).listen(3000, [](auto *token) {
+    }).listen(9001, [](auto *token) {
         if (token) {
             std::cout << "Listening on port " << 3000 << std::endl;
         }

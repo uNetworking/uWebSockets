@@ -20,12 +20,14 @@ public:
         // if corkAllocate(size) then corkFree(unused)
 
         // format the response
-        char buf[100];
+        char *buf = (char *) malloc(message.length() + 100);
         int writeLength = WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::formatMessage(buf, message.data(), message.length(), opCode, message.length(), false);
 
 
 
         Super::write(buf, writeLength);
+
+        free(buf);
 
     }
 
