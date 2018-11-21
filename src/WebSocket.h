@@ -31,6 +31,30 @@ public:
 
     }
 
+    /* Emit close event, stat passive timeout */
+    void close(int code, std::string_view message = {}) {
+        // closing should trigger close event!
+
+        std::cout << "Closing websocket: " << code << " = " << message << std::endl;
+
+        static const int MAX_CLOSE_PAYLOAD = 123;
+        int length = std::min<size_t>(MAX_CLOSE_PAYLOAD, message.length());
+
+        // here we start a timeout and handle it accordingly in the timeout handler
+
+        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) this);
+
+        webSocketData->isShuttingDown = true;
+
+        /* Format and send the close frame */
+        char closePayload[MAX_CLOSE_PAYLOAD + 2];
+        int closePayloadLength = (int) WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::formatClosePayload(closePayload, code, message.data(), length);
+        send(std::string_view(closePayload, closePayloadLength), OpCode::CLOSE);
+
+        // why should we fin here?
+        //us_socket_shutdown((us_socket *) this);
+    }
+
     // absolutely not public!
     void init() {
         // construct us
