@@ -3,13 +3,12 @@
 
 #include "StaticDispatch.h"
 #include "WebSocketContextData.h"
-
-// the context depend on the PARSER but not the formatter!
 #include "WebSocketProtocol.h"
-
 #include "WebSocketData.h"
-
 #include "AsyncSocket.h"
+
+/* This is a hack for now on, update uSockets */
+extern "C" int us_internal_socket_is_closed(struct us_socket *s);
 
 namespace uWS {
 
@@ -31,30 +30,23 @@ private:
         return (WebSocketContextData<SSL> *) us_socket_context_ext((SOCKET_CONTEXT_TYPE *) this);
     }
 
-    // could still lie in its own struct!
     static bool setCompressed(uWS::WebSocketState<isServer> *wState) {
-        std::cout << "set compressed" << std::endl;
         return false; // do not support it
     }
 
-    // todo: pass along user!
     static void forceClose(uWS::WebSocketState<isServer> *wState, void *s) {
-        std::cout << "force close" << std::endl;
-
         us_socket_close((us_socket *) s);
-
     }
 
+    /* Returns true on breakage */
     static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, uWS::WebSocketState<isServer> *webSocketState, void *s) {
-
-        // this is maybe not the most elegant but who cares
+        /* WebSocketData and WebSocketContextData */
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(us_socket_get_context((us_socket *) s));
-
-        // we need to get the WebSocket data also!
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) s);
 
+        /* Is this a non-control frame? */
         if (opCode < 3) {
-
+            /* Did we get everything in one go? */
             if (!remainingBytes && fin && !webSocketData->fragmentBuffer.length()) {
 
                 /* Check text messages for Utf-8 validity */
@@ -63,32 +55,25 @@ private:
                     return true;
                 }
 
-                webSocketContextData->messageHandler((WebSocket<SSL, true> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
-
-                // todo: check if shut down or shutting down (shut down from websocket perspective)
-                // if so, then return true
-
+                /* Emit message event & break if we are closed or shut down when returning */
+                webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
+                if (us_internal_socket_is_closed((us_socket *) s) || webSocketData->isShuttingDown) {
+                    return true;
+                }
             } else {
                 /* Allocate fragment buffer up front first time */
                 if (!webSocketData->fragmentBuffer.length()) {
-                    std::cout << "Resizing buffers to " << (length + remainingBytes) << " bytes" << std::endl;
                     webSocketData->fragmentBuffer.reserve(length + remainingBytes);
                 }
-
                 webSocketData->fragmentBuffer.append(data, length);
-
-                std::cout << "buffering incomplete fragment: " << webSocketData->fragmentBuffer.length() << " added " << length << std::endl;
 
                 /* Are we done now? */
                 // what if we don't have any remaining bytes yet we are not fin? forceclose!
                 if (!remainingBytes && fin) {
 
-                    std::cout << "GOT FINAL FRAGMENT!" << std::endl;
-
                     // reset length and data ptrs
                     length = webSocketData->fragmentBuffer.length();
                     data = webSocketData->fragmentBuffer.data();
-
 
                     /* Check text messages for Utf-8 validity */
                     if (opCode == 1 && !WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::isValidUtf8((unsigned char *) data, length)) {
@@ -96,24 +81,23 @@ private:
                         return true;
                     }
 
+                    /* Emit message and check for shutdown or close */
                     webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
+                    if (us_internal_socket_is_closed((us_socket *) s) || webSocketData->isShuttingDown) {
+                        return true;
+                    }
 
-                    // todo: check if shut down or shutting down (shut down from websocket perspective)
-                    // if so, then return true
-
-
+                    /* If we shutdown or closed, this will be taken care of elsewhere */
                     webSocketData->fragmentBuffer.clear();
                 }
-
             }
-
-
         } else {
+            /* Control frames need the websocket to send pings, pongs and close */
             WebSocket<SSL, isServer> *webSocket = (WebSocket<SSL, isServer> *) s;
 
             if (!remainingBytes && fin && !webSocketData->controlTipLength) {
                 if (opCode == CLOSE) {
-                    typename WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::CloseFrame closeFrame = WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::parseClosePayload(data, length);
+                    auto closeFrame = WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::parseClosePayload(data, length);
                     webSocket->close(closeFrame.code, std::string_view(closeFrame.message, closeFrame.length));
                     return true;
                 } else {
@@ -131,15 +115,9 @@ private:
                     }
                 }
             } else {
-                // todo, buffer control frames
-
-                std::cout << "control frames! BUFFFERRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR" << std::endl;
-
-
-                // unsure how big this is?
+                /* Here we never mind any size optimizations as we are in the worst possible path */
                 webSocketData->fragmentBuffer.append(data, length);
                 webSocketData->controlTipLength += length;
-
 
                 if (!remainingBytes && fin) {
                     char *controlBuffer = (char *) webSocketData->fragmentBuffer.data() + webSocketData->fragmentBuffer.length() - webSocketData->controlTipLength;
@@ -162,35 +140,24 @@ private:
                         }
                     }
 
-                    // not optimal but slow path
+                    /* Same here, we do not care for any particular smart allocation scheme */
                     webSocketData->fragmentBuffer.resize(webSocketData->fragmentBuffer.length() - webSocketData->controlTipLength);
                     webSocketData->controlTipLength = 0;
                 }
-
-
-
-
             }
-
-
         }
-
-
-
-        // the only thing here to check is probably closed
-
-        // why does it not do anything immediately on true?
         return false;
     }
 
+    // bug: todo
     static bool refusePayloadLength(uint64_t length, uWS::WebSocketState<isServer> *wState) {
-        //std::cout << "refusepayloadlength" << std::endl;
+        /* We check if we want to accept such a frame based on size */
+        // for now, accept anything
         return false;
     }
 
     WebSocketContext<SSL, isServer> *init() {
-
-        /* I guess open is never called */
+        /* Open is never called, we only adopt sockets */
 
         /* Handle socket disconnections */
         static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(getSocketContext(), [](auto *s) {
@@ -200,21 +167,20 @@ private:
             return s;
         });
 
-        /* Handle HTTP data streams */
+        /* Handle WebSocket data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
-
-
+            /* We always cork on data */
             AsyncSocket<SSL> *webSocket = (AsyncSocket<SSL> *) s;
-
             webSocket->cork();
 
-            // get the data
+            /* We need the websocket data */
             WebSocketData *wsState = (WebSocketData *) us_socket_ext(s);
 
             // this parser requires almost no time -> 215k req/sec of 215k possible
             uWS::WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::consume(data, length, wsState, s);
 
 
+            // todo: check for failures here just like for HTTP
             webSocket->uncork();
 
             // are we shutdown?
@@ -234,6 +200,7 @@ private:
 
             AsyncSocket<SSL> *webSocket = (AsyncSocket<SSL> *) s;
 
+            // check for failures and shutdown just like in data event
             webSocket->write(nullptr, 0); // drainage - also check for shutdown!
 
             return s;
@@ -241,6 +208,8 @@ private:
 
         /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
         static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(getSocketContext(), [](auto *s) {
+
+            // just like http, websocket does not support half-open sockets so just close here
 
             std::cout << "websopcket fin" << std::endl;
 

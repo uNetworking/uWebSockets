@@ -11,10 +11,16 @@ namespace uWS {
 
 template <bool SSL, bool isServer>
 struct WebSocket : AsyncSocket<SSL> {
+    template <bool> friend struct TemplatedApp;
 private:
     typedef AsyncSocket<SSL> Super;
+
+    void init() {
+        new (us_socket_ext((us_socket *) this)) WebSocketData;
+    }
 public:
 
+    // this function need clean-ups and perf. fixes
     void send(std::string_view message, uWS::OpCode opCode) {
 
         // if corkAllocate(size) then corkFree(unused)
@@ -53,13 +59,6 @@ public:
 
         // why should we fin here?
         //us_socket_shutdown((us_socket *) this);
-    }
-
-    // absolutely not public!
-    void init() {
-        // construct us
-
-        new (us_socket_ext((us_socket *) this)) WebSocketData;
     }
 };
 

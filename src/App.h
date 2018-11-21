@@ -73,7 +73,7 @@ public:
                     ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept)
                     ->end();
 
-                std::cout << "Adopting" << std::endl;
+                //std::cout << "Adopting" << std::endl;
 
                 // adopting will immediately delete the socket! we cannot rely on reading anything on it
                 // rely on http context data
@@ -84,7 +84,7 @@ public:
 
                 webSocket->init();
 
-                std::cout << "adopted" << std::endl;
+                //std::cout << "adopted" << std::endl;
 
                 httpContext->upgradeToWebSocket(
                             webSocket

@@ -18,7 +18,7 @@ private:
     bool isShuttingDown = 0;
 public:
     WebSocketData() : WebSocketState<true>() {
-        std::cout << "init websocket data!" << std::endl;
+        //std::cout << "init websocket data!" << std::endl;
     }
 };
 

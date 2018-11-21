@@ -17,6 +17,8 @@
 #ifndef WEBSOCKETPROTOCOL_UWS_H
 #define WEBSOCKETPROTOCOL_UWS_H
 
+/* This segment is not cross-platform! Fix! */
+/* PortableEndianConversion.h */
 #ifdef __linux
 #include <endian.h>
 #include <arpa/inet.h>
