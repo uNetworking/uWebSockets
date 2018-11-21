@@ -5,32 +5,28 @@
 
 int main(int argc, char **argv) {
 
-    // do websockets here
-
-    /*
-    uWS::App().ws("/*", {
-        .open = []() {
-
-        },
-        .message = []() {
+    // here we have it
+    uWS::App().get("/hello", [](auto *res, auto *req) {
+        res->end("Hello HTTP!");
+    }).ws("/*", {
+        /*.open = */[](auto *ws, auto *req) {
 
         },
-        .drain = []() {
+        /*.message = */[](auto *ws, std::string_view message, uWS::OpCode opCode) {
+            ws->send(message, opCode);
+        }
+        /*.drain = []() {
+
+        },
+        .ping = []() {
+
+        },
+        .pong = []() {
 
         },
         .close = []() {
 
-        }
-    }).listen().run();*/
-
-
-
-    uWS::App().get("/hello", [](auto *res, auto *req) {
-        res->end("Hello HTTP!");
-    }).ws("/*", [](auto *ws, auto *req) {
-        std::cout << "WebSocket conntected to URL: " << req->getUrl() << std::endl;
-    }, [](auto *ws, std::string_view message, uWS::OpCode opCode) {
-        ws->send(message, opCode);
+        }*/
     }).listen(9001, [](auto *token) {
         if (token) {
             std::cout << "Listening on port " << 3000 << std::endl;

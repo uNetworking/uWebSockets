@@ -28,6 +28,7 @@
 #include "libwshandshake.hpp"
 
 namespace uWS {
+
 template <bool SSL>
 struct TemplatedApp {
 private:
@@ -51,14 +52,19 @@ public:
         // construct the websocket cintext? no! on demand!
     }
 
-    // this method creates a new websocket context and attaches it to a path
-    TemplatedApp &ws(std::string pattern, std::function<void(void *, HttpRequest *)> connectHandler, std::function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler) {
+    struct WebSocketBehavior {
+        std::function<void(void *, HttpRequest *)> open = nullptr;
+        std::function<void(uWS::WebSocket<false, true> *, std::string_view, uWS::OpCode)> message = nullptr;
+    };
+
+    TemplatedApp &ws(std::string pattern, WebSocketBehavior &&behavior) {
+
         // init the websocket context here!
         uWS::WebSocketContext<SSL, true> *webSocketContext = uWS::WebSocketContext<SSL, true>::create(uWS::Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
 
-        webSocketContext->getExt()->messageHandler = messageHandler;
+        webSocketContext->getExt()->messageHandler = behavior.message;
 
-        return get(pattern, [webSocketContext, this, connectHandler](auto *res, auto *req) {
+        return get(pattern, [webSocketContext, this, behavior](auto *res, auto *req) {
 
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
             if (secWebSocketKey.length()) {
@@ -91,7 +97,7 @@ public:
                             );
 
                 // we should hand the new socket to the handler
-                connectHandler(webSocket, req);
+                behavior.open(webSocket, req);
 
             } else {
 
@@ -105,6 +111,8 @@ public:
 
 
         });
+
+        return *this;
     }
 
     TemplatedApp &get(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
