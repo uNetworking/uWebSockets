@@ -153,6 +153,9 @@ public:
 
         httpContextData->upgradedWebSocket = newSocket;
 
+        // I jhave no idea what this does
+        return true;
+
 
         /*SOCKET_CONTEXT_TYPE *getSocketContext() {
             return (SOCKET_CONTEXT_TYPE *) this;

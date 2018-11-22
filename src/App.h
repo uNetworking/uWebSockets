@@ -32,10 +32,8 @@ namespace uWS {
 template <bool SSL>
 struct TemplatedApp {
 private:
+    /* The app always owns at least one http context, but creates websocket contexts on demand */
     HttpContext<SSL> *httpContext;
-
-    // the app does not own a websocket context, it is created on .ws(...) calls on demand!
-
 public:
 
     ~TemplatedApp() {
@@ -48,26 +46,27 @@ public:
 
     TemplatedApp(us_ssl_socket_context_options sslOptions = {}) {
         httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::defaultLoop(), &sslOptions);
-
-        // construct the websocket cintext? no! on demand!
     }
 
     struct WebSocketBehavior {
-        std::function<void(void *, HttpRequest *)> open = nullptr;
-        std::function<void(uWS::WebSocket<false, true> *, std::string_view, uWS::OpCode)> message = nullptr;
+        std::function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
+        std::function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
     };
 
+    template <class UserData>
     TemplatedApp &ws(std::string pattern, WebSocketBehavior &&behavior) {
+        /* Every route has its own websocket context with its own behavior and user data type */
+        auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
 
-        // init the websocket context here!
-        uWS::WebSocketContext<SSL, true> *webSocketContext = uWS::WebSocketContext<SSL, true>::create(uWS::Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
-
+        /* Copy all handlers */
         webSocketContext->getExt()->messageHandler = behavior.message;
 
         return get(pattern, [webSocketContext, this, behavior](auto *res, auto *req) {
-
+            /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
             if (secWebSocketKey.length()) {
+
+                // todo: negotiate extensions such as compression here and pass autobahn fully
 
                 // note: OpenSSL can be used here to speed this up somewhat
                 char secWebSocketAccept[29] = {};
@@ -79,37 +78,22 @@ public:
                     ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept)
                     ->end();
 
-                //std::cout << "Adopting" << std::endl;
-
-                // adopting will immediately delete the socket! we cannot rely on reading anything on it
-                // rely on http context data
-
-                // todo: sizeof websocket
+                /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
                 WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
-                            (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, 150);
-
-                webSocket->init();
-
-                //std::cout << "adopted" << std::endl;
+                            (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, /*sizeof(WebSocketData)*/ 150);
 
                 httpContext->upgradeToWebSocket(
-                            webSocket
+                            webSocket->init()
                             );
 
-                // we should hand the new socket to the handler
-                behavior.open(webSocket, req);
+                if (behavior.open) {
+                    behavior.open(webSocket, req);
+                }
 
             } else {
-
-                std::cout << "This is not a websocket so fuck off!" << std::endl;
-
-                // maybe pass this one to a HTTP handler on the websocket
-
-                // note: this calls the http close handler inline
+                /* For now we do not support having HTTP and websocket routes on the same URL */
                 res->close();
             }
-
-
         });
 
         return *this;
