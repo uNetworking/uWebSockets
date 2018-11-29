@@ -22,6 +22,8 @@
 #include <vector>
 #include <mutex>
 
+#include "PerMessageDeflate.h"
+
 namespace uWS {
 
 struct Loop;
@@ -43,6 +45,9 @@ public:
     char *corkBuffer = new char[CORK_BUFFER_SIZE];
     int corkOffset = 0;
     bool corked = false;
+
+    /* Compression data */
+    InflationStream *inflationStream = nullptr;
 };
 
 }

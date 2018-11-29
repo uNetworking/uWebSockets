@@ -31,8 +31,10 @@ HEADERS += \
     ../src/WebSocket.h \
     ../src/WebSocketData.h \
     ../src/WebSocketContext.h \
-    ../src/WebSocketContextData.h
+    ../src/WebSocketContextData.h \
+    ../src/WebSocketExtensions.h \
+    ../src/PerMessageDeflate.h
 
 INCLUDEPATH += ../uSockets/src ../src
 QMAKE_CXXFLAGS += -fsanitize=address
-LIBS += -lasan -pthread -lssl -lcrypto -lstdc++fs
+LIBS += -lasan -pthread -lssl -lcrypto -lz -lstdc++fs

@@ -12,6 +12,9 @@ int main(int argc, char **argv) {
     uWS::App().get("/hello", [](auto *res, auto *req) {
         res->end("Hello HTTP!");
     }).ws<void>("/*", {
+        /*.compression = */true,
+        /*.maxPayloadLength*/
+
         /*.open = */[](auto *ws, auto *req) {
 
         },

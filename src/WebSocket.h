@@ -31,8 +31,8 @@ struct WebSocket : AsyncSocket<SSL> {
 private:
     typedef AsyncSocket<SSL> Super;
 
-    void *init() {
-        new (us_socket_ext((us_socket *) this)) WebSocketData;
+    void *init(bool perMessageDeflate) {
+        new (us_socket_ext((us_socket *) this)) WebSocketData(perMessageDeflate);
         return this;
     }
 public:

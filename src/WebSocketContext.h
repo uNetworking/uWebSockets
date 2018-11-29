@@ -46,8 +46,16 @@ private:
         return (WebSocketContextData<SSL> *) us_socket_context_ext((SOCKET_CONTEXT_TYPE *) this);
     }
 
-    static bool setCompressed(uWS::WebSocketState<isServer> *wState) {
-        return false; // do not support it
+    /* If we have negotiated compression, set this frame compressed */
+    static bool setCompressed(uWS::WebSocketState<isServer> *wState, void *s) {
+        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) s);
+
+        if (webSocketData->compressionStatus == WebSocketData::CompressionStatus::ENABLED) {
+            webSocketData->compressionStatus = WebSocketData::CompressionStatus::COMPRESSED_FRAME;
+            return true;
+        } else {
+            return false;
+        }
     }
 
     static void forceClose(uWS::WebSocketState<isServer> *wState, void *s) {
@@ -64,6 +72,22 @@ private:
         if (opCode < 3) {
             /* Did we get everything in one go? */
             if (!remainingBytes && fin && !webSocketData->fragmentBuffer.length()) {
+
+                /* Handle compressed frame */
+                if (webSocketData->compressionStatus == WebSocketData::CompressionStatus::COMPRESSED_FRAME) {
+                        webSocketData->compressionStatus = WebSocketData::CompressionStatus::ENABLED;
+
+                        LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) s)));
+
+                        std::string_view inflatedFrame = loopData->inflationStream->inflate({data, length});
+                        if (!inflatedFrame.length()) {
+                            forceClose(webSocketState, s);
+                            return true;
+                        } else {
+                            data = (char *) inflatedFrame.data();
+                            length = inflatedFrame.length();
+                        }
+                }
 
                 /* Check text messages for Utf-8 validity */
                 if (opCode == 1 && !WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::isValidUtf8((unsigned char *) data, length)) {
@@ -87,9 +111,30 @@ private:
                 // what if we don't have any remaining bytes yet we are not fin? forceclose!
                 if (!remainingBytes && fin) {
 
-                    // reset length and data ptrs
-                    length = webSocketData->fragmentBuffer.length();
-                    data = webSocketData->fragmentBuffer.data();
+                    /* Handle compression */
+                    if (webSocketData->compressionStatus == WebSocketData::CompressionStatus::COMPRESSED_FRAME) {
+                            webSocketData->compressionStatus = WebSocketData::CompressionStatus::ENABLED;
+
+                            // what's really the story here?
+                            webSocketData->fragmentBuffer.append("....");
+
+                            LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) s)));
+
+                            std::string_view inflatedFrame = loopData->inflationStream->inflate({webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4});
+                            if (!inflatedFrame.length()) {
+                                forceClose(webSocketState, s);
+                                return true;
+                            } else {
+                                data = (char *) inflatedFrame.data();
+                                length = inflatedFrame.length();
+                            }
+
+
+                    } else {
+                        // reset length and data ptrs
+                        length = webSocketData->fragmentBuffer.length();
+                        data = webSocketData->fragmentBuffer.data();
+                    }
 
                     /* Check text messages for Utf-8 validity */
                     if (opCode == 1 && !WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::isValidUtf8((unsigned char *) data, length)) {

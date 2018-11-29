@@ -24,6 +24,7 @@
 #include "HttpResponse.h"
 #include "WebSocketContext.h"
 #include "WebSocket.h"
+#include "WebSocketExtensions.h"
 
 #include "libwshandshake.hpp"
 
@@ -49,6 +50,7 @@ public:
     }
 
     struct WebSocketBehavior {
+        bool compression = false;
         std::function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
         std::function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
     };
@@ -58,6 +60,15 @@ public:
         /* Every route has its own websocket context with its own behavior and user data type */
         auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
 
+        /* If we are the first one to use compression, initialize it */
+        if (behavior.compression) {
+            LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(webSocketContext->getSocketContext()));
+
+            if (!loopData->inflationStream) {
+                loopData->inflationStream = new InflationStream;
+            }
+        }
+
         /* Copy all handlers */
         webSocketContext->getExt()->messageHandler = behavior.message;
 
@@ -65,9 +76,6 @@ public:
             /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
             if (secWebSocketKey.length()) {
-
-                // todo: negotiate extensions such as compression here and pass autobahn fully
-
                 // note: OpenSSL can be used here to speed this up somewhat
                 char secWebSocketAccept[29] = {};
                 WebSocketHandshake::generate(secWebSocketKey.data(), secWebSocketAccept);
@@ -75,15 +83,38 @@ public:
                 res->writeStatus("101 Switching Protocols")
                     ->writeHeader("Upgrade", "websocket")
                     ->writeHeader("Connection", "Upgrade")
-                    ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept)
-                    ->end();
+                    ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept);
+
+                /* Negotiate compression */
+                bool perMessageDeflate = false;
+                if (behavior.compression) {
+                    std::string_view extensions = req->getHeader("sec-websocket-extensions");
+                    if (extensions.length()) {
+                        // basically: parse<isServer>(options, extensions)
+                        ExtensionsNegotiator<true> extensionsNegotiator(PERMESSAGE_DEFLATE | CLIENT_NO_CONTEXT_TAKEOVER); // take options
+                        extensionsNegotiator.readOffer(extensions);
+
+                        //std::cout << extensions << " => " << extensionsNegotiator.generateOffer() << std::endl;
+
+                        /* Todo: remove these mid string copies */
+                        res->writeHeader("Sec-WebSocket-Extensions", extensionsNegotiator.generateOffer());
+
+                        /* Did we negotiate permessage-deflate? */
+                        if (extensionsNegotiator.getNegotiatedOptions() & PERMESSAGE_DEFLATE) {
+                            perMessageDeflate = true;
+                        }
+                    }
+                }
+
+                /* Add mark, we don't want to end anything */
+                res->writeHeader("WebSocket-Server", "uWebSockets")->end();
 
                 /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
                 WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
                             (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, /*sizeof(WebSocketData)*/ 150);
 
                 httpContext->upgradeToWebSocket(
-                            webSocket->init()
+                            webSocket->init(perMessageDeflate)
                             );
 
                 if (behavior.open) {

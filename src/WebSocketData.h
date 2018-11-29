@@ -32,9 +32,15 @@ private:
     std::string fragmentBuffer;
     int controlTipLength = 0;
     bool isShuttingDown = 0;
+    enum CompressionStatus : char {
+        DISABLED,
+        ENABLED,
+        COMPRESSED_FRAME
+    } compressionStatus;
 public:
-    WebSocketData() : WebSocketState<true>() {
-        //std::cout << "init websocket data!" << std::endl;
+    WebSocketData(bool perMessageDeflate) : WebSocketState<true>() {
+        std::cout << "perMessageDeflate: " << perMessageDeflate << std::endl;
+        compressionStatus = perMessageDeflate ? ENABLED : DISABLED;
     }
 };
 

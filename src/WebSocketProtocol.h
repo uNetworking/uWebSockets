@@ -370,7 +370,7 @@ public:
             while (length >= SHORT_MESSAGE_HEADER) {
 
                 // invalid reserved bits / invalid opcodes / invalid control frames / set compressed frame
-                if ((rsv1(src) && !Impl::setCompressed(wState)) || rsv23(src) || (getOpCode(src) > 2 && getOpCode(src) < 8) ||
+                if ((rsv1(src) && !Impl::setCompressed(wState, user)) || rsv23(src) || (getOpCode(src) > 2 && getOpCode(src) < 8) ||
                     getOpCode(src) > 10 || (getOpCode(src) > 2 && (!isFin(src) || payloadLength(src) > 125))) {
                     Impl::forceClose(wState, user);
                     return;
