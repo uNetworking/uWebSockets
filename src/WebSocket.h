@@ -30,9 +30,11 @@ struct WebSocket : AsyncSocket<SSL> {
     template <bool> friend struct TemplatedApp;
 private:
     typedef AsyncSocket<SSL> Super;
+    using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
+    using StaticDispatch<SSL>::static_dispatch;
 
     void *init(bool perMessageDeflate) {
-        new (us_socket_ext((us_socket *) this)) WebSocketData(perMessageDeflate);
+        new (static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this)) WebSocketData(perMessageDeflate);
         return this;
     }
 public:
@@ -58,14 +60,20 @@ public:
     void close(int code, std::string_view message = {}) {
         // closing should trigger close event!
 
-        std::cout << "Closing websocket: " << code << " = " << message << std::endl;
+        /*if (code == 1001) {
+            std::cout << "Going away" << std::endl;
+        }
+
+        std::cout << "Closing websocket: " << code << " = " << message << std::endl;*/
 
         static const int MAX_CLOSE_PAYLOAD = 123;
         int length = std::min<size_t>(MAX_CLOSE_PAYLOAD, message.length());
 
         // here we start a timeout and handle it accordingly in the timeout handler
 
-        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) this);
+        //WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) this);
+
+        WebSocketData *webSocketData = (WebSocketData *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
 
         webSocketData->isShuttingDown = true;
 

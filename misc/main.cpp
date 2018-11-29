@@ -9,7 +9,16 @@ int main(int argc, char **argv) {
 
     };
 
-    uWS::App().get("/hello", [](auto *res, auto *req) {
+    /*const char *key_file_name;
+    const char *cert_file_name;
+    const char *passphrase;
+    const char *dh_params_file_name;*/
+
+    uWS::SSLApp({
+        "/home/alexhultman/key.pem",
+        "/home/alexhultman/cert.pem",
+        "1234"
+    }).get("/hello", [](auto *res, auto *req) {
         res->end("Hello HTTP!");
     }).ws<void>("/*", {
         /*.compression = */true,

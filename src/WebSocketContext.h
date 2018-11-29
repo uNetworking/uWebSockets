@@ -43,12 +43,16 @@ private:
     }
 
     WebSocketContextData<SSL> *getExt() {
-        return (WebSocketContextData<SSL> *) us_socket_context_ext((SOCKET_CONTEXT_TYPE *) this);
+        return (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)((SOCKET_CONTEXT_TYPE *) this);
     }
 
     /* If we have negotiated compression, set this frame compressed */
     static bool setCompressed(uWS::WebSocketState<isServer> *wState, void *s) {
-        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) s);
+        //WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) s);
+
+        std::cout << "set compressed" << std::endl;
+
+        WebSocketData *webSocketData = (WebSocketData *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
 
         if (webSocketData->compressionStatus == WebSocketData::CompressionStatus::ENABLED) {
             webSocketData->compressionStatus = WebSocketData::CompressionStatus::COMPRESSED_FRAME;
@@ -65,8 +69,18 @@ private:
     /* Returns true on breakage */
     static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, uWS::WebSocketState<isServer> *webSocketState, void *s) {
         /* WebSocketData and WebSocketContextData */
-        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(us_socket_get_context((us_socket *) s));
-        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) s);
+        //WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(us_socket_get_context((us_socket *) s));
+        //WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) s);
+
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
+
+        static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) s)
+
+                    );
+
+        WebSocketData *webSocketData = (WebSocketData *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
+
+        //std::cout << "ho" << std::endl;
 
         /* Is this a non-control frame? */
         if (opCode < 3) {
@@ -212,6 +226,9 @@ private:
 
     // bug: todo
     static bool refusePayloadLength(uint64_t length, uWS::WebSocketState<isServer> *wState) {
+
+        std::cout << "refuse payload length" << std::endl;
+
         /* We check if we want to accept such a frame based on size */
         // for now, accept anything
         return false;
@@ -230,12 +247,15 @@ private:
 
         /* Handle WebSocket data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
+
+            std::cout << "websocket data" << std::endl;
+
             /* We always cork on data */
             AsyncSocket<SSL> *webSocket = (AsyncSocket<SSL> *) s;
             webSocket->cork();
 
             /* We need the websocket data */
-            WebSocketData *wsState = (WebSocketData *) us_socket_ext(s);
+            WebSocketData *wsState = (WebSocketData *) (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s));
 
             // this parser requires almost no time -> 215k req/sec of 215k possible
             uWS::WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::consume(data, length, wsState, s);

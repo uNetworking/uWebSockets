@@ -31,10 +31,13 @@
 namespace uWS {
 
 template <bool SSL>
-struct TemplatedApp {
+struct TemplatedApp : StaticDispatch<SSL> {
 private:
     /* The app always owns at least one http context, but creates websocket contexts on demand */
     HttpContext<SSL> *httpContext;
+
+    using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
+    using StaticDispatch<SSL>::static_dispatch;
 public:
 
     ~TemplatedApp() {
@@ -62,7 +65,8 @@ public:
 
         /* If we are the first one to use compression, initialize it */
         if (behavior.compression) {
-            LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(webSocketContext->getSocketContext()));
+
+            LoopData *loopData = (LoopData *) us_loop_ext(static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(webSocketContext->getSocketContext()));
 
             if (!loopData->inflationStream) {
                 loopData->inflationStream = new InflationStream;
@@ -120,6 +124,8 @@ public:
                 if (behavior.open) {
                     behavior.open(webSocket, req);
                 }
+
+                std::cout << "oh hey!" << std::endl;
 
             } else {
                 /* For now we do not support having HTTP and websocket routes on the same URL */
