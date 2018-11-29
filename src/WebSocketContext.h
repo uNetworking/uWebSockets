@@ -91,7 +91,18 @@ private:
                 if (webSocketData->compressionStatus == WebSocketData::CompressionStatus::COMPRESSED_FRAME) {
                         webSocketData->compressionStatus = WebSocketData::CompressionStatus::ENABLED;
 
-                        LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) s)));
+                        //LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) s)));
+
+                        LoopData *loopData = (LoopData *) us_loop_ext(
+
+
+                                    static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(
+
+                                    static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) s)
+
+                                        )
+
+                                    );
 
                         std::string_view inflatedFrame = loopData->inflationStream->inflate({data, length});
                         if (!inflatedFrame.length()) {
@@ -132,7 +143,21 @@ private:
                             // what's really the story here?
                             webSocketData->fragmentBuffer.append("....");
 
-                            LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) s)));
+                            //LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) s)));
+
+                            //LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) s)));
+
+                            LoopData *loopData = (LoopData *) us_loop_ext(
+
+
+                                        static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(
+
+                                        static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) s)
+
+                                            )
+
+                                        );
+
 
                             std::string_view inflatedFrame = loopData->inflationStream->inflate({webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4});
                             if (!inflatedFrame.length()) {
@@ -227,7 +252,7 @@ private:
     // bug: todo
     static bool refusePayloadLength(uint64_t length, uWS::WebSocketState<isServer> *wState) {
 
-        std::cout << "refuse payload length" << std::endl;
+        //std::cout << "refuse payload length" << std::endl;
 
         /* We check if we want to accept such a frame based on size */
         // for now, accept anything
