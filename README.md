@@ -45,6 +45,8 @@ uWS::SSLApp({
 #### Pay what you want.
 A free & open source ([permissive](LICENSE)) project since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018.
 
+You can always buy me a coffee using [PayPal](https://paypal.me/uwebsockets).
+
 <div align="center"><img src="misc/2018.png"/></div>
 
 *Become a paying sponsor to unlock support, issue reporting, roadmaps and to drop suggestions.*
