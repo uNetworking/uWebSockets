@@ -40,6 +40,9 @@
 #define us_ssl_socket_context_loop us_socket_context_loop
 #define us_ssl_socket_get_context us_socket_get_context
 #define us_ssl_socket_context_listen us_socket_context_listen
+#define us_ssl_socket_context_adopt_socket us_socket_context_adopt_socket
+#define us_create_child_ssl_socket_context us_create_child_socket_context
+#define us_ssl_socket_shutdown us_socket_shutdown
 #endif
 
 namespace uWS {
