@@ -29,9 +29,6 @@
 #include <string_view>
 #include <functional>
 
-/* This is a hack for now on, update uSockets */
-extern "C" int us_internal_socket_is_closed(struct us_socket *s);
-
 namespace uWS {
 template<bool> struct HttpResponse;
 
@@ -153,7 +150,7 @@ private:
 //                }
 
                 /* Was the socket closed? */
-                if (us_internal_socket_is_closed((struct us_socket *) s)) {
+                if (us_socket_is_closed((struct us_socket *) s)) {
                     return nullptr;
                 }
 
@@ -173,7 +170,7 @@ private:
                     httpResponseData->inStream(data);
 
                     /* Was the socket closed? */
-                    if (us_internal_socket_is_closed((struct us_socket *) user)) {
+                    if (us_socket_is_closed((struct us_socket *) user)) {
                         return nullptr;
                     }
 

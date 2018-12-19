@@ -22,6 +22,7 @@
 #include <string>
 #include <functional>
 #include <cstring>
+#include <algorithm>
 
 namespace uWS {
 

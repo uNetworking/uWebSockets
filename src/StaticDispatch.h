@@ -22,6 +22,26 @@
 #include <type_traits>
 #include <libusockets.h>
 
+/* For now we just define all these as nonsense if using a non-SSL version of uSockets */
+#ifdef LIBUS_NO_SSL
+#define us_ssl_socket_context_options int
+#define us_ssl_socket_context_ext us_socket_context_ext
+#define us_ssl_socket_context_on_open us_socket_context_on_open
+#define us_ssl_socket_timeout us_socket_timeout
+#define us_ssl_socket_ext us_socket_ext
+#define us_ssl_socket_context_on_close us_socket_context_on_close
+#define us_ssl_socket_context_on_data us_socket_context_on_data
+#define us_ssl_socket_context_on_writable us_socket_context_on_writable
+#define us_ssl_socket_context_on_end us_socket_context_on_end
+#define us_ssl_socket_context_on_timeout us_socket_context_on_timeout
+#define us_ssl_socket_is_shut_down us_socket_is_shut_down
+#define us_ssl_socket_close us_socket_close
+#define us_ssl_socket_write us_socket_write
+#define us_ssl_socket_context_loop us_socket_context_loop
+#define us_ssl_socket_get_context us_socket_get_context
+#define us_ssl_socket_context_listen us_socket_context_listen
+#endif
+
 namespace uWS {
 
 template <bool SSL>

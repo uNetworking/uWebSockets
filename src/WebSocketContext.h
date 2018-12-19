@@ -23,9 +23,6 @@
 #include "WebSocketData.h"
 #include "AsyncSocket.h"
 
-/* This is a hack for now on, update uSockets */
-extern "C" int us_internal_socket_is_closed(struct us_socket *s);
-
 namespace uWS {
 
 template <bool SSL, bool isServer>
@@ -122,7 +119,7 @@ private:
 
                 /* Emit message event & break if we are closed or shut down when returning */
                 webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
-                if (us_internal_socket_is_closed((us_socket *) s) || webSocketData->isShuttingDown) {
+                if (us_socket_is_closed((us_socket *) s) || webSocketData->isShuttingDown) {
                     return true;
                 }
             } else {
@@ -183,7 +180,7 @@ private:
 
                     /* Emit message and check for shutdown or close */
                     webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
-                    if (us_internal_socket_is_closed((us_socket *) s) || webSocketData->isShuttingDown) {
+                    if (us_socket_is_closed((us_socket *) s) || webSocketData->isShuttingDown) {
                         return true;
                     }
 
