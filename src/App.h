@@ -54,8 +54,13 @@ public:
 
     struct WebSocketBehavior {
         bool compression = false;
+        int maxPayloadLength = 16 * 1024;
         std::function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
         std::function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
+        std::function<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
+        std::function<void(uWS::WebSocket<SSL, true> *)> ping = nullptr;
+        std::function<void(uWS::WebSocket<SSL, true> *)> pong = nullptr;
+        std::function<void(uWS::WebSocket<SSL, true> *, int, std::string_view)> close = nullptr;
     };
 
     template <class UserData>
@@ -75,6 +80,8 @@ public:
 
         /* Copy all handlers */
         webSocketContext->getExt()->messageHandler = behavior.message;
+        webSocketContext->getExt()->drainHandler = behavior.drain;
+        webSocketContext->getExt()->closeHandler = behavior.close;
 
         return get(pattern, [webSocketContext, this, behavior](auto *res, auto *req) {
             /* If we have this header set, it's a websocket */
@@ -124,8 +131,6 @@ public:
                 if (behavior.open) {
                     behavior.open(webSocket, req);
                 }
-
-                std::cout << "oh hey!" << std::endl;
 
             } else {
                 /* For now we do not support having HTTP and websocket routes on the same URL */

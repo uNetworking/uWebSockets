@@ -28,8 +28,10 @@ template <bool, bool> struct WebSocket;
 
 template <bool SSL>
 struct WebSocketContextData {
-
+    /* The callbacks for this context */
     std::function<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler;
+    std::function<void(uWS::WebSocket<SSL, true> *)> drainHandler;
+    std::function<void(uWS::WebSocket<SSL, true> *, int, std::string_view)> closeHandler;
 };
 
 }

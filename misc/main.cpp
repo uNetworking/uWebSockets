@@ -6,7 +6,7 @@
 int main(int argc, char **argv) {
 
     struct PerSocketData {
-
+        int hello;
     };
 
     /*const char *key_file_name;
@@ -14,34 +14,41 @@ int main(int argc, char **argv) {
     const char *passphrase;
     const char *dh_params_file_name;*/
 
-    uWS::SSLApp({
+    uWS::App(/*SSLApp({
         "/home/alexhultman/key.pem",
         "/home/alexhultman/cert.pem",
         "1234"
-    }).get("/hello", [](auto *res, auto *req) {
+    }*/).get("/hello", [](auto *res, auto *req) {
         res->end("Hello HTTP!");
-    }).ws<void>("/*", {
-        /*.compression = */true,
-        /*.maxPayloadLength*/
-
-        /*.open = */[](auto *ws, auto *req) {
-
+    }).ws<PerSocketData>("/*", {
+        /* Settings */
+        .compression = true,
+        .maxPayloadLength = 16 * 1024,
+        /* Handlers */
+        .open = [](auto *ws, auto *req) {
+            std::cout << "WebSocket connected" << std::endl;
+            /* Access per socket data */
+            /*PerSocketData *perSocketData = */ws->getUserData();
+            /*perSocketData->hello = 13;*/
         },
-        /*.message = */[](auto *ws, std::string_view message, uWS::OpCode opCode) {
+        .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode);
+        },
+        .drain = [](auto *ws) {
+            std::cout << "Drainage: " << ws->getBufferedAmount() << std::endl;
+        },
+        .ping = [](auto *ws) {
+            std::cout << "Ping" << std::endl;
+        },
+        .pong = [](auto *ws) {
+            std::cout << "Pong" << std::endl;
+        },
+        .close = [](auto *ws, int code, std::string_view message) {
+            std::cout << "WebSocket disconnected: " << code << "[" << message << "]" << std::endl;
+            /* Access per socket data */
+            //PerSocketData *perSocketData = ws->getUserData<PerSocketData>();
+            //std::cout << "OK per socket data: " << (perSocketData->hello == 13) << std::endl;
         }
-        /*.drain = []() {
-
-        },
-        .ping = []() {
-
-        },
-        .pong = []() {
-
-        },
-        .close = []() {
-
-        }*/
     }).listen(9001, [](auto *token) {
         if (token) {
             std::cout << "Listening on port " << 3000 << std::endl;

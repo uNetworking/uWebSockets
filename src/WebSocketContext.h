@@ -47,7 +47,7 @@ private:
     static bool setCompressed(uWS::WebSocketState<isServer> *wState, void *s) {
         //WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) s);
 
-        std::cout << "set compressed" << std::endl;
+        //std::cout << "set compressed" << std::endl;
 
         WebSocketData *webSocketData = (WebSocketData *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
 
@@ -264,14 +264,13 @@ private:
 
             std::cout << "close!" << std::endl;
 
+
+
             return s;
         });
 
         /* Handle WebSocket data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
-
-            //std::cout << "websocket data" << std::endl;
-
             /* We always cork on data */
             AsyncSocket<SSL> *webSocket = (AsyncSocket<SSL> *) s;
             webSocket->cork();
@@ -279,12 +278,13 @@ private:
             /* We need the websocket data */
             WebSocketData *wsState = (WebSocketData *) (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s));
 
-            // this parser requires almost no time -> 215k req/sec of 215k possible
+            /* This parser has virtually no overhead */
             uWS::WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::consume(data, length, wsState, s);
-
 
             // todo: check for failures here just like for HTTP
             webSocket->uncork();
+
+            // I guess we need to check drain here
 
             // are we shutdown?
             if (wsState->isShuttingDown) {
@@ -305,6 +305,10 @@ private:
 
             // check for failures and shutdown just like in data event
             webSocket->write(nullptr, 0); // drainage - also check for shutdown!
+
+            // call drain here
+
+
 
             return s;
         });

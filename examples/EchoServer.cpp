@@ -1,29 +1,35 @@
 #include "App.h"
 
 int main() {
+    /* ws->getUserData returns one of these */
+    struct PerSocketData {
+
+    };
+
     /* Very simple WebSocket echo server */
-    uWS::App().ws<void>("/*", {
-        /*.compression = */true,
-        /*.maxPayloadLength*/
-
-        /*.open = */[](auto *ws, auto *req) {
+    uWS::App().ws<PerSocketData>("/*", {
+        /* Settings */
+        .compression = true,
+        .maxPayloadLength = 16 * 1024,
+        /* Handlers */
+        .open = [](auto *ws, auto *req) {
 
         },
-        /*.message = */[](auto *ws, std::string_view message, uWS::OpCode opCode) {
+        .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode);
+        },
+        .drain = [](auto *ws) {
+            /* Check getBufferedAmount here */
+        },
+        .ping = [](auto *ws) {
+
+        },
+        .pong = [](auto *ws) {
+
+        },
+        .close = [](auto *ws, int code, std::string_view message) {
+
         }
-        /*.drain = []() {
-
-        },
-        .ping = []() {
-
-        },
-        .pong = []() {
-
-        },
-        .close = []() {
-
-        }*/
     }).listen(9001, [](auto *token) {
         if (token) {
             std::cout << "Listening on port " << 9001 << std::endl;

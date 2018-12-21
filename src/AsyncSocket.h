@@ -95,6 +95,13 @@ protected:
         }
     }
 
+    /* Returns the user space backpressure. */
+    int getBufferedAmount() {
+        AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
+
+        return asyncSocketData->buffer.size();
+    }
+
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
      * Returns pair of bytes written (anywhere) and wheter or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */

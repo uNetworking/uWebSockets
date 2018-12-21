@@ -39,6 +39,17 @@ private:
     }
 public:
 
+    /* Returns pointer to the per socket user data */
+    //template <typename K>
+    void *getUserData() {
+        WebSocketData *webSocketData = (WebSocketData *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+
+        return nullptr;
+    }
+
+    /* See AsyncSocket */
+    using Super::getBufferedAmount;
+
     /* Send or buffer a WebSocket frame, compressed or not. Returns false on increased user space backpressure. */
     bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
         /* Transform the message to compressed domain if requested */
