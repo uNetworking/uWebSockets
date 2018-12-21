@@ -71,6 +71,24 @@ protected:
         getLoopData()->corked = true;
     }
 
+    // this is highly broken right now, should properly make use of secondary buffer if needed
+    std::pair<char *, bool> getSendBuffer(size_t size) {
+
+        // for now, just return this straight up
+
+        LoopData *loopData = getLoopData();
+
+        char *sendBuffer = loopData->corkBuffer + loopData->corkOffset;
+
+
+        // very broken
+        loopData->corkOffset += size;
+
+
+
+        return {sendBuffer, false};
+    }
+
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
      * Returns pair of bytes written (anywhere) and wheter or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */

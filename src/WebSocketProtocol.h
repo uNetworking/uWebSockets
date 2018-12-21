@@ -309,6 +309,15 @@ public:
         return 0;
     }
 
+    static inline size_t messageFrameSize(size_t messageSize) {
+        if (messageSize < 126) {
+            return 2 + messageSize;
+        } else if (messageSize <= UINT16_MAX) {
+            return 4 + messageSize;
+        }
+        return 10 + messageSize;
+    }
+
     static inline size_t formatMessage(char *dst, const char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed) {
         size_t messageLength;
         size_t headerLength;

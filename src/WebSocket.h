@@ -40,20 +40,25 @@ private:
 public:
 
     // this function need clean-ups and perf. fixes
-    void send(std::string_view message, uWS::OpCode opCode) {
+    bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
+        /* Transform the message to compressed domain if requested */
+        if (compress) {
+            //message = ;
+            std::cout << "send compression ignored!" << std::endl;
+        }
 
-        // if corkAllocate(size) then corkFree(unused)
+        /* Get size, alloate size, write if needed */
+        size_t messageFrameSize = WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::messageFrameSize(message.length());
+        auto[sendBuffer, requiresWrite] = Super::getSendBuffer(messageFrameSize);
+        WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::formatMessage(sendBuffer, message.data(), message.length(), opCode, message.length(), false);
+        if (requiresWrite) {
+            auto[written, failed] = Super::write(sendBuffer, messageFrameSize);
+            /* Return true for success */
+            return !failed;
+        }
 
-        // format the response
-        char *buf = (char *) malloc(message.length() + 100);
-        int writeLength = WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::formatMessage(buf, message.data(), message.length(), opCode, message.length(), false);
-
-
-
-        Super::write(buf, writeLength);
-
-        free(buf);
-
+        /* Return success */
+        return true;
     }
 
     /* Emit close event, stat passive timeout */
