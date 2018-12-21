@@ -7,9 +7,6 @@
 
 </div>
 
-#### Tread lightly.
-This is the **completely broken development branch** of v0.15. Track progress & issues [here](https://github.com/uNetworking/issues/issues). Checkout [v0.14](https://github.com/uNetworking/uWebSockets/tree/v0.14) for something stable.
-
 #### Express yourself briefly.
 ```c++
 uWS::SSLApp({
