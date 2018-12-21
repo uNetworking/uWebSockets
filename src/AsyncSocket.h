@@ -68,25 +68,31 @@ protected:
 
     /* Cork this socket. Only one socket may ever be corked per-loop at any given time */
     void cork() {
-        getLoopData()->corked = true;
+        /* What if another socket is corked? */
+        getLoopData()->corkedSocket = this;
     }
 
-    // this is highly broken right now, should properly make use of secondary buffer if needed
+    /* Returns wheter we are corked or not */
+    bool isCorked() {
+        return getLoopData()->corkedSocket == this;
+    }
+
+    /* Returns a suitable buffer for temporary assemblation of send data */
     std::pair<char *, bool> getSendBuffer(size_t size) {
-
-        // for now, just return this straight up
-
+        /* If we are corked and we have room, return the cork buffer itself */
         LoopData *loopData = getLoopData();
+        if (loopData->corkedSocket == this && loopData->corkOffset + size < LoopData::CORK_BUFFER_SIZE) {
+            char *sendBuffer = loopData->corkBuffer + loopData->corkOffset;
+            loopData->corkOffset += size;
+            return {sendBuffer, false};
+        } else {
+            // slow path for now
 
-        char *sendBuffer = loopData->corkBuffer + loopData->corkOffset;
+            return {(char *) malloc(size), true};
 
+            // if we are out of buffer, fail this completely?
 
-        // very broken
-        loopData->corkOffset += size;
-
-
-
-        return {sendBuffer, false};
+        }
     }
 
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
@@ -126,7 +132,7 @@ protected:
         }
 
         if (length) {
-            if (loopData->corked) {
+            if (loopData->corkedSocket == this) {
                 /* We are corked */
                 if (LoopData::CORK_BUFFER_SIZE - loopData->corkOffset >= length) {
                     /* If the entire chunk fits in cork buffer */
@@ -186,8 +192,8 @@ protected:
     std::pair<int, bool> uncork(const char *src = nullptr, int length = 0, bool optionally = false) {
         LoopData *loopData = getLoopData();
 
-        if (loopData->corked) {
-            loopData->corked = false;
+        if (loopData->corkedSocket == this) {
+            loopData->corkedSocket = nullptr;
 
             if (loopData->corkOffset) {
                 /* Corked data is already accounted for via its write call */

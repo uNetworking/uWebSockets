@@ -44,7 +44,7 @@ public:
     /* Cork data */
     char *corkBuffer = new char[CORK_BUFFER_SIZE];
     int corkOffset = 0;
-    bool corked = false;
+    void *corkedSocket = nullptr;
 
     /* Compression data */
     InflationStream *inflationStream = nullptr;

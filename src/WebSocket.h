@@ -39,7 +39,7 @@ private:
     }
 public:
 
-    // this function need clean-ups and perf. fixes
+    /* Send or buffer a WebSocket frame, compressed or not. Returns false on increased user space backpressure. */
     bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
         /* Transform the message to compressed domain if requested */
         if (compress) {
@@ -53,6 +53,10 @@ public:
         WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::formatMessage(sendBuffer, message.data(), message.length(), opCode, message.length(), false);
         if (requiresWrite) {
             auto[written, failed] = Super::write(sendBuffer, messageFrameSize);
+
+            /* For now, we are slow here (fix!) */
+            free(sendBuffer);
+
             /* Return true for success */
             return !failed;
         }

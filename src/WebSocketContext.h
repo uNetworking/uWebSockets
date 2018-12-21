@@ -270,7 +270,7 @@ private:
         /* Handle WebSocket data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
 
-            std::cout << "websocket data" << std::endl;
+            //std::cout << "websocket data" << std::endl;
 
             /* We always cork on data */
             AsyncSocket<SSL> *webSocket = (AsyncSocket<SSL> *) s;
