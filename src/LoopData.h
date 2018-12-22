@@ -48,6 +48,7 @@ public:
 
     /* Compression data */
     InflationStream *inflationStream = nullptr;
+    DeflationStream *deflationStream = nullptr;
 };
 
 }

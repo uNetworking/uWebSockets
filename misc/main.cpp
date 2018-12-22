@@ -28,11 +28,11 @@ int main(int argc, char **argv) {
         .open = [](auto *ws, auto *req) {
             std::cout << "WebSocket connected" << std::endl;
             /* Access per socket data */
-            /*PerSocketData *perSocketData = */ws->getUserData();
+            /*PerSocketData *perSocketData = *///ws->getUserData();
             /*perSocketData->hello = 13;*/
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
-            ws->send(message, opCode);
+            ws->send(message, opCode, true);
         },
         .drain = [](auto *ws) {
             std::cout << "Drainage: " << ws->getBufferedAmount() << std::endl;

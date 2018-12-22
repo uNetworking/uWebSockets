@@ -39,7 +39,7 @@ private:
     } compressionStatus;
 public:
     WebSocketData(bool perMessageDeflate) : WebSocketState<true>() {
-        std::cout << "perMessageDeflate: " << perMessageDeflate << std::endl;
+        //std::cout << "perMessageDeflate: " << perMessageDeflate << std::endl;
         compressionStatus = perMessageDeflate ? ENABLED : DISABLED;
     }
 };

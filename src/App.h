@@ -76,6 +76,10 @@ public:
             if (!loopData->inflationStream) {
                 loopData->inflationStream = new InflationStream;
             }
+
+            if (!loopData->deflationStream) {
+                loopData->deflationStream = new DeflationStream;
+            }
         }
 
         /* Copy all handlers */
@@ -122,15 +126,22 @@ public:
 
                 /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
                 WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
-                            (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, /*sizeof(WebSocketData)*/ 150);
+                            (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, sizeof(WebSocketData));
+
+                /* Update corked socket in case we got a new one (assuming we always are corked in handlers). */
+                webSocket->cork();
 
                 httpContext->upgradeToWebSocket(
                             webSocket->init(perMessageDeflate)
                             );
 
+                /* Emit open event */
                 if (behavior.open) {
                     behavior.open(webSocket, req);
                 }
+
+                // todo: perform all the checks such as shutdown, closed, etc!
+                // bug? or does this happen automatically? no!
 
             } else {
                 /* For now we do not support having HTTP and websocket routes on the same URL */

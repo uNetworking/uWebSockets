@@ -30,9 +30,82 @@
 
 // we also need DeflationStream
 
+struct DeflationStream {
+
+    // share this under the Loop
+    std::string dynamicZlibBuffer;
+    z_stream deflationStream = {};
+    char *zlibBuffer;
+
+    DeflationStream() {
+        std::cout << "Constructing DeflationStream" << std::endl;
+        zlibBuffer = (char *) malloc(LARGE_BUFFER_SIZE);
+
+        deflateInit2(&deflationStream, 1, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY);
+    }
+
+    std::string_view deflate(std::string_view raw) {
+
+        // slidingDeflateWindow är input, length är in/ut
+
+        z_stream *slidingDeflateWindow = nullptr;
+
+        dynamicZlibBuffer.clear();
+
+        z_stream *compressor = slidingDeflateWindow ? slidingDeflateWindow : &deflationStream;
+
+        compressor->next_in = (Bytef *) raw.data();
+        compressor->avail_in = (unsigned int) raw.length();
+
+        // note: zlib requires more than 6 bytes with Z_SYNC_FLUSH
+        const int DEFLATE_OUTPUT_CHUNK = LARGE_BUFFER_SIZE;
+
+        int err;
+        do {
+            compressor->next_out = (Bytef *) zlibBuffer;
+            compressor->avail_out = DEFLATE_OUTPUT_CHUNK;
+
+            err = ::deflate(compressor, Z_SYNC_FLUSH);
+            if (Z_OK == err && compressor->avail_out == 0) {
+                dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - compressor->avail_out);
+                continue;
+            } else {
+                break;
+            }
+        } while (true);
+
+        // note: should not change avail_out
+        if (!slidingDeflateWindow) {
+            deflateReset(compressor);
+        }
+
+        if (dynamicZlibBuffer.length()) {
+            dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - compressor->avail_out);
+
+            return {(char *) dynamicZlibBuffer.data(), dynamicZlibBuffer.length() - 4};
+
+            //length = dynamicZlibBuffer.length() - 4;
+            //return (char *) dynamicZlibBuffer.data();
+        }
+
+        return {
+            zlibBuffer,
+            DEFLATE_OUTPUT_CHUNK - compressor->avail_out - 4
+        };
+
+        //length = DEFLATE_OUTPUT_CHUNK - compressor->avail_out - 4;
+        //return zlibBuffer;
+    }
+
+    ~DeflationStream() {
+        std::cout << "Destructing DeflationStream" << std::endl;
+    }
+};
+
 // the loop holds one of these
 struct InflationStream {
 
+    // share this under the Loop
     std::string dynamicZlibBuffer;
     z_stream inflationStream = {};
     char *zlibBuffer;

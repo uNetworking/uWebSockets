@@ -54,14 +54,22 @@ public:
     bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
         /* Transform the message to compressed domain if requested */
         if (compress) {
-            //message = ;
-            std::cout << "send compression ignored!" << std::endl;
+            WebSocketData *webSocketData = (WebSocketData *) Super::getExt();
+
+            /* Check and correct the compress hint */
+            if (opCode < 3 && webSocketData->compressionStatus == WebSocketData::ENABLED) {
+                // todo: shared deflate window
+                LoopData *loopData = Super::getLoopData();
+                message = loopData->deflationStream->deflate(message);
+            } else {
+                compress = false;
+            }
         }
 
         /* Get size, alloate size, write if needed */
         size_t messageFrameSize = WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::messageFrameSize(message.length());
         auto[sendBuffer, requiresWrite] = Super::getSendBuffer(messageFrameSize);
-        WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::formatMessage(sendBuffer, message.data(), message.length(), opCode, message.length(), false);
+        WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::formatMessage(sendBuffer, message.data(), message.length(), opCode, message.length(), compress);
         if (requiresWrite) {
             auto[written, failed] = Super::write(sendBuffer, messageFrameSize);
 
