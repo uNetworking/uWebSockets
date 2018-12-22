@@ -46,7 +46,8 @@ public:
     int corkOffset = 0;
     void *corkedSocket = nullptr;
 
-    /* Compression data */
+    /* Per message deflate data */
+    ZlibContext *zlibContext = nullptr;
     InflationStream *inflationStream = nullptr;
     DeflationStream *deflationStream = nullptr;
 };

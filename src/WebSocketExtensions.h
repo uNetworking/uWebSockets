@@ -129,16 +129,10 @@ std::string ExtensionsNegotiator<isServer>::generateOffer() {
             extensionsOffer += "; client_no_context_takeover";
         }
 
-        // we do not support accepting this yet
-        // todo: if we agree on this, do not allocate a compressor
-        // per socket!
-
-        // It is RECOMMENDED that a server supports the
-        // "server_no_context_takeover" extension parameter in an extension
-        // negotiation offer.
-        if (options & Options::SERVER_NO_CONTEXT_TAKEOVER) {
-            //extensionsOffer += "; server_no_context_takeover";
-        }
+        /* It is questionable sending this improves anything */
+        /*if (options & Options::SERVER_NO_CONTEXT_TAKEOVER) {
+            extensionsOffer += "; server_no_context_takeover";
+        }*/
     }
 
     return extensionsOffer;
@@ -153,11 +147,12 @@ void ExtensionsNegotiator<isServer>::readOffer(std::string_view offer) {
                 options |= CLIENT_NO_CONTEXT_TAKEOVER;
             }
 
+            /* We leave this option for us to read even if the client did not send it */
             if (extensionsParser.serverNoContextTakeover) {
                 options |= SERVER_NO_CONTEXT_TAKEOVER;
-            } else {
+            }/* else {
                 options &= ~SERVER_NO_CONTEXT_TAKEOVER;
-            }
+            }*/
         } else {
             options &= ~PERMESSAGE_DEFLATE;
         }

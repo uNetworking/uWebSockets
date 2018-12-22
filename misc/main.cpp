@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
         res->end("Hello HTTP!");
     }).ws<PerSocketData>("/*", {
         /* Settings */
-        .compression = true,
+        .compression = uWS::DEDICATED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024,
         /* Handlers */
         .open = [](auto *ws, auto *req) {

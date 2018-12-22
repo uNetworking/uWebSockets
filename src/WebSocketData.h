@@ -19,6 +19,7 @@
 
 #include "WebSocketProtocol.h"
 #include "AsyncSocketData.h"
+#include "PerMessageDeflate.h"
 
 #include <string>
 
@@ -37,10 +38,17 @@ private:
         ENABLED,
         COMPRESSED_FRAME
     } compressionStatus;
+
+    /* We might have a dedicated compressor */
+    DeflationStream *deflationStream = nullptr;
 public:
-    WebSocketData(bool perMessageDeflate) : WebSocketState<true>() {
-        //std::cout << "perMessageDeflate: " << perMessageDeflate << std::endl;
+    WebSocketData(bool perMessageDeflate, bool slidingCompression) : WebSocketState<true>() {
         compressionStatus = perMessageDeflate ? ENABLED : DISABLED;
+
+        /* Initialize the dedicated sliding window */
+        if (perMessageDeflate && slidingCompression) {
+            deflationStream = new DeflationStream;
+        }
     }
 };
 

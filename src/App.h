@@ -30,6 +30,16 @@
 
 namespace uWS {
 
+/* Compress options (really more like PerMessageDeflateOptions) */
+enum CompressOptions {
+    /* Compression disabled */
+    DISABLED = 0,
+    /* We compress using a shared non-sliding window. No added memory usage, worse compression. */
+    SHARED_COMPRESSOR = 1,
+    /* We compress using a dedicated sliding window. Major memory usage added, better compression of similarly repeated messages. */
+    DEDICATED_COMPRESSOR = 2
+};
+
 template <bool SSL>
 struct TemplatedApp : StaticDispatch<SSL> {
 private:
@@ -53,7 +63,7 @@ public:
     }
 
     struct WebSocketBehavior {
-        bool compression = false;
+        CompressOptions compression = DISABLED;
         int maxPayloadLength = 16 * 1024;
         std::function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
         std::function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
@@ -70,14 +80,12 @@ public:
 
         /* If we are the first one to use compression, initialize it */
         if (behavior.compression) {
-
             LoopData *loopData = (LoopData *) us_loop_ext(static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(webSocketContext->getSocketContext()));
 
-            if (!loopData->inflationStream) {
+            /* Initialize loop's deflate inflate streams */
+            if (!loopData->zlibContext) {
+                loopData->zlibContext = new ZlibContext;
                 loopData->inflationStream = new InflationStream;
-            }
-
-            if (!loopData->deflationStream) {
                 loopData->deflationStream = new DeflationStream;
             }
         }
@@ -102,14 +110,24 @@ public:
 
                 /* Negotiate compression */
                 bool perMessageDeflate = false;
-                if (behavior.compression) {
+                bool slidingDeflateWindow = false;
+                if (behavior.compression != DISABLED) {
                     std::string_view extensions = req->getHeader("sec-websocket-extensions");
                     if (extensions.length()) {
-                        // basically: parse<isServer>(options, extensions)
-                        ExtensionsNegotiator<true> extensionsNegotiator(PERMESSAGE_DEFLATE | CLIENT_NO_CONTEXT_TAKEOVER); // take options
+                        /* We never support client context takeover (the client cannot compress with a sliding window). */
+                        int wantedOptions = PERMESSAGE_DEFLATE | CLIENT_NO_CONTEXT_TAKEOVER;
+
+                        /* Shared compressor is the default */
+                        if (behavior.compression == SHARED_COMPRESSOR) {
+                            /* Disable per-socket compressor */
+                            wantedOptions |= SERVER_NO_CONTEXT_TAKEOVER;
+                        }
+
+                        /* isServer = true */
+                        ExtensionsNegotiator<true> extensionsNegotiator(wantedOptions);
                         extensionsNegotiator.readOffer(extensions);
 
-                        //std::cout << extensions << " => " << extensionsNegotiator.generateOffer() << std::endl;
+                        std::cout << extensions << " => " << extensionsNegotiator.generateOffer() << std::endl;
 
                         /* Todo: remove these mid string copies */
                         res->writeHeader("Sec-WebSocket-Extensions", extensionsNegotiator.generateOffer());
@@ -117,6 +135,11 @@ public:
                         /* Did we negotiate permessage-deflate? */
                         if (extensionsNegotiator.getNegotiatedOptions() & PERMESSAGE_DEFLATE) {
                             perMessageDeflate = true;
+                        }
+
+                        /* Is the server allowed to compress with a sliding window? */
+                        if (!(extensionsNegotiator.getNegotiatedOptions() & SERVER_NO_CONTEXT_TAKEOVER)) {
+                            slidingDeflateWindow = true;
                         }
                     }
                 }
@@ -132,7 +155,7 @@ public:
                 webSocket->cork();
 
                 httpContext->upgradeToWebSocket(
-                            webSocket->init(perMessageDeflate)
+                            webSocket->init(perMessageDeflate, slidingDeflateWindow)
                             );
 
                 /* Emit open event */

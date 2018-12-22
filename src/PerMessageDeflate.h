@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// inflationStream? Ciompression
+/* This standalone module implements deflate / inflate streams */
 
 #ifndef PERMESSAGEDEFLATE_H
 #define PERMESSAGEDEFLATE_H
@@ -28,73 +28,73 @@
 
 #define LARGE_BUFFER_SIZE 16000 // fix this
 
-// we also need DeflationStream
+struct ZlibContext {
+    /* Any returned data is valid until next same-class call.
+     * We need to have two classes to allow inflation followed
+     * by many deflations without modifying the inflation */
+    std::string dynamicDeflationBuffer;
+    std::string dynamicInflationBuffer;
+    char *deflationBuffer;
+    char *inflationBuffer;
+
+    ZlibContext() {
+        deflationBuffer = (char *) malloc(LARGE_BUFFER_SIZE);
+        inflationBuffer = (char *) malloc(LARGE_BUFFER_SIZE);
+    }
+
+    ~ZlibContext() {
+        free(deflationBuffer);
+        free(inflationBuffer);
+    }
+};
 
 struct DeflationStream {
-
-    // share this under the Loop
-    std::string dynamicZlibBuffer;
     z_stream deflationStream = {};
-    char *zlibBuffer;
 
     DeflationStream() {
-        std::cout << "Constructing DeflationStream" << std::endl;
-        zlibBuffer = (char *) malloc(LARGE_BUFFER_SIZE);
-
         deflateInit2(&deflationStream, 1, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY);
     }
 
-    std::string_view deflate(std::string_view raw) {
+    /* Deflate and optionally reset */
+    std::string_view deflate(ZlibContext *zlibContext, std::string_view raw, bool reset) {
+        /* Odd place to clear this one, fix */
+        zlibContext->dynamicDeflationBuffer.clear();
 
-        // slidingDeflateWindow är input, length är in/ut
+        deflationStream.next_in = (Bytef *) raw.data();
+        deflationStream.avail_in = (unsigned int) raw.length();
 
-        z_stream *slidingDeflateWindow = nullptr;
-
-        dynamicZlibBuffer.clear();
-
-        z_stream *compressor = slidingDeflateWindow ? slidingDeflateWindow : &deflationStream;
-
-        compressor->next_in = (Bytef *) raw.data();
-        compressor->avail_in = (unsigned int) raw.length();
-
-        // note: zlib requires more than 6 bytes with Z_SYNC_FLUSH
+        /* This buffer size has to be at least 6 bytes for Z_SYNC_FLUSH to work */
         const int DEFLATE_OUTPUT_CHUNK = LARGE_BUFFER_SIZE;
 
         int err;
         do {
-            compressor->next_out = (Bytef *) zlibBuffer;
-            compressor->avail_out = DEFLATE_OUTPUT_CHUNK;
+            deflationStream.next_out = (Bytef *) zlibContext->deflationBuffer;
+            deflationStream.avail_out = DEFLATE_OUTPUT_CHUNK;
 
-            err = ::deflate(compressor, Z_SYNC_FLUSH);
-            if (Z_OK == err && compressor->avail_out == 0) {
-                dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - compressor->avail_out);
+            err = ::deflate(&deflationStream, Z_SYNC_FLUSH);
+            if (Z_OK == err && deflationStream.avail_out == 0) {
+                zlibContext->dynamicDeflationBuffer.append(zlibContext->deflationBuffer, DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out);
                 continue;
             } else {
                 break;
             }
         } while (true);
 
-        // note: should not change avail_out
-        if (!slidingDeflateWindow) {
-            deflateReset(compressor);
+        /* This must not change avail_out */
+        if (reset) {
+            deflateReset(&deflationStream);
         }
 
-        if (dynamicZlibBuffer.length()) {
-            dynamicZlibBuffer.append(zlibBuffer, DEFLATE_OUTPUT_CHUNK - compressor->avail_out);
+        if (zlibContext->dynamicDeflationBuffer.length()) {
+            zlibContext->dynamicDeflationBuffer.append(zlibContext->deflationBuffer, DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out);
 
-            return {(char *) dynamicZlibBuffer.data(), dynamicZlibBuffer.length() - 4};
-
-            //length = dynamicZlibBuffer.length() - 4;
-            //return (char *) dynamicZlibBuffer.data();
+            return {(char *) zlibContext->dynamicDeflationBuffer.data(), zlibContext->dynamicDeflationBuffer.length() - 4};
         }
 
         return {
-            zlibBuffer,
-            DEFLATE_OUTPUT_CHUNK - compressor->avail_out - 4
+            zlibContext->deflationBuffer,
+            DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out - 4
         };
-
-        //length = DEFLATE_OUTPUT_CHUNK - compressor->avail_out - 4;
-        //return zlibBuffer;
     }
 
     ~DeflationStream() {
@@ -102,54 +102,46 @@ struct DeflationStream {
     }
 };
 
-// the loop holds one of these
 struct InflationStream {
-
-    // share this under the Loop
-    std::string dynamicZlibBuffer;
     z_stream inflationStream = {};
-    char *zlibBuffer;
 
     InflationStream() {
-        std::cout << "Initliazing shared compression" << std::endl;
-        zlibBuffer = (char *) malloc(LARGE_BUFFER_SIZE);
-
         inflateInit2(&inflationStream, -15);
     }
 
-    std::string_view inflate(std::string_view compressed) {
+    std::string_view inflate(ZlibContext *zlibContext, std::string_view compressed) {
 
         int maxPayload = 160000; // todo: fix this
 
-        dynamicZlibBuffer.clear();
+        zlibContext->dynamicInflationBuffer.clear();
 
         inflationStream.next_in = (Bytef *) compressed.data();
         inflationStream.avail_in = (unsigned int) compressed.length();
 
         int err;
         do {
-            inflationStream.next_out = (Bytef *) zlibBuffer;
+            inflationStream.next_out = (Bytef *) zlibContext->inflationBuffer;
             inflationStream.avail_out = LARGE_BUFFER_SIZE;
             err = ::inflate(&inflationStream, Z_FINISH);
             if (!inflationStream.avail_in) {
                 break;
             }
 
-            dynamicZlibBuffer.append(zlibBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
-        } while (err == Z_BUF_ERROR && dynamicZlibBuffer.length() <= maxPayload);
+            zlibContext->dynamicInflationBuffer.append(zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
+        } while (err == Z_BUF_ERROR && zlibContext->dynamicInflationBuffer.length() <= maxPayload);
 
         inflateReset(&inflationStream);
 
-        if ((err != Z_BUF_ERROR && err != Z_OK) || dynamicZlibBuffer.length() > maxPayload) {
+        if ((err != Z_BUF_ERROR && err != Z_OK) || zlibContext->dynamicInflationBuffer.length() > maxPayload) {
             return {nullptr, 0};
         }
 
-        if (dynamicZlibBuffer.length()) {
-            dynamicZlibBuffer.append(zlibBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
-            return {dynamicZlibBuffer.data(), dynamicZlibBuffer.length()};
+        if (zlibContext->dynamicInflationBuffer.length()) {
+            zlibContext->dynamicInflationBuffer.append(zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
+            return {zlibContext->dynamicInflationBuffer.data(), zlibContext->dynamicInflationBuffer.length()};
         }
 
-        return {zlibBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out};
+        return {zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out};
     }
 
 };

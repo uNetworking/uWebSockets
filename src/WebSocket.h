@@ -33,8 +33,8 @@ private:
     using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
     using StaticDispatch<SSL>::static_dispatch;
 
-    void *init(bool perMessageDeflate) {
-        new (static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this)) WebSocketData(perMessageDeflate);
+    void *init(bool perMessageDeflate, bool slidingCompression) {
+        new (static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this)) WebSocketData(perMessageDeflate, slidingCompression);
         return this;
     }
 public:
@@ -58,9 +58,13 @@ public:
 
             /* Check and correct the compress hint */
             if (opCode < 3 && webSocketData->compressionStatus == WebSocketData::ENABLED) {
-                // todo: shared deflate window
                 LoopData *loopData = Super::getLoopData();
-                message = loopData->deflationStream->deflate(message);
+                /* Compress using either shared or dedicated deflationStream */
+                if (webSocketData->deflationStream) {
+                    message = webSocketData->deflationStream->deflate(loopData->zlibContext, message, false);
+                } else {
+                    message = loopData->deflationStream->deflate(loopData->zlibContext, message, true);
+                }
             } else {
                 compress = false;
             }
