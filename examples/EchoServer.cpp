@@ -9,7 +9,7 @@ int main() {
     /* Very simple WebSocket echo server */
     uWS::App().ws<PerSocketData>("/*", {
         /* Settings */
-        .compression = true,
+        .compression = uWS::SHARED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024,
         /* Handlers */
         .open = [](auto *ws, auto *req) {
