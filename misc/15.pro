@@ -36,5 +36,6 @@ HEADERS += \
     ../src/PerMessageDeflate.h
 
 INCLUDEPATH += ../uSockets/src ../src
-QMAKE_CXXFLAGS += -fsanitize=address
+QMAKE_CXXFLAGS += -Wno-unused-variable -Wno-unused-parameter -Wno-unused-but-set-parameter -fsanitize=address
+QMAKE_CFLAGS += -Wno-unused-parameter -Wno-unused-variable
 LIBS += -lasan -pthread -lssl -lcrypto -lz -lstdc++fs
