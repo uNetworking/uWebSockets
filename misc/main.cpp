@@ -1,7 +1,7 @@
 #include "App.h"
 
-#include "../examples/helpers/AsyncFileReader.h"
-#include "../examples/helpers/AsyncFileStreamer.h"
+//#include "../examples/helpers/AsyncFileReader.h"
+//#include "../examples/helpers/AsyncFileStreamer.h"
 
 int main(int argc, char **argv) {
 
@@ -10,15 +10,10 @@ int main(int argc, char **argv) {
         int hello;
     };
 
-    /*const char *key_file_name;
-    const char *cert_file_name;
-    const char *passphrase;
-    const char *dh_params_file_name;*/
-
     uWS::SSLApp({
-        "/home/alexhultman/key.pem",
-        "/home/alexhultman/cert.pem",
-        "1234"
+        .key_file_name = "/home/alexhultman/key.pem",
+        .cert_file_name = "/home/alexhultman/cert.pem",
+        .passphrase = "1234"
     }).get("/hello", [](auto *res, auto *req) {
         res->end("Hello HTTP!");
     }).ws<PerSocketData>("/*", {
