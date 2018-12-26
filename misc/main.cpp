@@ -6,6 +6,7 @@
 int main(int argc, char **argv) {
 
     struct PerSocketData {
+        char pad[256];
         int hello;
     };
 
@@ -14,7 +15,7 @@ int main(int argc, char **argv) {
     const char *passphrase;
     const char *dh_params_file_name;*/
 
-    uWS::App(/*SSLApp({
+    uWS::/*SSL*/App(/*{
         "/home/alexhultman/key.pem",
         "/home/alexhultman/cert.pem",
         "1234"
@@ -28,11 +29,13 @@ int main(int argc, char **argv) {
         .open = [](auto *ws, auto *req) {
             std::cout << "WebSocket connected" << std::endl;
             /* Access per socket data */
-            /*PerSocketData *perSocketData = *///ws->getUserData();
-            /*perSocketData->hello = 13;*/
+            PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
+            perSocketData->hello = 13;
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode, true);
+            PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
+            std::cout << "OK per socket data: " << (perSocketData->hello == 13) << std::endl;
         },
         .drain = [](auto *ws) {
             std::cout << "Drainage: " << ws->getBufferedAmount() << std::endl;
@@ -46,8 +49,8 @@ int main(int argc, char **argv) {
         .close = [](auto *ws, int code, std::string_view message) {
             std::cout << "WebSocket disconnected: " << code << "[" << message << "]" << std::endl;
             /* Access per socket data */
-            //PerSocketData *perSocketData = ws->getUserData<PerSocketData>();
-            //std::cout << "OK per socket data: " << (perSocketData->hello == 13) << std::endl;
+            PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
+            std::cout << "OK per socket data: " << (perSocketData->hello == 13) << std::endl;
         }
     }).listen(9001, [](auto *token) {
         if (token) {

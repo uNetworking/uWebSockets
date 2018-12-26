@@ -40,11 +40,10 @@ private:
 public:
 
     /* Returns pointer to the per socket user data */
-    //template <typename K>
     void *getUserData() {
         WebSocketData *webSocketData = (WebSocketData *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
-
-        return nullptr;
+        /* We just have it overallocated by sizeof type */
+        return (webSocketData + 1);
     }
 
     /* See AsyncSocket */
