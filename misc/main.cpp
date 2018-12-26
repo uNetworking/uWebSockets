@@ -15,11 +15,11 @@ int main(int argc, char **argv) {
     const char *passphrase;
     const char *dh_params_file_name;*/
 
-    uWS::/*SSL*/App(/*{
+    uWS::SSLApp({
         "/home/alexhultman/key.pem",
         "/home/alexhultman/cert.pem",
         "1234"
-    }*/).get("/hello", [](auto *res, auto *req) {
+    }).get("/hello", [](auto *res, auto *req) {
         res->end("Hello HTTP!");
     }).ws<PerSocketData>("/*", {
         /* Settings */
