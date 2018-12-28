@@ -17,28 +17,7 @@
 #ifndef WEBSOCKETPROTOCOL_UWS_H
 #define WEBSOCKETPROTOCOL_UWS_H
 
-// this module depends on windows ws2_lib being linked which is nonsense, fix!
-
-/* This segment is not cross-platform! Fix! */
-/* PortableEndianConversion.h */
-#ifdef __linux
-#include <endian.h>
-#include <arpa/inet.h>
-#elif __APPLE__
-#include <libkern/OSByteOrder.h>
-#define htobe64(x) OSSwapHostToBigInt64(x)
-#define be64toh(x) OSSwapBigToHostInt64(x)
-#else
-#ifdef __MINGW32__
-// Windows has always been tied to LE
-#define htobe64(x) __builtin_bswap64(x)
-#define be64toh(x) __builtin_bswap64(x)
-#else
-#define htobe64(x) htonll(x)
-#define be64toh(x) ntohll(x)
-#endif
-#endif
-
+#include <cstdint>
 #include <cstring>
 #include <cstdlib>
 
@@ -92,6 +71,25 @@ public:
 
 namespace protocol {
 
+/* Byte swap for little-endian systems */
+template <typename T>
+T cond_byte_swap(T value) {
+    uint32_t endian_test = 1;
+    if (*((char *)&endian_test)) {
+        union {
+            T i;
+            uint8_t b[sizeof(T)];
+        } src = { value }, dst;
+
+        for (int i = 0; i < sizeof(value); i++) {
+            dst.b[i] = src.b[sizeof(value) - 1 - i];
+        }
+
+        return dst.i;
+    }
+    return value;
+}
+
 // Based on utf8_check.c by Markus Kuhn, 2005
 // https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
 // Optimized for predominantly 7-bit content by Alex Hultman, 2016
@@ -143,7 +141,7 @@ static inline CloseFrame parseClosePayload(char *src, size_t length) {
     CloseFrame cf = {};
     if (length >= 2) {
         memcpy(&cf.code, src, 2);
-        cf = {ntohs(cf.code), src + 2, length - 2};
+        cf = {cond_byte_swap<uint16_t>(cf.code), src + 2, length - 2};
         if (cf.code < 1000 || cf.code > 4999 || (cf.code > 1011 && cf.code < 4000) ||
             (cf.code >= 1004 && cf.code <= 1006) || !isValidUtf8((unsigned char *) cf.message, cf.length)) {
             return {};
@@ -154,7 +152,7 @@ static inline CloseFrame parseClosePayload(char *src, size_t length) {
 
 static inline size_t formatClosePayload(char *dst, uint16_t code, const char *message, size_t length) {
     if (code) {
-        code = htons(code);
+        code = cond_byte_swap<uint16_t>(code);
         memcpy(dst, &code, 2);
         memcpy(dst + 2, message, length);
         return length + 2;
@@ -187,11 +185,11 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
     } else if (reportedLength <= UINT16_MAX) {
         headerLength = 4;
         dst[1] = 126;
-        *((uint16_t *) &dst[2]) = htons(reportedLength);
+        *((uint16_t *) &dst[2]) = cond_byte_swap<uint16_t>(reportedLength);
     } else {
         headerLength = 10;
         dst[1] = 127;
-        *((uint64_t *) &dst[2]) = htobe64(reportedLength);
+        *((uint64_t *) &dst[2]) = cond_byte_swap<uint64_t>(reportedLength);
     }
 
     int flags = 0;
@@ -400,12 +398,12 @@ public:
                 } else if (payloadLength(src) == 126) {
                     if (length < MEDIUM_MESSAGE_HEADER) {
                         break;
-                    } else if(consumeMessage<MEDIUM_MESSAGE_HEADER, uint16_t>(ntohs(*(uint16_t *) &src[2]), src, length, wState, user)) {
+                    } else if(consumeMessage<MEDIUM_MESSAGE_HEADER, uint16_t>(protocol::cond_byte_swap<uint16_t>(*(uint16_t *) &src[2]), src, length, wState, user)) {
                         return;
                     }
                 } else if (length < LONG_MESSAGE_HEADER) {
                     break;
-                } else if (consumeMessage<LONG_MESSAGE_HEADER, uint64_t>(be64toh(*(uint64_t *) &src[2]), src, length, wState, user)) {
+                } else if (consumeMessage<LONG_MESSAGE_HEADER, uint64_t>(protocol::cond_byte_swap<uint64_t>(*(uint64_t *) &src[2]), src, length, wState, user)) {
                     return;
                 }
             }
