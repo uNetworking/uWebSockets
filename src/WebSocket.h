@@ -88,7 +88,7 @@ public:
         return true;
     }
 
-    /* Emit close event, stat passive timeout */
+    /* Emit close event, start passive timeout */
     void close(int code, std::string_view message = {}) {
         static const int MAX_CLOSE_PAYLOAD = 123;
         int length = std::min<size_t>(MAX_CLOSE_PAYLOAD, message.length());
@@ -96,11 +96,17 @@ public:
         // todo: here we start a timeout and handle it accordingly in the timeout handler
 
         WebSocketData *webSocketData = (WebSocketData *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+
+        /* We postpone any FIN sending to either drainage or uncorking */
         webSocketData->isShuttingDown = true;
 
         /* Format and send the close frame */
         char closePayload[MAX_CLOSE_PAYLOAD + 2];
         int closePayloadLength = (int) WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::formatClosePayload(closePayload, code, message.data(), length);
+
+        // but what if we are NOT corked, THEN we can FIN here if we succeeded
+
+        // if we are corked and send returns true we cannot know for sure if we can fin
         send(std::string_view(closePayload, closePayloadLength), OpCode::CLOSE);
 
         // why should we fin here?
@@ -110,7 +116,9 @@ public:
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
             (SOCKET_CONTEXT_TYPE *) static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) this)
         );
-        webSocketContextData->closeHandler(this, code, message);
+        if (webSocketContextData->closeHandler) {
+            webSocketContextData->closeHandler(this, code, message);
+        }
     }
 };
 

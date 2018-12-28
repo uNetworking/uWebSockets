@@ -21,7 +21,7 @@
 #include "WebSocketContextData.h"
 #include "WebSocketProtocol.h"
 #include "WebSocketData.h"
-#include "AsyncSocket.h"
+#include "WebSocket.h"
 
 namespace uWS {
 
@@ -99,9 +99,11 @@ private:
                 }
 
                 /* Emit message event & break if we are closed or shut down when returning */
-                webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
-                if (us_socket_is_closed((us_socket *) s) || webSocketData->isShuttingDown) {
-                    return true;
+                if (webSocketContextData->messageHandler) {
+                    webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
+                    if (us_socket_is_closed((us_socket *)s) || webSocketData->isShuttingDown) {
+                        return true;
+                    }
                 }
             } else {
                 /* Allocate fragment buffer up front first time */
@@ -150,9 +152,11 @@ private:
                     }
 
                     /* Emit message and check for shutdown or close */
-                    webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
-                    if (us_socket_is_closed((us_socket *) s) || webSocketData->isShuttingDown) {
-                        return true;
+                    if (webSocketContextData->messageHandler) {
+                        webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
+                        if (us_socket_is_closed((us_socket *)s) || webSocketData->isShuttingDown) {
+                            return true;
+                        }
                     }
 
                     /* If we shutdown or closed, this will be taken care of elsewhere */
@@ -247,18 +251,20 @@ private:
             webSocket->cork();
 
             /* We need the websocket data */
-            WebSocketData *wsState = (WebSocketData *) (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s));
+            WebSocketData *webSocketData = (WebSocketData *) (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s));
 
             /* This parser has virtually no overhead */
-            uWS::WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::consume(data, length, wsState, s);
+            uWS::WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::consume(data, length, (WebSocketState<isServer> *) webSocketData, s);
+
+            // todo: we need to check for close and shutdown here? as we just emitted a bunch of message/close events!
 
             // todo: check for failures here just like for HTTP
             webSocket->uncork();
 
-            // I guess we need to check drain here
+            // I guess we need to check drain here - emit drain if we had to poll for writable
 
-            // are we shutdown?
-            if (wsState->isShuttingDown) {
+            // are we shutdown? can onnly call this if we did succeed uncork!
+            if (webSocketData->isShuttingDown) {
                 webSocket->shutdown();
             }
 
@@ -268,18 +274,34 @@ private:
         /* Handle HTTP write out (note: SSL_read may trigger this spuriously, the app need to handle spurious calls) */
         static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(getSocketContext(), [](auto *s) {
 
-            std::cout << "websocket writable" << std::endl;
-
-            // we need to drain here!
+            // check if we already shut down the us socket and return?
 
             AsyncSocket<SSL> *webSocket = (AsyncSocket<SSL> *) s;
+            WebSocketData *webSocketData = (WebSocketData *)(static_dispatch(us_ssl_socket_ext, us_socket_ext)(s));
 
-            // check for failures and shutdown just like in data event
-            webSocket->write(nullptr, 0); // drainage - also check for shutdown!
+            /* Drain as much as possible */
+            webSocket->write(nullptr, 0);
 
-            // call drain here
+            /* Are we in (WebSocket) shutdown mode? As in, have we called WebSocket::close? */
+            if (webSocketData->isShuttingDown) {
+                /* Check if we just now drained completely */
+                if (webSocket->getBufferedAmount() == 0) {
+                    /* Now perform the actual TCP/TLS shutdown which was postponed due to backpressure */
+                    webSocket->shutdown();
 
-
+                    /* Set us to not shutting down so to avoid any spurious extra calls */
+                    webSocketData->isShuttingDown = false;
+                }
+            } else {
+                /* Call drain event even though nothing might actually changed */
+                WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
+                    static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *)s)
+                    );
+                if (webSocketContextData->drainHandler) {
+                    webSocketContextData->drainHandler((WebSocket<SSL, isServer> *) s);
+                }
+                /* No need to check for closed here as we leave the handler immediately*/
+            }
 
             return s;
         });
@@ -315,8 +337,7 @@ private:
     }
 
 public:
-
-    // we do not need SSL options as we come from adoptions
+    /* WebSocket contexts are always child contexts to a HTTP context so no SSL options are needed as they are inherited */
     static WebSocketContext *create(Loop *loop, SOCKET_CONTEXT_TYPE *parentSocketContext) {
         WebSocketContext *webSocketContext = (WebSocketContext *)static_dispatch(us_create_child_ssl_socket_context, us_create_child_socket_context)(parentSocketContext, sizeof(WebSocketContextData<SSL>));
         if (!webSocketContext) {
@@ -327,7 +348,6 @@ public:
         new ((WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)((SOCKET_CONTEXT_TYPE *)webSocketContext)) WebSocketContextData<SSL>;
         return webSocketContext->init();
     }
-
 };
 
 }
