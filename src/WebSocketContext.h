@@ -93,7 +93,7 @@ private:
                 }
 
                 /* Check text messages for Utf-8 validity */
-                if (opCode == 1 && !WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::isValidUtf8((unsigned char *) data, length)) {
+                if (opCode == 1 && !protocol::isValidUtf8((unsigned char *) data, length)) {
                     forceClose(webSocketState, s);
                     return true;
                 }
@@ -146,7 +146,7 @@ private:
                     }
 
                     /* Check text messages for Utf-8 validity */
-                    if (opCode == 1 && !WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::isValidUtf8((unsigned char *) data, length)) {
+                    if (opCode == 1 && !protocol::isValidUtf8((unsigned char *) data, length)) {
                         forceClose(webSocketState, s);
                         return true;
                     }
@@ -169,7 +169,7 @@ private:
 
             if (!remainingBytes && fin && !webSocketData->controlTipLength) {
                 if (opCode == CLOSE) {
-                    auto closeFrame = WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::parseClosePayload(data, length);
+                    auto closeFrame = protocol::parseClosePayload(data, length);
                     webSocket->close(closeFrame.code, std::string_view(closeFrame.message, closeFrame.length));
                     return true;
                 } else {
@@ -194,7 +194,7 @@ private:
                 if (!remainingBytes && fin) {
                     char *controlBuffer = (char *) webSocketData->fragmentBuffer.data() + webSocketData->fragmentBuffer.length() - webSocketData->controlTipLength;
                     if (opCode == CLOSE) {
-                        typename WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::CloseFrame closeFrame = WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::parseClosePayload(controlBuffer, webSocketData->controlTipLength);
+                        protocol::CloseFrame closeFrame = protocol::parseClosePayload(controlBuffer, webSocketData->controlTipLength);
                         webSocket->close(closeFrame.code, std::string_view(closeFrame.message, closeFrame.length));
                         return true;
                     } else {
@@ -237,7 +237,7 @@ private:
         /* Handle socket disconnections */
         static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(getSocketContext(), [](auto *s) {
 
-            std::cout << "close!" << std::endl;
+            //std::cout << "close!" << std::endl;
 
 
 

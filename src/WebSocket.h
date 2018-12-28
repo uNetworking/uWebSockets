@@ -71,9 +71,9 @@ public:
         }
 
         /* Get size, alloate size, write if needed */
-        size_t messageFrameSize = WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::messageFrameSize(message.length());
+        size_t messageFrameSize = protocol::messageFrameSize(message.length());
         auto[sendBuffer, requiresWrite] = Super::getSendBuffer(messageFrameSize);
-        WebSocketProtocol<isServer, WebSocket<SSL, isServer>>::formatMessage(sendBuffer, message.data(), message.length(), opCode, message.length(), compress);
+        protocol::formatMessage<isServer>(sendBuffer, message.data(), message.length(), opCode, message.length(), compress);
         if (requiresWrite) {
             auto[written, failed] = Super::write(sendBuffer, messageFrameSize);
 
@@ -102,7 +102,7 @@ public:
 
         /* Format and send the close frame */
         char closePayload[MAX_CLOSE_PAYLOAD + 2];
-        int closePayloadLength = (int) WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::formatClosePayload(closePayload, code, message.data(), length);
+        int closePayloadLength = protocol::formatClosePayload(closePayload, code, message.data(), length);
 
         // but what if we are NOT corked, THEN we can FIN here if we succeeded
 

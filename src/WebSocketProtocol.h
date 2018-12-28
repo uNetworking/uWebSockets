@@ -90,6 +90,147 @@ public:
     char mask[isServer ? 4 : 1];
 };
 
+namespace protocol {
+
+// Based on utf8_check.c by Markus Kuhn, 2005
+// https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
+// Optimized for predominantly 7-bit content by Alex Hultman, 2016
+// Licensed as Zlib, like the rest of this project
+static bool isValidUtf8(unsigned char *s, size_t length)
+{
+    for (unsigned char *e = s + length; s != e; ) {
+        if (s + 4 <= e && ((*(uint32_t *) s) & 0x80808080) == 0) {
+            s += 4;
+        } else {
+            while (!(*s & 0x80)) {
+                if (++s == e) {
+                    return true;
+                }
+            }
+
+            if ((s[0] & 0x60) == 0x40) {
+                if (s + 1 >= e || (s[1] & 0xc0) != 0x80 || (s[0] & 0xfe) == 0xc0) {
+                    return false;
+                }
+                s += 2;
+            } else if ((s[0] & 0xf0) == 0xe0) {
+                if (s + 2 >= e || (s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 ||
+                        (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || (s[0] == 0xed && (s[1] & 0xe0) == 0xa0)) {
+                    return false;
+                }
+                s += 3;
+            } else if ((s[0] & 0xf8) == 0xf0) {
+                if (s + 3 >= e || (s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 || (s[3] & 0xc0) != 0x80 ||
+                        (s[0] == 0xf0 && (s[1] & 0xf0) == 0x80) || (s[0] == 0xf4 && s[1] > 0x8f) || s[0] > 0xf4) {
+                    return false;
+                }
+                s += 4;
+            } else {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+struct CloseFrame {
+    uint16_t code;
+    char *message;
+    size_t length;
+};
+
+static inline CloseFrame parseClosePayload(char *src, size_t length) {
+    CloseFrame cf = {};
+    if (length >= 2) {
+        memcpy(&cf.code, src, 2);
+        cf = {ntohs(cf.code), src + 2, length - 2};
+        if (cf.code < 1000 || cf.code > 4999 || (cf.code > 1011 && cf.code < 4000) ||
+            (cf.code >= 1004 && cf.code <= 1006) || !isValidUtf8((unsigned char *) cf.message, cf.length)) {
+            return {};
+        }
+    }
+    return cf;
+}
+
+static inline size_t formatClosePayload(char *dst, uint16_t code, const char *message, size_t length) {
+    if (code) {
+        code = htons(code);
+        memcpy(dst, &code, 2);
+        memcpy(dst + 2, message, length);
+        return length + 2;
+    }
+    return 0;
+}
+
+static inline size_t messageFrameSize(size_t messageSize) {
+    if (messageSize < 126) {
+        return 2 + messageSize;
+    } else if (messageSize <= UINT16_MAX) {
+        return 4 + messageSize;
+    }
+    return 10 + messageSize;
+}
+
+enum {
+    SND_CONTINUATION = 1,
+    SND_NO_FIN = 2,
+    SND_COMPRESSED = 64
+};
+
+template <bool isServer>
+static inline size_t formatMessage(char *dst, const char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed) {
+    size_t messageLength;
+    size_t headerLength;
+    if (reportedLength < 126) {
+        headerLength = 2;
+        dst[1] = reportedLength;
+    } else if (reportedLength <= UINT16_MAX) {
+        headerLength = 4;
+        dst[1] = 126;
+        *((uint16_t *) &dst[2]) = htons(reportedLength);
+    } else {
+        headerLength = 10;
+        dst[1] = 127;
+        *((uint64_t *) &dst[2]) = htobe64(reportedLength);
+    }
+
+    int flags = 0;
+    dst[0] = (flags & SND_NO_FIN ? 0 : 128) | (compressed ? SND_COMPRESSED : 0);
+    if (!(flags & SND_CONTINUATION)) {
+        dst[0] |= opCode;
+    }
+
+    char mask[4];
+    if (!isServer) {
+        dst[1] |= 0x80;
+        uint32_t random = rand();
+        memcpy(mask, &random, 4);
+        memcpy(dst + headerLength, &random, 4);
+        headerLength += 4;
+    }
+
+    messageLength = headerLength + length;
+    memcpy(dst + headerLength, src, length);
+
+    if (!isServer) {
+
+        // overwrites up to 3 bytes outside of the given buffer!
+        //WebSocketProtocol<isServer>::unmaskInplace(dst + headerLength, dst + headerLength + length, mask);
+
+        // this is not optimal
+        char *start = dst + headerLength;
+        char *stop = start + length;
+        int i = 0;
+        while (start != stop) {
+            (*start++) ^= mask[i++ % 4];
+        }
+    }
+    return messageLength;
+}
+
+}
+
+// essentially this is only a parser
 template <const bool isServer, class Impl>
 class WIN32_EXPORT WebSocketProtocol {
 public:
@@ -134,12 +275,6 @@ protected:
             *(data++) ^= mask[3];
         }
     }
-
-    enum {
-        SND_CONTINUATION = 1,
-        SND_NO_FIN = 2,
-        SND_COMPRESSED = 64
-    };
 
     template <unsigned int MESSAGE_HEADER, typename T>
     static inline bool consumeMessage(T payLength, char *&src, unsigned int &length, WebSocketState<isServer> *wState, void *user) {
@@ -239,135 +374,6 @@ protected:
 public:
     WebSocketProtocol() {
 
-    }
-
-    // Based on utf8_check.c by Markus Kuhn, 2005
-    // https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
-    // Optimized for predominantly 7-bit content by Alex Hultman, 2016
-    // Licensed as Zlib, like the rest of this project
-    static bool isValidUtf8(unsigned char *s, size_t length)
-    {
-        for (unsigned char *e = s + length; s != e; ) {
-            if (s + 4 <= e && ((*(uint32_t *) s) & 0x80808080) == 0) {
-                s += 4;
-            } else {
-                while (!(*s & 0x80)) {
-                    if (++s == e) {
-                        return true;
-                    }
-                }
-
-                if ((s[0] & 0x60) == 0x40) {
-                    if (s + 1 >= e || (s[1] & 0xc0) != 0x80 || (s[0] & 0xfe) == 0xc0) {
-                        return false;
-                    }
-                    s += 2;
-                } else if ((s[0] & 0xf0) == 0xe0) {
-                    if (s + 2 >= e || (s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 ||
-                            (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || (s[0] == 0xed && (s[1] & 0xe0) == 0xa0)) {
-                        return false;
-                    }
-                    s += 3;
-                } else if ((s[0] & 0xf8) == 0xf0) {
-                    if (s + 3 >= e || (s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 || (s[3] & 0xc0) != 0x80 ||
-                            (s[0] == 0xf0 && (s[1] & 0xf0) == 0x80) || (s[0] == 0xf4 && s[1] > 0x8f) || s[0] > 0xf4) {
-                        return false;
-                    }
-                    s += 4;
-                } else {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    struct CloseFrame {
-        uint16_t code;
-        char *message;
-        size_t length;
-    };
-
-    static inline CloseFrame parseClosePayload(char *src, size_t length) {
-        CloseFrame cf = {};
-        if (length >= 2) {
-            memcpy(&cf.code, src, 2);
-            cf = {ntohs(cf.code), src + 2, length - 2};
-            if (cf.code < 1000 || cf.code > 4999 || (cf.code > 1011 && cf.code < 4000) ||
-                (cf.code >= 1004 && cf.code <= 1006) || !isValidUtf8((unsigned char *) cf.message, cf.length)) {
-                return {};
-            }
-        }
-        return cf;
-    }
-
-    static inline size_t formatClosePayload(char *dst, uint16_t code, const char *message, size_t length) {
-        if (code) {
-            code = htons(code);
-            memcpy(dst, &code, 2);
-            memcpy(dst + 2, message, length);
-            return length + 2;
-        }
-        return 0;
-    }
-
-    static inline size_t messageFrameSize(size_t messageSize) {
-        if (messageSize < 126) {
-            return 2 + messageSize;
-        } else if (messageSize <= UINT16_MAX) {
-            return 4 + messageSize;
-        }
-        return 10 + messageSize;
-    }
-
-    static inline size_t formatMessage(char *dst, const char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed) {
-        size_t messageLength;
-        size_t headerLength;
-        if (reportedLength < 126) {
-            headerLength = 2;
-            dst[1] = reportedLength;
-        } else if (reportedLength <= UINT16_MAX) {
-            headerLength = 4;
-            dst[1] = 126;
-            *((uint16_t *) &dst[2]) = htons(reportedLength);
-        } else {
-            headerLength = 10;
-            dst[1] = 127;
-            *((uint64_t *) &dst[2]) = htobe64(reportedLength);
-        }
-
-        int flags = 0;
-        dst[0] = (flags & SND_NO_FIN ? 0 : 128) | (compressed ? SND_COMPRESSED : 0);
-        if (!(flags & SND_CONTINUATION)) {
-            dst[0] |= opCode;
-        }
-
-        char mask[4];
-        if (!isServer) {
-            dst[1] |= 0x80;
-            uint32_t random = rand();
-            memcpy(mask, &random, 4);
-            memcpy(dst + headerLength, &random, 4);
-            headerLength += 4;
-        }
-
-        messageLength = headerLength + length;
-        memcpy(dst + headerLength, src, length);
-
-        if (!isServer) {
-
-            // overwrites up to 3 bytes outside of the given buffer!
-            //WebSocketProtocol<isServer>::unmaskInplace(dst + headerLength, dst + headerLength + length, mask);
-
-            // this is not optimal
-            char *start = dst + headerLength;
-            char *stop = start + length;
-            int i = 0;
-            while (start != stop) {
-                (*start++) ^= mask[i++ % 4];
-            }
-        }
-        return messageLength;
     }
 
     static inline void consume(char *src, unsigned int length, WebSocketState<isServer> *wState, void *user) {
