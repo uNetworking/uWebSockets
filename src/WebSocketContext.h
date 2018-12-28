@@ -45,10 +45,6 @@ private:
 
     /* If we have negotiated compression, set this frame compressed */
     static bool setCompressed(uWS::WebSocketState<isServer> *wState, void *s) {
-        //WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) s);
-
-        //std::cout << "set compressed" << std::endl;
-
         WebSocketData *webSocketData = (WebSocketData *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
 
         if (webSocketData->compressionStatus == WebSocketData::CompressionStatus::ENABLED) {
@@ -66,18 +62,10 @@ private:
     /* Returns true on breakage */
     static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, uWS::WebSocketState<isServer> *webSocketState, void *s) {
         /* WebSocketData and WebSocketContextData */
-        //WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(us_socket_get_context((us_socket *) s));
-        //WebSocketData *webSocketData = (WebSocketData *) us_socket_ext((us_socket *) s);
-
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
-
-        static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) s)
-
-                    );
-
+            static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) s)
+        );
         WebSocketData *webSocketData = (WebSocketData *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
-
-        //std::cout << "ho" << std::endl;
 
         /* Is this a non-control frame? */
         if (opCode < 3) {
@@ -88,18 +76,11 @@ private:
                 if (webSocketData->compressionStatus == WebSocketData::CompressionStatus::COMPRESSED_FRAME) {
                         webSocketData->compressionStatus = WebSocketData::CompressionStatus::ENABLED;
 
-                        //LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) s)));
-
-                        LoopData *loopData = (LoopData *) us_loop_ext(
-
-
-                                    static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(
-
-                                    static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) s)
-
-                                        )
-
-                                    );
+                        LoopData *loopData = (LoopData *)us_loop_ext(
+                            static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(
+                                static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *)s)
+                                )
+                        );
 
                         std::string_view inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {data, length});
                         if (!inflatedFrame.length()) {
@@ -130,7 +111,7 @@ private:
                 webSocketData->fragmentBuffer.append(data, length);
 
                 /* Are we done now? */
-                // what if we don't have any remaining bytes yet we are not fin? forceclose!
+                // todo: what if we don't have any remaining bytes yet we are not fin? forceclose!
                 if (!remainingBytes && fin) {
 
                     /* Handle compression */
@@ -140,21 +121,11 @@ private:
                             // what's really the story here?
                             webSocketData->fragmentBuffer.append("....");
 
-                            //LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) s)));
-
-                            //LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(us_socket_get_context((us_socket *) s)));
-
                             LoopData *loopData = (LoopData *) us_loop_ext(
-
-
-                                        static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(
-
-                                        static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) s)
-
-                                            )
-
-                                        );
-
+                                static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(
+                                    static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) s)
+                                )
+                            );
 
                             std::string_view inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4});
                             if (!inflatedFrame.length()) {
