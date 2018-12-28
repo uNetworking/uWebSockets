@@ -347,16 +347,13 @@ public:
 
     // we do not need SSL options as we come from adoptions
     static WebSocketContext *create(Loop *loop, SOCKET_CONTEXT_TYPE *parentSocketContext) {
-        WebSocketContext *webSocketContext;
-
-        // todo: sizeof
-        webSocketContext = (WebSocketContext *) static_dispatch(us_create_child_ssl_socket_context, us_create_child_socket_context)(parentSocketContext, 100);
+        WebSocketContext *webSocketContext = (WebSocketContext *)static_dispatch(us_create_child_ssl_socket_context, us_create_child_socket_context)(parentSocketContext, sizeof(WebSocketContextData<SSL>));
         if (!webSocketContext) {
             return nullptr;
         }
 
         /* Init socket context data */
-        new ((WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)((SOCKET_CONTEXT_TYPE *) webSocketContext)) WebSocketContextData<SSL>();
+        new ((WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)((SOCKET_CONTEXT_TYPE *)webSocketContext)) WebSocketContextData<SSL>;
         return webSocketContext->init();
     }
 
