@@ -82,7 +82,7 @@ private:
                                 )
                         );
 
-                        std::string_view inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {data, length});
+                        std::string_view inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {data, length}, webSocketContextData->maxPayloadLength);
                         if (!inflatedFrame.length()) {
                             forceClose(webSocketState, s);
                             return true;
@@ -129,7 +129,7 @@ private:
                                 )
                             );
 
-                            std::string_view inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4});
+                            std::string_view inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4}, webSocketContextData->maxPayloadLength);
                             if (!inflatedFrame.length()) {
                                 forceClose(webSocketState, s);
                                 return true;

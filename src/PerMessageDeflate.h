@@ -26,7 +26,7 @@
 #include <string>
 #include <iostream>
 
-#define LARGE_BUFFER_SIZE 16000 // fix this
+#define LARGE_BUFFER_SIZE 1024 * 16 // fix this
 
 struct ZlibContext {
     /* Any returned data is valid until next same-class call.
@@ -109,10 +109,9 @@ struct InflationStream {
         inflateInit2(&inflationStream, -15);
     }
 
-    std::string_view inflate(ZlibContext *zlibContext, std::string_view compressed) {
+    std::string_view inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
 
-        int maxPayload = 160000; // todo: fix this
-
+        /* We clear this one here, could be done better */
         zlibContext->dynamicInflationBuffer.clear();
 
         inflationStream.next_in = (Bytef *) compressed.data();
@@ -128,11 +127,11 @@ struct InflationStream {
             }
 
             zlibContext->dynamicInflationBuffer.append(zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
-        } while (err == Z_BUF_ERROR && zlibContext->dynamicInflationBuffer.length() <= maxPayload);
+        } while (err == Z_BUF_ERROR && zlibContext->dynamicInflationBuffer.length() <= maxPayloadLength);
 
         inflateReset(&inflationStream);
 
-        if ((err != Z_BUF_ERROR && err != Z_OK) || zlibContext->dynamicInflationBuffer.length() > maxPayload) {
+        if ((err != Z_BUF_ERROR && err != Z_OK) || zlibContext->dynamicInflationBuffer.length() > maxPayloadLength) {
             return {nullptr, 0};
         }
 
