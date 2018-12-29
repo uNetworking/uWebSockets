@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
         int hello;
     };
 
-    uWS::SSLApp({
+    uWS::/*SSL*/App({
         .key_file_name = "/home/alexhultman/key.pem",
         .cert_file_name = "/home/alexhultman/cert.pem",
         .passphrase = "1234"
@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     }).ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::DEDICATED_COMPRESSOR,
-        .maxPayloadLength = 16 * 1024,
+        .maxPayloadLength = 16 * 1024 * 1024,
         /* Handlers */
         .open = [](auto *ws, auto *req) {
             std::cout << "WebSocket connected" << std::endl;

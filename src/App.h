@@ -78,6 +78,11 @@ public:
         /* Every route has its own websocket context with its own behavior and user data type */
         auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
 
+        /* Quick fix to disable any compression if set */
+#ifdef UWS_NO_ZLIB
+        behavior.compression = uWS::DISABLED;
+#endif
+
         /* If we are the first one to use compression, initialize it */
         if (behavior.compression) {
             LoopData *loopData = (LoopData *) us_loop_ext(static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(webSocketContext->getSocketContext()));

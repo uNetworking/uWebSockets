@@ -19,7 +19,19 @@
 #ifndef PERMESSAGEDEFLATE_H
 #define PERMESSAGEDEFLATE_H
 /* Do not compile this module if we don't want it */
-#ifndef UWS_NO_ZLIB
+#ifdef UWS_NO_ZLIB
+struct ZlibContext {};
+struct InflationStream {
+    std::string_view inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
+        return compressed;
+    }
+};
+struct DeflationStream {
+    std::string_view deflate(ZlibContext *zlibContext, std::string_view raw, bool reset) {
+        return raw;
+    }
+};
+#else
 
 #include <zlib.h>
 
@@ -107,6 +119,10 @@ struct InflationStream {
 
     InflationStream() {
         inflateInit2(&inflationStream, -15);
+    }
+
+    ~InflationStream() {
+        std::cout << "Destructing inflationstream" << std::endl;
     }
 
     std::string_view inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
