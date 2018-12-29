@@ -41,13 +41,8 @@ protected:
                     );
     }
 
-    // we need a type safe realType = getData<MiddleType>
-
     /* Get socket extension */
     void *getExt() {
-
-        // we might have multiple inheritance so need to know the middle type
-
         return static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
     }
 

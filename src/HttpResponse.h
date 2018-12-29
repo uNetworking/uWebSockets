@@ -95,10 +95,15 @@ private:
         } else {
             /* Write content-length on first call */
             if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_END_CALLED)) {
-                /* We have a known send size */
-                Super::write("Content-Length: ", 16);
-                writeUnsigned(totalSize);
-                Super::write("\r\n\r\n", 4);
+                /* Ending with no response should not leave any content-length */
+                if (totalSize) {
+                    /* We have a known send size */
+                    Super::write("Content-Length: ", 16);
+                    writeUnsigned(totalSize);
+                    Super::write("\r\n\r\n", 4);
+                } else {
+                    Super::write("\r\n", 2);
+                }
 
                 /* Mark end called */
                 httpResponseData->state |= HttpResponseData<SSL>::HTTP_END_CALLED;

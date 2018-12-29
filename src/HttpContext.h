@@ -312,6 +312,7 @@ public:
         });
     }
 
+    // this can be removed? or at least set by default to something like Apache server does
     void onUnhandled(std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 

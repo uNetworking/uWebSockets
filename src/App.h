@@ -50,6 +50,10 @@ private:
     using StaticDispatch<SSL>::static_dispatch;
 public:
 
+    void registerTag() {
+
+    }
+
     ~TemplatedApp() {
 
     }
@@ -135,8 +139,6 @@ public:
                         ExtensionsNegotiator<true> extensionsNegotiator(wantedOptions);
                         extensionsNegotiator.readOffer(extensions);
 
-                        std::cout << extensions << " => " << extensionsNegotiator.generateOffer() << std::endl;
-
                         /* Todo: remove these mid string copies */
                         res->writeHeader("Sec-WebSocket-Extensions", extensionsNegotiator.generateOffer());
 
@@ -155,6 +157,8 @@ public:
                 /* Add mark, we don't want to end anything */
                 res->writeHeader("WebSocket-Server", "uWebSockets")->end();
 
+                /* todo: What about HttpResponseData here? */
+
                 /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
                 WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
                             (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, sizeof(WebSocketData) + sizeof(UserData));
@@ -171,8 +175,7 @@ public:
                     behavior.open(webSocket, req);
                 }
 
-                // todo: perform all the checks such as shutdown, closed, etc!
-                // bug? or does this happen automatically? no!
+                /* We do not need to check for any close or shutdown here as we immediately return from get handler */
 
             } else {
                 /* For now we do not support having HTTP and websocket routes on the same URL */
