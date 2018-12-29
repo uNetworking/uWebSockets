@@ -288,7 +288,7 @@ protected:
         }
         wState->state.lastFin = isFin(src);
 
-        if (Impl::refusePayloadLength(payLength, wState)) {
+        if (Impl::refusePayloadLength(payLength, wState, user)) {
             Impl::forceClose(wState, user);
             return true;
         }

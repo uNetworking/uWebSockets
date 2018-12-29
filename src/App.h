@@ -95,6 +95,9 @@ public:
         webSocketContext->getExt()->drainHandler = behavior.drain;
         webSocketContext->getExt()->closeHandler = behavior.close;
 
+        /* Copy settings */
+        webSocketContext->getExt()->maxPayloadLength = behavior.maxPayloadLength;
+
         return get(pattern, [webSocketContext, this, behavior](auto *res, auto *req) {
             /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");

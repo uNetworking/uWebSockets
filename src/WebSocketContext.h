@@ -221,14 +221,13 @@ private:
         return false;
     }
 
-    // bug: todo
-    static bool refusePayloadLength(uint64_t length, uWS::WebSocketState<isServer> *wState) {
+    static bool refusePayloadLength(uint64_t length, uWS::WebSocketState<isServer> *wState, void *s) {
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
+            static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *)s)
+            );
 
-        //std::cout << "refuse payload length" << std::endl;
-
-        /* We check if we want to accept such a frame based on size */
-        // for now, accept anything
-        return false;
+        /* Return true for refuse, false for accept */
+        return webSocketContextData->maxPayloadLength < length;
     }
 
     WebSocketContext<SSL, isServer> *init() {

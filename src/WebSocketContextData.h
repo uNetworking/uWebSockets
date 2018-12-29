@@ -32,6 +32,9 @@ struct WebSocketContextData {
     std::function<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler = nullptr;
     std::function<void(uWS::WebSocket<SSL, true> *)> drainHandler = nullptr;
     std::function<void(uWS::WebSocket<SSL, true> *, int, std::string_view)> closeHandler = nullptr;
+
+    /* Settings for this context */
+    size_t maxPayloadLength = 0;
 };
 
 }
