@@ -67,6 +67,8 @@ int main(int argc, char **argv) {
         }
     }).run();
 
+    uWS::Loop::defaultLoop()->free();
+
 //    return 0;
 
 //    AsyncFileStreamer *asyncFileStreamer = new AsyncFileStreamer("/home/alexhultman/v0.15/public");

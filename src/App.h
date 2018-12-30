@@ -46,6 +46,8 @@ private:
     /* The app always owns at least one http context, but creates websocket contexts on demand */
     HttpContext<SSL> *httpContext;
 
+    std::vector<WebSocketContext<SSL, true> *> webSocketContexts;
+
     using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
     using StaticDispatch<SSL>::static_dispatch;
 public:
@@ -57,6 +59,10 @@ public:
     ~TemplatedApp() {
         /* Let's just put everything here */
         httpContext->free();
+
+        for (auto *webSocketContext : webSocketContexts) {
+            webSocketContext->free();
+        }
     }
 
     TemplatedApp(const TemplatedApp &other) {
@@ -82,6 +88,9 @@ public:
     TemplatedApp &ws(std::string pattern, WebSocketBehavior &&behavior) {
         /* Every route has its own websocket context with its own behavior and user data type */
         auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
+
+        /* We need to clear this later on */
+        webSocketContexts.push_back(webSocketContext);
 
         /* Quick fix to disable any compression if set */
 #ifdef UWS_NO_ZLIB
@@ -184,6 +193,7 @@ public:
             }
         });
 
+        // never called
         return *this;
     }
 

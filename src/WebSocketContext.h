@@ -335,6 +335,15 @@ private:
         return this;
     }
 
+    void free() {
+        std::cout << "websocket context free" << std::endl;
+
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext((SOCKET_CONTEXT_TYPE *) this);
+        webSocketContextData->~WebSocketContextData();
+
+        us_socket_context_free((SOCKET_CONTEXT_TYPE *) this);
+    }
+
 public:
     /* WebSocket contexts are always child contexts to a HTTP context so no SSL options are needed as they are inherited */
     static WebSocketContext *create(Loop *loop, SOCKET_CONTEXT_TYPE *parentSocketContext) {

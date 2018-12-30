@@ -62,6 +62,10 @@ private:
 
     Loop() = delete;
 
+    ~Loop() {
+        std::cout << "Loop destructor called" << std::endl;
+    }
+
     Loop *init() {
         new (us_loop_ext((us_loop *) this)) LoopData;
         return this;
@@ -96,7 +100,11 @@ public:
 
     /* Freeing the default loop should be done once */
     void free() {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+        loopData->~LoopData();
         us_loop_free((us_loop *) this);
+
+        std::cout << "Loop::free" << std::endl;
     }
 
     /* Set postCb callback */

@@ -124,6 +124,7 @@ struct InflationStream {
 
     ~InflationStream() {
         std::cout << "Destructing inflationstream" << std::endl;
+        inflateEnd(&inflationStream);
     }
 
     std::string_view inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {

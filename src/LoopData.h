@@ -38,6 +38,16 @@ private:
     std::function<void(Loop *)> postHandler;
 
 public:
+    ~LoopData() {
+        /* If we have had App.ws called with compression we need to clear this */
+        if (zlibContext) {
+            delete zlibContext;
+            delete inflationStream;
+            delete deflationStream;
+        }
+        delete [] corkBuffer;
+    }
+
     /* Good 16k for SSL perf. */
     static const int CORK_BUFFER_SIZE = 16 * 1024;
 
