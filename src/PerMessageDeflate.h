@@ -111,6 +111,7 @@ struct DeflationStream {
 
     ~DeflationStream() {
         std::cout << "Destructing DeflationStream" << std::endl;
+        deflateEnd(&deflationStream);
     }
 };
 

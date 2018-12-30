@@ -169,6 +169,15 @@ private:
         }
     }
 
+    void freeNode(Node *node) {
+        for (auto *p : node->children) {
+            freeNode(p);
+        }
+        if (node != &tree) {
+            delete node;
+        }
+    }
+
 public:
     HttpRouter() {
         /* Make sure unhandled is at index 0 */
@@ -179,6 +188,7 @@ public:
 
     ~HttpRouter() {
         // todo: delete all Nodes or use unique_ptr
+        freeNode(&tree);
     }
 
     /* For debugging you may want to print this */

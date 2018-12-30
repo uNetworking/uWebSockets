@@ -55,7 +55,8 @@ public:
     }
 
     ~TemplatedApp() {
-
+        /* Let's just put everything here */
+        httpContext->free();
     }
 
     TemplatedApp(const TemplatedApp &other) {

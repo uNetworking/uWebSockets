@@ -3,6 +3,8 @@
 //#include "../examples/helpers/AsyncFileReader.h"
 //#include "../examples/helpers/AsyncFileStreamer.h"
 
+us_listen_socket *token;
+
 int main(int argc, char **argv) {
 
     struct PerSocketData {
@@ -14,12 +16,23 @@ int main(int argc, char **argv) {
         .key_file_name = "/home/alexhultman/key.pem",
         .cert_file_name = "/home/alexhultman/cert.pem",
         .passphrase = "1234"
-    }).get("/hello", [](auto *res, auto *req) {
-        res->end("Hello HTTP!");
+    }).get("/exit", [](auto *res, auto *req) {
+
+        if (!token) {
+            res->end("Server already closed down!");
+            return;
+        }
+
+        res->end("Closing down server now");
+
+        /* Use this route to signal stop listening */
+        us_listen_socket_close(token);
+        token = nullptr;
     }).ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::DEDICATED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024 * 1024,
+        /* autoPingInterval */
         /* Handlers */
         .open = [](auto *ws, auto *req) {
             std::cout << "WebSocket connected" << std::endl;
@@ -48,6 +61,7 @@ int main(int argc, char **argv) {
             std::cout << "OK per socket data: " << (perSocketData->hello == 13) << std::endl;
         }
     }).listen(9001, [](auto *token) {
+        ::token = token;
         if (token) {
             std::cout << "Listening on port " << 3000 << std::endl;
         }
