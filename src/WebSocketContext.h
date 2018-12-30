@@ -238,6 +238,9 @@ private:
 
             //std::cout << "close!" << std::endl;
 
+            WebSocketData *webSocketData = (WebSocketData *) (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s));
+            webSocketData->~WebSocketData();
+
 
 
             return s;

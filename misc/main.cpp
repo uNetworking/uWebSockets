@@ -69,6 +69,8 @@ int main(int argc, char **argv) {
 
     uWS::Loop::defaultLoop()->free();
 
+    std::cout << "Everything fine, falling through" << std::endl;
+
 //    return 0;
 
 //    AsyncFileStreamer *asyncFileStreamer = new AsyncFileStreamer("/home/alexhultman/v0.15/public");
