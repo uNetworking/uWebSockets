@@ -23,7 +23,7 @@
 
 namespace uWS {
 template<bool> struct HttpResponse;
-struct HttpRequest;
+class HttpRequest;
 
 template <bool SSL>
 struct HttpContextData {

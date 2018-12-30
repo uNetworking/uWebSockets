@@ -28,7 +28,7 @@ namespace uWS {
 template <bool SSL, bool isServer>
 struct WebSocketContext : StaticDispatch<SSL> {
     template <bool> friend struct TemplatedApp;
-    template <bool, class> friend struct WebSocketProtocol;
+    template <bool, class> friend class WebSocketProtocol;
 private:
     using SOCKET_CONTEXT_TYPE = typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE;
     using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
