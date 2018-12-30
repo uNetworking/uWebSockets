@@ -145,6 +145,11 @@ inline void run() {
     Loop::defaultLoop()->run();
 }
 
+/* Helper to clean up a thead before exiting */
+inline void destroy() {
+    Loop::defaultLoop()->free();
+}
+
 }
 
 #endif // LOOP_H
