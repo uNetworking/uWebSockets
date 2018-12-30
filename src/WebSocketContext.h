@@ -263,6 +263,11 @@ private:
             // todo: check for failures here just like for HTTP
             webSocket->uncork();
 
+            // cannot do anything else if closed
+            if (us_socket_is_closed((us_socket *) s)) {
+                return s;
+            }
+
             // I guess we need to check drain here - emit drain if we had to poll for writable
 
             // are we shutdown? can onnly call this if we did succeed uncork!

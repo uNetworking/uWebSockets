@@ -101,6 +101,12 @@ protected:
      * Returns pair of bytes written (anywhere) and wheter or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */
     std::pair<int, bool> write(const char *src, int length, bool optionally = false, int nextLength = 0) {
+        /* Fake success if closed, simpel fix to allow uncork of closed socket to succeed */
+        if (us_socket_is_closed((us_socket *) this)) {
+            std::cout << "Faking successful send due to closed socket!" << std::endl;
+            return {length, false};
+        }
+
         LoopData *loopData = getLoopData();
         AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
 
