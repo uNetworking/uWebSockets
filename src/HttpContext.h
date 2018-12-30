@@ -133,7 +133,10 @@ private:
 
                 /* First of all we need to check if this socket was deleted due to upgrade */
                 if (httpContextData->upgradedWebSocket) {
-                    return httpContextData->upgradedWebSocket;
+                    /* Reset upgradedWebSocket before we return */
+                    void *tmp = httpContextData->upgradedWebSocket;
+                    httpContextData->upgradedWebSocket = nullptr;
+                    return tmp;
                 }
 
                 /* Did we upgrade this guy? */
