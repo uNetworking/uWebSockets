@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
         int hello;
     };
 
-    uWS::/*SSL*/App({
+    uWS::SSLApp({
         .key_file_name = "/home/alexhultman/key.pem",
         .cert_file_name = "/home/alexhultman/cert.pem",
         .passphrase = "1234"

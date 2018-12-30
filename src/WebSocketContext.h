@@ -341,10 +341,10 @@ private:
     void free() {
         std::cout << "websocket context free" << std::endl;
 
-        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext((SOCKET_CONTEXT_TYPE *) this);
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)((SOCKET_CONTEXT_TYPE *) this);
         webSocketContextData->~WebSocketContextData();
 
-        us_socket_context_free((SOCKET_CONTEXT_TYPE *) this);
+        static_dispatch(us_ssl_socket_context_free, us_socket_context_free)((SOCKET_CONTEXT_TYPE *) this);
     }
 
 public:
