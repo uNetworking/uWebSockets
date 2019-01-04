@@ -44,6 +44,8 @@
 #define us_create_child_ssl_socket_context us_create_child_socket_context
 #define us_ssl_socket_shutdown us_socket_shutdown
 #define us_ssl_socket_context_free us_socket_context_free
+/* This is the only differing function - time to fix! */
+#define us_create_ssl_socket_context(l, e, o) us_create_socket_context(l, e)
 #endif
 
 namespace uWS {

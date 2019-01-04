@@ -1,15 +1,15 @@
 .PHONY: examples
 examples:
-# HelloWorld
-	clang -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
-	clang++ -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/HelloWorld.cpp
+# HelloWorld (non-SSL, non-Zlib compile)
+	clang -DLIBUS_NO_SSL -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
+	clang++ -DLIBUS_NO_SSL -DUWS_NO_ZLIB -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/HelloWorld.cpp
 	clang++ -flto -O3 -s *.o -o HelloWorld
 	rm *.o
 
-# EchoServer
-	clang -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
-	clang++ -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/EchoServer.cpp
-	clang++ -flto -O3 -s *.o -o EchoServer -lz
+# EchoServer (non-SSL, non-Zlib compile)
+	clang -DLIBUS_NO_SSL -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
+	clang++ -DLIBUS_NO_SSL -DUWS_NO_ZLIB -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/EchoServer.cpp
+	clang++ -flto -O3 -s *.o -o EchoServer
 	rm *.o
 
 # HttpServer (currently quire broken, mind you)
