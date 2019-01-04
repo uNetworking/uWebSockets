@@ -56,6 +56,8 @@ public:
 
     }
 
+    /* todo: Proper move semantics so to not allow copy-then-double-free and such problems of httpContext, etc. */
+
     ~TemplatedApp() {
         /* Let's just put everything here */
         httpContext->free();

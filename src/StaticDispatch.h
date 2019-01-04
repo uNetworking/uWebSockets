@@ -43,6 +43,7 @@
 #define us_ssl_socket_context_adopt_socket us_socket_context_adopt_socket
 #define us_create_child_ssl_socket_context us_create_child_socket_context
 #define us_ssl_socket_shutdown us_socket_shutdown
+#define us_ssl_socket_context_free us_socket_context_free
 #endif
 
 namespace uWS {
