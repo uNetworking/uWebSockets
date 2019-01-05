@@ -18,6 +18,14 @@ This way you can easily build complete REST/WebSocket services in a few lines of
 
 The project is async only and runs local to one thread. You scale it as individual threads much like Node.js scales as individual processes. That is, the implementation only sees a single thread and is not thread-safe. There are simple ways to do threading via async delegates though, if you really need to.
 
+## Compiling
+µWebSockets is 100% standard header-only C++17 - it compiles on any platform. However, it depends on µSockets in all cases, which is platform-specific C code that runs on Linux, Windows and macOS.
+
+There are a few compilation flags for µSockets (see its documentation), but common between µSockets and µWebSockets flags are as follows:
+
+* LIBUS_NO_SSL - disable OpenSSL dependency/functionality for uSockets and uWebSockets builds
+* UWS_NO_ZLIB - disable Zlib dependency/functionality for uWebSockets
+
 ## Node.js
 µWS is available as "uws" for Node.js where it can serve as a major boost for web related tasks. You can find "uws" on this page.
 
