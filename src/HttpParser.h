@@ -127,7 +127,7 @@ private:
 
     // the only caller of getHeaders
     template <int CONSUME_MINIMALLY>
-    std::pair<int, void *> fenceAndConsumePostPadded(char *data, int length, void *user, HttpRequest *req, std::function<void *(void *, HttpRequest *)> &requestHandler, std::function<void *(void *, std::string_view)> &dataHandler) {
+    std::pair<int, void *> fenceAndConsumePostPadded(char *data, int length, void *user, HttpRequest *req, std::function<void *(void *, HttpRequest *)> &requestHandler, std::function<void *(void *, std::string_view, bool)> &dataHandler) {
         int consumedTotal = 0;
         data[length] = '\r';
 
@@ -161,7 +161,7 @@ private:
 
                 if (!CONSUME_MINIMALLY) {
                     int emittable = std::min(remainingStreamingBytes, length);
-                    dataHandler(user, std::string_view(data, emittable));
+                    dataHandler(user, std::string_view(data, emittable), length == remainingStreamingBytes);
                     remainingStreamingBytes -= emittable;
 
                     data += emittable;
@@ -180,7 +180,7 @@ private:
 public:
 
     // todo: what can we do with the socket inside the handlers? we need to check on return from any handler if we closed or terminated or upgraded the socket
-    void *consumePostPadded(char *data, int length, void *user, std::function<void *(void *, HttpRequest *)> &&requestHandler, std::function<void *(void *, std::string_view)> &&dataHandler, std::function<void *(void *)> &&errorHandler) {
+    void *consumePostPadded(char *data, int length, void *user, std::function<void *(void *, HttpRequest *)> &&requestHandler, std::function<void *(void *, std::string_view, bool)> &&dataHandler, std::function<void *(void *)> &&errorHandler) {
 
         HttpRequest req;
 
@@ -188,11 +188,11 @@ public:
 
             // this is exactly the same as below!
             if (remainingStreamingBytes >= length) {
-                void *returnedUser = dataHandler(user, std::string_view(data, length));
+                void *returnedUser = dataHandler(user, std::string_view(data, length), false);
                 remainingStreamingBytes -= length;
                 return returnedUser;
             } else {
-                void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes));
+                void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
 
                 data += remainingStreamingBytes;
                 length -= remainingStreamingBytes;
@@ -228,11 +228,11 @@ public:
                 if (remainingStreamingBytes) {
                     // this is exactly the same as above!
                     if (remainingStreamingBytes >= length) {
-                        void *returnedUser = dataHandler(user, std::string_view(data, length));
+                        void *returnedUser = dataHandler(user, std::string_view(data, length), false);
                         remainingStreamingBytes -= length;
                         return returnedUser;
                     } else {
-                        void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes));
+                        void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
 
                         data += remainingStreamingBytes;
                         length -= remainingStreamingBytes;

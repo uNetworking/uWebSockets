@@ -243,9 +243,8 @@ public:
         return this;
     }
 
-    // onData(chunk, remaining == -1 or 0 or actual remaining)?
-    /* Attach a read handler for data sent. Will be called with a chunk of size 0 when FIN */
-    void read(std::function<void(std::string_view)> handler) {
+    /* Attach a read handler for data sent. Will be called with FIN set true if last segment. */
+    void onData(std::function<void(std::string_view, bool)> handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();
         data->inStream = handler;
     }

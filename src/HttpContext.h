@@ -168,9 +168,9 @@ private:
                 /* Continue parsing */
                 return s;
 
-            }, [httpResponseData](void *user, std::string_view data) -> void * {
+            }, [httpResponseData](void *user, std::string_view data, bool fin) -> void * {
                 if (httpResponseData->inStream) {
-                    httpResponseData->inStream(data);
+                    httpResponseData->inStream(data, fin);
 
                     /* Was the socket closed? */
                     if (us_socket_is_closed((struct us_socket *) user)) {

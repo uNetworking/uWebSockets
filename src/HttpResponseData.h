@@ -44,7 +44,7 @@ private:
     std::function<void()> onAborted;
     //std::function<void()> onData;
 
-    std::function<void(std::string_view)> inStream;
+    std::function<void(std::string_view, bool)> inStream;
     std::function<std::pair<bool, std::string_view>(int)> outStream;
     /* Outgoing offset */
     int offset = 0;
