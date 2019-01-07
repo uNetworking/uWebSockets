@@ -1,5 +1,6 @@
 /*
- * Copyright 2018 Alex Hultman and contributors.
+ * Authored by Alex Hultman, 2018-2019.
+ * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

@@ -57,6 +57,6 @@ Http | WebSockets
 ![](misc/bigshot_lineup.png) | ![](misc/websocket_lineup.png)
 
 #### Keep it legal.
-Copyright © 2018 Alex Hultman. All rights reserved.
+Intellectual property, all rights reserved.
 
 *You are forbidden to use logos, product names, texts, names or otherwise perceived brand identity, of copyright holder, in any way that might state or imply that the copyright holder endorses your distribution or in any way that might state or imply that you created the original software. Modified distributions must carry, from the original distribution, significantly different names and must not be confused with the original distribution.*
