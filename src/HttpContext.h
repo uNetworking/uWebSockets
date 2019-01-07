@@ -77,15 +77,10 @@ private:
             /* Get socket ext */
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
 
-            std::cout << "Close event!" << std::endl;
-
             /* Signal broken HTTP request only if we have a pending request */
             if (httpResponseData->onAborted) {
                 httpResponseData->onAborted();
             }
-
-            // we might want to also signal the read stream?
-            // smash onAborted together with read?
 
             /* Destruct socket ext */
             httpResponseData->~HttpResponseData<SSL>();
@@ -139,19 +134,6 @@ private:
                     return tmp;
                 }
 
-                /* Did we upgrade this guy? */
-//                if (httpResponseData->state & HttpResponseData<SSL>::HTTP_UPGRADED_TO_WEBSOCKET) {
-//                    std::cout << "we upgraded from the handler!" << std::endl;
-
-
-//                    std::cout << "We were upgraded to: " << httpContextData->upgradedWebSocket << std::endl;
-
-//                    return httpContextData->upgradedWebSocket;
-
-
-//                    // here we should adopt the socket and transition to websocket parsing, returning a socket different will halt parsing
-//                }
-
                 /* Was the socket closed? */
                 if (us_socket_is_closed((struct us_socket *) s)) {
                     return nullptr;
@@ -161,9 +143,6 @@ private:
                 if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)((SOCKET_TYPE *) s)) {
                     return nullptr;
                 }
-
-                /* Was the socket upgraded? */
-                // if (some global variable in this loop)
 
                 /* Continue parsing */
                 return s;
@@ -199,25 +178,9 @@ private:
                 }
 
                 return (SOCKET_TYPE *) returnedSocket;
-            } else {
-                // we cannot return nullptr to the underlying stack in any case
-                return s;
             }
 
-            // below is never reached
-
-            /* Only uncork still valid sockets */
-            if (returnedSocket == s) {
-                /* Timeout on uncork failure */
-                auto [written, failed] = ((AsyncSocket<SSL> *) s)->uncork();
-                if (failed) {
-                    ((AsyncSocket<SSL> *) s)->timeout(HTTP_IDLE_TIMEOUT_S);
-                }
-            } else {
-                // was this socket upgraded?
-                std::cout << "Socket was closed or shut down in handler or maybe upgraded" << std::endl;
-            }
-
+            // we cannot return nullptr to the underlying stack in any case
             return s;
         });
 
