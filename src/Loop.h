@@ -84,6 +84,9 @@ public:
         if (!defaultLoop) {
             ownsDefaultLoop = true;
             defaultLoop = create(true);
+            std::atexit([]() {
+                Loop::defaultLoop()->free();
+            });
             return defaultLoop;
         } else if (ownsDefaultLoop) {
             return defaultLoop;
@@ -143,11 +146,6 @@ public:
 /* Can be called from any thread to run the thread local loop */
 inline void run() {
     Loop::defaultLoop()->run();
-}
-
-/* Helper to clean up a thead before exiting */
-inline void destroy() {
-    Loop::defaultLoop()->free();
 }
 
 }

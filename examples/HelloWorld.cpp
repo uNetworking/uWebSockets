@@ -11,7 +11,4 @@ int main() {
 	}).run();
 
 	std::cout << "Failed to listen on port 3000" << std::endl;
-
-        /* This is needed to properly clear everything */
-        uWS::destroy();
 }

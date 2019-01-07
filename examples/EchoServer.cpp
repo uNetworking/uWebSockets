@@ -35,7 +35,4 @@ int main() {
             std::cout << "Listening on port " << 9001 << std::endl;
         }
     }).run();
-
-    /* This is needed to properly clear everything */
-    uWS::destroy();
 }
