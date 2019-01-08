@@ -15,7 +15,7 @@ examples:
 # HttpServer (currently quire broken, mind you)
 	clang -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
 	clang++ -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/HttpServer.cpp
-	clang++ -flto -O3 -s *.o -o HttpServer -lssl -lcrypto -lpthread -lstdc++fs
+	clang++ -flto -O3 -s *.o -o HttpServer -lssl -lz -lcrypto -lpthread -lstdc++fs
 	rm *.o
 
 # I don't know what this is supposed to do
