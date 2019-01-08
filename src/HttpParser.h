@@ -162,7 +162,7 @@ private:
 
                 if (!CONSUME_MINIMALLY) {
                     int emittable = std::min(remainingStreamingBytes, length);
-                    dataHandler(user, std::string_view(data, emittable), length == remainingStreamingBytes);
+                    dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
                     remainingStreamingBytes -= emittable;
 
                     data += emittable;
@@ -189,7 +189,7 @@ public:
 
             // this is exactly the same as below!
             if (remainingStreamingBytes >= length) {
-                void *returnedUser = dataHandler(user, std::string_view(data, length), false);
+                void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
                 remainingStreamingBytes -= length;
                 return returnedUser;
             } else {
@@ -229,7 +229,7 @@ public:
                 if (remainingStreamingBytes) {
                     // this is exactly the same as above!
                     if (remainingStreamingBytes >= length) {
-                        void *returnedUser = dataHandler(user, std::string_view(data, length), false);
+                        void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
                         remainingStreamingBytes -= length;
                         return returnedUser;
                     } else {
