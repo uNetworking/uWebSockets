@@ -231,10 +231,10 @@ public:
     }
 
     /* Attach handler for writable HTTP response */
-    HttpResponse *onWritable(fu2::unique_function<bool(int)> handler) {
+    HttpResponse *onWritable(fu2::unique_function<bool(int)> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
-        httpResponseData->onWritable = handler;
+        httpResponseData->onWritable = std::move(handler);
         return this;
     }
 
