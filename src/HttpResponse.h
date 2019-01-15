@@ -25,6 +25,8 @@
 #include "HttpContextData.h"
 #include "Utilities.h"
 
+#include "f2/function2.hpp"
+
 /* todo: tryWrite is missing currently, only send smaller segments with write */
 
 namespace uWS {
@@ -229,7 +231,7 @@ public:
     }
 
     /* Attach handler for writable HTTP response */
-    HttpResponse *onWritable(std::function<bool(int)> handler) {
+    HttpResponse *onWritable(fu2::unique_function<bool(int)> handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         httpResponseData->onWritable = handler;

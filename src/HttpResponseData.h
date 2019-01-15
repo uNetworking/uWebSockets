@@ -24,6 +24,8 @@
 #include "AsyncSocketData.h"
 #include <functional>
 
+#include "f2/function2.hpp"
+
 namespace uWS {
 
 template <bool SSL>
@@ -41,7 +43,7 @@ private:
     };
 
     /* Per socket event handlers */
-    std::function<bool(int)> onWritable;
+    fu2::unique_function<bool(int)> onWritable;
     std::function<void()> onAborted;
     //std::function<void()> onData;
 
