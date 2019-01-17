@@ -67,8 +67,6 @@ int main(int argc, char **argv) {
         }
     }).run();
 
-    /* This is needed to properly free default loop and such resources */
-    uWS::destroy();
 
     std::cout << "Everything fine, falling through" << std::endl;
 

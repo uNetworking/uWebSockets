@@ -239,10 +239,10 @@ public:
     }
 
     /* Attach handler for aborted HTTP request */
-    HttpResponse *onAborted(std::function<void()> handler) {
+    HttpResponse *onAborted(fu2::unique_function<void()> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
-        httpResponseData->onAborted = handler;
+        httpResponseData->onAborted = std::move(handler);
         return this;
     }
 

@@ -44,7 +44,7 @@ private:
 
     /* Per socket event handlers */
     fu2::unique_function<bool(int)> onWritable;
-    std::function<void()> onAborted;
+    fu2::unique_function<void()> onAborted;
     //std::function<void()> onData;
 
     std::function<void(std::string_view, bool)> inStream;
