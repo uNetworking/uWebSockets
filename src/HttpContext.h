@@ -188,7 +188,7 @@ private:
         /* Handle HTTP write out (note: SSL_read may trigger this spuriously, the app need to handle spurious calls) */
         static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(getSocketContext(), [](auto *s) {
 
-            std::cout << "HttpContext::onWritable event fired!" << std::endl;
+            //std::cout << "HttpContext::onWritable event fired!" << std::endl;
 
             /* We are now writable, so hang timeout again */
             static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, 0);
