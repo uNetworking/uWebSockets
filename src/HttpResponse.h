@@ -247,9 +247,9 @@ public:
     }
 
     /* Attach a read handler for data sent. Will be called with FIN set true if last segment. */
-    void onData(std::function<void(std::string_view, bool)> handler) {
+    void onData(fu2::unique_function<void(std::string_view, bool)> &&handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();
-        data->inStream = handler;
+        data->inStream = std::move(handler);
     }
 };
 

@@ -47,8 +47,8 @@ private:
     fu2::unique_function<void()> onAborted;
     //std::function<void()> onData;
 
-    std::function<void(std::string_view, bool)> inStream;
-    std::function<std::pair<bool, std::string_view>(int)> outStream;
+    fu2::unique_function<void(std::string_view, bool)> inStream;
+    //std::function<std::pair<bool, std::string_view>(int)> outStream;
     /* Outgoing offset */
     int offset = 0;
 
