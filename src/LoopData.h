@@ -36,7 +36,7 @@ private:
     int currentDeferQueue = 0;
     std::vector<std::function<void()>> deferQueues[2];
 
-    std::function<void(Loop *)> postHandler;
+    std::function<void(Loop *)> postHandler, preHandler;
 
 public:
     ~LoopData() {

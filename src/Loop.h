@@ -50,7 +50,11 @@ private:
     }
 
     static void preCb(us_loop *loop) {
+        LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
+        if (loopData->preHandler) {
+            loopData->preHandler((Loop *) loop);
+        }
     }
 
     static void postCb(us_loop *loop) {
@@ -116,6 +120,12 @@ public:
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
 
         loopData->postHandler = handler;
+    }
+
+    void setPreHandler(std::function<void(Loop *)> handler) {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+
+        loopData->preHandler = handler;
     }
 
     /* Defer this callback on Loop's thread of execution */
