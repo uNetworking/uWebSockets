@@ -70,6 +70,14 @@ private:
             /* Init socket ext */
             new (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s)) HttpResponseData<SSL>;
 
+            /* Call filter */
+            HttpContextData<SSL> *httpContextData = getSocketContextDataS(s);
+            for (auto &f : httpContextData->filterHandlers) {
+                f((HttpResponse<SSL> *) s, 1);
+            }
+
+            // todo: handle filter closing the socket?
+
             return s;
         });
 
@@ -77,6 +85,12 @@ private:
         static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(getSocketContext(), [](auto *s) {
             /* Get socket ext */
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)(s);
+
+            /* Call filter */
+            HttpContextData<SSL> *httpContextData = getSocketContextDataS(s);
+            for (auto &f : httpContextData->filterHandlers) {
+                f((HttpResponse<SSL> *) s, -1);
+            }
 
             /* Signal broken HTTP request only if we have a pending request */
             if (httpResponseData->onAborted) {
@@ -143,6 +157,13 @@ private:
                 /* We absolutely have to terminate parsing if shutdown */
                 if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)((SOCKET_TYPE *) s)) {
                     return nullptr;
+                }
+
+                /* Returning from a request handler without responding or attaching an onAborted handler is ill-use */
+                if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted) {
+                    /* Throw exception here? */
+                    std::cerr << "µWebSockets ill-use: Returning from a request handler without responding or attaching an abort handler is forbidden." << std::endl;
+                    std::terminate();
                 }
 
                 /* Continue parsing */
@@ -267,6 +288,10 @@ public:
 
         /* Free the socket context in whole */
         static_dispatch(us_ssl_socket_context_free, us_socket_context_free)(getSocketContext());
+    }
+
+    void filter(fu2::unique_function<void(HttpResponse<SSL> *, int)> &&filterHandler) {
+        getSocketContextData()->filterHandlers.emplace_back(std::move(filterHandler));
     }
 
     /* Register an HTTP route handler acording to URL pattern */

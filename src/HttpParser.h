@@ -71,7 +71,7 @@ public:
         currentParameters = parameters;
     }
 
-    std::string_view getParameter(int index) {
+    std::string_view getParameter(unsigned int index) {
         if (currentParameters.first < index) {
             return {};
         } else {

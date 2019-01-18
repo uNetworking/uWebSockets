@@ -92,6 +92,8 @@ private:
             /* Terminating 0 chunk */
             Super::write("\r\n0\r\n\r\n", 7);
 
+            // todo: here we reach the end, so remove onAborted, onWritable, and set HTTP_RESPONDED_TO
+
             /* tryEnd can never fail when in chunked mode, since we do not have tryWrite (yet), only write */
             Super::timeout(HTTP_TIMEOUT_S);
             return true;
@@ -132,6 +134,8 @@ private:
                 httpResponseData->onAborted = nullptr;
                 /* Also remove onWritable so that we do not emit when draining behind the scenes. */
                 httpResponseData->onWritable = nullptr;
+
+                // todo: set HTTP_RESPONDED_TO here and use in the emittance of new requests
             }
 
             return success;
@@ -228,6 +232,12 @@ public:
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         return httpResponseData->offset;
+    }
+
+    /* Checking if we have fully responded and are ready for another request */
+    bool hasResponded() {
+        // todo: implement
+        return true;
     }
 
     /* Attach handler for writable HTTP response */

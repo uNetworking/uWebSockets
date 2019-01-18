@@ -53,6 +53,11 @@ private:
     using StaticDispatch<SSL>::static_dispatch;
 public:
 
+    /* Attaches a "filter" function to track socket connections/disconnections */
+    void filter(fu2::unique_function<void(HttpResponse<SSL> *, int)> &&filterHandler) {
+        httpContext->filter(std::move(filterHandler));
+    }
+
     void registerTag() {
 
     }

@@ -21,6 +21,9 @@
 #include "HttpRouter.h"
 
 #include <functional>
+#include <vector>
+
+#include "f2/function2.hpp"
 
 namespace uWS {
 template<bool> struct HttpResponse;
@@ -31,6 +34,13 @@ struct HttpContextData {
     template <bool> friend struct HttpContext;
     template <bool> friend struct HttpResponse;
 private:
+    std::vector<fu2::unique_function<void(HttpResponse<SSL> *, int)>> filterHandlers;
+
+    /*HttpContextData(const HttpContextData&) = delete;
+    HttpContextData() {
+
+    }*/
+
     struct RouterData {
         HttpResponse<SSL> *httpResponse;
         HttpRequest *httpRequest;
