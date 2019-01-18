@@ -63,6 +63,16 @@ private:
         Super::write(buf, length);
     }
 
+    /* When we are done with a response we mark it like so */
+    void markDone(HttpResponseData<SSL> *httpResponseData) {
+        httpResponseData->onAborted = nullptr;
+        /* Also remove onWritable so that we do not emit when draining behind the scenes. */
+        httpResponseData->onWritable = nullptr;
+
+        /* We are done with this request */
+        httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
+    }
+
     /* Returns true on success, indicating that it might be feasible to write more data.
      * Will start timeout if stream reaches totalSize or write failure. */
     bool internalEnd(std::string_view data, int totalSize, bool optional) {
@@ -92,7 +102,7 @@ private:
             /* Terminating 0 chunk */
             Super::write("\r\n0\r\n\r\n", 7);
 
-            // todo: here we reach the end, so remove onAborted, onWritable, and set HTTP_RESPONDED_TO
+            markDone(httpResponseData);
 
             /* tryEnd can never fail when in chunked mode, since we do not have tryWrite (yet), only write */
             Super::timeout(HTTP_TIMEOUT_S);
@@ -131,11 +141,7 @@ private:
 
             /* Remove onAborted function if we reach the end */
             if (httpResponseData->offset == totalSize) {
-                httpResponseData->onAborted = nullptr;
-                /* Also remove onWritable so that we do not emit when draining behind the scenes. */
-                httpResponseData->onWritable = nullptr;
-
-                // todo: set HTTP_RESPONDED_TO here and use in the emittance of new requests
+                markDone(httpResponseData);
             }
 
             return success;
@@ -236,8 +242,9 @@ public:
 
     /* Checking if we have fully responded and are ready for another request */
     bool hasResponded() {
-        // todo: implement
-        return true;
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        return !(httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING);
     }
 
     /* Attach handler for writable HTTP response */

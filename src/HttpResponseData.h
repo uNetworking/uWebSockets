@@ -38,7 +38,7 @@ private:
         HTTP_STATUS_CALLED = 1, // used
         HTTP_WRITE_CALLED = 2, // used
         HTTP_END_CALLED = 4, // used
-        HTTP_RESPONDED_TO = 8, // used
+        HTTP_RESPONSE_PENDING = 8, // used
         HTTP_ENDED_STREAM_OUT = 16 // not used
     };
 

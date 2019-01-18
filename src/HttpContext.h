@@ -135,8 +135,9 @@ private:
                 HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
                 httpResponseData->offset = 0;
                 httpResponseData->state = 0;
+                httpResponseData->state |= HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
 
-                /* Route the method and URL */
+                /* Route the method and URL (unhandled should close or end it by default) */
                 httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), {
                                                   (HttpResponse<SSL> *) s, httpRequest
                                               });
