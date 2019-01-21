@@ -30,7 +30,7 @@ template<bool> struct HttpResponse;
 class HttpRequest;
 
 template <bool SSL>
-struct HttpContextData {
+struct alignas(16) HttpContextData {
     template <bool> friend struct HttpContext;
     template <bool> friend struct HttpResponse;
 private:

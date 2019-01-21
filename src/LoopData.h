@@ -29,7 +29,7 @@ namespace uWS {
 
 struct Loop;
 
-struct LoopData {
+struct alignas(16) LoopData {
     friend struct Loop;
 private:
     std::mutex deferMutex;
