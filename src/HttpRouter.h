@@ -59,7 +59,7 @@ private:
         }
     } routeParameters;
 
-    std::vector<std::function<void(USERDATA, std::pair<int, std::string_view *>)>> handlers;
+    std::vector<std::function<bool(USERDATA &, std::pair<int, std::string_view *>)>> handlers;
 
     struct Node {
         std::string name;
@@ -109,20 +109,34 @@ private:
         return urlSegmentVector[urlSegment];
     }
 
-    int matchUrlSegment(Node *parent, int urlSegment) {
+    /* Experimental path, executes as many handlers it can */
+    bool executeHandlers(Node *parent, int urlSegment, USERDATA &userData) {
         /* If we have no more URL and not on first round, return where we may stand */
         if (urlSegment && !getUrlSegment(urlSegment).length()) {
-            return parent->handler;
+            /* We have reached accross the entire URL with no stoppage, execute */
+            int handlerIndex = parent->handler;
+            if (handlerIndex) {
+                return handlers[handlerIndex](userData, {routeParameters.paramsTop, routeParameters.params});
+            } else {
+                /* Unhandled */
+                return false;
+            }
         }
 
         for (auto *p : parent->children) {
             if (p->name.length() && p->name[0] == '*') {
-                /* Wildcard match */
-                return p->handler;
+                /* Wildcard match (can be seen as a shortcut) */
+                int handlerIndex = p->handler;
+                if (handlerIndex) {
+                    return handlers[handlerIndex](userData, {routeParameters.paramsTop, routeParameters.params});
+                } else {
+                    /* Unhandled */
+                    return false;
+                }
             } else if (p->name.length() && p->name[0] == ':' && getUrlSegment(urlSegment).length()) {
                 /* Parameter match */
                 routeParameters.push(getUrlSegment(urlSegment));
-                int handler = matchUrlSegment(p, urlSegment + 1);
+                int handler = executeHandlers(p, urlSegment + 1, userData);
                 if (handler) {
                     return handler;
                 } else {
@@ -131,41 +145,13 @@ private:
                 }
             } else if (p->name == getUrlSegment(urlSegment)) {
                 /* Static match */
-                int handler = matchUrlSegment(p, urlSegment + 1);
+                int handler = executeHandlers(p, urlSegment + 1, userData);
                 if (handler) {
                     return handler;
                 }
             }
         }
-        return 0;
-    }
-
-    /* Route method and url to handlerIndex */
-    int lookupNew(std::string_view method, std::string_view url) {
-        setUrl(url);
-        routeParameters.reset();
-
-        /* Begin by finding the method node */
-        Node *parent = &tree;
-        for (auto &p : parent->children) {
-            if (p->name == method) {
-                parent = p;
-            }
-        }
-
-        if (parent != &tree) {
-            int handler = matchUrlSegment(parent, 0);
-
-            /* We failed to match */
-            if (!handler && method.length() > 1) {
-                return lookupNew("*", url);
-            }
-
-            return handler;
-        } else {
-            /* Unhandled, check if we have any "all" route for this url */
-            return method.length() == 1 ? 0 : lookupNew("*", url);
-        }
+        return false;
     }
 
     void printNode(Node *node, int indentation) {
@@ -189,10 +175,8 @@ private:
 
 public:
     HttpRouter() {
-        /* Make sure unhandled is at index 0 */
-        unhandled([](USERDATA, auto args) {
-
-        });
+        /* We want to use 0 as "no handler" */
+        handlers.resize(1);
     }
 
     ~HttpRouter() {
@@ -205,18 +189,8 @@ public:
         printNode(&tree, -1);
     }
 
-    /* Captures all unhandled routes */
-    HttpRouter *unhandled(std::function<void(USERDATA, std::pair<int, std::string_view *> params)> handler) {
-        if (handlers.size()) {
-            handlers[0] = handler;
-        } else {
-            handlers.push_back(handler);
-        }
-        return this;
-    }
-
     /* Register a route to be routed */
-    HttpRouter *add(std::string method, std::string_view pattern, std::function<void(USERDATA, std::pair<int, std::string_view *>)> handler) {
+    HttpRouter *add(std::string method, std::string_view pattern, std::function<bool(USERDATA &, std::pair<int, std::string_view *>)> handler) {
         /* Step over any initial slash */
         if (pattern[0] == '/') {
             pattern = pattern.substr(1);
@@ -273,9 +247,33 @@ public:
         return this;
     }
 
-    /* Route the method and url pair. Calls registered callback or unhandled handler */
-    void route(std::string_view method, std::string_view url, USERDATA userData) {
-        handlers[lookupNew(method, url)](userData, {routeParameters.paramsTop, routeParameters.params});
+    /* Routes by method and url until handler found and said handler consumes the request by returning true.
+     * If a handler returns false, we keep searching for another match. If we cannot find a handler that
+     * a) matches the url and method and b) consume the request, then we fail and return false.
+     * In that case, a second pass where method changed to "*" to denote "any" could be used to
+     * give such routes a chance. If second pass fails, we have an unhandled request and you may
+     * do whatever you want with your connection, such as close it, or respond with a fix message */
+    bool route(std::string_view method, std::string_view url, USERDATA &userData) {
+        /* Reset url parsing cache */
+        setUrl(url);
+        routeParameters.reset();
+
+        /* Begin by finding the method node */
+        Node *parent = &tree;
+        for (auto &p : parent->children) {
+            if (p->name == method) {
+                parent = p;
+            }
+        }
+
+        /* We have that method on record, let's iterate it */
+        if (parent != &tree) {
+            return executeHandlers(parent, 0, userData);
+        } else {
+            /* We did not find any handler for this method.
+             * You may want to re-route with "*" as method. */
+            return false;
+        }
     }
 };
 

@@ -143,10 +143,17 @@ private:
                 /* Mark pending request and emit it */
                 httpResponseData->state |= HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
 
-                /* Route the method and URL (unhandled should close or end it by default) */
-                httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), {
-                                                  (HttpResponse<SSL> *) s, httpRequest
-                                              });
+                /* Route the method and URL in two passes */
+                typename HttpContextData<SSL>::RouterData routerData = {(HttpResponse<SSL> *) s, httpRequest};
+                bool firstPass = httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData);
+                if (!firstPass) {
+                    /* If first pass failed, we try and match by "any" method */
+                    if (!httpContextData->router.route("*", httpRequest->getUrl(), routerData)) {
+                        /* If second pass fail, we have to force close this socket as we have no handler for it */
+                        static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) s);
+                        return nullptr;
+                    }
+                }
 
                 /* First of all we need to check if this socket was deleted due to upgrade */
                 if (httpContextData->upgradedWebSocket) {
@@ -303,18 +310,12 @@ public:
     void onHttp(std::string method, std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.add(method, pattern, [handler](typename HttpContextData<SSL>::RouterData user, std::pair<int, std::string_view *> params) {
+        httpContextData->router.add(method, pattern, [handler](typename HttpContextData<SSL>::RouterData &user, std::pair<int, std::string_view *> params) {
             user.httpRequest->setParameters(params);
             handler(user.httpResponse, user.httpRequest);
-        });
-    }
 
-    // this can be removed? or at least set by default to something like Apache server does
-    void onUnhandled(std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
-        HttpContextData<SSL> *httpContextData = getSocketContextData();
-
-        httpContextData->router.unhandled([handler](typename HttpContextData<SSL>::RouterData user, std::pair<int, std::string_view *> params) {
-            handler(user.httpResponse, user.httpRequest);
+            // for now all routes handle it
+            return true;
         });
     }
 
