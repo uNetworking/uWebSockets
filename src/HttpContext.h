@@ -76,8 +76,6 @@ private:
                 f((HttpResponse<SSL> *) s, 1);
             }
 
-            // todo: handle filter closing the socket?
-
             return s;
         });
 
@@ -135,6 +133,14 @@ private:
                 HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) s);
                 httpResponseData->offset = 0;
                 httpResponseData->state = 0;
+
+                /* Are we not ready for another request yet? Terminate the connection. */
+                if (httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) {
+                    static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) s);
+                    return nullptr;
+                }
+
+                /* Mark pending request and emit it */
                 httpResponseData->state |= HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
 
                 /* Route the method and URL (unhandled should close or end it by default) */
@@ -163,7 +169,7 @@ private:
                 /* Returning from a request handler without responding or attaching an onAborted handler is ill-use */
                 if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted) {
                     /* Throw exception here? */
-                    std::cerr << "µWebSockets ill-use: Returning from a request handler without responding or attaching an abort handler is forbidden." << std::endl;
+                    std::cerr << "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!" << std::endl;
                     std::terminate();
                 }
 
@@ -203,14 +209,12 @@ private:
                 return (SOCKET_TYPE *) returnedSocket;
             }
 
-            // we cannot return nullptr to the underlying stack in any case
+            /* We cannot return nullptr to the underlying stack in any case */
             return s;
         });
 
         /* Handle HTTP write out (note: SSL_read may trigger this spuriously, the app need to handle spurious calls) */
         static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(getSocketContext(), [](auto *s) {
-
-            //std::cout << "HttpContext::onWritable event fired!" << std::endl;
 
             /* We are now writable, so hang timeout again */
             static_dispatch(us_ssl_socket_timeout, us_socket_timeout)(s, 0);
