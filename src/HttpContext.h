@@ -145,8 +145,7 @@ private:
 
                 /* Route the method and URL in two passes */
                 typename HttpContextData<SSL>::RouterData routerData = {(HttpResponse<SSL> *) s, httpRequest};
-                bool firstPass = httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData);
-                if (!firstPass) {
+                if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData)) {
                     /* If first pass failed, we try and match by "any" method */
                     if (!httpContextData->router.route("*", httpRequest->getUrl(), routerData)) {
                         /* If second pass fail, we have to force close this socket as we have no handler for it */
@@ -311,10 +310,14 @@ public:
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
         httpContextData->router.add(method, pattern, [handler](typename HttpContextData<SSL>::RouterData &user, std::pair<int, std::string_view *> params) {
+            user.httpRequest->setYield(false);
             user.httpRequest->setParameters(params);
             handler(user.httpResponse, user.httpRequest);
 
-            // for now all routes handle it
+            /* If any handler yielded, the router will keep looking for a suitable handler. */
+            if (user.httpRequest->getYield()) {
+                return false;
+            }
             return true;
         });
     }

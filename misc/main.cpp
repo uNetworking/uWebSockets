@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
         /* Use this route to signal stop listening */
         us_listen_socket_close(token);
         token = nullptr;
-    }).ws<PerSocketData>("/ws", {
+    }).ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::DEDICATED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024 * 1024,

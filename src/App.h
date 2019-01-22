@@ -217,8 +217,8 @@ public:
                 /* We do not need to check for any close or shutdown here as we immediately return from get handler */
 
             } else {
-                /* For now we do not support having HTTP and websocket routes on the same URL */
-                res->close();
+                /* Tell the router that we did not handle this request */
+                req->setYield(true);
             }
         }));
     }

@@ -37,10 +37,20 @@ private:
         std::string_view key, value;
     } headers[MAX_HEADERS];
     int querySeparator;
+    bool didYield;
 
     std::pair<int, std::string_view *> currentParameters;
 
 public:
+    bool getYield() {
+        return didYield;
+    }
+
+    /* If you do not want to handle this route */
+    void setYield(bool yield) {
+        didYield = yield;
+    }
+
     std::string_view getHeader(std::string_view header) {
         for (Header *h = headers; (++h)->key.length(); ) {
             if (h->key.length() == header.length() && !strncmp(h->key.data(), header.data(), header.length())) {
