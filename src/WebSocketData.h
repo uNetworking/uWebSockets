@@ -53,8 +53,6 @@ public:
     }
 
     ~WebSocketData() {
-        std::cout << "destruting webocketdata" << std::endl;
-
         if (deflationStream) {
             delete deflationStream;
         }

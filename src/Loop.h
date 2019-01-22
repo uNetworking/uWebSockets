@@ -33,7 +33,6 @@ namespace uWS {
 struct Loop {
 private:
     static void wakeupCb(us_loop *loop) {
-        //std::cout << "wakeupCB called" << std::endl;
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
         /* Swap current deferQueue */
@@ -66,10 +65,7 @@ private:
     }
 
     Loop() = delete;
-
-    ~Loop() {
-        std::cout << "Loop destructor called" << std::endl;
-    }
+    ~Loop() = default;
 
     Loop *init() {
         new (us_loop_ext((us_loop *) this)) LoopData;
@@ -111,8 +107,6 @@ public:
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
         loopData->~LoopData();
         us_loop_free((us_loop *) this);
-
-        std::cout << "Loop::free" << std::endl;
     }
 
     /* Set postCb callback */
@@ -132,13 +126,11 @@ public:
     void defer(std::function<void()> cb) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
 
-        //std::cout << "defer called" << std::endl;
         //if (std::thread::get_id() == ) // todo: add fast path for same thread id
         loopData->deferMutex.lock();
         loopData->deferQueues[loopData->currentDeferQueue].emplace_back(cb);
         loopData->deferMutex.unlock();
 
-        //std::cout << "us_wakeup_loop called" << std::endl;
         us_wakeup_loop((us_loop *) this);
     }
 
@@ -150,7 +142,7 @@ public:
     /* Passively integrate with the underlying default loop */
     /* Used to seamlessly integrate with third parties such as Node.js */
     void integrate() {
-
+        us_loop_integrate((us_loop *) this);
     }
 };
 

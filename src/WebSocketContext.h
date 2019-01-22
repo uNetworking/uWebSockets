@@ -237,8 +237,6 @@ private:
         /* Handle socket disconnections */
         static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(getSocketContext(), [](auto *s) {
 
-            //std::cout << "close!" << std::endl;
-
             WebSocketData *webSocketData = (WebSocketData *) (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s));
             webSocketData->~WebSocketData();
 
@@ -345,8 +343,6 @@ private:
     }
 
     void free() {
-        std::cout << "websocket context free" << std::endl;
-
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)((SOCKET_CONTEXT_TYPE *) this);
         webSocketContextData->~WebSocketContextData();
 
