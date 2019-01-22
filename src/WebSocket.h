@@ -89,29 +89,33 @@ public:
         return true;
     }
 
-    /* Emit close event, start passive timeout */
+    /* Send websocket close frame, emit close event, send FIN if successful */
     void close(int code, std::string_view message = {}) {
-        static const int MAX_CLOSE_PAYLOAD = 123;
-        int length = std::min<size_t>(MAX_CLOSE_PAYLOAD, message.length());
-
-        // todo: here we start a timeout and handle it accordingly in the timeout handler
-
+        /* Check if we already called this one */
         WebSocketData *webSocketData = (WebSocketData *) static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+        if (webSocketData->isShuttingDown) {
+            return;
+        }
 
         /* We postpone any FIN sending to either drainage or uncorking */
         webSocketData->isShuttingDown = true;
 
         /* Format and send the close frame */
+        static const int MAX_CLOSE_PAYLOAD = 123;
+        int length = std::min<size_t>(MAX_CLOSE_PAYLOAD, message.length());
         char closePayload[MAX_CLOSE_PAYLOAD + 2];
         int closePayloadLength = protocol::formatClosePayload(closePayload, code, message.data(), length);
+        bool ok = send(std::string_view(closePayload, closePayloadLength), OpCode::CLOSE);
 
-        // but what if we are NOT corked, THEN we can FIN here if we succeeded
-
-        // if we are corked and send returns true we cannot know for sure if we can fin
-        send(std::string_view(closePayload, closePayloadLength), OpCode::CLOSE);
-
-        // why should we fin here?
-        //us_socket_shutdown((us_socket *) this);
+        /* FIN if we are ok and not corked */
+        WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) this;
+        if (!webSocket->isCorked()) {
+            if (ok) {
+                /* If we are not corked, and we just sent off everything, we need to FIN right here.
+                 * In all other cases, we need to fin either if uncork was successful, or when drainage is complete. */
+                webSocket->shutdown();
+            }
+        }
 
         /* Emit close event */
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(

@@ -236,16 +236,37 @@ private:
         /* Always assume timeout is disabled when we are adopted.
          * HTTP requests should disable timeout anyways */
 
+        // beroende på state, skall close emitta eller inte emitta vår event
+        // om den sakll emitta, då blir det 1006 och noll meddelande
+        // annars, har vi redan emittat från den funktion som vi anropade dvs websocket::Close
+
+        // det tar 15 minuter för en ACK att tima ut
+        // så, vi ska endast nollställa timeout om vi skrivit och kernel har tagit emit den
+        // vi kan inte nollställa timeout vid send som inte lyckades
+
         /* Handle socket disconnections */
         static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(getSocketContext(), [](auto *s) {
 
+            /* For whatever reason, if we already have emitted close event, do not emit it again */
             WebSocketData *webSocketData = (WebSocketData *) (static_dispatch(us_ssl_socket_ext, us_socket_ext)(s));
+            if (!webSocketData->isShuttingDown) {
+                /* Emit close event */
+                WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
+                    static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *)s)
+                    );
+
+                if (webSocketContextData->closeHandler) {
+                    webSocketContextData->closeHandler((WebSocket<SSL, true> *) s, 1006, {});
+                }
+            }
+
+            /* Destruct in-placed data struct */
             webSocketData->~WebSocketData();
-
-
 
             return s;
         });
+
+        // writable, data samt send skall nollställa timeouten till idleTimeout? allitd
 
         /* Handle WebSocket data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
@@ -254,9 +275,9 @@ private:
 
             /* If not in websocket shutdown state, for every */
 
-            // hur mycket sabbar denna?
+            // återställ inte om vi är i shutdown state, dvs, ge den inte massa tid på sig att skicka massa skit-frames mellan och upphålla oss!
             WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
-                static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *)s)
+                static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) s)
                 );
 
             static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) s, webSocketContextData->idleTimeout);
@@ -326,6 +347,8 @@ private:
 
             return s;
         });
+
+        // dessa nedan är samma oavsett state, de closar alltid!
 
         /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
         static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(getSocketContext(), [](auto *s) {
