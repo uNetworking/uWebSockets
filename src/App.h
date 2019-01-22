@@ -187,6 +187,14 @@ public:
                 /* bug: memory leak? What about HttpResponseData here? I'm thinking not delete it but destruct it? */
                 /* Esp. if the functions hold dynamic memory like something big */
 
+                /* Vad om vi inte får plats i cork, och vi har vårt svar i corkbuffern */
+
+                /* vad om vi är en socket som har endat, men har svaret i sin buffer och strömmas ut? */
+
+                /* vi antar att vi kan bara kasta asyncsocketdata här */
+
+                /* res.end ska egentligen inte sätta att man svarat på den före den har drainats */
+
                 /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
                 WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
                             (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, sizeof(WebSocketData) + sizeof(UserData));
@@ -204,7 +212,7 @@ public:
                     behavior.open(webSocket, req);
                 }
 
-                /* bug: What happens with corking? */
+                /* We are going to get uncorked by the Http get return */
 
                 /* We do not need to check for any close or shutdown here as we immediately return from get handler */
 
