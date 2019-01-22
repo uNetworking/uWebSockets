@@ -46,7 +46,6 @@ struct TemplatedApp : StaticDispatch<SSL> {
 private:
     /* The app always owns at least one http context, but creates websocket contexts on demand */
     HttpContext<SSL> *httpContext;
-
     std::vector<WebSocketContext<SSL, true> *> webSocketContexts;
 
     using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
@@ -62,19 +61,27 @@ public:
 
     }
 
-    /* todo: Proper move semantics so to not allow copy-then-double-free and such problems of httpContext, etc. */
-
     ~TemplatedApp() {
         /* Let's just put everything here */
-        httpContext->free();
+        if (httpContext) {
+            httpContext->free();
 
-        for (auto *webSocketContext : webSocketContexts) {
-            webSocketContext->free();
+            for (auto *webSocketContext : webSocketContexts) {
+                webSocketContext->free();
+            }
         }
     }
 
-    TemplatedApp(const TemplatedApp &other) {
+    /* Disallow copying, only move */
+    TemplatedApp(const TemplatedApp &other) = delete;
+
+    TemplatedApp(TemplatedApp &&other) {
+        /* Move HttpContext */
         httpContext = other.httpContext;
+        other.httpContext = nullptr;
+
+        /* Move webSocketContexts */
+        webSocketContexts = std::move(other.webSocketContexts);
     }
 
     TemplatedApp(us_ssl_socket_context_options sslOptions = {}) {
@@ -93,7 +100,7 @@ public:
     };
 
     template <class UserData>
-    TemplatedApp &ws(std::string pattern, WebSocketBehavior &&behavior) {
+    TemplatedApp &&ws(std::string pattern, WebSocketBehavior &&behavior) {
         /* Every route has its own websocket context with its own behavior and user data type */
         auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
 
@@ -125,7 +132,7 @@ public:
         /* Copy settings */
         webSocketContext->getExt()->maxPayloadLength = behavior.maxPayloadLength;
 
-        return get(pattern, [webSocketContext, this, behavior](auto *res, auto *req) {
+        return std::move(get(pattern, [webSocketContext, this, behavior](auto *res, auto *req) {
             /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
             if (secWebSocketKey.length()) {
@@ -199,70 +206,67 @@ public:
                 /* For now we do not support having HTTP and websocket routes on the same URL */
                 res->close();
             }
-        });
-
-        // never called
-        return *this;
+        }));
     }
 
-    TemplatedApp &get(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+    TemplatedApp &&get(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onHttp("get", pattern, handler);
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &post(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+    TemplatedApp &&post(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onHttp("post", pattern, handler);
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &options(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+    TemplatedApp &&options(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onHttp("options", pattern, handler);
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &del(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+    TemplatedApp &&del(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onHttp("delete", pattern, handler);
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &patch(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+    TemplatedApp &&patch(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onHttp("patch", pattern, handler);
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &put(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+    TemplatedApp &&put(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onHttp("put", pattern, handler);
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &head(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+    TemplatedApp &&head(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onHttp("head", pattern, handler);
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &connect(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+    TemplatedApp &&connect(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onHttp("connect", pattern, handler);
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &trace(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+    TemplatedApp &&trace(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onHttp("trace", pattern, handler);
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &unhandled(std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+    TemplatedApp &&unhandled(std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
         httpContext->onUnhandled(handler);
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &listen(int port, std::function<void(us_listen_socket *)> handler) {
+    TemplatedApp &&listen(int port, std::function<void(us_listen_socket *)> handler) {
         handler(httpContext->listen(nullptr, port, 0));
-        return *this;
+        return std::move(*this);
     }
 
-    TemplatedApp &run() {
+    TemplatedApp &&run() {
         uWS::run();
-        return *this;
+        return std::move(*this);
     }
 
 };
