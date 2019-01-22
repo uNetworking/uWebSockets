@@ -154,9 +154,17 @@ private:
         }
 
         if (parent != &tree) {
-            return matchUrlSegment(parent, 0);
+            int handler = matchUrlSegment(parent, 0);
+
+            /* We failed to match */
+            if (!handler && method.length() > 1) {
+                return lookupNew("*", url);
+            }
+
+            return handler;
         } else {
-            return 0;
+            /* Unhandled, check if we have any "all" route for this url */
+            return method.length() == 1 ? 0 : lookupNew("*", url);
         }
     }
 

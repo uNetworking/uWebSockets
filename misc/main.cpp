@@ -16,6 +16,9 @@ int main(int argc, char **argv) {
         .key_file_name = "/home/alexhultman/key.pem",
         .cert_file_name = "/home/alexhultman/cert.pem",
         .passphrase = "1234"
+    }).any("/anything", [](auto *res, auto *req) {
+        std::cout << "Any route with method: " << req->getMethod() << std::endl;
+        res->end("Hello Any route!");
     }).get("/exit", [](auto *res, auto *req) {
 
         if (!token) {
@@ -28,7 +31,7 @@ int main(int argc, char **argv) {
         /* Use this route to signal stop listening */
         us_listen_socket_close(token);
         token = nullptr;
-    }).ws<PerSocketData>("/*", {
+    }).ws<PerSocketData>("/ws", {
         /* Settings */
         .compression = uWS::DEDICATED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024 * 1024,

@@ -268,8 +268,9 @@ public:
         return std::move(*this);
     }
 
-    TemplatedApp &&unhandled(std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onUnhandled(handler);
+    /* This one catches any method */
+    TemplatedApp &&any(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
+        httpContext->onHttp("*", pattern, handler);
         return std::move(*this);
     }
 
