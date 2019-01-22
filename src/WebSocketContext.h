@@ -233,6 +233,8 @@ private:
 
     WebSocketContext<SSL, isServer> *init() {
         /* Open is never called, we only adopt sockets */
+        /* Always assume timeout is disabled when we are adopted.
+         * HTTP requests should disable timeout anyways */
 
         /* Handle socket disconnections */
         static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(getSocketContext(), [](auto *s) {
@@ -247,6 +249,19 @@ private:
 
         /* Handle WebSocket data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
+
+            /* Everytime we get data, we reset the timeout to our idleTimeout, that's the only timer we have */
+
+            /* If not in websocket shutdown state, for every */
+
+            // hur mycket sabbar denna?
+            WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
+                static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *)s)
+                );
+
+            static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) s, webSocketContextData->idleTimeout);
+
+
             /* We always cork on data */
             AsyncSocket<SSL> *webSocket = (AsyncSocket<SSL> *) s;
             webSocket->cork();
@@ -315,13 +330,8 @@ private:
         /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
         static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(getSocketContext(), [](auto *s) {
 
-            // just like http, websocket does not support half-open sockets so just close here
-
-            std::cout << "websopcket fin" << std::endl;
-
-            /* We do not care for half closed sockets */
-            //AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
-            //return asyncSocket->close();
+            /* If we get a fin, we just close I guess */
+            static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) s);
 
             return s;
         });
@@ -329,12 +339,8 @@ private:
         /* Handle socket timeouts, simply close them so to not confuse client with FIN */
         static_dispatch(us_ssl_socket_context_on_timeout, us_socket_context_on_timeout)(getSocketContext(), [](auto *s) {
 
-            std::cout << "websocket timeout" << std::endl;
-
-            /* Force close rather than gracefully shutdown and risk confusing the client with a complete download */
-            //AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
-            //return asyncSocket->close();
-
+            /* Timeout is very simple; we just close it */
+            static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) s);
 
             return s;
         });

@@ -91,6 +91,7 @@ public:
     struct WebSocketBehavior {
         CompressOptions compression = DISABLED;
         int maxPayloadLength = 16 * 1024;
+        int idleTimeout = 120;
         std::function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
         std::function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
         std::function<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
@@ -131,6 +132,7 @@ public:
 
         /* Copy settings */
         webSocketContext->getExt()->maxPayloadLength = behavior.maxPayloadLength;
+        webSocketContext->getExt()->idleTimeout = behavior.idleTimeout;
 
         return std::move(get(pattern, [webSocketContext, this, behavior](auto *res, auto *req) {
             /* If we have this header set, it's a websocket */
@@ -182,7 +184,8 @@ public:
                 /* Add mark, we don't want to end anything */
                 res->writeHeader("WebSocket-Server", "uWebSockets")->end();
 
-                /* todo: What about HttpResponseData here? */
+                /* bug: memory leak? What about HttpResponseData here? I'm thinking not delete it but destruct it? */
+                /* Esp. if the functions hold dynamic memory like something big */
 
                 /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
                 WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
@@ -195,10 +198,13 @@ public:
                             webSocket->init(perMessageDeflate, slidingDeflateWindow)
                             );
 
-                /* Emit open event */
+                /* Emit open event and start the timeout */
                 if (behavior.open) {
+                    static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) webSocket, behavior.idleTimeout);
                     behavior.open(webSocket, req);
                 }
+
+                /* bug: What happens with corking? */
 
                 /* We do not need to check for any close or shutdown here as we immediately return from get handler */
 

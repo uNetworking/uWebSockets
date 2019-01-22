@@ -27,6 +27,8 @@ namespace uWS {
 
 template <bool, bool> struct WebSocket;
 
+/* todo: this looks identical to WebSocketBehavior, why not just std::move that entire thing in? */
+
 template <bool SSL>
 struct WebSocketContextData {
     /* The callbacks for this context */
@@ -36,6 +38,7 @@ struct WebSocketContextData {
 
     /* Settings for this context */
     size_t maxPayloadLength = 0;
+    int idleTimeout = 0;
 };
 
 }

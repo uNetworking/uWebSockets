@@ -36,11 +36,6 @@ struct alignas(16) HttpContextData {
 private:
     std::vector<fu2::unique_function<void(HttpResponse<SSL> *, int)>> filterHandlers;
 
-    /*HttpContextData(const HttpContextData&) = delete;
-    HttpContextData() {
-
-    }*/
-
     struct RouterData {
         HttpResponse<SSL> *httpResponse;
         HttpRequest *httpRequest;

@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
         .key_file_name = "/home/alexhultman/key.pem",
         .cert_file_name = "/home/alexhultman/cert.pem",
         .passphrase = "1234"
-    }).post("/exit", [](auto *res, auto *req) {
+    }).get("/exit", [](auto *res, auto *req) {
 
         if (!token) {
             res->end("Server already closed down!");
@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
         /* Settings */
         .compression = uWS::DEDICATED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024 * 1024,
-        /* autoPingInterval */
+        .idleTimeout = 10,
         /* Handlers */
         .open = [](auto *ws, auto *req) {
             std::cout << "WebSocket connected" << std::endl;
@@ -60,12 +60,12 @@ int main(int argc, char **argv) {
             PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
             std::cout << "OK per socket data: " << (perSocketData->hello == 13) << std::endl;
         }
-    })/*.listen(9001, [](auto *token) {
+    }).listen(9001, [](auto *token) {
         ::token = token;
         if (token) {
             std::cout << "Listening on port " << 3000 << std::endl;
         }
-    })*/.run();
+    }).run();
 
 
     std::cout << "Everything fine, falling through" << std::endl;
