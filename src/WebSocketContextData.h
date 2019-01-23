@@ -23,6 +23,8 @@
 
 #include "WebSocketProtocol.h"
 
+#include "f2/function2.hpp"
+
 namespace uWS {
 
 template <bool, bool> struct WebSocket;
@@ -32,9 +34,9 @@ template <bool, bool> struct WebSocket;
 template <bool SSL>
 struct WebSocketContextData {
     /* The callbacks for this context */
-    std::function<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler = nullptr;
-    std::function<void(WebSocket<SSL, true> *)> drainHandler = nullptr;
-    std::function<void(WebSocket<SSL, true> *, int, std::string_view)> closeHandler = nullptr;
+    fu2::unique_function<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler = nullptr;
+    fu2::unique_function<void(WebSocket<SSL, true> *)> drainHandler = nullptr;
+    fu2::unique_function<void(WebSocket<SSL, true> *, int, std::string_view)> closeHandler = nullptr;
 
     /* Settings for this context */
     size_t maxPayloadLength = 0;

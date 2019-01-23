@@ -92,12 +92,12 @@ public:
         CompressOptions compression = DISABLED;
         int maxPayloadLength = 16 * 1024;
         int idleTimeout = 120;
-        std::function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
-        std::function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
-        std::function<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
-        std::function<void(uWS::WebSocket<SSL, true> *)> ping = nullptr;
-        std::function<void(uWS::WebSocket<SSL, true> *)> pong = nullptr;
-        std::function<void(uWS::WebSocket<SSL, true> *, int, std::string_view)> close = nullptr;
+        fu2::unique_function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
+        fu2::unique_function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
+        fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
+        fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> ping = nullptr;
+        fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> pong = nullptr;
+        fu2::unique_function<void(uWS::WebSocket<SSL, true> *, int, std::string_view)> close = nullptr;
     };
 
     template <class UserData>
@@ -126,19 +126,19 @@ public:
         }
 
         /* Copy all handlers */
-        webSocketContext->getExt()->messageHandler = behavior.message;
-        webSocketContext->getExt()->drainHandler = behavior.drain;
-        webSocketContext->getExt()->closeHandler = behavior.close;
+        webSocketContext->getExt()->messageHandler = std::move(behavior.message);
+        webSocketContext->getExt()->drainHandler = std::move(behavior.drain);
+        webSocketContext->getExt()->closeHandler = std::move(behavior.close);
 
         /* Copy settings */
         webSocketContext->getExt()->maxPayloadLength = behavior.maxPayloadLength;
         webSocketContext->getExt()->idleTimeout = behavior.idleTimeout;
 
-        return std::move(get(pattern, [webSocketContext, this, behavior](auto *res, auto *req) {
+        return std::move(get(pattern, [webSocketContext, this, behavior = std::move(behavior)](auto *res, auto *req) mutable {
             /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
             if (secWebSocketKey.length()) {
-                // note: OpenSSL can be used here to speed this up somewhat
+                /* Note: OpenSSL can be used here to speed this up somewhat */
                 char secWebSocketAccept[29] = {};
                 WebSocketHandshake::generate(secWebSocketKey.data(), secWebSocketAccept);
 
