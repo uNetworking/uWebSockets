@@ -110,25 +110,25 @@ public:
     }
 
     /* Set postCb callback */
-    void setPostHandler(std::function<void(Loop *)> handler) {
+    void setPostHandler(fu2::unique_function<void(Loop *)> &&handler) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
 
-        loopData->postHandler = handler;
+        loopData->postHandler = std::move(handler);
     }
 
-    void setPreHandler(std::function<void(Loop *)> handler) {
+    void setPreHandler(fu2::unique_function<void(Loop *)> &&handler) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
 
-        loopData->preHandler = handler;
+        loopData->preHandler = std::move(handler);
     }
 
     /* Defer this callback on Loop's thread of execution */
-    void defer(std::function<void()> cb) {
+    void defer(fu2::unique_function<void()> &&cb) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
 
         //if (std::thread::get_id() == ) // todo: add fast path for same thread id
         loopData->deferMutex.lock();
-        loopData->deferQueues[loopData->currentDeferQueue].emplace_back(cb);
+        loopData->deferQueues[loopData->currentDeferQueue].emplace_back(std::move(cb));
         loopData->deferMutex.unlock();
 
         us_wakeup_loop((us_loop *) this);
