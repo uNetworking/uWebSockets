@@ -30,6 +30,8 @@
 #include <sstream>
 #include <string>
 
+#include "f2/function2.hpp"
+
 namespace uWS {
 
 template <class USERDATA>
@@ -59,7 +61,9 @@ private:
         }
     } routeParameters;
 
-    std::vector<std::function<bool(USERDATA &, std::pair<int, std::string_view *>)>> handlers;
+    std::vector<fu2::unique_function<bool(USERDATA &, std::pair<int, std::string_view *>)>> handlers;
+
+    HttpRouter(const HttpRouter &other) = delete;
 
     struct Node {
         std::string name;
@@ -190,7 +194,7 @@ public:
     }
 
     /* Register a route to be routed */
-    HttpRouter *add(std::string method, std::string_view pattern, std::function<bool(USERDATA &, std::pair<int, std::string_view *>)> handler) {
+    HttpRouter *add(std::string method, std::string_view pattern, fu2::unique_function<bool(USERDATA &, std::pair<int, std::string_view *>)> &&handler) {
         /* Step over any initial slash */
         if (pattern[0] == '/') {
             pattern = pattern.substr(1);
@@ -215,7 +219,7 @@ public:
 
         /* Add this handler to the list of handlers */
         short handlerIndex = handlers.size();
-        handlers.push_back(handler);
+        handlers.emplace_back(std::move(handler));
 
         /* Build the routing tree */
         Node *parent = &tree;
