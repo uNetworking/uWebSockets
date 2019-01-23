@@ -30,6 +30,8 @@
 #include <string_view>
 #include <functional>
 
+#include "f2/function2.hpp"
+
 namespace uWS {
 template<bool> struct HttpResponse;
 
@@ -306,10 +308,10 @@ public:
     }
 
     /* Register an HTTP route handler acording to URL pattern */
-    void onHttp(std::string method, std::string pattern, std::function<void(uWS::HttpResponse<SSL> *, uWS::HttpRequest *)> handler) {
+    void onHttp(std::string method, std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.add(method, pattern, [handler](typename HttpContextData<SSL>::RouterData &user, std::pair<int, std::string_view *> params) {
+        httpContextData->router.add(method, pattern, [handler = std::move(handler)](typename HttpContextData<SSL>::RouterData &user, std::pair<int, std::string_view *> params) mutable {
             user.httpRequest->setYield(false);
             user.httpRequest->setParameters(params);
             handler(user.httpResponse, user.httpRequest);

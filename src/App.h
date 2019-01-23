@@ -223,58 +223,58 @@ public:
         }));
     }
 
-    TemplatedApp &&get(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onHttp("get", pattern, handler);
+    TemplatedApp &&get(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("get", pattern, std::move(handler));
         return std::move(*this);
     }
 
-    TemplatedApp &&post(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onHttp("post", pattern, handler);
+    TemplatedApp &&post(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("post", pattern, std::move(handler));
         return std::move(*this);
     }
 
-    TemplatedApp &&options(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onHttp("options", pattern, handler);
+    TemplatedApp &&options(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("options", pattern, std::move(handler));
         return std::move(*this);
     }
 
-    TemplatedApp &&del(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onHttp("delete", pattern, handler);
+    TemplatedApp &&del(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("delete", pattern, std::move(handler));
         return std::move(*this);
     }
 
-    TemplatedApp &&patch(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onHttp("patch", pattern, handler);
+    TemplatedApp &&patch(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("patch", pattern, std::move(handler));
         return std::move(*this);
     }
 
-    TemplatedApp &&put(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onHttp("put", pattern, handler);
+    TemplatedApp &&put(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("put", pattern, std::move(handler));
         return std::move(*this);
     }
 
-    TemplatedApp &&head(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onHttp("head", pattern, handler);
+    TemplatedApp &&head(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("head", pattern, std::move(handler));
         return std::move(*this);
     }
 
-    TemplatedApp &&connect(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onHttp("connect", pattern, handler);
+    TemplatedApp &&connect(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("connect", pattern, std::move(handler));
         return std::move(*this);
     }
 
-    TemplatedApp &&trace(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onHttp("trace", pattern, handler);
+    TemplatedApp &&trace(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("trace", pattern, std::move(handler));
         return std::move(*this);
     }
 
     /* This one catches any method */
-    TemplatedApp &&any(std::string pattern, std::function<void(HttpResponse<SSL> *, HttpRequest *)> handler) {
-        httpContext->onHttp("*", pattern, handler);
+    TemplatedApp &&any(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("*", pattern, std::move(handler));
         return std::move(*this);
     }
 
-    TemplatedApp &&listen(int port, std::function<void(us_listen_socket *)> handler) {
+    TemplatedApp &&listen(int port, fu2::unique_function<void(us_listen_socket *)> &&handler) {
         handler(httpContext->listen(nullptr, port, 0));
         return std::move(*this);
     }
