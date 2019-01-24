@@ -39,6 +39,8 @@ static const int HTTP_TIMEOUT_S = 10;
 
 template <bool SSL>
 struct HttpResponse : public AsyncSocket<SSL> {
+    /* Solely used for getHttpResponseData() */
+    template <bool> friend struct TemplatedApp;
     typedef AsyncSocket<SSL> Super;
 private:
     HttpResponseData<SSL> *getHttpResponseData() {

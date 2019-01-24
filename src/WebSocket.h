@@ -35,8 +35,8 @@ private:
     using SOCKET_CONTEXT_TYPE = typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE;
     using StaticDispatch<SSL>::static_dispatch;
 
-    void *init(bool perMessageDeflate, bool slidingCompression) {
-        new (static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this)) WebSocketData(perMessageDeflate, slidingCompression);
+    void *init(bool perMessageDeflate, bool slidingCompression, std::string &&backpressure) {
+        new (static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this)) WebSocketData(perMessageDeflate, slidingCompression, std::move(backpressure));
         return this;
     }
 public:

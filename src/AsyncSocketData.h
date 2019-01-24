@@ -26,6 +26,14 @@ template <bool SSL>
 struct AsyncSocketData {
     /* This will do for now */
     std::string buffer;
+
+    /* Allow move constructing us */
+    AsyncSocketData(std::string &&backpressure) : buffer(std::move(backpressure)) {
+
+    }
+
+    /* Or emppty */
+    AsyncSocketData() = default;
 };
 
 #endif // ASYNCSOCKETDATA_H

@@ -184,16 +184,11 @@ public:
                 /* Add mark, we don't want to end anything */
                 res->writeHeader("WebSocket-Server", "uWebSockets")->end();
 
-                /* bug: memory leak? What about HttpResponseData here? I'm thinking not delete it but destruct it? */
-                /* Esp. if the functions hold dynamic memory like something big */
+                /* Move any backpressure */
+                std::string backpressure(std::move(((AsyncSocketData<SSL> *) res->getHttpResponseData())->buffer));
 
-                /* Vad om vi inte får plats i cork, och vi har vårt svar i corkbuffern */
-
-                /* vad om vi är en socket som har endat, men har svaret i sin buffer och strömmas ut? */
-
-                /* vi antar att vi kan bara kasta asyncsocketdata här */
-
-                /* res.end ska egentligen inte sätta att man svarat på den före den har drainats */
+                /* Destroy HttpResponseData */
+                res->getHttpResponseData()->~HttpResponseData();
 
                 /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
                 WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
@@ -202,8 +197,9 @@ public:
                 /* Update corked socket in case we got a new one (assuming we always are corked in handlers). */
                 webSocket->cork();
 
+                /* Initialize websocket with any moved backpressure intact */
                 httpContext->upgradeToWebSocket(
-                            webSocket->init(perMessageDeflate, slidingDeflateWindow)
+                            webSocket->init(perMessageDeflate, slidingDeflateWindow, std::move(backpressure))
                             );
 
                 /* Emit open event and start the timeout */

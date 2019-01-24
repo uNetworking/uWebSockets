@@ -26,7 +26,6 @@
 
 namespace uWS {
 
-// take care with get_ext here !
 struct WebSocketData : AsyncSocketData<false>, WebSocketState<true> {
     template <bool, bool> friend struct WebSocketContext;
     template <bool, bool> friend struct WebSocket;
@@ -43,7 +42,7 @@ private:
     /* We might have a dedicated compressor */
     DeflationStream *deflationStream = nullptr;
 public:
-    WebSocketData(bool perMessageDeflate, bool slidingCompression) : WebSocketState<true>() {
+    WebSocketData(bool perMessageDeflate, bool slidingCompression, std::string &&backpressure) : AsyncSocketData<false>(std::move(backpressure)), WebSocketState<true>() {
         compressionStatus = perMessageDeflate ? ENABLED : DISABLED;
 
         /* Initialize the dedicated sliding window */
