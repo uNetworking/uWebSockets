@@ -232,17 +232,9 @@ private:
     }
 
     WebSocketContext<SSL, isServer> *init() {
-        /* Open is never called, we only adopt sockets */
-        /* Always assume timeout is disabled when we are adopted.
-         * HTTP requests should disable timeout anyways */
-
-        // beroende på state, skall close emitta eller inte emitta vår event
-        // om den sakll emitta, då blir det 1006 och noll meddelande
-        // annars, har vi redan emittat från den funktion som vi anropade dvs websocket::Close
-
-        // det tar 15 minuter för en ACK att tima ut
-        // så, vi ska endast nollställa timeout om vi skrivit och kernel har tagit emit den
-        // vi kan inte nollställa timeout vid send som inte lyckades
+        /* Adopting a socket does not trigger open event.
+         * We arreive as WebSocket with timeout set and
+         * any backpressure from HTTP state kept. */
 
         /* Handle socket disconnections */
         static_dispatch(us_ssl_socket_context_on_close, us_socket_context_on_close)(getSocketContext(), [](auto *s) {
@@ -265,8 +257,6 @@ private:
 
             return s;
         });
-
-        // writable, data samt send skall nollställa timeouten till idleTimeout? allitd
 
         /* Handle WebSocket data streams */
         static_dispatch(us_ssl_socket_context_on_data, us_socket_context_on_data)(getSocketContext(), [](auto *s, char *data, int length) {
@@ -316,26 +306,37 @@ private:
         /* Handle HTTP write out (note: SSL_read may trigger this spuriously, the app need to handle spurious calls) */
         static_dispatch(us_ssl_socket_context_on_writable, us_socket_context_on_writable)(getSocketContext(), [](auto *s) {
 
-            // check if we already shut down the us socket and return?
+            /* It makes sense to check for us_is_shut_down here and return if so, to avoid shutting down twice */
+            if (static_dispatch(us_ssl_socket_is_shut_down, us_socket_is_shut_down)((SOCKET_TYPE *) s)) {
+                return s;
+            }
 
             AsyncSocket<SSL> *webSocket = (AsyncSocket<SSL> *) s;
             WebSocketData *webSocketData = (WebSocketData *)(static_dispatch(us_ssl_socket_ext, us_socket_ext)(s));
 
+            /* We store old backpressure since it is unclear whether write drained anything */
+            int backpressure = webSocket->getBufferedAmount();
+
             /* Drain as much as possible */
             webSocket->write(nullptr, 0);
 
-            /* Are we in (WebSocket) shutdown mode? As in, have we called WebSocket::close? */
+            /* Behavior: if we actively drain backpressure, always reset timeout (even if we are in shutdown) */
+            if (backpressure < webSocket->getBufferedAmount()) {
+                WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
+                    static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *)s)
+                    );
+                webSocket->timeout(webSocketContextData->idleTimeout);
+            }
+
+            /* Are we in (WebSocket) shutdown mode? */
             if (webSocketData->isShuttingDown) {
                 /* Check if we just now drained completely */
                 if (webSocket->getBufferedAmount() == 0) {
                     /* Now perform the actual TCP/TLS shutdown which was postponed due to backpressure */
                     webSocket->shutdown();
-
-                    /* Set us to not shutting down so to avoid any spurious extra calls */
-                    webSocketData->isShuttingDown = false;
                 }
-            } else {
-                /* Call drain event even though nothing might actually changed */
+            } else if (backpressure > webSocket->getBufferedAmount()) {
+                /* Only call drain if we actually drained backpressure */
                 WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) static_dispatch(us_ssl_socket_context_ext, us_socket_context_ext)(
                     static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *)s)
                     );
@@ -347,8 +348,6 @@ private:
 
             return s;
         });
-
-        // dessa nedan är samma oavsett state, de closar alltid!
 
         /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
         static_dispatch(us_ssl_socket_context_on_end, us_socket_context_on_end)(getSocketContext(), [](auto *s) {
