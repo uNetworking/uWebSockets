@@ -21,7 +21,6 @@ HEADERS += \
     ../src/HttpContextData.h \
     ../src/HttpResponseData.h \
     ../src/HttpResponse.h \
-    ../src/StaticDispatch.h \
     ../src/LoopData.h \
     ../src/AsyncSocket.h \
     ../src/AsyncSocketData.h \

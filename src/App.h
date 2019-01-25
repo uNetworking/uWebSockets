@@ -42,14 +42,12 @@ enum CompressOptions {
 };
 
 template <bool SSL>
-struct TemplatedApp : StaticDispatch<SSL> {
+struct TemplatedApp {
 private:
     /* The app always owns at least one http context, but creates websocket contexts on demand */
     HttpContext<SSL> *httpContext;
     std::vector<WebSocketContext<SSL, true> *> webSocketContexts;
 
-    using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
-    using StaticDispatch<SSL>::static_dispatch;
 public:
 
     /* Attaches a "filter" function to track socket connections/disconnections */
@@ -84,8 +82,8 @@ public:
         webSocketContexts = std::move(other.webSocketContexts);
     }
 
-    TemplatedApp(us_ssl_socket_context_options sslOptions = {}) {
-        httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::defaultLoop(), &sslOptions);
+    TemplatedApp(us_new_socket_context_options_t options = {}) {
+        httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::defaultLoop(), options);
     }
 
     struct WebSocketBehavior {
@@ -103,7 +101,7 @@ public:
     template <class UserData>
     TemplatedApp &&ws(std::string pattern, WebSocketBehavior &&behavior) {
         /* Every route has its own websocket context with its own behavior and user data type */
-        auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::defaultLoop(), (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) httpContext);
+        auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::defaultLoop(), (us_new_socket_context_t *) httpContext);
 
         /* We need to clear this later on */
         webSocketContexts.push_back(webSocketContext);
@@ -115,7 +113,7 @@ public:
 
         /* If we are the first one to use compression, initialize it */
         if (behavior.compression) {
-            LoopData *loopData = (LoopData *) us_loop_ext(static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(webSocketContext->getSocketContext()));
+            LoopData *loopData = (LoopData *) us_loop_ext(us_new_socket_context_loop(SSL, webSocketContext->getSocketContext()));
 
             /* Initialize loop's deflate inflate streams */
             if (!loopData->zlibContext) {
@@ -191,8 +189,8 @@ public:
                 res->getHttpResponseData()->~HttpResponseData();
 
                 /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
-                WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) StaticDispatch<SSL>::static_dispatch(us_ssl_socket_context_adopt_socket, us_socket_context_adopt_socket)(
-                            (typename StaticDispatch<SSL>::SOCKET_CONTEXT_TYPE *) webSocketContext, (typename StaticDispatch<SSL>::SOCKET_TYPE *) res, sizeof(WebSocketData) + sizeof(UserData));
+                WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) us_new_socket_context_adopt_socket(SSL,
+                            (us_new_socket_context_t *) webSocketContext, (us_new_socket_t *) res, sizeof(WebSocketData) + sizeof(UserData));
 
                 /* Update corked socket in case we got a new one (assuming we always are corked in handlers). */
                 webSocket->cork();
@@ -204,7 +202,7 @@ public:
 
                 /* Emit open event and start the timeout */
                 if (behavior.open) {
-                    static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) webSocket, behavior.idleTimeout);
+                    us_new_socket_timeout(SSL, (us_new_socket_t *) webSocket, behavior.idleTimeout);
                     behavior.open(webSocket, req);
                 }
 
