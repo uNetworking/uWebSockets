@@ -100,9 +100,8 @@ protected:
      * Returns pair of bytes written (anywhere) and wheter or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */
     std::pair<int, bool> write(const char *src, int length, bool optionally = false, int nextLength = 0) {
-        /* Fake success if closed, simpel fix to allow uncork of closed socket to succeed */
+        /* Fake success if closed, simple fix to allow uncork of closed socket to succeed */
         if (us_new_socket_is_closed(SSL, (us_new_socket_t *) this)) {
-            std::cout << "Faking successful send due to closed socket!" << std::endl;
             return {length, false};
         }
 
@@ -126,9 +125,6 @@ protected:
                 } else {
                     /* This path is horrible and points towards erroneous usage */
                     asyncSocketData->buffer.append(src, length);
-
-                    // todo: remove this when we are no longer morons
-                    std::cout << "Warning: fudge this is horrible!!" << std::endl;
 
                     return {length, true};
                 }
@@ -171,8 +167,6 @@ protected:
                     if (optionally) {
                         return {written, true};
                     }
-
-                    std::cout << "Buffering at bottom of write (okay)!" << std::endl;
 
                     /* Fall back to worst possible case (should be very rare for HTTP) */
                     /* At least we can reserve room for next chunk if we know it up front */
