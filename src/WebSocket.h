@@ -122,6 +122,12 @@ public:
             webSocketContextData->closeHandler(this, code, message);
         }
     }
+
+    /* Simple, immediate close of the socket. Emits close event */
+    void terminate() {
+        /* This calls close event in context where it checks for isShuttingDown and either emits websocket close or not */
+        Super::close();
+    }
 };
 
 }
