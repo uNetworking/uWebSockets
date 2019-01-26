@@ -55,10 +55,6 @@ public:
         httpContext->filter(std::move(filterHandler));
     }
 
-    void registerTag() {
-
-    }
-
     ~TemplatedApp() {
         /* Let's just put everything here */
         if (httpContext) {
@@ -179,8 +175,8 @@ public:
                     }
                 }
 
-                /* Add mark, we don't want to end anything */
-                res->writeHeader("WebSocket-Server", "uWebSockets")->end();
+                /* This will add our mark */
+                res->end();
 
                 /* Move any backpressure */
                 std::string backpressure(std::move(((AsyncSocketData<SSL> *) res->getHttpResponseData())->buffer));
