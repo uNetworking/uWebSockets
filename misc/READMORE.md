@@ -103,10 +103,15 @@ uWS::App().ws<PerSocketData>("/*", {
 WebSocket routes specify a user data type that should be used to keep per-websocket data. Many times people tend to attach user data
 which should belong to the websocket by putting the pointer and the user data in a std::map. That's wrong! Don't do that!
 
-You should use the provided user data feature to store and attach any per-socket user data. I think the function is ws->getUserData(), I've forgotten.
+#### Use the WebSocket.getUserData() feature
+You should use the provided user data feature to store and attach any per-socket user data. Going from user data to WebSocket is possible if you make your user data hold a pointer to WebSocket, and hook things up in the WebSocket open handler. Your user data memory is valid while your WebSocket is.
+
+If you want to create something more elaborate you could have the user data hold a pointer to some dynamically allocated memory block that keeps a boolean whether the WebSocket is still valid or not. Sky is the limit here, you should never need any std::map for this.
 
 #### WebSockets are valid from open to close
-This is a guarantee, a hard fundamental guarantee. In all possible cases, any websocket pointer is completely valid from open to close event. No matter what, "error conditions" or not, you will always have exactly 1 close callback per every 1 open callback, they are essentially constructor and destructor of the WebSocekt and **should** drive your RAII data types immediately. No need for grabage collection here.
+All given WebSocket pointers are guaranteed to live from open event (where you got your WebSocket) until close event is called. So is the user data memory. One open event will always end in exactly one close event, they are 1-to-1 and will always be balanced no matter what. Use them to drive your RAII data types, they can be seen as constructor and destructor.
+
+Message events will never emit outside of open/close. Calling WebSocket.close or WebSocket.end will immediately call the close handler.
 
 #### Backpressure in websockets
 Similarly to for Http, methods such as ws.send(...) can cause backpressure. Make sure to check ws.getBufferedAmount() before sending, and check the return value of ws.send before sending any more data. WebSockets do not have .onWritable, but instead make use of the .drain handler of the websocket route handler.
