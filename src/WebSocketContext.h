@@ -257,6 +257,15 @@ private:
         /* Handle WebSocket data streams */
         us_new_socket_context_on_data(SSL, getSocketContext(), [](auto *s, char *data, int length) {
 
+            /* We need the websocket data */
+            WebSocketData *webSocketData = (WebSocketData *) (us_new_socket_ext(SSL, s));
+
+            /* When in websocket shutdown mode, we do not care for ANY message, whether responding close frame or not.
+             * We only care for the TCP FIN really, not emitting any message after closing is key */
+            if (webSocketData->isShuttingDown) {
+                return s;
+            }
+
             /* Everytime we get data, we reset the timeout to our idleTimeout, that's the only timer we have */
 
             /* If not in websocket shutdown state, for every */
@@ -272,9 +281,6 @@ private:
             /* We always cork on data */
             AsyncSocket<SSL> *webSocket = (AsyncSocket<SSL> *) s;
             webSocket->cork();
-
-            /* We need the websocket data */
-            WebSocketData *webSocketData = (WebSocketData *) (us_new_socket_ext(SSL, s));
 
             /* This parser has virtually no overhead */
             uWS::WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::consume(data, length, (WebSocketState<isServer> *) webSocketData, s);
