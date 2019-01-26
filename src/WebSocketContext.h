@@ -167,7 +167,7 @@ private:
             if (!remainingBytes && fin && !webSocketData->controlTipLength) {
                 if (opCode == CLOSE) {
                     auto closeFrame = protocol::parseClosePayload(data, length);
-                    webSocket->close(closeFrame.code, std::string_view(closeFrame.message, closeFrame.length));
+                    webSocket->end(closeFrame.code, std::string_view(closeFrame.message, closeFrame.length));
                     return true;
                 } else {
                     if (opCode == PING) {
@@ -192,7 +192,7 @@ private:
                     char *controlBuffer = (char *) webSocketData->fragmentBuffer.data() + webSocketData->fragmentBuffer.length() - webSocketData->controlTipLength;
                     if (opCode == CLOSE) {
                         protocol::CloseFrame closeFrame = protocol::parseClosePayload(controlBuffer, webSocketData->controlTipLength);
-                        webSocket->close(closeFrame.code, std::string_view(closeFrame.message, closeFrame.length));
+                        webSocket->end(closeFrame.code, std::string_view(closeFrame.message, closeFrame.length));
                         return true;
                     } else {
                         if (opCode == PING) {

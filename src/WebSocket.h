@@ -48,6 +48,9 @@ public:
     /* See AsyncSocket */
     using Super::getBufferedAmount;
 
+    /* Simple, immediate close of the socket. Emits close event */
+    using Super::close;
+
     /* Send or buffer a WebSocket frame, compressed or not. Returns false on increased user space backpressure. */
     bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
         /* Transform the message to compressed domain if requested */
@@ -87,7 +90,7 @@ public:
     }
 
     /* Send websocket close frame, emit close event, send FIN if successful */
-    void close(int code, std::string_view message = {}) {
+    void end(int code, std::string_view message = {}) {
         /* Check if we already called this one */
         WebSocketData *webSocketData = (WebSocketData *) us_new_socket_ext(SSL, (us_new_socket_t *) this);
         if (webSocketData->isShuttingDown) {
@@ -121,12 +124,6 @@ public:
         if (webSocketContextData->closeHandler) {
             webSocketContextData->closeHandler(this, code, message);
         }
-    }
-
-    /* Simple, immediate close of the socket. Emits close event */
-    void terminate() {
-        /* This calls close event in context where it checks for isShuttingDown and either emits websocket close or not */
-        Super::close();
     }
 };
 
