@@ -82,7 +82,7 @@ private:
         writeStatus(HTTP_200_OK);
 
         /* Write mark, this propagates to WebSockets too */
-        writeHeader("Web-Server", "uWebSockets v0.15");
+        writeHeader("uWebSockets", "v0.15");
 
         /* If no total size given then assume this chunk is everything */
         if (!totalSize) {
