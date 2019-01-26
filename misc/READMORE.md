@@ -32,7 +32,7 @@ V8 addon is developed over at https://github.com/uNetworking/uWebSockets.js.
 ## User manual
 
 ### uWS::App & uWS::SSLApp
-You begin your journey by constructing an "App". Either an SSL-app or a regular TCP-only App. The uWS::SSLApp constructor takes a struct holding SSL options such as cert and key. Interfaces for both apps are identical, so ley's call them both "App" from now on.
+You begin your journey by constructing an "App". Either an SSL-app or a regular TCP-only App. The uWS::SSLApp constructor takes a struct holding SSL options such as cert and key. Interfaces for both apps are identical, so let's call them both "App" from now on.
 
 Apps follow the builder pattern, member functions return the App so that you can chain calls.
 
@@ -42,7 +42,7 @@ You attach behavior to "URL routes". A lambda is paired with a "method" (Http me
 Methods are many, but most common are probably get & post. They all have the same signature, let's look at one example:
 
 ```c++
-uWS::App().get("/hello", [](auto *res, atuo *req) {
+uWS::App().get("/hello", [](auto *res, auto *req) {
     res->end("Hello World!");
 });
 ```
@@ -105,6 +105,9 @@ which should belong to the websocket by putting the pointer and the user data in
 
 You should use the provided user data feature to store and attach any per-socket user data. I think the function is ws->getUserData(), I've forgotten.
 
+#### WebSockets are valid from open to close
+This is a guarantee, a hard fundamental guarantee. In all possible cases, any websocket pointer is completely valid from open to close event. No matter what, "error conditions" or not, you will always have exactly 1 close callback per every 1 open callback, they are essentially constructor and destructor of the WebSocekt and **should** drive your RAII data types immediately. No need for grabage collection here.
+
 #### Backpressure in websockets
 Similarly to for Http, methods such as ws.send(...) can cause backpressure. Make sure to check ws.getBufferedAmount() before sending, and check the return value of ws.send before sending any more data. WebSockets do not have .onWritable, but instead make use of the .drain handler of the websocket route handler.
 
@@ -134,7 +137,7 @@ Cancelling listenning is done with the uSockets function call `us_listen_socket_
 When you are done and want to enter the event loop, you call, once and only once, App.run.
 This will block the calling thread until "fallthrough". The event loop will block until no more async work is scheduled, just like for Node.js.
 
-Many users ask how they should stop the event loop. That's not how it is done, you never stop it, you let it fall through. By closing all sockets, stopping the listen socket, removing any timers, etc, the loop will automaticaly cause App.run to return gracefully, with no memory leaks.
+Many users ask how they should stop the event loop. That's not how it is done, you never stop it, you let it fall through. By closing all sockets, stopping the listen socket, removing any timers, etc, the loop will automatically cause App.run to return gracefully, with no memory leaks.
 
 Because the App itself is under RAII control, once the blocking .run call returns and the App goes out of scope, all memory will gracefully we deleted.
 
