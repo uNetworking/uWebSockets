@@ -29,7 +29,7 @@
 namespace uWS {
 
 template <bool SSL>
-struct HttpResponseData : HttpParser, AsyncSocketData<SSL> {
+struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
     template <bool> friend struct HttpResponse;
     template <bool> friend struct HttpContext;
 private:
