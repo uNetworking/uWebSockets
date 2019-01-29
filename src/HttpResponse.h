@@ -75,14 +75,16 @@ private:
         httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
     }
 
+    /* Called only once per request */
+    void writeMark() {
+        writeHeader("uWebSockets", "v0.15");
+    }
+
     /* Returns true on success, indicating that it might be feasible to write more data.
      * Will start timeout if stream reaches totalSize or write failure. */
     bool internalEnd(std::string_view data, int totalSize, bool optional) {
         /* Write status if not already done */
         writeStatus(HTTP_200_OK);
-
-        /* Write mark, this propagates to WebSockets too */
-        writeHeader("uWebSockets", "v0.15");
 
         /* If no total size given then assume this chunk is everything */
         if (!totalSize) {
@@ -115,6 +117,9 @@ private:
         } else {
             /* Write content-length on first call */
             if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_END_CALLED)) {
+                /* Write mark, this propagates to WebSockets too */
+                writeMark();
+
                 /* Ending with no response should not leave any content-length */
                 if (totalSize) {
                     /* We have a known send size */
@@ -221,6 +226,9 @@ public:
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
+            /* Write mark on first call to write */
+            writeMark();
+
             writeHeader("Transfer-Encoding", "chunked");
             httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
         }
