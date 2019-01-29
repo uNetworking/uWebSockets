@@ -130,7 +130,6 @@ private:
                 /* Reset httpResponse */
                 HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_new_socket_ext(SSL, (us_new_socket_t *) s);
                 httpResponseData->offset = 0;
-                httpResponseData->state = 0;
 
                 /* Are we not ready for another request yet? Terminate the connection. */
                 if (httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) {
@@ -139,7 +138,7 @@ private:
                 }
 
                 /* Mark pending request and emit it */
-                httpResponseData->state |= HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
+                httpResponseData->state = HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
 
                 /* Route the method and URL in two passes */
                 typename HttpContextData<SSL>::RouterData routerData = {(HttpResponse<SSL> *) s, httpRequest};
