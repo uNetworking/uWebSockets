@@ -62,6 +62,16 @@ The "any" route will match any method.
 * Wildcard matches, think "/hello/*".
 * Parameter matches, think "/candy/:kind", where value of :kind is retrieved by req.getParameter(0).
 
+Routes are matched in order of insert. However, keep in mind routes are stored in a tree, where every URL segment is a node added in order. This means you should **add shorter routes first** in order to not be surprised with the matching order, caused by longer routes added before.
+
+Example:
+
+* Adding /a/:b/c as 1
+* Adding /a/b as 2
+* Adding /a/:b as 3
+
+Now, even though route 2 looks to be prioritized before route 3, that's not the case. This because the longer route 1 already established all nodes of route 3, and thus already "tainted" the route order. Therefore make sure to add shorter routes before longer ones so that it becomes easier to spot their order.
+
 #### Streaming data
 You should never call res.end(huge buffer). res.end guarantees sending so backpressure will probably spike. Instead you should use res.tryEnd to stream huge data part by part. Use in combination with res.onWritable and res.onAborted callbacks.
 
