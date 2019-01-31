@@ -219,14 +219,14 @@ private:
         /* Handle HTTP write out (note: SSL_read may trigger this spuriously, the app need to handle spurious calls) */
         us_new_socket_context_on_writable(SSL, getSocketContext(), [](auto *s) {
 
-            /* We are now writable, so hang timeout again */
-            us_new_socket_timeout(SSL, s, 0);
-
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
 
             /* Ask the developer to write data and return success (true) or failure (false), OR skip sending anything and return success (true). */
             if (httpResponseData->onWritable) {
+                /* We are now writable, so hang timeout again, the user does not have to do anything so we should hang until end or tryEnd rearms timeout */
+                us_new_socket_timeout(SSL, s, 0);
+
                 /* We expect the developer to return whether or not write was successful (true).
                  * If write was never called, the developer should still return true so that we may drain. */
                 bool success = httpResponseData->onWritable(httpResponseData->offset);
@@ -236,13 +236,17 @@ private:
                     /* Skip testing if we can drain anything since that might perform an extra syscall */
                     return s;
                 }
+
+                /* We don't want to fall through since we don't want to mess with timeout.
+                 * It makes little sense to drain any backpressure when the user has registered onWritable. */
+                return s;
             }
 
-            /* Drain any socket buffer and timeout on failure */
+            /* Drain any socket buffer, this might empty our backpressure and thus finish the request */
             auto [written, failed] = asyncSocket->write(nullptr, 0, true, 0);
-            if (failed) {
-                asyncSocket->timeout(HTTP_IDLE_TIMEOUT_S);
-            }
+
+            /* Expect another writable event, or another request within the timeout */
+            asyncSocket->timeout(HTTP_IDLE_TIMEOUT_S);
 
             return s;
         });
