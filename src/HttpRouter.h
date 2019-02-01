@@ -37,7 +37,7 @@ namespace uWS {
 template <class USERDATA>
 class HttpRouter {
 private:
-    static const unsigned int MAX_URL_SEGMENTS = 100;
+    static constexpr unsigned int MAX_URL_SEGMENTS = 100;
 
     /* Basically a pre-allocated stack */
     struct RouteParameters {
@@ -61,14 +61,29 @@ private:
         }
     } routeParameters;
 
+	using handler_index_t = unsigned short;
+	static constexpr handler_index_t handler_npos = -1;
+
     std::vector<fu2::unique_function<bool(USERDATA &, std::pair<int, std::string_view *>)>> handlers;
 
     HttpRouter(const HttpRouter &other) = delete;
 
     struct Node {
+
         std::string name;
-        std::vector<Node *> children;
-        short handler = 0; // unhandled
+        std::vector<std::unique_ptr<Node>> children;
+		handler_index_t handler = handler_npos; // unhandled
+
+		void print(const int indentation = -1) {
+			for (int i = 0; i < indentation; i++) {
+				std::cout << "   ";
+			}
+			std::cout << name << "(" << handler << ")" << std::endl;
+			for (auto& p : children) {
+				p->print(indentation + 1);
+			}
+		}
+
     } tree;
 
     std::string_view currentUrl;
@@ -76,17 +91,17 @@ private:
     int urlSegmentTop;
 
     /* Set URL for router. Will reset any URL cache */
-    inline void setUrl(std::string_view url) {
+    inline void setUrl(const std::string_view url) {
         /* Remove / from input URL */
         currentUrl = url.substr(1);
         urlSegmentTop = -1;
     }
 
     /* Lazily parse or read from cache */
-    inline std::string_view getUrlSegment(int urlSegment) {
+    inline std::string_view getUrlSegment(const int urlSegment) {
         if (urlSegment > urlSegmentTop) {
             /* Return empty segment if we are out of URL or stack space, but never for first url segment */
-            if (!currentUrl.length() || urlSegment > 99) {
+            if (!currentUrl.length() || urlSegment >= MAX_URL_SEGMENTS) {
                 return {};
             }
 
@@ -95,18 +110,18 @@ private:
                 segmentLength = currentUrl.length();
 
                 /* Push to url segment vector */
-                urlSegmentVector[urlSegment] = currentUrl.substr(0, segmentLength);
+                urlSegmentVector[urlSegment] = currentUrl;
                 urlSegmentTop++;
 
                 /* Update currentUrl */
-                currentUrl = currentUrl.substr(segmentLength);
+                currentUrl.remove_prefix(segmentLength);
             } else {
                 /* Push to url segment vector */
                 urlSegmentVector[urlSegment] = currentUrl.substr(0, segmentLength);
                 urlSegmentTop++;
 
                 /* Update currentUrl */
-                currentUrl = currentUrl.substr(segmentLength + 1);
+                currentUrl.remove_prefix(segmentLength + 1);
             }
         }
         /* In any case we return it */
@@ -114,140 +129,89 @@ private:
     }
 
     /* Experimental path, executes as many handlers it can */
-    bool executeHandlers(Node *parent, int urlSegment, USERDATA &userData) {
+    bool executeHandlers(const Node *parent, const int urlSegment, USERDATA &userData) {
         /* If we have no more URL and not on first round, return where we may stand */
-        if (urlSegment && !getUrlSegment(urlSegment).length()) {
+        if (urlSegment && getUrlSegment(urlSegment).empty()) {
             /* We have reached accross the entire URL with no stoppage, execute */
-            int handlerIndex = parent->handler;
-            if (handlerIndex) {
+            auto handlerIndex = parent->handler;
+			if (handlerIndex != handler_npos) 
                 return handlers[handlerIndex](userData, {routeParameters.paramsTop, routeParameters.params});
-            } else {
-                /* Unhandled */
-                return false;
-            }
+			/* Unhandled */
+			return false;
         }
 
-        for (auto *p : parent->children) {
-            if (p->name.length() && p->name[0] == '*') {
+        for (auto& p : parent->children) {
+            if (!p->name.empty() && p->name.front() == '*') {
                 /* Wildcard match (can be seen as a shortcut) */
-                int handlerIndex = p->handler;
-                if (handlerIndex) {
+                auto handlerIndex = p->handler;
+				if (handlerIndex != handler_npos)
                     return handlers[handlerIndex](userData, {routeParameters.paramsTop, routeParameters.params});
-                } else {
-                    /* Unhandled */
-                    return false;
-                }
-            } else if (p->name.length() && p->name[0] == ':' && getUrlSegment(urlSegment).length()) {
+
+				/* Unhandled */
+                return false;
+            } else if (!p->name.empty() && p->name.front() == ':' && !getUrlSegment(urlSegment).empty()) {
                 /* Parameter match */
                 routeParameters.push(getUrlSegment(urlSegment));
-                int handler = executeHandlers(p, urlSegment + 1, userData);
-                if (handler) {
-                    return handler;
-                } else {
-                    // unwind parameter stack
-                    routeParameters.pop();
-                }
+                if (executeHandlers(p.get(), urlSegment + 1, userData)) 
+                    return true;
+				// unwind parameter stack
+				routeParameters.pop();
             } else if (p->name == getUrlSegment(urlSegment)) {
                 /* Static match */
-                int handler = executeHandlers(p, urlSegment + 1, userData);
-                if (handler) {
-                    return handler;
-                }
+                if (executeHandlers(p.get(), urlSegment + 1, userData)) 
+                    return true;
             }
         }
         return false;
     }
-
-    void printNode(Node *node, int indentation) {
-        for (int i = 0; i < indentation; i++) {
-            std::cout << "   ";
-        }
-        std::cout << node->name << "(" << node->handler << ")" << std::endl;
-        for (auto *p : node->children) {
-            printNode(p, indentation + 1);
-        }
-    }
-
-    void freeNode(Node *node) {
-        for (auto *p : node->children) {
-            freeNode(p);
-        }
-        if (node != &tree) {
-            delete node;
-        }
-    }
-
 public:
     HttpRouter() {
-        /* We want to use 0 as "no handler" */
-        handlers.resize(1);
-    }
-
-    ~HttpRouter() {
-        // todo: delete all Nodes or use unique_ptr
-        freeNode(&tree);
     }
 
     /* For debugging you may want to print this */
     void printTree() {
-        printNode(&tree, -1);
+		tree.print();
     }
 
     /* Register a route to be routed */
-    HttpRouter *add(std::string method, std::string_view pattern, fu2::unique_function<bool(USERDATA &, std::pair<int, std::string_view *>)> &&handler) {
+    HttpRouter *add(std::string_view method, std::string_view pattern, fu2::unique_function<bool(USERDATA &, std::pair<int, std::string_view *>)> &&handler) {
         /* Step over any initial slash */
-        if (pattern[0] == '/') {
-            pattern = pattern.substr(1);
-        }
+        if (!pattern.empty() && pattern.front() == '/') 
+            pattern.remove_prefix(1);
 
-        /* Parse the route as a vector of strings */
-        std::vector<std::string> route;
-        route.push_back(method);
+		/* Add this handler to the list of handlers */
+		auto handlerIndex = static_cast<handler_index_t>(handlers.size());
+		handlers.emplace_back(std::move(handler));
 
-        std::stringstream test;
-        test << pattern;
+		auto parent = &tree;
+		auto add_node = [&parent, handlerIndex](auto& name, bool leaf)
+		{
+			for (auto& child : parent->children) {
+				if (child->name != name)
+					continue;
+				if (leaf)
+					child->handler = handlerIndex; // touch leaf node of existing path
+				parent = child.get();
+				return;
+			}
+			parent->children.emplace_back(std::make_unique<Node>(Node{ std::string{name}, {}, (leaf ? handlerIndex : handler_npos) }));
+			parent = parent->children.back().get();
+		};
 
-        /* Empty pattern or / is the default */
-        if (!pattern.length()) {
-            route.push_back("");
-        }
-
-        std::string segment;
-        while(std::getline(test, segment, '/')) {
-           route.push_back(segment);
-        }
-
-        /* Add this handler to the list of handlers */
-        short handlerIndex = handlers.size();
-        handlers.emplace_back(std::move(handler));
-
-        /* Build the routing tree */
-        Node *parent = &tree;
-        for (unsigned int i = 0; i < route.size(); i++) {
-            std::string node = route[i];
-            // do we already have this?
-            Node *found = nullptr;
-            for (auto *child : parent->children) {
-                if (child->name == node) {
-                    found = child;
-                    break;
-                }
-            }
-
-            if (!found) {
-                if (i == route.size() - 1) {
-                    // only ever touch the handler id on the leaf node
-                    parent->children.push_back(found = new Node({node, {}, handlerIndex}));
-                } else {
-                    parent->children.push_back(found = new Node({node, {}, 0}));
-                }
-            } else if (i == route.size() - 1) {
-                // touch leaf node of existing path
-                found->handler = handlerIndex;
-            }
-            parent = found;
-        }
-
+		/* Build the routing tree */
+		add_node(method, false);
+		for (;;)
+		{
+			auto p = pattern.find('/');
+			if (std::string::npos == p)
+			{
+				add_node(pattern, true);
+				break;
+			}
+			auto name = pattern.substr(0, p);
+			add_node(name, false);
+			pattern.remove_prefix(p + 1);
+		}
         return this;
     }
 
@@ -257,27 +221,21 @@ public:
      * In that case, a second pass where method changed to "*" to denote "any" could be used to
      * give such routes a chance. If second pass fails, we have an unhandled request and you may
      * do whatever you want with your connection, such as close it, or respond with a fix message */
-    bool route(std::string_view method, std::string_view url, USERDATA &userData) {
+    bool route(const std::string_view method, const std::string_view url, USERDATA &userData) {
         /* Reset url parsing cache */
         setUrl(url);
         routeParameters.reset();
 
         /* Begin by finding the method node */
-        Node *parent = &tree;
-        for (auto &p : parent->children) {
-            if (p->name == method) {
-                parent = p;
-            }
-        }
-
-        /* We have that method on record, let's iterate it */
-        if (parent != &tree) {
-            return executeHandlers(parent, 0, userData);
-        } else {
-            /* We did not find any handler for this method.
-             * You may want to re-route with "*" as method. */
-            return false;
-        }
+		for (auto &p : tree.children) {
+			if (p->name != method)
+				continue;
+			/* We have that method on record, let's iterate it */
+			return executeHandlers(p.get(), 0, userData);
+		}
+		/* We did not find any handler for this method.
+		 * You may want to re-route with "*" as method. */
+		return false;
     }
 };
 

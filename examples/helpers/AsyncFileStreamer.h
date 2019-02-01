@@ -2,7 +2,8 @@
 
 struct AsyncFileStreamer {
 
-    std::map<std::string_view, AsyncFileReader *> asyncFileReaders;
+	std::vector<std::string> keys;
+    std::map<std::string_view, std::unique_ptr<AsyncFileReader>> asyncFileReaders;
     std::string root;
 
     AsyncFileStreamer(std::string root) : root(root) {
@@ -11,17 +12,17 @@ struct AsyncFileStreamer {
     }
 
     void updateRootCache() {
-        // todo: if the root folder changes, we want to reload the cache
-        for(auto &p : std::experimental::filesystem::recursive_directory_iterator(root)) {
-            std::string url = p.path().string().substr(root.length());
-            if (url == "/index.html") {
-                url = "/";
-            }
-
-            char *key = new char[url.length()];
-            memcpy(key, url.data(), url.length());
-            asyncFileReaders[std::string_view(key, url.length())] = new AsyncFileReader(p.path().string());
-        }
+		asyncFileReaders.clear();
+		keys.clear();
+		for (auto &p : std::experimental::filesystem::recursive_directory_iterator(root)) {
+			auto url = p.path().string().substr(root.length());
+			std::replace(url.begin(), url.end(), '\\', '/'); // for Windows
+			if (url == "/index.html") {
+				url = "/";
+			}
+			keys.emplace_back(std::move(url));
+			asyncFileReaders.emplace(keys.back(), std::make_unique<AsyncFileReader>(p.path().string()));
+		}
     }
 
     template <bool SSL>
@@ -29,8 +30,9 @@ struct AsyncFileStreamer {
         auto it = asyncFileReaders.find(url);
         if (it == asyncFileReaders.end()) {
             std::cout << "Did not find file: " << url << std::endl;
+			res->writeStatus("404 Not Found")->writeHeader("Content-type", "text/plain")->end("File not found!");
         } else {
-            streamFile(res, it->second);
+            streamFile(res, it->second.get());
         }
     }
 
