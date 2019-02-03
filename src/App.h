@@ -176,7 +176,7 @@ public:
                 }
 
                 /* This will add our mark */
-                res->end();
+                res->upgrade();
 
                 /* Move any backpressure */
                 std::string backpressure(std::move(((AsyncSocketData<SSL> *) res->getHttpResponseData())->buffer));

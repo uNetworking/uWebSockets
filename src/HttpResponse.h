@@ -82,7 +82,7 @@ private:
 
     /* Returns true on success, indicating that it might be feasible to write more data.
      * Will start timeout if stream reaches totalSize or write failure. */
-    bool internalEnd(std::string_view data, int totalSize, bool optional) {
+    bool internalEnd(std::string_view data, int totalSize, bool optional, bool allowContentLength = true) {
         /* Write status if not already done */
         writeStatus(HTTP_200_OK);
 
@@ -120,9 +120,9 @@ private:
                 /* Write mark, this propagates to WebSockets too */
                 writeMark();
 
-                /* Ending with no response should not leave any content-length */
-                if (totalSize) {
-                    /* We have a known send size */
+                /* WebSocket upgrades does not allow content-length */
+                if (allowContentLength) {
+                    /* Even zero is a valid content-length */
                     Super::write("Content-Length: ", 16);
                     writeUnsigned(totalSize);
                     Super::write("\r\n\r\n", 4);
@@ -156,6 +156,11 @@ private:
 
             return success;
         }
+    }
+
+    /* This call is identical to end, but will never write content-length and is thus suitable for upgrades */
+    void upgrade() {
+        internalEnd({nullptr, 0}, 0, false, false);
     }
 
 public:
