@@ -18,12 +18,11 @@
 #ifndef WEBSOCKETCONTEXTDATA_H
 #define WEBSOCKETCONTEXTDATA_H
 
-#include <functional>
+#include "f2/function2.hpp"
 #include <string_view>
 
 #include "WebSocketProtocol.h"
-
-#include "f2/function2.hpp"
+#include "TopicTree.h"
 
 namespace uWS {
 
@@ -41,6 +40,9 @@ struct WebSocketContextData {
     /* Settings for this context */
     size_t maxPayloadLength = 0;
     int idleTimeout = 0;
+
+    /* Each websocket context has a topic tree for pub/sub */
+    TopicTree topicTree;
 };
 
 }

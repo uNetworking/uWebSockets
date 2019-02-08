@@ -125,6 +125,25 @@ public:
             webSocketContextData->closeHandler(this, code, message);
         }
     }
+
+    /* Subscribe to a topic according to MQTT rules and syntax */
+    void subscribe(std::string_view topic) {
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_new_socket_context_ext(SSL,
+            (us_new_socket_context_t *) us_new_socket_context(SSL, (us_new_socket_t *) this)
+        );
+
+        /* Fix this up */
+        webSocketContextData->topicTree.subscribe(topic, this, nullptr);
+    }
+
+    /* Publish a message to a topic according to MQTT rules and syntax */
+    void publish(std::string_view topic, std::string_view message) {
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_new_socket_context_ext(SSL,
+            (us_new_socket_context_t *) us_new_socket_context(SSL, (us_new_socket_t *) this)
+        );
+
+        webSocketContextData->topicTree.publish(topic, message.data(), message.length());
+    }
 };
 
 }
