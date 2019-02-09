@@ -213,9 +213,10 @@ public:
         internalEnd(data, data.length(), false);
     }
 
-    /* Try and end the response. Returns true on success. Starts a timeout in some cases. */
-    bool tryEnd(std::string_view data, int totalSize = 0) {
-        return internalEnd(data, totalSize, true);
+    /* Try and end the response. Returns [true, true] on success.
+     * Starts a timeout in some cases. Returns [ok, hasResponded] */
+    std::pair<bool, bool> tryEnd(std::string_view data, int totalSize = 0) {
+        return {internalEnd(data, totalSize, true), hasResponded()};
     }
 
     /* Write parts of the response in chunking fashion. Starts timeout if failed. */
