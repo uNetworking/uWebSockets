@@ -144,7 +144,11 @@ public:
             (us_new_socket_context_t *) us_new_socket_context(SSL, (us_new_socket_t *) this)
         );
 
-        webSocketContextData->topicTree.publish(std::string(topic), (char *) message.data(), message.length());
+        /* We frame the message right here and only pass raw bytes to the pub/subber */
+        char dst[1024];
+        size_t dst_length = protocol::formatMessage<true>(dst, message.data(), message.length(), OpCode::TEXT, message.length(), false);
+
+        webSocketContextData->topicTree.publish(std::string(topic), dst, dst_length);
     }
 };
 

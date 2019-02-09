@@ -50,18 +50,23 @@ private:
         if (loopData->preHandler) {
             loopData->preHandler((Loop *) loop);
         }
+
+        /* trying this one here */
+        for (auto &f : loopData->postHandlers) {
+            f((Loop *) loop);
+        }
     }
 
     static void postCb(us_loop *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
-        if (loopData->postHandler) {
-            loopData->postHandler((Loop *) loop);
-        }
-
         /* We should move over to using only these */
         for (auto &f : loopData->postHandlers) {
             f((Loop *) loop);
+        }
+
+        if (loopData->postHandler) {
+            loopData->postHandler((Loop *) loop);
         }
     }
 

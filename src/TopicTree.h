@@ -17,7 +17,7 @@
 
 /* Every WebSocketContext holds one TopicTree */
 #include "Loop.h"
-#include "WebSocket.h"
+#include "AsyncSocket.h"
 
 #ifndef TOPICTREE_H
 #define TOPICTREE_H
@@ -28,6 +28,9 @@
 #include <set>
 
 namespace uWS {
+
+    // publishing to a node, then another node, then another node should prioritize draining that way
+    // sending and publishing will interleave undefined, they are separate streams
 
 class TopicTree {
 private:
@@ -40,12 +43,23 @@ private:
                 return p.first->second;
             }
         }
+        /* Every subscriber should hold some backpressure cursor */
         std::vector<std::pair<void *, bool *>> subscribers;
         std::string sharedMessage;
-    };
 
-    Node *root = new Node;
+        /* We need backpressure stored */
+        /* vector */
+        std::string backpressure;
+    } *root = new Node;
+
+    /* Nodes that hold something to send this iteration */
     std::set<Node *> pubNodes;
+
+    /* Settings */
+    bool mergePublishedMessages = false;
+
+    /* Where we store prepared messages to send */
+    //std::string preparedMessage;
 
 public:
 
@@ -57,34 +71,32 @@ public:
                 return;
             }
 
-            // messages need to be prepared twice: compressed and non compressed
-            // if using dedicated compression, don't prepare
+            /* We say that all senders get their own message as well, for now being */
 
-            // user should be something like a std::string with formatted content
-            std::string *preparedMessage = new std::string;
+            for (Node *topicNode : pubNodes) {
+                for (auto [ws, valid] : topicNode->subscribers) {
+                    AsyncSocket<false> *asyncSocket = (AsyncSocket<false> *) ws; // assumes non-SSL for now
 
-            // prepare, send, ref, user
-            drain([](void *user, char *sharedMessage, size_t sharedMessageLength) {
+                    /* Writing optionally raw data */
+                    auto [written, failed] = asyncSocket->write(topicNode->sharedMessage.data(), topicNode->sharedMessage.length(), true, 0);
 
-                //std::cout << "Preparing " << std::string_view(sharedMessage, sharedMessageLength) << std::endl;
 
-                std::string *preparedMessage = (std::string *) user;
-                preparedMessage->append(sharedMessage, sharedMessageLength);
+                    /* Every subscriber to a topicNode will have int backpressure cursor to this room */
 
-            }, [](void *user, void *ws) {
+                    /* How far we wrote will be stored in the WebSocket's Pub/sub block and drained before any other sending (we need to fail sending if already sending pubsub) */
 
-                /* This would be where we send the preformatted pre-compessed message in user */
+                    /* All messages not fully sent, will be stored in the topictree with an index so that websocket can refer to it by two index: what buffer, what offset */
+                    /* If total backpressure of the topictree is larger than a set limit we close all the slow receivers */
 
-                //std::cout << "Sending " << std::endl;
+                    /* It is also possible to move topictree backpressure to the websockets themselves, if only one */
+                }
 
-                WebSocket<false, true> *webSocket = (WebSocket<false, true> *) ws; // assumes non-SSL
+                /* If not all sockets managed to send this message, move it to backpressure */
+                topicNode->sharedMessage.clear();
+            }
+            pubNodes.clear();
 
-                std::string *preparedMessage = (std::string *) user;
-                webSocket->send(*preparedMessage, OpCode::TEXT, false);
 
-            }, [](void *ws) {
-                std::cout << "Refing" << std::endl;
-            }, preparedMessage);
         });
     }
 
@@ -99,8 +111,6 @@ public:
             curr = curr->get(topic.substr(start, i - start));
         }
         curr->subscribers.push_back({connection, valid});
-
-        std::cout << "Subscribed to topicTree" << std::endl;
     }
 
     /* WebSocket.publish looks up its tree and publishes to it */
@@ -144,48 +154,6 @@ public:
                     }
                 }
             }
-        }
-
-        std::cout << "Published to topicTree" << std::endl;
-    }
-
-    void reset() {
-        root = new Node;
-    }
-
-    /* I forgot what this does but probably needs lots of changes anyways */
-    void drain(void (*prepareCb)(void *user, char *, size_t), void (*sendCb)(void *, void *), void (*refCb)(void *), void *user) {
-
-        std::cout << "pubNodes: " << pubNodes.size() << std::endl;
-
-        if (pubNodes.size()) {
-
-            //if(pubNodes.size() > 1) {
-                for (Node *topicNode : pubNodes) {
-                    for (std::pair<void *, bool *> p : topicNode->subscribers) {
-                        if (*p.second) {
-                            refCb(p.first);
-                        }
-                    }
-                }
-            //}
-
-            std::cout << "Now we are here" << std::endl;
-
-            for (Node *topicNode : pubNodes) {
-                prepareCb(user, (char *) topicNode->sharedMessage.data(), topicNode->sharedMessage.length());
-                for (auto it = topicNode->subscribers.begin(); it != topicNode->subscribers.end(); ) {
-                    if (!*it->second) {
-                        it = topicNode->subscribers.erase(it);
-                    } else {
-                        sendCb(user, it->first);
-                        it++;
-                    }
-                }
-
-                topicNode->sharedMessage.clear();
-            }
-            pubNodes.clear();
         }
     }
 };
