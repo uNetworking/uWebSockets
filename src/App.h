@@ -96,6 +96,10 @@ public:
 
     template <class UserData>
     TemplatedApp &&ws(std::string pattern, WebSocketBehavior &&behavior) {
+        /* Don't compile if alignment rules cannot be satisfied */
+        static_assert(alignof(UserData) <= LIBUS_EXT_ALIGNMENT,
+        "µWebSockets cannot satisfy UserData alignment requirements. You need to recompile µSockets with LIBUS_EXT_ALIGNMENT adjusted accordingly.");
+
         /* Every route has its own websocket context with its own behavior and user data type */
         auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::defaultLoop(), (us_new_socket_context_t *) httpContext);
 
