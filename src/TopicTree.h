@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-/* Every Loop holds one TopicTree */
+/* Every WebSocketContext holds one TopicTree */
+#include "Loop.h"
+#include "WebSocket.h"
 
 #ifndef TOPICTREE_H
 #define TOPICTREE_H
@@ -24,6 +26,8 @@
 #include <string>
 #include <vector>
 #include <set>
+
+namespace uWS {
 
 class TopicTree {
 private:
@@ -46,7 +50,42 @@ private:
 public:
 
     TopicTree() {
-        std::cout << "Constructing TopicTree" << std::endl;
+        /* Dynamically hook us up with the Loop post handler */
+        Loop::defaultLoop()->addPostHandler([this](Loop *loop) {
+
+            if (!pubNodes.size()) {
+                return;
+            }
+
+            // messages need to be prepared twice: compressed and non compressed
+            // if using dedicated compression, don't prepare
+
+            // user should be something like a std::string with formatted content
+            std::string *preparedMessage = new std::string;
+
+            // prepare, send, ref, user
+            drain([](void *user, char *sharedMessage, size_t sharedMessageLength) {
+
+                //std::cout << "Preparing " << std::string_view(sharedMessage, sharedMessageLength) << std::endl;
+
+                std::string *preparedMessage = (std::string *) user;
+                preparedMessage->append(sharedMessage, sharedMessageLength);
+
+            }, [](void *user, void *ws) {
+
+                /* This would be where we send the preformatted pre-compessed message in user */
+
+                //std::cout << "Sending " << std::endl;
+
+                WebSocket<false, true> *webSocket = (WebSocket<false, true> *) ws; // assumes non-SSL
+
+                std::string *preparedMessage = (std::string *) user;
+                webSocket->send(*preparedMessage, OpCode::TEXT, false);
+
+            }, [](void *ws) {
+                std::cout << "Refing" << std::endl;
+            }, preparedMessage);
+        });
     }
 
     /* WebSocket.subscribe will lookup the Loop and subscribe in its tree */
@@ -116,6 +155,9 @@ public:
 
     /* I forgot what this does but probably needs lots of changes anyways */
     void drain(void (*prepareCb)(void *user, char *, size_t), void (*sendCb)(void *, void *), void (*refCb)(void *), void *user) {
+
+        std::cout << "pubNodes: " << pubNodes.size() << std::endl;
+
         if (pubNodes.size()) {
 
             //if(pubNodes.size() > 1) {
@@ -127,6 +169,8 @@ public:
                     }
                 }
             //}
+
+            std::cout << "Now we are here" << std::endl;
 
             for (Node *topicNode : pubNodes) {
                 prepareCb(user, (char *) topicNode->sharedMessage.data(), topicNode->sharedMessage.length());
@@ -145,6 +189,6 @@ public:
         }
     }
 };
-
+}
 
 #endif // TOPICTREE_H

@@ -133,7 +133,9 @@ public:
         );
 
         /* Fix this up */
-        webSocketContextData->topicTree.subscribe(topic, this, nullptr);
+        bool *valid = new bool;
+        *valid = true;
+        webSocketContextData->topicTree.subscribe(std::string(topic), this, valid);
     }
 
     /* Publish a message to a topic according to MQTT rules and syntax */
@@ -142,7 +144,7 @@ public:
             (us_new_socket_context_t *) us_new_socket_context(SSL, (us_new_socket_t *) this)
         );
 
-        webSocketContextData->topicTree.publish(topic, message.data(), message.length());
+        webSocketContextData->topicTree.publish(std::string(topic), (char *) message.data(), message.length());
     }
 };
 

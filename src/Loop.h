@@ -21,11 +21,7 @@
 /* The loop is lazily created per-thread and run with uWS::run() */
 
 #include "LoopData.h"
-
 #include <libusockets_new.h>
-
-
-
 
 #include <iostream>
 
@@ -61,6 +57,11 @@ private:
 
         if (loopData->postHandler) {
             loopData->postHandler((Loop *) loop);
+        }
+
+        /* We should move over to using only these */
+        for (auto &f : loopData->postHandlers) {
+            f((Loop *) loop);
         }
     }
 
@@ -107,6 +108,13 @@ public:
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
         loopData->~LoopData();
         us_loop_free((us_loop *) this);
+    }
+
+    /* We want to have multiple of these */
+    void addPostHandler(fu2::unique_function<void(Loop *)> &&handler) {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+
+        loopData->postHandlers.emplace_back(std::move(handler));
     }
 
     /* Set postCb callback */

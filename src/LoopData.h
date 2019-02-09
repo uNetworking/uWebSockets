@@ -40,6 +40,9 @@ private:
 
     fu2::unique_function<void(Loop *)> postHandler, preHandler;
 
+    /* Move over to these later on */
+    std::vector<fu2::unique_function<void(Loop *)>> postHandlers;
+
 public:
     ~LoopData() {
         /* If we have had App.ws called with compression we need to clear this */
