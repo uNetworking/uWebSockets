@@ -35,27 +35,28 @@ namespace uWS {
 class TopicTree {
 private:
     struct Node : std::map<std::string, Node *> {
-        Node *get(std::string path) {
-            std::pair<std::map<std::string, Node *>::iterator, bool> p = insert({path, nullptr});
+        /* Add and/or lookup node from topic */
+        Node *get(std::string topic) {
+            std::pair<std::map<std::string, Node *>::iterator, bool> p = insert({topic, nullptr});
             if (p.second) {
                 return p.first->second = new Node;
             } else {
                 return p.first->second;
             }
         }
-        /* Every subscriber should hold some backpressure cursor */
-        //std::vector<std::pair<void *, bool *>> subscribers;
 
-
+        /* Subscribers have int backpressureOffset */
         std::set<void *> subscribers;
 
-
+        /* Current shared message */
         std::string sharedMessage;
 
-        /* We need backpressure stored */
-        /* vector */
+        /* Backpressure is stored linearly up to a limit */
         std::string backpressure;
-    } root; //topicToNode
+        unsigned int backpressureOffset = 0;
+
+
+    } topicToNode;
 
     std::map<void *, std::vector<Node *>> socketToNodeList;
 
@@ -79,6 +80,8 @@ public:
             }
 
             /* We say that all senders get their own message as well, for now being */
+
+            // if a node is very likely used together with another node?
 
             for (Node *topicNode : pubNodes) {
                 for (auto /*[*/ws/*, valid]*/ : topicNode->subscribers) {
@@ -111,7 +114,7 @@ public:
 
     /* WebSocket.subscribe will lookup the Loop and subscribe in its tree */
     void subscribe(std::string topic, void *connection, bool *valid) {
-        Node *curr = &root;
+        Node *curr = &topicToNode;
         for (int i = 0; i < topic.length(); i++) {
             int start = i;
             while (topic[i] != '/' && i < topic.length()) {
@@ -139,7 +142,7 @@ public:
 
     /* WebSocket.publish looks up its tree and publishes to it */
     void publish(std::string topic, char *data, size_t length) {
-        Node *curr = &root;
+        Node *curr = &topicToNode;
         for (int i = 0; i < topic.length(); i++) {
             int start = i;
             while (topic[i] != '/' && i < topic.length()) {
