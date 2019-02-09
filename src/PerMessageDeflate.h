@@ -35,11 +35,9 @@ struct DeflationStream {
 #else
 
 #include <zlib.h>
-
 #include <string>
-#include <iostream>
 
-#define LARGE_BUFFER_SIZE 1024 * 16 // fix this
+#define LARGE_BUFFER_SIZE 1024 * 16 // todo: fix this
 
 struct ZlibContext {
     /* Any returned data is valid until next same-class call.

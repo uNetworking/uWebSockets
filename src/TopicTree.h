@@ -27,6 +27,8 @@
 #include <vector>
 #include <set>
 
+// todo: obviously this module is WIP
+
 namespace uWS {
 
     // publishing to a node, then another node, then another node should prioritize draining that way
@@ -70,6 +72,10 @@ private:
     //std::string preparedMessage;
 
 public:
+
+    ~TopicTree() {
+        /* We have a few leaks here, I think */
+    }
 
     TopicTree() {
         /* Dynamically hook us up with the Loop post handler */

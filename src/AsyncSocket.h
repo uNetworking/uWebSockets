@@ -20,7 +20,6 @@
 
 /* This class implements async socket memory management strategies */
 
-
 #include "LoopData.h"
 #include "AsyncSocketData.h"
 
@@ -35,15 +34,12 @@ protected:
 
     /* Get loop data for socket */
     LoopData *getLoopData() {
-        return (LoopData *) us_loop_ext(
-                    us_new_socket_context_loop(SSL,
-                        us_new_socket_context(SSL, (us_new_socket_t *) this))
-                    );
+        return (LoopData *) us_loop_ext(us_new_socket_context_loop(SSL, us_new_socket_context(SSL, (us_new_socket_t *) this)));
     }
 
     /* Get socket extension */
-    void *getExt() {
-        return us_new_socket_ext(SSL, (us_new_socket_t *) this);
+    AsyncSocketData<SSL> *getAsyncSocketData() {
+        return (AsyncSocketData<SSL> *) us_new_socket_ext(SSL, (us_new_socket_t *) this);
     }
 
     /* Socket timeout */
@@ -81,20 +77,14 @@ protected:
             loopData->corkOffset += size;
             return {sendBuffer, false};
         } else {
-            // slow path for now
-
+            /* Slow path for now, we want to always be corked if possible */
             return {(char *) malloc(size), true};
-
-            // if we are out of buffer, fail this completely?
-
         }
     }
 
     /* Returns the user space backpressure. */
     int getBufferedAmount() {
-        AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
-
-        return asyncSocketData->buffer.size();
+        return getAsyncSocketData()->buffer.size();
     }
 
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
@@ -107,7 +97,7 @@ protected:
         }
 
         LoopData *loopData = getLoopData();
-        AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
+        AsyncSocketData<SSL> *asyncSocketData = getAsyncSocketData();
 
         /* We are limited if we have a per-socket buffer */
         if (asyncSocketData->buffer.length()) {

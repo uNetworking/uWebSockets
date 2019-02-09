@@ -56,7 +56,7 @@ public:
     bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
         /* Transform the message to compressed domain if requested */
         if (compress) {
-            WebSocketData *webSocketData = (WebSocketData *) Super::getExt();
+            WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
 
             /* Check and correct the compress hint */
             if (opCode < 3 && webSocketData->compressionStatus == WebSocketData::ENABLED) {

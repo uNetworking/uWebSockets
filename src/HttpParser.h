@@ -18,13 +18,13 @@
 #ifndef HTTPPARSER_H
 #define HTTPPARSER_H
 
+// todo: HttpParser is in need of a few clean-ups and refactorings
+
 /* The HTTP parser is an independent module subject to unit testing / fuzz testing */
 
 #include <string>
-#include <functional>
 #include <cstring>
 #include <algorithm>
-
 #include "f2/function2.hpp"
 
 namespace uWS {
@@ -61,11 +61,6 @@ public:
         }
         return std::string_view(nullptr, 0);
     }
-
-    // todo: implement this
-    /*int getHeader(std::string_view header) {
-        return 0;
-    }*/
 
     std::string_view getUrl() {
         return std::string_view(headers->value.data(), querySeparator);
@@ -151,22 +146,20 @@ private:
 
             req->headers->value = std::string_view(req->headers->value.data(), std::max<int>(0, req->headers->value.length() - 9));
 
-            // querySeparator is untested, todo: go through this
+            /* Parse query */
             const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());
             req->querySeparator = (querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data();
 
-            // this one should return socket and exit on closed
-            // what happens with data left for websockets?
+            /* If returned socket is not what we put in we need
+             * to break here as we either have upgraded to
+             * WebSockets or otherwise closed the socket. */
             void *returnedUser = requestHandler(user, req);
             if (returnedUser != user) {
-                // upgraded socket, or otherwise broken
-
-                // return pair of consumed and user
+                /* We are upgraded to WebSocket or otherwise broken */
                 return {consumedTotal, returnedUser};
             }
 
-            // do not check this for GET!
-
+            // todo: do not check this for GET (get should not have a body)
             // todo: also support reading chunked streams
             std::string_view contentLengthString = req->getHeader("content-length");
             if (contentLengthString.length()) {
@@ -192,7 +185,6 @@ private:
 
 public:
 
-    // todo: what can we do with the socket inside the handlers? we need to check on return from any handler if we closed or terminated or upgraded the socket
     void *consumePostPadded(char *data, int length, void *user, fu2::unique_function<void *(void *, HttpRequest *)> &&requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &&dataHandler, fu2::unique_function<void *(void *)> &&errorHandler) {
 
         HttpRequest req;
@@ -200,6 +192,7 @@ public:
         if (remainingStreamingBytes) {
 
             // this is exactly the same as below!
+            // todo: refactor this
             if (remainingStreamingBytes >= length) {
                 void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
                 remainingStreamingBytes -= length;
@@ -222,7 +215,7 @@ public:
 
             int maxCopyDistance = std::min(MAX_FALLBACK_SIZE - fallback.length(), (size_t) length);
 
-            fallback.reserve(maxCopyDistance + 32); // padding should be same as libus
+            fallback.reserve(maxCopyDistance + 32); // todo: padding should be same as libus
             fallback.append(data, maxCopyDistance);
 
             // break here on break
@@ -260,7 +253,7 @@ public:
 
             } else {
                 if (fallback.length() == MAX_FALLBACK_SIZE) {
-                    // you don't really need error handler, just return something strange!
+                    // note: you don't really need error handler, just return something strange!
                     // we could have it return a constant pointer to denote error!
                     return errorHandler(user);
                 }

@@ -22,13 +22,10 @@
 
 #include "Loop.h"
 #include "HttpContextData.h"
-
 #include "HttpResponseData.h"
 #include "AsyncSocket.h"
 
 #include <string_view>
-#include <functional>
-
 #include "f2/function2.hpp"
 
 namespace uWS {
@@ -36,6 +33,7 @@ template<bool> struct HttpResponse;
 
 template <bool SSL>
 struct HttpContext {
+    template<bool> friend struct TemplatedApp;
 private:
     HttpContext() = delete;
 
@@ -220,7 +218,7 @@ private:
         us_new_socket_context_on_writable(SSL, getSocketContext(), [](auto *s) {
 
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
-            HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getExt();
+            HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getAsyncSocketData();
 
             /* Ask the developer to write data and return success (true) or failure (false), OR skip sending anything and return success (true). */
             if (httpResponseData->onWritable) {
@@ -272,6 +270,13 @@ private:
         return this;
     }
 
+    /* Used by App in its WebSocket handler */
+    void upgradeToWebSocket(void *newSocket) {
+        HttpContextData<SSL> *httpContextData = getSocketContextData();
+
+        httpContextData->upgradedWebSocket = newSocket;
+    }
+
 public:
     /* Construct a new HttpContext using specified loop */
     static HttpContext *create(Loop *loop, us_new_socket_context_options_t options = {}) {
@@ -317,13 +322,6 @@ public:
             }
             return true;
         });
-    }
-
-    // this should not be public
-    void upgradeToWebSocket(void *newSocket) {
-        HttpContextData<SSL> *httpContextData = getSocketContextData();
-
-        httpContextData->upgradedWebSocket = newSocket;
     }
 
     /* Listen to port using this HttpContext */

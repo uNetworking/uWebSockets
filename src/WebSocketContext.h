@@ -23,6 +23,8 @@
 #include "WebSocketData.h"
 #include "WebSocket.h"
 
+// todo: this module needs fixing! see below!
+
 namespace uWS {
 
 template <bool SSL, bool isServer>

@@ -20,9 +20,7 @@
 
 #include "HttpRouter.h"
 
-#include <functional>
 #include <vector>
-
 #include "f2/function2.hpp"
 
 namespace uWS {

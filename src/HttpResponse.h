@@ -44,7 +44,7 @@ struct HttpResponse : public AsyncSocket<SSL> {
     typedef AsyncSocket<SSL> Super;
 private:
     HttpResponseData<SSL> *getHttpResponseData() {
-        return (HttpResponseData<SSL> *) Super::getExt();
+        return (HttpResponseData<SSL> *) Super::getAsyncSocketData();
     }
 
     /* Write an unsigned 32-bit integer in hex */

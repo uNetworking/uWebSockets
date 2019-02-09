@@ -18,11 +18,12 @@
 #ifndef HTTPROUTER_HPP
 #define HTTPROUTER_HPP
 
+// todo: this module also needs a few clean-ups and simplifications
+
 /* HTTP router is an independent module subject to unit testing and fuzz testing */
 /* This module is not fully optimized yet, waiting for more features before doing so */
 
 #include <map>
-#include <functional>
 #include <vector>
 #include <cstring>
 #include <iostream>

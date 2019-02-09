@@ -22,7 +22,6 @@
 
 #include "HttpParser.h"
 #include "AsyncSocketData.h"
-#include <functional>
 
 #include "f2/function2.hpp"
 
