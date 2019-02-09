@@ -44,13 +44,20 @@ private:
             }
         }
         /* Every subscriber should hold some backpressure cursor */
-        std::vector<std::pair<void *, bool *>> subscribers;
+        //std::vector<std::pair<void *, bool *>> subscribers;
+
+
+        std::set<void *> subscribers;
+
+
         std::string sharedMessage;
 
         /* We need backpressure stored */
         /* vector */
         std::string backpressure;
-    } *root = new Node;
+    } root; //topicToNode
+
+    std::map<void *, std::vector<Node *>> socketToNodeList;
 
     /* Nodes that hold something to send this iteration */
     std::set<Node *> pubNodes;
@@ -74,11 +81,13 @@ public:
             /* We say that all senders get their own message as well, for now being */
 
             for (Node *topicNode : pubNodes) {
-                for (auto [ws, valid] : topicNode->subscribers) {
+                for (auto /*[*/ws/*, valid]*/ : topicNode->subscribers) {
                     AsyncSocket<false> *asyncSocket = (AsyncSocket<false> *) ws; // assumes non-SSL for now
 
                     /* Writing optionally raw data */
                     auto [written, failed] = asyncSocket->write(topicNode->sharedMessage.data(), topicNode->sharedMessage.length(), true, 0);
+
+                    /* We should probably reset timeout for a WebSocket getting something sent */
 
 
                     /* Every subscriber to a topicNode will have int backpressure cursor to this room */
@@ -102,7 +111,7 @@ public:
 
     /* WebSocket.subscribe will lookup the Loop and subscribe in its tree */
     void subscribe(std::string topic, void *connection, bool *valid) {
-        Node *curr = root;
+        Node *curr = &root;
         for (int i = 0; i < topic.length(); i++) {
             int start = i;
             while (topic[i] != '/' && i < topic.length()) {
@@ -110,12 +119,27 @@ public:
             }
             curr = curr->get(topic.substr(start, i - start));
         }
-        curr->subscribers.push_back({connection, valid});
+        curr->subscribers.insert(connection);
+        /* Only do this if we did not aleady exist */
+        socketToNodeList[connection].push_back(curr);
+    }
+
+    /* Unsubscribe from all subscriptions */
+    void unsubscribeAll(void *connection) {
+
+        for (Node *node : socketToNodeList[connection]) {
+
+            /* Also make sure to update any backpressure here */
+
+            node->subscribers.erase(connection);
+        }
+
+        socketToNodeList.erase(connection);
     }
 
     /* WebSocket.publish looks up its tree and publishes to it */
     void publish(std::string topic, char *data, size_t length) {
-        Node *curr = root;
+        Node *curr = &root;
         for (int i = 0; i < topic.length(); i++) {
             int start = i;
             while (topic[i] != '/' && i < topic.length()) {

@@ -21,6 +21,7 @@
 #include "WebSocketData.h"
 #include "WebSocketProtocol.h"
 #include "AsyncSocket.h"
+#include "WebSocketContextData.h"
 
 #include <string_view>
 
@@ -124,6 +125,9 @@ public:
         if (webSocketContextData->closeHandler) {
             webSocketContextData->closeHandler(this, code, message);
         }
+
+        /* Make sure to unsubscribe from any pub/sub node at exit */
+        webSocketContextData->topicTree.unsubscribeAll(this);
     }
 
     /* Subscribe to a topic according to MQTT rules and syntax */

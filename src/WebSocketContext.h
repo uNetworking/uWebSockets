@@ -246,6 +246,9 @@ private:
                 if (webSocketContextData->closeHandler) {
                     webSocketContextData->closeHandler((WebSocket<SSL, true> *) s, 1006, {});
                 }
+
+                /* Make sure to unsubscribe from any pub/sub node at exit */
+                webSocketContextData->topicTree.unsubscribeAll(s);
             }
 
             /* Destruct in-placed data struct */
