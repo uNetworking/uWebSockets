@@ -38,14 +38,14 @@ uWS::SSLApp({
     
 }).run();
 ```
-Don't miss the [user manual](https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md#user-manual) or the [examples](https://github.com/uNetworking/uWebSockets/tree/master/examples). Also, make sure to check out the [Node.js variant](https://github.com/uNetworking/uWebSockets.js) for more info.
+Don't miss the [user manual](https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md#user-manual), the [C++ examples](https://github.com/uNetworking/uWebSockets/tree/master/examples) or the [JavaScript examples](https://github.com/uNetworking/uWebSockets.js/tree/master/examples). JavaScript examples are very applicable to C++ developers, so go through them as well.
 
 #### Pay what you want.
 A free & open source ([permissive](LICENSE)) project since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018 and/or 2019. Individual donations are always accepted via [PayPal](https://paypal.me/uwebsockets).
 
 <div align="center"><img src="misc/2018.png"/></div>
 
-*Code is provided as-is, do not expect or demand **free** consulting services, personal tutoring or advice.*
+*Code is provided as-is, do not expect or demand **free** consulting services, personal tutoring, advice or debugging.*
 
 #### Deploy like a boss.
 Commercial support is available via a per-hourly consulting plan or as otherwise negotiated. If you're stuck, worried about design or just in need of help don't hesitate throwing [me, the author](https://github.com/alexhultman) a mail and we'll figure out what's best for both parties. I want your business to have a proper understanding of the problem before rushing in to one of the many pitfalls.
