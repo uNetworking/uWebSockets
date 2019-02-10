@@ -82,6 +82,10 @@ public:
         httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::defaultLoop(), options);
     }
 
+    bool constructorFailed() {
+        return !httpContext;
+    }
+
     struct WebSocketBehavior {
         CompressOptions compression = DISABLED;
         int maxPayloadLength = 16 * 1024;
