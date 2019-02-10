@@ -32,7 +32,8 @@ HEADERS += \
     ../src/WebSocketContext.h \
     ../src/WebSocketContextData.h \
     ../src/WebSocketExtensions.h \
-    ../src/PerMessageDeflate.h
+    ../src/PerMessageDeflate.h \
+    ../src/TopicTree.h
 
 INCLUDEPATH += ../uSockets/src ../src
 QMAKE_CXXFLAGS += -Wno-unused-variable -Wno-unused-parameter -Wno-unused-but-set-parameter -fsanitize=address
