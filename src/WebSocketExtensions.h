@@ -39,61 +39,6 @@ enum ExtensionTokens {
     TOK_CLIENT_MAX_WINDOW_BITS = 2348
 };
 
-template <bool isServer>
-class ExtensionsNegotiator {
-protected:
-    int options;
-
-public:
-    ExtensionsNegotiator(int wantedOptions) {
-        options = wantedOptions;
-    }
-
-    std::string generateOffer() {
-        std::string extensionsOffer;
-        if (options & Options::PERMESSAGE_DEFLATE) {
-            extensionsOffer += "permessage-deflate";
-
-            if (options & Options::CLIENT_NO_CONTEXT_TAKEOVER) {
-                extensionsOffer += "; client_no_context_takeover";
-            }
-
-            /* It is questionable sending this improves anything */
-            /*if (options & Options::SERVER_NO_CONTEXT_TAKEOVER) {
-                extensionsOffer += "; server_no_context_takeover";
-            }*/
-        }
-
-        return extensionsOffer;
-    }
-
-    void readOffer(std::string_view offer) {
-        if (isServer) {
-            ExtensionsParser extensionsParser(offer.data(), offer.length());
-            if ((options & PERMESSAGE_DEFLATE) && extensionsParser.perMessageDeflate) {
-                if (extensionsParser.clientNoContextTakeover || (options & CLIENT_NO_CONTEXT_TAKEOVER)) {
-                    options |= CLIENT_NO_CONTEXT_TAKEOVER;
-                }
-
-                /* We leave this option for us to read even if the client did not send it */
-                if (extensionsParser.serverNoContextTakeover) {
-                    options |= SERVER_NO_CONTEXT_TAKEOVER;
-                }/* else {
-                    options &= ~SERVER_NO_CONTEXT_TAKEOVER;
-                }*/
-            } else {
-                options &= ~PERMESSAGE_DEFLATE;
-            }
-        } else {
-            // todo!
-        }
-    }
-
-    int getNegotiatedOptions() {
-        return options;
-    }
-};
-
 class ExtensionsParser {
 private:
     int *lastInteger = nullptr;
@@ -153,6 +98,61 @@ public:
                 break;
             }
         }
+    }
+};
+
+template <bool isServer>
+class ExtensionsNegotiator {
+protected:
+    int options;
+
+public:
+    ExtensionsNegotiator(int wantedOptions) {
+        options = wantedOptions;
+    }
+
+    std::string generateOffer() {
+        std::string extensionsOffer;
+        if (options & Options::PERMESSAGE_DEFLATE) {
+            extensionsOffer += "permessage-deflate";
+
+            if (options & Options::CLIENT_NO_CONTEXT_TAKEOVER) {
+                extensionsOffer += "; client_no_context_takeover";
+            }
+
+            /* It is questionable sending this improves anything */
+            /*if (options & Options::SERVER_NO_CONTEXT_TAKEOVER) {
+                extensionsOffer += "; server_no_context_takeover";
+            }*/
+        }
+
+        return extensionsOffer;
+    }
+
+    void readOffer(std::string_view offer) {
+        if (isServer) {
+            ExtensionsParser extensionsParser(offer.data(), offer.length());
+            if ((options & PERMESSAGE_DEFLATE) && extensionsParser.perMessageDeflate) {
+                if (extensionsParser.clientNoContextTakeover || (options & CLIENT_NO_CONTEXT_TAKEOVER)) {
+                    options |= CLIENT_NO_CONTEXT_TAKEOVER;
+                }
+
+                /* We leave this option for us to read even if the client did not send it */
+                if (extensionsParser.serverNoContextTakeover) {
+                    options |= SERVER_NO_CONTEXT_TAKEOVER;
+                }/* else {
+                    options &= ~SERVER_NO_CONTEXT_TAKEOVER;
+                }*/
+            } else {
+                options &= ~PERMESSAGE_DEFLATE;
+            }
+        } else {
+            // todo!
+        }
+    }
+
+    int getNegotiatedOptions() {
+        return options;
     }
 };
 
