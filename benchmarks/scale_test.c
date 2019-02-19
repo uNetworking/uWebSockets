@@ -19,8 +19,8 @@ char *host;
 int port;
 int connections;
 
-/* Send ping every 20 seconds */
-int WEBSOCKET_PING_INTERVAL = 60;
+/* Send ping every 16 seconds */
+int WEBSOCKET_PING_INTERVAL = 16;
 
 /* We only establish 20k connections per address */
 int CONNECTIONS_PER_ADDRESS = 20000;
