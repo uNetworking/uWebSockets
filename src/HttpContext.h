@@ -188,7 +188,7 @@ private:
 
                     /* Getting a chunk of data while having a data handler should reset timeout (todo: if last, short timeout, if not last, bigger timeout) */
                     /* Really, we only need to reset timeout to the larger delay if we are not fin */
-                    us_new_socket_timeout(SSL, (us_new_socket_t *) s, HTTP_IDLE_TIMEOUT_S);
+                    us_new_socket_timeout(SSL, (struct us_new_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
 
                     /* We might respond in the handler, so do not change timeout after this */
                     httpResponseData->inStream(data, fin);
