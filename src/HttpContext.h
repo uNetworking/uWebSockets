@@ -175,7 +175,9 @@ private:
                 }
 
                 /* If we have not responded and we have a data handler, we need to timeout to enfore client sending the data */
-
+                if (!((HttpResponse<SSL> *) s)->hasResponded() && httpResponseData->inStream) {
+                    us_new_socket_timeout(SSL, (us_new_socket_t *) s, HTTP_IDLE_TIMEOUT_S);
+                }
 
                 /* Continue parsing */
                 return s;
@@ -183,6 +185,12 @@ private:
             }, [httpResponseData](void *user, std::string_view data, bool fin) -> void * {
                 /* We always get an empty chunk even if there is no data */
                 if (httpResponseData->inStream) {
+
+                    /* Getting a chunk of data while having a data handler should reset timeout (todo: if last, short timeout, if not last, bigger timeout) */
+                    /* Really, we only need to reset timeout to the larger delay if we are not fin */
+                    us_new_socket_timeout(SSL, (us_new_socket_t *) s, HTTP_IDLE_TIMEOUT_S);
+
+                    /* We might respond in the handler, so do not change timeout after this */
                     httpResponseData->inStream(data, fin);
 
                     /* Was the socket closed? */
