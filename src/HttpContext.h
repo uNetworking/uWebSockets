@@ -174,10 +174,14 @@ private:
                     std::terminate();
                 }
 
+                /* If we have not responded and we have a data handler, we need to timeout to enfore client sending the data */
+
+
                 /* Continue parsing */
                 return s;
 
             }, [httpResponseData](void *user, std::string_view data, bool fin) -> void * {
+                /* We always get an empty chunk even if there is no data */
                 if (httpResponseData->inStream) {
                     httpResponseData->inStream(data, fin);
 

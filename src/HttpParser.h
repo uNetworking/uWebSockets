@@ -174,6 +174,9 @@ private:
                     length -= emittable;
                     consumedTotal += emittable;
                 }
+            } else {
+                /* Still emit an empty data chunk to signal no data */
+                dataHandler(user, {}, true);
             }
 
             if (CONSUME_MINIMALLY) {
