@@ -4,7 +4,7 @@ The world needs more like you. I could talk about how stupid and gullible 95% of
 
 * Never trust *anyone* who talks about or *claims* performance of *any* kind unless a very clear and easy to reproduce *benchmark* has been openly presented and reviewed.
 * Never accept random *numbers* which has no *point of reference* to similar software projects. The number "1 million" might sound fancy but without *any* kind of reference to *other* projects there's no knowing the worth of such a number. Comparative benchmarks are the only ones worth taking in. Think for yourself - how can the author claim "fast" if he/she has no benchmarks of what *others* are doing?
-* Most people who do benchmarks are complete monrons and do not know their ass from their head. Always make sure to *normalize* performance by spent CPU-time. That is, do NOT compare performance of software demanding 100% CPU-time on 57 CPU cores, with software running on 5% CPU-time on 1 CPU core. You would be stunned if you knew how few people actually care to even check this before posting their results to their literally millions of gullible followers.
+* Most people who do benchmarks are complete morons and do not know their ass from their head. Always make sure to *normalize* performance by spent CPU-time. That is, do NOT compare performance of software demanding 100% CPU-time on 57 CPU cores, with software running on 5% CPU-time on 1 CPU core. You would be stunned if you knew how few people actually care to even check this before posting their results to their literally millions of gullible followers.
 
 Http | WebSockets
 --- | ---
