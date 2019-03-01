@@ -24,7 +24,7 @@
 #include <libusockets_new.h>
 
 #include <iostream>
-#include <atomic>
+#include <thread>
 
 namespace uWS {
 struct Loop {
@@ -86,9 +86,13 @@ private:
 public:
     /* Returns the default loop if called from one thread, or a dedicated per-thread loop if called from multiple threads */
     static Loop *defaultLoop() {
+        /* Lock this whole function */
+        static std::mutex m;
+        std::lock_guard<std::mutex> lock(m);
+
         /* Deliver and attach the default loop to the first thread who calls us */
         static thread_local bool ownsDefaultLoop;
-        static std::atomic<Loop *> defaultLoop;
+        static Loop *defaultLoop;
         if (!defaultLoop) {
             ownsDefaultLoop = true;
             defaultLoop = create(true);
