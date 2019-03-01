@@ -169,7 +169,10 @@ public:
                         extensionsNegotiator.readOffer(extensions);
 
                         /* Todo: remove these mid string copies */
-                        res->writeHeader("Sec-WebSocket-Extensions", extensionsNegotiator.generateOffer());
+                        std::string offer = extensionsNegotiator.generateOffer();
+                        if (offer.length()) {
+                            res->writeHeader("Sec-WebSocket-Extensions", offer);
+                        }
 
                         /* Did we negotiate permessage-deflate? */
                         if (extensionsNegotiator.getNegotiatedOptions() & PERMESSAGE_DEFLATE) {
