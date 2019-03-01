@@ -24,6 +24,7 @@
 #include <libusockets_new.h>
 
 #include <iostream>
+#include <atomic>
 
 namespace uWS {
 struct Loop {
@@ -87,7 +88,7 @@ public:
     static Loop *defaultLoop() {
         /* Deliver and attach the default loop to the first thread who calls us */
         static thread_local bool ownsDefaultLoop;
-        static Loop *defaultLoop;
+        static std::atomic<Loop *> defaultLoop;
         if (!defaultLoop) {
             ownsDefaultLoop = true;
             defaultLoop = create(true);
