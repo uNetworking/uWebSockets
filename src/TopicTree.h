@@ -82,7 +82,7 @@ public:
         return;
 
         /* Dynamically hook us up with the Loop post handler */
-        Loop::defaultLoop()->addPostHandler([this](Loop *loop) {
+        Loop::get()->addPostHandler([this](Loop *loop) {
 
             if (!pubNodes.size()) {
                 return;

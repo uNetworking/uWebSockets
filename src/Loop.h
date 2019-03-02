@@ -23,9 +23,6 @@
 #include "LoopData.h"
 #include <libusockets_new.h>
 
-#include <iostream>
-#include <thread>
-
 namespace uWS {
 struct Loop {
 private:
@@ -84,33 +81,17 @@ private:
     }
 
 public:
-    /* Returns the default loop if called from one thread, or a dedicated per-thread loop if called from multiple threads */
-    static Loop *defaultLoop() {
-        /* Lock this whole function */
-        static std::mutex m;
-        std::lock_guard<std::mutex> lock(m);
-
-        /* Deliver and attach the default loop to the first thread who calls us */
-        static thread_local bool ownsDefaultLoop;
-        static Loop *defaultLoop;
-        if (!defaultLoop) {
-            ownsDefaultLoop = true;
-            defaultLoop = create(true);
+    /* Lazily initializes a per-thread loop and returns it. Will automatically free all initialized loops at exit. */
+    static Loop *get() {
+        static thread_local Loop *lazyLoop;
+        if (!lazyLoop) {
+            lazyLoop = create(false);
             std::atexit([]() {
-                Loop::defaultLoop()->free();
+                Loop::get()->free();
             });
-            return defaultLoop;
-        } else if (ownsDefaultLoop) {
-            return defaultLoop;
         }
 
-        /* Other threads get their non-default loops lazily created */
-        static thread_local Loop *threadLocalLoop;
-        if (!threadLocalLoop) {
-            threadLocalLoop = create(false);
-            return threadLocalLoop;
-        }
-        return threadLocalLoop;
+        return lazyLoop;
     }
 
     /* Freeing the default loop should be done once */
@@ -166,7 +147,7 @@ public:
 
 /* Can be called from any thread to run the thread local loop */
 inline void run() {
-    Loop::defaultLoop()->run();
+    Loop::get()->run();
 }
 
 }

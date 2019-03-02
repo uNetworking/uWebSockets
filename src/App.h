@@ -79,7 +79,7 @@ public:
     }
 
     TemplatedApp(us_new_socket_context_options_t options = {}) {
-        httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::defaultLoop(), options);
+        httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::get(), options);
     }
 
     bool constructorFailed() {
@@ -105,7 +105,7 @@ public:
         "µWebSockets cannot satisfy UserData alignment requirements. You need to recompile µSockets with LIBUS_EXT_ALIGNMENT adjusted accordingly.");
 
         /* Every route has its own websocket context with its own behavior and user data type */
-        auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::defaultLoop(), (us_new_socket_context_t *) httpContext);
+        auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::get(), (us_new_socket_context_t *) httpContext);
 
         /* We need to clear this later on */
         webSocketContexts.push_back(webSocketContext);
