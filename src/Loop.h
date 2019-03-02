@@ -76,19 +76,28 @@ private:
         return this;
     }
 
+    /* Todo: should take void ptr */
     static Loop *create(bool defaultLoop) {
         return ((Loop *) us_create_loop(defaultLoop, wakeupCb, preCb, postCb, sizeof(LoopData)))->init();
     }
 
 public:
-    /* Lazily initializes a per-thread loop and returns it. Will automatically free all initialized loops at exit. */
-    static Loop *get() {
+    /* Lazily initializes a per-thread loop and returns it.
+     * Will automatically free all initialized loops at exit. */
+    static Loop *get(void *existingNativeLoop = nullptr) {
         static thread_local Loop *lazyLoop;
         if (!lazyLoop) {
-            lazyLoop = create(false);
-            std::atexit([]() {
-                Loop::get()->free();
-            });
+            /* If we are given a native loop pointer we pass that to uSockets and let it deal with it */
+            if (existingNativeLoop) {
+                /* Todo: here we want to pass the pointer, not a boolean */
+                lazyLoop = create(true);
+                /* We cannot register automatic free here, must be manually done */
+            } else {
+                lazyLoop = create(false);
+                std::atexit([]() {
+                    Loop::get()->free();
+                });
+            }
         }
 
         return lazyLoop;
@@ -98,6 +107,7 @@ public:
     void free() {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
         loopData->~LoopData();
+        /* uSockets will track whether this loop is owned by us or a borrowed alien loop */
         us_loop_free((us_loop *) this);
     }
 
