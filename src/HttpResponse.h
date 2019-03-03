@@ -167,6 +167,8 @@ public:
     /* Immediately terminate this Http response */
     using Super::close;
 
+    using Super::getRemoteAddress;
+
     /* Note: Headers are not checked in regards to timeout.
      * We only check when you actively push data or end the request */
 

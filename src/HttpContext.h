@@ -59,7 +59,7 @@ private:
     /* Init the HttpContext by registering libusockets event handlers */
     HttpContext<SSL> *init() {
         /* Handle socket connections */
-        us_new_socket_context_on_open(SSL, getSocketContext(), [](auto *s, int is_client) {
+        us_new_socket_context_on_open(SSL, getSocketContext(), [](auto *s, int is_client, char *ip, int ip_length) {
             /* Any connected socket should timeout until it has a request */
             us_new_socket_timeout(SSL, s, HTTP_IDLE_TIMEOUT_S);
 

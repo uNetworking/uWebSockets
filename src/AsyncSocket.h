@@ -87,6 +87,14 @@ protected:
         return getAsyncSocketData()->buffer.size();
     }
 
+    /* Returns the remote IP address or empty string on failure */
+    std::string_view getRemoteAddress() {
+        static thread_local char buf[16];
+        int ipLength = 16;
+        us_new_socket_remote_address(SSL, (us_new_socket_t *) this, buf, &ipLength);
+        return std::string_view(buf, ipLength);
+    }
+
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
      * Returns pair of bytes written (anywhere) and wheter or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */
