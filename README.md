@@ -3,7 +3,7 @@
 
 *µWebSockets™ (it's "[micro](https://en.wikipedia.org/wiki/Micro-)") is simple, secure & standards compliant web I/O for the most demanding*<sup>[[1]](benchmarks)</sup> *of applications.*
 
-• [Read more](misc/READMORE.md)
+• [Read more](misc/READMORE.md) • [See uWebSockets.js](https://github.com/uNetworking/uWebSockets.js)
 
 </div>
 
