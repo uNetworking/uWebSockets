@@ -62,6 +62,16 @@ public:
         return std::string_view(nullptr, 0);
     }
 
+    std::map<std::string_view, std::string_view> getHeaders() {
+        std::map<std::string_view, std::string_view> _headers;
+
+        for (Header *h = headers; (++h)->key.length(); ) {
+            _headers.insert(std::pair(h->key, h->value));
+        }
+
+        return _headers;
+    }
+
     std::string_view getUrl() {
         return std::string_view(headers->value.data(), querySeparator);
     }
