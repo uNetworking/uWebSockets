@@ -92,7 +92,7 @@ class HttpParser {
 
 private:
     std::string fallback;
-    int remainingStreamingBytes = 0;
+    unsigned int remainingStreamingBytes = 0;
 
     const size_t MAX_FALLBACK_SIZE = 1024 * 4;
 
@@ -166,7 +166,7 @@ private:
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
 
                 if (!CONSUME_MINIMALLY) {
-                    int emittable = std::min(remainingStreamingBytes, length);
+                    unsigned int emittable = std::min<unsigned int>(remainingStreamingBytes, length);
                     dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
                     remainingStreamingBytes -= emittable;
 

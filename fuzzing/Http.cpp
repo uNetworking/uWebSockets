@@ -12,13 +12,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
     /* Pad the fuzz */
     uWS::HttpParser httpParser;
-    memcpy(padded + 32, data, size);
+    memcpy(padded, data, size);
 
     /* User data */
     void *user = (void *) 13;
 
     /* Parse it */
-    httpParser.consumePostPadded(padded + 32, size, user, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
+    httpParser.consumePostPadded(padded, size, user, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
         /* todo: Route this via router */
 
