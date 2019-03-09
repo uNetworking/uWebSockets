@@ -68,7 +68,8 @@ public:
     void close(int code = 1000, const char *message = nullptr, size_t length = 0);
     void transfer(Group<isServer> *group);
 
-    // Thread safe
+    // Thread safe-- but this should be in one thread or locked it by one
+    //if u want send data by multithreading  maybe u should locked it
     void terminate();
     void ping(const char *message) {send(message, OpCode::PING);}
     void send(const char *message, OpCode opCode = OpCode::TEXT) {send(message, strlen(message), opCode);}
