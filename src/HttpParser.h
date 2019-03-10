@@ -48,6 +48,36 @@ public:
         return didYield;
     }
 
+    /* Iteration over headers (key, value) */
+    struct HeaderIterator {
+        Header *ptr;
+
+        bool operator!=(const HeaderIterator &other) const {
+            /* Comparison with end is a special case */
+            if (ptr != other.ptr) {
+                return other.ptr || ptr->key.length();
+            }
+            return false;
+        }
+
+        HeaderIterator &operator++() {
+            ptr++;
+            return *this;
+        }
+
+        std::pair<std::string_view, std::string_view> operator*() const {
+            return {ptr->key, ptr->value};
+        }
+    };
+
+    HeaderIterator begin() {
+        return {headers};
+    }
+
+    HeaderIterator end() {
+        return {nullptr};
+    }
+
     /* If you do not want to handle this route */
     void setYield(bool yield) {
         didYield = yield;
