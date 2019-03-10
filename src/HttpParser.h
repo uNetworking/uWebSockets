@@ -71,7 +71,7 @@ public:
     };
 
     HeaderIterator begin() {
-        return {headers};
+        return {headers + 1};
     }
 
     HeaderIterator end() {

@@ -22,6 +22,14 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         /* todo: Route this via router */
 
+        httpRequest->getHeader("get");
+        httpRequest->getUrl();
+        httpRequest->getMethod();
+        httpRequest->getQuery();
+
+        for (auto p : *httpRequest) {
+
+        }
 
         /* Return ok */
         return s;
