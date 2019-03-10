@@ -139,7 +139,7 @@ public:
         return std::move(get(pattern, [webSocketContext, this, behavior = std::move(behavior)](auto *res, auto *req) mutable {
             /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
-            if (secWebSocketKey.length()) {
+            if (secWebSocketKey.length() == 24) {
                 /* Note: OpenSSL can be used here to speed this up somewhat */
                 char secWebSocketAccept[29] = {};
                 WebSocketHandshake::generate(secWebSocketKey.data(), secWebSocketAccept);
