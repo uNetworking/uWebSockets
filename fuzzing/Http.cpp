@@ -5,8 +5,47 @@
 /* We test the websocket parser */
 #include "../src/HttpParser.h"
 
+/* And the router */
+#include "../src/HttpRouter.h"
+
 /* We use this to pad the fuzz */
 char *padded = new char[1024  * 500];
+
+struct StaticData {
+
+    struct RouterData {
+
+    };
+
+    uWS::HttpRouter<RouterData> router;
+
+    StaticData() {
+
+        router.add("get", "/:hello/:hi", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+
+            /* This route did handle it */
+            return true;
+        });
+
+        router.add("post", "/:hello/:hi/*", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+
+            /* This route did handle it */
+            return true;
+        });
+
+        router.add("get", "/*", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+
+            /* This route did not handle it */
+            return false;
+        });
+
+        router.add("get", "/hi", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+
+            /* This route did handle it */
+            return true;
+        });
+    }
+} staticData;
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
@@ -22,10 +61,16 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         /* todo: Route this via router */
 
-        httpRequest->getHeader("get");
-        httpRequest->getUrl();
+        httpRequest->getHeader(httpRequest->getUrl());
         httpRequest->getMethod();
         httpRequest->getQuery();
+
+        /* Route the method and URL in two passes */
+        StaticData::RouterData routerData = {};
+        if (!staticData.router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData)) {
+            /* It was not handled */
+            return nullptr;
+        }
 
         for (auto p : *httpRequest) {
 

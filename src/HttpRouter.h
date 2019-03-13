@@ -79,7 +79,7 @@ private:
     /* Set URL for router. Will reset any URL cache */
     inline void setUrl(std::string_view url) {
         /* Remove / from input URL */
-        currentUrl = url.substr(1);
+        currentUrl = url.substr(std::min<unsigned int>(url.length(), 1));
         urlSegmentTop = -1;
     }
 
@@ -133,7 +133,10 @@ private:
                 /* Wildcard match (can be seen as a shortcut) */
                 int handlerIndex = p->handler;
                 if (handlerIndex) {
-                    return handlers[handlerIndex](userData, {routeParameters.paramsTop, routeParameters.params});
+                    int handler = handlers[handlerIndex](userData, {routeParameters.paramsTop, routeParameters.params});
+                    if (handler) {
+                        return handler;
+                    }
                 } else {
                     /* Unhandled */
                     return false;
@@ -264,21 +267,16 @@ public:
         routeParameters.reset();
 
         /* Begin by finding the method node */
-        Node *parent = &tree;
-        for (auto &p : parent->children) {
+        for (auto &p : tree.children) {
             if (p->name == method) {
-                parent = p;
+                /* Then route the url */
+                return executeHandlers(p, 0, userData);
             }
         }
 
-        /* We have that method on record, let's iterate it */
-        if (parent != &tree) {
-            return executeHandlers(parent, 0, userData);
-        } else {
-            /* We did not find any handler for this method.
-             * You may want to re-route with "*" as method. */
-            return false;
-        }
+        /* We did not find any handler for this method.
+         * You may want to re-route with "*" as method. */
+        return false;
     }
 };
 
