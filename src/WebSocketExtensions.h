@@ -51,12 +51,12 @@ public:
     int clientMaxWindowBits = 0;
 
     int getToken(const char *&in, const char *stop) {
-        while (!isalnum(*in) && in != stop) {
+        while (in != stop && !isalnum(*in)) {
             in++;
         }
 
         int hashedToken = 0;
-        while (isalnum(*in) || *in == '-' || *in == '_') {
+        while (in != stop && (isalnum(*in) || *in == '-' || *in == '_')) {
             if (isdigit(*in)) {
                 hashedToken = hashedToken * 10 - (*in - '0');
             } else {
