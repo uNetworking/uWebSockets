@@ -30,7 +30,7 @@ struct AsyncSocket {
     template <bool> friend struct HttpContext;
     template <bool, bool> friend struct WebSocketContext;
     friend class TopicTree;
-protected:
+//protected:
 
     /* Get loop data for socket */
     LoopData *getLoopData() {
