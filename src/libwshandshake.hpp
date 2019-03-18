@@ -18,6 +18,7 @@
 #ifndef LIBWSHANDSHAKE_H
 #define LIBWSHANDSHAKE_H
 
+#include "SecWebSocketProtocol.h"
 #include <cstdint>
 #include <cstddef>
 

@@ -90,6 +90,7 @@ public:
         CompressOptions compression = DISABLED;
         int maxPayloadLength = 16 * 1024;
         int idleTimeout = 120;
+        SecWebSocketProtocol supportSubprotocol;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
@@ -148,6 +149,14 @@ public:
                     ->writeHeader("Upgrade", "websocket")
                     ->writeHeader("Connection", "Upgrade")
                     ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept);
+
+                std::string_view secWebSocketProtocol = req->getHeader("sec-websocket-protocol");
+                if (secWebSocketProtocol.length()) {
+                    auto ret = behavior.supportSubprotocol.selectBest(secWebSocketProtocol);
+                    if (ret.first) {
+                        res->writeHeader("Sec-WebSocket-Protocol", ret.second);
+                    }
+                }
 
                 /* Negotiate compression */
                 bool perMessageDeflate = false;

@@ -20,7 +20,10 @@
 
 /* Various common utilities */
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
+#include <string>
 
 namespace uWS {
 namespace utils {
@@ -58,6 +61,13 @@ inline int u32toa(uint32_t value, char *dst) {
     } while (p != temp);
 
     return ret;
+}
+
+inline void strtolower(std::string& src_and_dest) {
+    std::transform(src_and_dest.begin(), src_and_dest.end(),
+                   src_and_dest.begin(),
+                   [](unsigned char c) { return std::tolower(c); }
+                  );
 }
 
 }
