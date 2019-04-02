@@ -189,11 +189,8 @@ public:
                 /* This will add our mark */
                 res->upgrade();
 
-                /* Move any backpressure */
-                std::string backpressure(std::move(((AsyncSocketData<SSL> *) res->getHttpResponseData())->buffer));
-
-                /* Destroy HttpResponseData */
-                res->getHttpResponseData()->~HttpResponseData();
+                /* Temporary store HTTP response data that may be referenced by req object */
+                HttpResponseData<SSL> httpResponseData(std::move(*res->getHttpResponseData()));
 
                 /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
                 WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) us_new_socket_context_adopt_socket(SSL,
@@ -204,7 +201,7 @@ public:
 
                 /* Initialize websocket with any moved backpressure intact */
                 httpContext->upgradeToWebSocket(
-                            webSocket->init(perMessageDeflate, slidingDeflateWindow, std::move(backpressure))
+                            webSocket->init(perMessageDeflate, slidingDeflateWindow, std::move(httpResponseData.buffer))
                             );
 
                 /* Emit open event and start the timeout */
