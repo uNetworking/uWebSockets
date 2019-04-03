@@ -29,6 +29,9 @@
 
 namespace uWS {
 
+/* We require at least this much post padding */
+static const int MINIMUM_HTTP_POST_PADDING = 32;
+
 class HttpRequest {
 
     friend class HttpParser;
@@ -248,7 +251,8 @@ public:
 
             int maxCopyDistance = std::min(MAX_FALLBACK_SIZE - fallback.length(), (size_t) length);
 
-            fallback.reserve(fallback.length() + maxCopyDistance + 32); // todo: padding should be same as libus
+            /* We don't want fallback to be short string optimized, since we want to move it */
+            fallback.reserve(fallback.length() + maxCopyDistance + std::max<int>(MINIMUM_HTTP_POST_PADDING, sizeof(std::string)));
             fallback.append(data, maxCopyDistance);
 
             // break here on break
