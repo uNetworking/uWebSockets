@@ -2,11 +2,10 @@
 
 #define WIN32_EXPORT
 
+#include "helpers.h"
+
 /* We test the websocket parser */
 #include "../src/WebSocketProtocol.h"
-
-/* We use this to pad the fuzz */
-char *padded = new char[1024  * 500];
 
 struct Impl {
     static bool refusePayloadLength(uint64_t length, uWS::WebSocketState<true> *wState, void *s) {
@@ -47,12 +46,13 @@ struct Impl {
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
-    /* Pad the fuzz */
+    /* Create the parser state */
     uWS::WebSocketState<true> state;
-    memcpy(padded + 32, data, size);
 
-    /* Parse it */
-    uWS::WebSocketProtocol<true, Impl>::consume((char *)padded + 32, size, &state, nullptr);
+    makeChunked(makePadded(data, size), size, [&state](const uint8_t *data, size_t size) {
+        /* Parse it */
+        uWS::WebSocketProtocol<true, Impl>::consume((char *) data, size, &state, nullptr);
+    });
 
     return 0;
 }
