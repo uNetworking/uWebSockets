@@ -2,14 +2,13 @@
 
 #define WIN32_EXPORT
 
+#include "helpers.h"
+
 /* We test the websocket parser */
 #include "../src/HttpParser.h"
 
 /* And the router */
 #include "../src/HttpRouter.h"
-
-/* We use this to pad the fuzz */
-char *padded = new char[1024  * 500];
 
 struct StaticData {
 
@@ -48,46 +47,46 @@ struct StaticData {
 } staticData;
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-
-    /* Pad the fuzz */
+    /* Create parser */
     uWS::HttpParser httpParser;
-    memcpy(padded, data, size);
-
     /* User data */
     void *user = (void *) 13;
 
-    /* Parse it */
-    httpParser.consumePostPadded(padded, size, user, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
+    /* Iterate the padded fuzz as chunks */
+    makeChunked(makePadded(data, size), size, [&httpParser, user](const uint8_t *data, size_t size) {
+        /* Parse it */
+        httpParser.consumePostPadded((char *) data, size, user, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
-        /* todo: Route this via router */
+            /* todo: Route this via router */
 
-        httpRequest->getHeader(httpRequest->getUrl());
-        httpRequest->getMethod();
-        httpRequest->getQuery();
+            readBytes(httpRequest->getHeader(httpRequest->getUrl()));
+            readBytes(httpRequest->getMethod());
+            readBytes(httpRequest->getQuery());
 
-        /* Route the method and URL in two passes */
-        StaticData::RouterData routerData = {};
-        if (!staticData.router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData)) {
-            /* It was not handled */
+            /* Route the method and URL in two passes */
+            StaticData::RouterData routerData = {};
+            if (!staticData.router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData)) {
+                /* It was not handled */
+                return nullptr;
+            }
+
+            for (auto p : *httpRequest) {
+
+            }
+
+            /* Return ok */
+            return s;
+
+        }, [](void *user, std::string_view data, bool fin) -> void * {
+
+            /* Return ok */
+            return user;
+
+        }, [](void *user) {
+
+            /* Return break */
             return nullptr;
-        }
-
-        for (auto p : *httpRequest) {
-
-        }
-
-        /* Return ok */
-        return s;
-
-    }, [](void *user, std::string_view data, bool fin) -> void * {
-
-        /* Return ok */
-        return user;
-
-    }, [](void *user) {
-
-        /* Return break */
-        return nullptr;
+        });
     });
 
     return 0;

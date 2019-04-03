@@ -248,7 +248,7 @@ public:
 
             int maxCopyDistance = std::min(MAX_FALLBACK_SIZE - fallback.length(), (size_t) length);
 
-            fallback.reserve(maxCopyDistance + 32); // todo: padding should be same as libus
+            fallback.reserve(fallback.length() + maxCopyDistance + 32); // todo: padding should be same as libus
             fallback.append(data, maxCopyDistance);
 
             // break here on break
