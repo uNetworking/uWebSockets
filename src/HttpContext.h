@@ -120,6 +120,8 @@ private:
 
             // clients need to know the cursor after http parse, not servers!
             // how far did we read then? we need to know to continue with websocket parsing data? or?
+
+            /* The return value is entirely up to us to interpret. The HttpParser only care for whether the returned value is DIFFERENT or not from passed user */
             void *returnedSocket = httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, uWS::HttpRequest *httpRequest) -> void * {
                 /* For every request we reset the timeout and hang until user makes action */
                 /* Warning: if we are in shutdown state, resetting the timer is a security issue! */
@@ -151,10 +153,8 @@ private:
 
                 /* First of all we need to check if this socket was deleted due to upgrade */
                 if (httpContextData->upgradedWebSocket) {
-                    /* Reset upgradedWebSocket before we return */
-                    void *tmp = httpContextData->upgradedWebSocket;
-                    httpContextData->upgradedWebSocket = nullptr;
-                    return tmp;
+                    /* We differ between closed and upgraded below */
+                    return nullptr;
                 }
 
                 /* Was the socket closed? */
@@ -220,6 +220,21 @@ private:
                 }
 
                 return (us_new_socket_t *) returnedSocket;
+            }
+
+            /* If we upgraded, check here (differ between nullptr close and nullptr upgrade) */
+            if (httpContextData->upgradedWebSocket) {
+                /* This path is only for upgraded websockets */
+                AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) httpContextData->upgradedWebSocket;
+
+                /* Uncork here as well (note: what if we failed to uncork and we then pub/sub before we even upgraded?) */
+                auto [written, failed] = asyncSocket->uncork();
+
+                /* Reset upgradedWebSocket before we return */
+                httpContextData->upgradedWebSocket = nullptr;
+
+                /* Return the new upgraded websocket */
+                return (us_new_socket_t *) asyncSocket;
             }
 
             /* We cannot return nullptr to the underlying stack in any case */
