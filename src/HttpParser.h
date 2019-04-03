@@ -221,6 +221,11 @@ private:
 
 public:
 
+    /* We do this to prolong the validity of parsed headers by keeping only the fallback buffer alive */
+    std::string &&salvageFallbackBuffer() {
+        return std::move(fallback);
+    }
+
     void *consumePostPadded(char *data, int length, void *user, fu2::unique_function<void *(void *, HttpRequest *)> &&requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &&dataHandler, fu2::unique_function<void *(void *)> &&errorHandler) {
 
         HttpRequest req;

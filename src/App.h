@@ -192,6 +192,9 @@ public:
                 /* Move any backpressure */
                 std::string backpressure(std::move(((AsyncSocketData<SSL> *) res->getHttpResponseData())->buffer));
 
+                /* Keep any fallback buffer alive until we returned from open event, keeping req valid */
+                std::string fallback(std::move(res->getHttpResponseData()->salvageFallbackBuffer()));
+
                 /* Destroy HttpResponseData */
                 res->getHttpResponseData()->~HttpResponseData();
 
