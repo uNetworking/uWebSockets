@@ -284,9 +284,21 @@ public:
         return std::move(*this);
     }
 
+    /* Host, port, options, callback */
+    TemplatedApp &&listen(std::string host, int port, int options, fu2::unique_function<void(us_listen_socket *)> &&handler) {
+        handler(httpContext->listen(host.c_str(), port, options));
+        return std::move(*this);
+    }
+
     /* Port, callback */
     TemplatedApp &&listen(int port, fu2::unique_function<void(us_listen_socket *)> &&handler) {
         handler(httpContext->listen(nullptr, port, 0));
+        return std::move(*this);
+    }
+
+    /* Port, options, callback */
+    TemplatedApp &&listen(int port, int options, fu2::unique_function<void(us_listen_socket *)> &&handler) {
+        handler(httpContext->listen(nullptr, port, options));
         return std::move(*this);
     }
 
