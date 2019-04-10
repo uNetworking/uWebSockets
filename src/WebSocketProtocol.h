@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
+#include <libusockets_new.h>
 
 namespace uWS {
 
