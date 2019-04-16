@@ -268,6 +268,28 @@ public:
         return !(httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING);
     }
 
+    /* EXPERIMENTAL - corks the response if possible */
+    HttpResponse *cork(fu2::unique_function<void()> &&handler) {
+        bool corked = Super::isCorked();
+        if (!corked && Super::canCork()) {
+            Super::cork();
+            corked = true;
+        }
+
+        handler();
+
+        if (corked) {
+            /* Timeout on uncork failure (EXPERIMENTAL) */
+            auto [written, failed] = Super::uncork();
+            if (failed) {
+                // do we have the same timeout for websockets?
+                ((AsyncSocket<SSL> *) s)->timeout(HTTP_IDLE_TIMEOUT_S);
+            }
+        }
+
+        return this;
+    }
+
     /* Attach handler for writable HTTP response */
     HttpResponse *onWritable(fu2::unique_function<bool(int)> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();

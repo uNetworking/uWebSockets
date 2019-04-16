@@ -69,6 +69,11 @@ struct AsyncSocket {
         return getLoopData()->corkedSocket == this;
     }
 
+    /* Returns whether we could cork (it is free) */
+    bool canCork() {
+        return getLoopData()->corkedSocket == nullptr;
+    }
+
     /* Returns a suitable buffer for temporary assemblation of send data */
     std::pair<char *, bool> getSendBuffer(size_t size) {
         /* If we are corked and we have room, return the cork buffer itself */
