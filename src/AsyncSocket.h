@@ -30,7 +30,8 @@ struct AsyncSocket {
     template <bool> friend struct HttpContext;
     template <bool, bool> friend struct WebSocketContext;
     friend class TopicTree;
-protected:
+/* For now, we don't even compile on GCC without this. FIX! */
+/*protected*/public:
 
     /* Get loop data for socket */
     LoopData *getLoopData() {
