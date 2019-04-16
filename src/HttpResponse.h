@@ -283,7 +283,7 @@ public:
             auto [written, failed] = Super::uncork();
             if (failed) {
                 // do we have the same timeout for websockets?
-                ((AsyncSocket<SSL> *) s)->timeout(HTTP_IDLE_TIMEOUT_S);
+                Super::timeout(10); // this is completely wrong!
             }
         }
 

@@ -89,7 +89,7 @@ T cond_byte_swap(T value) {
             uint8_t b[sizeof(T)];
         } src = { value }, dst;
 
-        for (int i = 0; i < sizeof(value); i++) {
+        for (unsigned int i = 0; i < sizeof(value); i++) {
             dst.b[i] = src.b[sizeof(value) - 1 - i];
         }
 
