@@ -41,6 +41,12 @@ enum CompressOptions {
     DEDICATED_COMPRESSOR = 2
 };
 
+/* Listen options */
+enum ListenOptions {
+    /* SO_REUSEPORT disabled */
+    OPTION_DO_NOT_REUSE_PORT = 2
+};
+
 template <bool SSL>
 struct TemplatedApp {
 private:
