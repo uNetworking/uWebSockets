@@ -280,12 +280,18 @@ public:
 
     /* Host, port, callback */
     TemplatedApp &&listen(std::string host, int port, fu2::unique_function<void(us_listen_socket *)> &&handler) {
+        if (!host.length()) {
+            return listen(port, std::move(handler));
+        }
         handler(httpContext->listen(host.c_str(), port, 0));
         return std::move(*this);
     }
 
     /* Host, port, options, callback */
     TemplatedApp &&listen(std::string host, int port, int options, fu2::unique_function<void(us_listen_socket *)> &&handler) {
+        if (!host.length()) {
+            return listen(port, options, std::move(handler));
+        }
         handler(httpContext->listen(host.c_str(), port, options));
         return std::move(*this);
     }
