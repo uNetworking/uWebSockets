@@ -181,7 +181,7 @@ private:
 
             /* Parse query */
             const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());
-            req->querySeparator = (querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data();
+            req->querySeparator = (querySeparatorPtr ? querySeparatorPtr + 1 : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data();
 
             /* If returned socket is not what we put in we need
              * to break here as we either have upgraded to
