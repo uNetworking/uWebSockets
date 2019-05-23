@@ -104,7 +104,12 @@ public:
     }
 
     std::string_view getQuery() {
-        return std::string_view(headers->value.data() + querySeparator, headers->value.length() - querySeparator);
+        if (querySeparator < headers->value.length()) {
+            /* Strip the initial ? */
+            return std::string_view(headers->value.data() + querySeparator + 1, headers->value.length() - querySeparator - 1);
+        } else {
+            return std::string_view(nullptr, 0);
+        }
     }
 
     void setParameters(std::pair<int, std::string_view *> parameters) {
