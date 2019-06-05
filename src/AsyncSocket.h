@@ -97,7 +97,7 @@ struct AsyncSocket {
     std::string_view getRemoteAddress() {
         static thread_local char buf[16];
         int ipLength = 16;
-        us_new_socket_remote_address(SSL, (us_new_socket_t *) this, buf, &ipLength);
+        us_new_socket_remote_address(SSL, (us_new_socket_t *) this, this->buf, &ipLength);
         return std::string_view(buf, ipLength);
     }
 
