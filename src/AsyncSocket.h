@@ -25,14 +25,15 @@
 
 namespace uWS {
 
+    template <bool, bool> struct WebSocketContext;
+
 template <bool SSL>
 struct AsyncSocket {
     template <bool> friend struct HttpContext;
     template <bool, bool> friend struct WebSocketContext;
     friend struct TopicTree;
-/* For now, we don't even compile on GCC without this. FIX! */
-/*protected*/public:
 
+protected:
     /* Get loop data for socket */
     LoopData *getLoopData() {
         return (LoopData *) us_loop_ext(us_new_socket_context_loop(SSL, us_new_socket_context(SSL, (us_new_socket_t *) this)));

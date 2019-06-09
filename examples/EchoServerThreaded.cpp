@@ -19,6 +19,7 @@ int main() {
                 /* Settings */
                 .compression = uWS::SHARED_COMPRESSOR,
                 .maxPayloadLength = 16 * 1024,
+                .idleTimeout = 10,
                 /* Handlers */
                 .open = [](auto *ws, auto *req) {
 
