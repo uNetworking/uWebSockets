@@ -1,5 +1,4 @@
-.PHONY: examples
-examples:
+default:
 # HelloWorld (non-SSL, non-Zlib compile)
 	$(CC) -DLIBUS_NO_SSL -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
 	$(CXX) -DLIBUS_NO_SSL -DUWS_NO_ZLIB -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/HelloWorld.cpp
