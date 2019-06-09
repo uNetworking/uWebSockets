@@ -39,7 +39,7 @@ enum ExtensionTokens {
     TOK_CLIENT_MAX_WINDOW_BITS = 2348
 };
 
-class ExtensionsParser {
+struct ExtensionsParser {
 private:
     int *lastInteger = nullptr;
 
@@ -102,7 +102,7 @@ public:
 };
 
 template <bool isServer>
-class ExtensionsNegotiator {
+struct ExtensionsNegotiator {
 protected:
     int options;
 

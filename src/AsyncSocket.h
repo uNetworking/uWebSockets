@@ -29,7 +29,7 @@ template <bool SSL>
 struct AsyncSocket {
     template <bool> friend struct HttpContext;
     template <bool, bool> friend struct WebSocketContext;
-    friend class TopicTree;
+    friend struct TopicTree;
 /* For now, we don't even compile on GCC without this. FIX! */
 /*protected*/public:
 

@@ -35,14 +35,14 @@
 
 namespace uWS {
 
-template <class USERDATA>
-class HttpRouter {
+template <typename USERDATA>
+struct HttpRouter {
 private:
     static const unsigned int MAX_URL_SEGMENTS = 100;
 
     /* Basically a pre-allocated stack */
     struct RouteParameters {
-        friend class HttpRouter;
+        friend struct HttpRouter;
     private:
         std::string_view params[MAX_URL_SEGMENTS];
         int paramsTop;

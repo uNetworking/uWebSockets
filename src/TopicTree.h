@@ -34,7 +34,7 @@ namespace uWS {
     // publishing to a node, then another node, then another node should prioritize draining that way
     // sending and publishing will interleave undefined, they are separate streams
 
-class TopicTree {
+struct TopicTree {
 private:
     struct Node : std::map<std::string, Node *> {
         /* Add and/or lookup node from topic */

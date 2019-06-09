@@ -237,8 +237,8 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
 }
 
 // essentially this is only a parser
-template <const bool isServer, class Impl>
-class WIN32_EXPORT WebSocketProtocol {
+template <const bool isServer, typename Impl>
+struct WIN32_EXPORT WebSocketProtocol {
 public:
     static const unsigned int SHORT_MESSAGE_HEADER = isServer ? 6 : 2;
     static const unsigned int MEDIUM_MESSAGE_HEADER = isServer ? 8 : 4;

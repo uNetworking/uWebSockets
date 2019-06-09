@@ -25,7 +25,7 @@
 
 namespace uWS {
 template<bool> struct HttpResponse;
-class HttpRequest;
+struct HttpRequest;
 
 template <bool SSL>
 struct alignas(16) HttpContextData {

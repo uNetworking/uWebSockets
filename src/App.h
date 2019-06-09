@@ -97,7 +97,7 @@ public:
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, int, std::string_view)> close = nullptr;
     };
 
-    template <class UserData>
+    template <typename UserData>
     TemplatedApp &&ws(std::string pattern, WebSocketBehavior &&behavior) {
         /* Don't compile if alignment rules cannot be satisfied */
         static_assert(alignof(UserData) <= LIBUS_EXT_ALIGNMENT,

@@ -32,9 +32,9 @@ namespace uWS {
 /* We require at least this much post padding */
 static const int MINIMUM_HTTP_POST_PADDING = 32;
 
-class HttpRequest {
+struct HttpRequest {
 
-    friend class HttpParser;
+    friend struct HttpParser;
 
 private:
     const static int MAX_HEADERS = 50;
@@ -126,7 +126,7 @@ public:
 
 };
 
-class HttpParser {
+struct HttpParser {
 
 private:
     std::string fallback;
