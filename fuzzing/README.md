@@ -9,6 +9,7 @@ Currently the following parts are individually tested:
 * WebSocket handshake generator
 * WebSocket message parser
 * WebSocket extensions parser & negotiator
+* WebSocket permessage-deflate compression/inflation helper
 * Http parser
 * Http method/url router
 
