@@ -59,7 +59,7 @@ private:
     /* Init the HttpContext by registering libusockets event handlers */
     HttpContext<SSL> *init() {
         /* Handle socket connections */
-        us_new_socket_context_on_open(SSL, getSocketContext(), [](auto *s, int is_client, char *ip, int ip_length) {
+        us_new_socket_context_on_open(SSL, getSocketContext(), [](us_new_socket_t *s, int is_client, char *ip, int ip_length) {
             /* Any connected socket should timeout until it has a request */
             us_new_socket_timeout(SSL, s, HTTP_IDLE_TIMEOUT_S);
 
@@ -76,7 +76,7 @@ private:
         });
 
         /* Handle socket disconnections */
-        us_new_socket_context_on_close(SSL, getSocketContext(), [](auto *s) {
+        us_new_socket_context_on_close(SSL, getSocketContext(), [](us_new_socket_t *s) {
             /* Get socket ext */
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_new_socket_ext(SSL, s);
 
@@ -98,7 +98,7 @@ private:
         });
 
         /* Handle HTTP data streams */
-        us_new_socket_context_on_data(SSL, getSocketContext(), [](auto *s, char *data, int length) {
+        us_new_socket_context_on_data(SSL, getSocketContext(), [](us_new_socket_t *s, char *data, int length) {
 
             // total overhead is about 210k down to 180k
             // ~210k req/sec is the original perf with write in data
@@ -242,7 +242,7 @@ private:
         });
 
         /* Handle HTTP write out (note: SSL_read may trigger this spuriously, the app need to handle spurious calls) */
-        us_new_socket_context_on_writable(SSL, getSocketContext(), [](auto *s) {
+        us_new_socket_context_on_writable(SSL, getSocketContext(), [](us_new_socket_t *s) {
 
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getAsyncSocketData();
@@ -277,7 +277,7 @@ private:
         });
 
         /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
-        us_new_socket_context_on_end(SSL, getSocketContext(), [](auto *s) {
+        us_new_socket_context_on_end(SSL, getSocketContext(), [](us_new_socket_t *s) {
 
             /* We do not care for half closed sockets */
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
@@ -286,7 +286,7 @@ private:
         });
 
         /* Handle socket timeouts, simply close them so to not confuse client with FIN */
-        us_new_socket_context_on_timeout(SSL, getSocketContext(), [](auto *s) {
+        us_new_socket_context_on_timeout(SSL, getSocketContext(), [](us_new_socket_t *s) {
 
             /* Force close rather than gracefully shutdown and risk confusing the client with a complete download */
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;

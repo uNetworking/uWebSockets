@@ -11,7 +11,7 @@ struct us_loop {
 };
 
 struct us_loop *us_create_loop(int default_hint, void (*wakeup_cb)(struct us_loop *loop), void (*pre_cb)(struct us_loop *loop), void (*post_cb)(struct us_loop *loop), unsigned int ext_size) {
-    return (struct us_loop *) malloc(sizeof(us_loop) + ext_size);
+    return (struct us_loop *) malloc(sizeof(struct us_loop) + ext_size);
 }
 
 void us_loop_free(struct us_loop *loop) {
@@ -38,7 +38,7 @@ struct us_socket_context {
 };
 
 struct us_socket_context *us_create_socket_context(struct us_loop *loop, int ext_size) {
-    struct us_socket_context *socket_context = (struct us_socket_context *) malloc(sizeof(us_socket_context) + ext_size);
+    struct us_socket_context *socket_context = (struct us_socket_context *) malloc(sizeof(struct us_socket_context) + ext_size);
 
     socket_context->loop = loop;
 
@@ -169,7 +169,7 @@ void us_loop_read_mocked_data(struct us_loop *loop, char *data, unsigned int siz
     int socket_ext_size = loop->listen_socket->socket_ext_size;
 
     /* Create a socket with information from the listen socket */
-    struct us_socket *s = (struct us_socket *) malloc(sizeof(us_socket) + socket_ext_size);
+    struct us_socket *s = (struct us_socket *) malloc(sizeof(struct us_socket) + socket_ext_size);
     s->context = loop->listen_socket->context;
 
     /* Emit open event */

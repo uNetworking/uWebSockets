@@ -3,7 +3,7 @@
 #include "helpers.h"
 
 /* This function pushes data to the uSockets mock */
-extern void us_loop_read_mocked_data(struct us_loop *loop, char *data, unsigned int size);
+extern "C" void us_loop_read_mocked_data(struct us_loop *loop, char *data, unsigned int size);
 
 uWS::TemplatedApp<false> *app;
 
