@@ -14,3 +14,17 @@ Currently the following parts are individually tested:
 * Http method/url router
 
 No defects or issues are left unfixed.
+
+## Mocking
+If you think about it, uWebSockets is really just a piece of data transformation code. Being standard C++ with no dependencies other than uSockets, all it does is:
+
+* read & parse data
+* act on & handle data
+* format & write back data
+
+If we mock the uSockets interface and link to it instead of the real thing, we can actually fuzz-test the entire project in a more integration-testy way rather than the above mentioned unit-testy way.
+
+* A mock server is created
+* libFuzzer emits data which we hack up in pieces and emit to uWebSockets via uSockets.
+* Whatever happens next, happens.
+* Fix bugs.
