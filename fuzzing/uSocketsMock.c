@@ -101,6 +101,11 @@ struct us_socket {
     struct us_socket_context *context;
 };
 
+/* For ubsan? */
+struct us_new_socket_t {
+    struct us_socket_context *context;
+};
+
 struct us_socket *us_socket_context_connect(struct us_socket_context *context, const char *host, int port, int options, int socket_ext_size) {
     printf("us_socket_context_connect\n");
 }
