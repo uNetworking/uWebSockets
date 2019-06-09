@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef APP_H
-#define APP_H
+#ifndef UWS_APP_H
+#define UWS_APP_H
 
 /* An app is a convenience wrapper of some of the most used fuctionalities and allows a
  * builder-pattern kind of init. Apps operate on the implicit thread local Loop */
@@ -26,8 +26,7 @@
 #include "WebSocketContext.h"
 #include "WebSocket.h"
 #include "WebSocketExtensions.h"
-
-#include "libwshandshake.hpp"
+#include "WebSocketHandshake.h"
 
 namespace uWS {
 
@@ -320,4 +319,4 @@ typedef TemplatedApp<true> SSLApp;
 
 }
 
-#endif // APP_H
+#endif // UWS_APP_H

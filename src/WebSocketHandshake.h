@@ -15,11 +15,13 @@
  * limitations under the License.
 */
 
-#ifndef LIBWSHANDSHAKE_H
-#define LIBWSHANDSHAKE_H
+#ifndef UWS_WEBSOCKETHANDSHAKE_H
+#define UWS_WEBSOCKETHANDSHAKE_H
 
 #include <cstdint>
 #include <cstddef>
+
+namespace uWS {
 
 class WebSocketHandshake {
     template <int N, typename T>
@@ -127,4 +129,6 @@ public:
     }
 };
 
-#endif // LIBWSHANDSHAKE_H
+}
+
+#endif // UWS_WEBSOCKETHANDSHAKE_H

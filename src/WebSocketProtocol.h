@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef WEBSOCKETPROTOCOL_UWS_H
-#define WEBSOCKETPROTOCOL_UWS_H
+#ifndef UWS_WEBSOCKETPROTOCOL_H
+#define UWS_WEBSOCKETPROTOCOL_H
 
 #include <cstdint>
 #include <cstring>
@@ -430,4 +430,4 @@ public:
 
 }
 
-#endif // WEBSOCKETPROTOCOL_UWS_H
+#endif // UWS_WEBSOCKETPROTOCOL_H

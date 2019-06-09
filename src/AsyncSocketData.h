@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
-#ifndef ASYNCSOCKETDATA_H
-#define ASYNCSOCKETDATA_H
+#ifndef UWS_ASYNCSOCKETDATA_H
+#define UWS_ASYNCSOCKETDATA_H
+
+namespace uWS {
 
 /* Depending on how we want AsyncSocket to function, this will need to change */
 
@@ -36,4 +38,6 @@ struct AsyncSocketData {
     AsyncSocketData() = default;
 };
 
-#endif // ASYNCSOCKETDATA_H
+}
+
+#endif // UWS_ASYNCSOCKETDATA_H

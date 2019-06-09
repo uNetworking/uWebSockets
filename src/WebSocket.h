@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef WEBSOCKET_H
-#define WEBSOCKET_H
+#ifndef UWS_WEBSOCKET_H
+#define UWS_WEBSOCKET_H
 
 #include "WebSocketData.h"
 #include "WebSocketProtocol.h"
@@ -159,4 +159,4 @@ public:
 
 }
 
-#endif // WEBSOCKET_H
+#endif // UWS_WEBSOCKET_H

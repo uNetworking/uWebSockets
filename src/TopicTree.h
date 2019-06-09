@@ -19,8 +19,8 @@
 #include "Loop.h"
 #include "AsyncSocket.h"
 
-#ifndef TOPICTREE_H
-#define TOPICTREE_H
+#ifndef UWS_TOPICTREE_H
+#define UWS_TOPICTREE_H
 
 #include <map>
 #include <string>
@@ -195,4 +195,4 @@ public:
 };
 }
 
-#endif // TOPICTREE_H
+#endif // UWS_TOPICTREE_H

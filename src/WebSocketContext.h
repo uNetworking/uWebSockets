@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef WEBSOCKETCONTEXT_H
-#define WEBSOCKETCONTEXT_H
+#ifndef UWS_WEBSOCKETCONTEXT_H
+#define UWS_WEBSOCKETCONTEXT_H
 
 #include "WebSocketContextData.h"
 #include "WebSocketProtocol.h"
@@ -371,4 +371,4 @@ public:
 
 }
 
-#endif // WEBSOCKETCONTEXT_H
+#endif // UWS_WEBSOCKETCONTEXT_H

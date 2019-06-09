@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef UTILITIES_H
-#define UTILITIES_H
+#ifndef UWS_UTILITIES_H
+#define UWS_UTILITIES_H
 
 /* Various common utilities */
 
@@ -63,4 +63,4 @@ inline int u32toa(uint32_t value, char *dst) {
 }
 }
 
-#endif // UTILITIES_H
+#endif // UWS_UTILITIES_H

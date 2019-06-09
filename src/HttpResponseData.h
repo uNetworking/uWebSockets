@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef HTTPRESPONSEDATA_H
-#define HTTPRESPONSEDATA_H
+#ifndef UWS_HTTPRESPONSEDATA_H
+#define UWS_HTTPRESPONSEDATA_H
 
 /* This data belongs to the HttpResponse */
 
@@ -54,4 +54,4 @@ private:
 
 }
 
-#endif // HTTPRESPONSEDATA_H
+#endif // UWS_HTTPRESPONSEDATA_H

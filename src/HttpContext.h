@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef HTTPCONTEXT_H
-#define HTTPCONTEXT_H
+#ifndef UWS_HTTPCONTEXT_H
+#define UWS_HTTPCONTEXT_H
 
 /* This class defines the main behavior of HTTP and emits various events */
 
@@ -359,4 +359,4 @@ public:
 
 }
 
-#endif // HTTPCONTEXT_H
+#endif // UWS_HTTPCONTEXT_H

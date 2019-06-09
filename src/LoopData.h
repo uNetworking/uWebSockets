@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef LOOPDATA_H
-#define LOOPDATA_H
+#ifndef UWS_LOOPDATA_H
+#define UWS_LOOPDATA_H
 
 #include <thread>
 #include <functional>
@@ -70,4 +70,4 @@ public:
 
 }
 
-#endif // LOOPDATA_H
+#endif // UWS_LOOPDATA_H

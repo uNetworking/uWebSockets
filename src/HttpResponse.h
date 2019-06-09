@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef HTTPRESPONSE_H
-#define HTTPRESPONSE_H
+#ifndef UWS_HTTPRESPONSE_H
+#define UWS_HTTPRESPONSE_H
 
 /* An HttpResponse is the channel on which you send back a response */
 
@@ -315,4 +315,4 @@ public:
 
 }
 
-#endif // HTTPRESPONSE_H
+#endif // UWS_HTTPRESPONSE_H

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef HTTPCONTEXTDATA_H
-#define HTTPCONTEXTDATA_H
+#ifndef UWS_HTTPCONTEXTDATA_H
+#define UWS_HTTPCONTEXTDATA_H
 
 #include "HttpRouter.h"
 
@@ -45,4 +45,4 @@ private:
 
 }
 
-#endif // HTTPCONTEXTDATA_H
+#endif // UWS_HTTPCONTEXTDATA_H

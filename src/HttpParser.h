@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef HTTPPARSER_H
-#define HTTPPARSER_H
+#ifndef UWS_HTTPPARSER_H
+#define UWS_HTTPPARSER_H
 
 // todo: HttpParser is in need of a few clean-ups and refactorings
 
@@ -331,4 +331,4 @@ public:
 
 }
 
-#endif // HTTPPARSER_H
+#endif // UWS_HTTPPARSER_H

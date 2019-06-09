@@ -17,8 +17,14 @@
 
 /* This standalone module implements deflate / inflate streams */
 
-#ifndef PERMESSAGEDEFLATE_H
-#define PERMESSAGEDEFLATE_H
+#ifndef UWS_PERMESSAGEDEFLATE_H
+#define UWS_PERMESSAGEDEFLATE_H
+
+#include <zlib.h>
+#include <string>
+
+namespace uWS {
+
 /* Do not compile this module if we don't want it */
 #ifdef UWS_NO_ZLIB
 struct ZlibContext {};
@@ -33,9 +39,6 @@ struct DeflationStream {
     }
 };
 #else
-
-#include <zlib.h>
-#include <string>
 
 #define LARGE_BUFFER_SIZE 1024 * 16 // todo: fix this
 
@@ -161,4 +164,7 @@ struct InflationStream {
 };
 
 #endif
-#endif // PERMESSAGEDEFLATE_H
+
+}
+
+#endif // UWS_PERMESSAGEDEFLATE_H

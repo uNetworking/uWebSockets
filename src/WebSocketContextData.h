@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef WEBSOCKETCONTEXTDATA_H
-#define WEBSOCKETCONTEXTDATA_H
+#ifndef UWS_WEBSOCKETCONTEXTDATA_H
+#define UWS_WEBSOCKETCONTEXTDATA_H
 
 #include "f2/function2.hpp"
 #include <string_view>
@@ -47,4 +47,4 @@ struct WebSocketContextData {
 
 }
 
-#endif // WEBSOCKETCONTEXTDATA_H
+#endif // UWS_WEBSOCKETCONTEXTDATA_H

@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef HTTPROUTER_HPP
-#define HTTPROUTER_HPP
+#ifndef UWS_HTTPROUTER_HPP
+#define UWS_HTTPROUTER_HPP
 
 // todo: this module also needs a few clean-ups and simplifications
 
@@ -282,4 +282,4 @@ public:
 
 }
 
-#endif // HTTPROUTER_HPP
+#endif // UWS_HTTPROUTER_HPP

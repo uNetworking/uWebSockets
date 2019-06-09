@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef ASYNCSOCKET_H
-#define ASYNCSOCKET_H
+#ifndef UWS_ASYNCSOCKET_H
+#define UWS_ASYNCSOCKET_H
 
 /* This class implements async socket memory management strategies */
 
@@ -223,4 +223,4 @@ struct AsyncSocket {
 
 }
 
-#endif // ASYNCSOCKET_H
+#endif // UWS_ASYNCSOCKET_H

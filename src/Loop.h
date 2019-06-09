@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef LOOP_H
-#define LOOP_H
+#ifndef UWS_LOOP_H
+#define UWS_LOOP_H
 
 /* The loop is lazily created per-thread and run with uWS::run() */
 
@@ -162,4 +162,4 @@ inline void run() {
 
 }
 
-#endif // LOOP_H
+#endif // UWS_LOOP_H

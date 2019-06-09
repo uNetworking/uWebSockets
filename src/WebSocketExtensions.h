@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef WEBSOCKETEXTENSIONS_H
-#define WEBSOCKETEXTENSIONS_H
+#ifndef UWS_WEBSOCKETEXTENSIONS_H
+#define UWS_WEBSOCKETEXTENSIONS_H
 
 #include <string_view>
 
@@ -158,4 +158,4 @@ public:
 
 }
 
-#endif // WEBSOCKETEXTENSIONS_H
+#endif // UWS_WEBSOCKETEXTENSIONS_H
