@@ -1,10 +1,13 @@
-# libFuzzer/AddressSanitizer fuzz-testing of various parsers
+# Fuzz-testing of various parsers and mocked examples
 
-Here we do coverage-based fuzzing of code responsible for parsing arbitrary network data.
+A secure web server must be capable of receiving mass amount of malicious input without misbehaving or performing illegal actions, such as stepping outside of a memory block or otherwise spilling the beans.
 
-A secure web server must be capable of receiving mass amount of malicious input without misbehaving or performing illegal actions. Test code is being bombarded with evolving random data, with fitness determined by coverage - that is we aim to seek out as much of the "branching space" of the program as possible. This is done while AddressSanitizer monitors the program for memory correctness.
+### Continuous fuzzing under various sanitizers is done as part of the [Google OSS-Fuzz](https://github.com/google/oss-fuzz#oss-fuzz---continuous-fuzzing-for-open-source-software) project:
+* UndefinedBehaviorSanitizer
+* AddressSanitizer
+* MemorySanitizer
 
-Currently the following parts are individually tested:
+### Currently the following parts are individually fuzzed:
 
 * WebSocket handshake generator
 * WebSocket message parser
@@ -13,18 +16,8 @@ Currently the following parts are individually tested:
 * Http parser
 * Http method/url router
 
-No defects or issues are left unfixed.
+### While entire (mocked) examples are fuzzed:
 
-## Mocking
-If you think about it, uWebSockets is really just a piece of data transformation code. Being standard C++ with no dependencies other than uSockets, all it does is:
+* HelloWorld
 
-* read & parse data
-* act on & handle data
-* format & write back data
-
-If we mock the uSockets interface and link to it instead of the real thing, we can actually fuzz-test the entire project in a more integration-testy way rather than the above mentioned unit-testy way.
-
-* A mock server is created
-* libFuzzer emits data which we hack up in pieces and emit to uWebSockets via uSockets.
-* Whatever happens next, happens.
-* Fix bugs.
+No defects or issues are left unfixed, covered up or otherwise neglected.
