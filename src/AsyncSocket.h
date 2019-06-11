@@ -36,27 +36,27 @@ struct AsyncSocket {
 protected:
     /* Get loop data for socket */
     LoopData *getLoopData() {
-        return (LoopData *) us_loop_ext(us_new_socket_context_loop(SSL, us_new_socket_context(SSL, (us_new_socket_t *) this)));
+        return (LoopData *) us_loop_ext(us_socket_context_loop(SSL, us_socket_context(SSL, (us_socket_t *) this)));
     }
 
     /* Get socket extension */
     AsyncSocketData<SSL> *getAsyncSocketData() {
-        return (AsyncSocketData<SSL> *) us_new_socket_ext(SSL, (us_new_socket_t *) this);
+        return (AsyncSocketData<SSL> *) us_socket_ext(SSL, (us_socket_t *) this);
     }
 
     /* Socket timeout */
     void timeout(unsigned int seconds) {
-        us_new_socket_timeout(SSL, (us_new_socket_t *) this, seconds);
+        us_socket_timeout(SSL, (us_socket_t *) this, seconds);
     }
 
     /* Shutdown socket without any automatic drainage */
     void shutdown() {
-        us_new_socket_shutdown(SSL, (us_new_socket_t *) this);
+        us_socket_shutdown(SSL, (us_socket_t *) this);
     }
 
     /* Immediately close socket */
-    us_new_socket_t *close() {
-        return us_new_socket_close(SSL, (us_new_socket_t *) this);
+    us_socket_t *close() {
+        return us_socket_close(SSL, (us_socket_t *) this);
     }
 
     /* Cork this socket. Only one socket may ever be corked per-loop at any given time */
@@ -98,7 +98,7 @@ protected:
     std::string_view getRemoteAddress() {
         static thread_local char buf[16];
         int ipLength = 16;
-        us_new_socket_remote_address(SSL, (us_new_socket_t *) this, buf, &ipLength);
+        us_socket_remote_address(SSL, (us_socket_t *) this, buf, &ipLength);
         return std::string_view(buf, ipLength);
     }
 
@@ -107,7 +107,7 @@ protected:
      * writable (or we are in a state that implies polling for writable). */
     std::pair<int, bool> write(const char *src, int length, bool optionally = false, int nextLength = 0) {
         /* Fake success if closed, simple fix to allow uncork of closed socket to succeed */
-        if (us_new_socket_is_closed(SSL, (us_new_socket_t *) this)) {
+        if (us_socket_is_closed(SSL, (us_socket_t *) this)) {
             return {length, false};
         }
 
@@ -117,7 +117,7 @@ protected:
         /* We are limited if we have a per-socket buffer */
         if (asyncSocketData->buffer.length()) {
             /* Write off as much as we can */
-            int written = us_new_socket_write(SSL, (us_new_socket_t *) this, asyncSocketData->buffer.data(), asyncSocketData->buffer.length(), /*nextLength != 0 | */length);
+            int written = us_socket_write(SSL, (us_socket_t *) this, asyncSocketData->buffer.data(), asyncSocketData->buffer.length(), /*nextLength != 0 | */length);
 
             /* On failure return, otherwise continue down the function */
             if (written < asyncSocketData->buffer.length()) {
@@ -165,7 +165,7 @@ protected:
                 }
             } else {
                 /* We are not corked */
-                int written = us_new_socket_write(SSL, (us_new_socket_t *) this, src, length, nextLength != 0);
+                int written = us_socket_write(SSL, (us_socket_t *) this, src, length, nextLength != 0);
 
                 /* Did we fail? */
                 if (written < length) {

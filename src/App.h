@@ -77,7 +77,7 @@ public:
         webSocketContexts = std::move(other.webSocketContexts);
     }
 
-    TemplatedApp(us_new_socket_context_options_t options = {}) {
+    TemplatedApp(us_socket_context_options_t options = {}) {
         httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::get(), options);
     }
 
@@ -104,7 +104,7 @@ public:
         "µWebSockets cannot satisfy UserData alignment requirements. You need to recompile µSockets with LIBUS_EXT_ALIGNMENT adjusted accordingly.");
 
         /* Every route has its own websocket context with its own behavior and user data type */
-        auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::get(), (us_new_socket_context_t *) httpContext);
+        auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::get(), (us_socket_context_t *) httpContext);
 
         /* We need to clear this later on */
         webSocketContexts.push_back(webSocketContext);
@@ -116,7 +116,7 @@ public:
 
         /* If we are the first one to use compression, initialize it */
         if (behavior.compression) {
-            LoopData *loopData = (LoopData *) us_loop_ext(us_new_socket_context_loop(SSL, webSocketContext->getSocketContext()));
+            LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(SSL, webSocketContext->getSocketContext()));
 
             /* Initialize loop's deflate inflate streams */
             if (!loopData->zlibContext) {
@@ -198,8 +198,8 @@ public:
                 res->getHttpResponseData()->~HttpResponseData();
 
                 /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
-                WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) us_new_socket_context_adopt_socket(SSL,
-                            (us_new_socket_context_t *) webSocketContext, (us_new_socket_t *) res, sizeof(WebSocketData) + sizeof(UserData));
+                WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) us_socket_context_adopt_socket(SSL,
+                            (us_socket_context_t *) webSocketContext, (us_socket_t *) res, sizeof(WebSocketData) + sizeof(UserData));
 
                 /* Update corked socket in case we got a new one (assuming we always are corked in handlers). */
                 webSocket->cork();
@@ -211,7 +211,7 @@ public:
 
                 /* Emit open event and start the timeout */
                 if (behavior.open) {
-                    us_new_socket_timeout(SSL, (us_new_socket_t *) webSocket, behavior.idleTimeout);
+                    us_socket_timeout(SSL, (us_socket_t *) webSocket, behavior.idleTimeout);
                     behavior.open(webSocket, req);
                 }
 
@@ -278,7 +278,7 @@ public:
     }
 
     /* Host, port, callback */
-    TemplatedApp &&listen(std::string host, int port, fu2::unique_function<void(us_listen_socket *)> &&handler) {
+    TemplatedApp &&listen(std::string host, int port, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
         if (!host.length()) {
             return listen(port, std::move(handler));
         }
@@ -287,7 +287,7 @@ public:
     }
 
     /* Host, port, options, callback */
-    TemplatedApp &&listen(std::string host, int port, int options, fu2::unique_function<void(us_listen_socket *)> &&handler) {
+    TemplatedApp &&listen(std::string host, int port, int options, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
         if (!host.length()) {
             return listen(port, options, std::move(handler));
         }
@@ -296,13 +296,13 @@ public:
     }
 
     /* Port, callback */
-    TemplatedApp &&listen(int port, fu2::unique_function<void(us_listen_socket *)> &&handler) {
+    TemplatedApp &&listen(int port, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
         handler(httpContext->listen(nullptr, port, 0));
         return std::move(*this);
     }
 
     /* Port, options, callback */
-    TemplatedApp &&listen(int port, int options, fu2::unique_function<void(us_listen_socket *)> &&handler) {
+    TemplatedApp &&listen(int port, int options, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
         handler(httpContext->listen(nullptr, port, options));
         return std::move(*this);
     }

@@ -21,12 +21,12 @@
 /* The loop is lazily created per-thread and run with uWS::run() */
 
 #include "LoopData.h"
-#include <libusockets_new.h>
+#include <libusockets.h>
 
 namespace uWS {
 struct Loop {
 private:
-    static void wakeupCb(us_loop *loop) {
+    static void wakeupCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
         /* Swap current deferQueue */
@@ -42,7 +42,7 @@ private:
         loopData->deferQueues[oldDeferQueue].clear();
     }
 
-    static void preCb(us_loop *loop) {
+    static void preCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
         if (loopData->preHandler) {
@@ -55,7 +55,7 @@ private:
         }
     }
 
-    static void postCb(us_loop *loop) {
+    static void postCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
         /* We should move over to using only these */
@@ -72,13 +72,12 @@ private:
     ~Loop() = default;
 
     Loop *init() {
-        new (us_loop_ext((us_loop *) this)) LoopData;
+        new (us_loop_ext((us_loop_t *) this)) LoopData;
         return this;
     }
 
-    /* Todo: should take void ptr */
-    static Loop *create(bool defaultLoop) {
-        return ((Loop *) us_create_loop(defaultLoop, wakeupCb, preCb, postCb, sizeof(LoopData)))->init();
+    static Loop *create(void *hint) {
+        return ((Loop *) us_create_loop(hint, wakeupCb, preCb, postCb, sizeof(LoopData)))->init();
     }
 
 public:
@@ -90,10 +89,10 @@ public:
             /* If we are given a native loop pointer we pass that to uSockets and let it deal with it */
             if (existingNativeLoop) {
                 /* Todo: here we want to pass the pointer, not a boolean */
-                lazyLoop = create(true);
+                lazyLoop = create(existingNativeLoop);
                 /* We cannot register automatic free here, must be manually done */
             } else {
-                lazyLoop = create(false);
+                lazyLoop = create(nullptr);
                 std::atexit([]() {
                     Loop::get()->free();
                 });
@@ -105,53 +104,53 @@ public:
 
     /* Freeing the default loop should be done once */
     void free() {
-        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
         loopData->~LoopData();
         /* uSockets will track whether this loop is owned by us or a borrowed alien loop */
-        us_loop_free((us_loop *) this);
+        us_loop_free((us_loop_t *) this);
     }
 
     /* We want to have multiple of these */
     void addPostHandler(fu2::unique_function<void(Loop *)> &&handler) {
-        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
         loopData->postHandlers.emplace_back(std::move(handler));
     }
 
     /* Set postCb callback */
     void setPostHandler(fu2::unique_function<void(Loop *)> &&handler) {
-        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
         loopData->postHandler = std::move(handler);
     }
 
     void setPreHandler(fu2::unique_function<void(Loop *)> &&handler) {
-        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
         loopData->preHandler = std::move(handler);
     }
 
     /* Defer this callback on Loop's thread of execution */
     void defer(fu2::unique_function<void()> &&cb) {
-        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
         //if (std::thread::get_id() == ) // todo: add fast path for same thread id
         loopData->deferMutex.lock();
         loopData->deferQueues[loopData->currentDeferQueue].emplace_back(std::move(cb));
         loopData->deferMutex.unlock();
 
-        us_wakeup_loop((us_loop *) this);
+        us_wakeup_loop((us_loop_t *) this);
     }
 
     /* Actively block and run this loop */
     void run() {
-        us_loop_run((us_loop *) this);
+        us_loop_run((us_loop_t *) this);
     }
 
     /* Passively integrate with the underlying default loop */
     /* Used to seamlessly integrate with third parties such as Node.js */
     void integrate() {
-        us_loop_integrate((us_loop *) this);
+        us_loop_integrate((us_loop_t *) this);
     }
 };
 

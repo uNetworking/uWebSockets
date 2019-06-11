@@ -34,14 +34,14 @@ private:
     typedef AsyncSocket<SSL> Super;
 
     void *init(bool perMessageDeflate, bool slidingCompression, std::string &&backpressure) {
-        new (us_new_socket_ext(SSL, (us_new_socket_t *) this)) WebSocketData(perMessageDeflate, slidingCompression, std::move(backpressure));
+        new (us_socket_ext(SSL, (us_socket_t *) this)) WebSocketData(perMessageDeflate, slidingCompression, std::move(backpressure));
         return this;
     }
 public:
 
     /* Returns pointer to the per socket user data */
     void *getUserData() {
-        WebSocketData *webSocketData = (WebSocketData *) us_new_socket_ext(SSL, (us_new_socket_t *) this);
+        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
         /* We just have it overallocated by sizeof type */
         return (webSocketData + 1);
     }
@@ -94,7 +94,7 @@ public:
     /* Send websocket close frame, emit close event, send FIN if successful */
     void end(int code, std::string_view message = {}) {
         /* Check if we already called this one */
-        WebSocketData *webSocketData = (WebSocketData *) us_new_socket_ext(SSL, (us_new_socket_t *) this);
+        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
         if (webSocketData->isShuttingDown) {
             return;
         }
@@ -120,8 +120,8 @@ public:
         }
 
         /* Emit close event */
-        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_new_socket_context_ext(SSL,
-            (us_new_socket_context_t *) us_new_socket_context(SSL, (us_new_socket_t *) this)
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
+            (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
         if (webSocketContextData->closeHandler) {
             webSocketContextData->closeHandler(this, code, message);
@@ -133,8 +133,8 @@ public:
 
     /* Subscribe to a topic according to MQTT rules and syntax */
     void subscribe(std::string_view topic) {
-        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_new_socket_context_ext(SSL,
-            (us_new_socket_context_t *) us_new_socket_context(SSL, (us_new_socket_t *) this)
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
+            (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
 
         /* Fix this up */
@@ -145,8 +145,8 @@ public:
 
     /* Publish a message to a topic according to MQTT rules and syntax */
     void publish(std::string_view topic, std::string_view message) {
-        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_new_socket_context_ext(SSL,
-            (us_new_socket_context_t *) us_new_socket_context(SSL, (us_new_socket_t *) this)
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
+            (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
 
         /* We frame the message right here and only pass raw bytes to the pub/subber */
