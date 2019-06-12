@@ -1,6 +1,6 @@
 /* This is a simple yet efficient WebSocket server benchmark much like WRK */
 
-#include <libusockets_new.h>
+#include <libusockets.h>
 int SSL;
 
 #include <stdio.h>
@@ -32,36 +32,36 @@ struct http_socket {
 };
 
 /* We don't need any of these */
-void on_wakeup(struct us_loop *loop) {
+void on_wakeup(struct us_loop_t *loop) {
 
 }
 
-void on_pre(struct us_loop *loop) {
+void on_pre(struct us_loop_t *loop) {
 
 }
 
 /* This is not HTTP POST, it is merely an event emitted post loop iteration */
-void on_post(struct us_loop *loop) {
+void on_post(struct us_loop_t *loop) {
 
 }
 
-void next_connection(struct us_new_socket_t *s) {
+void next_connection(struct us_socket_t *s) {
     /* We could wait with this until properly upgraded */
     if (--connections) {
-        us_new_socket_context_connect(SSL, us_new_socket_context(SSL, s), host, port, 0, sizeof(struct http_socket));
+        us_socket_context_connect(SSL, us_socket_context(SSL, s), host, port, 0, sizeof(struct http_socket));
     } else {
         printf("Running benchmark now...\n");
 
-        us_new_socket_timeout(SSL, s, LIBUS_TIMEOUT_GRANULARITY);
+        us_socket_timeout(SSL, s, LIBUS_TIMEOUT_GRANULARITY);
     }
 }
 
-struct us_new_socket_t *on_http_socket_writable(struct us_new_socket_t *s) {
-    struct http_socket *http_socket = (struct http_socket *) us_new_socket_ext(SSL, s);
+struct us_socket_t *on_http_socket_writable(struct us_socket_t *s) {
+    struct http_socket *http_socket = (struct http_socket *) us_socket_ext(SSL, s);
 
     /* Are we still not upgraded yet? */
     if (http_socket->upgrade_offset < sizeof(request) - 1) {
-        http_socket->upgrade_offset += us_new_socket_write(SSL, s, request + http_socket->upgrade_offset, sizeof(request) - 1 - http_socket->upgrade_offset, 0);
+        http_socket->upgrade_offset += us_socket_write(SSL, s, request + http_socket->upgrade_offset, sizeof(request) - 1 - http_socket->upgrade_offset, 0);
 
         /* Now we should be */
         if (http_socket->upgrade_offset == sizeof(request) - 1) {
@@ -69,30 +69,30 @@ struct us_new_socket_t *on_http_socket_writable(struct us_new_socket_t *s) {
         }
     } else {
         /* Stream whatever is remaining of the request */
-        http_socket->offset += us_new_socket_write(SSL, s, (char *) web_socket_request + http_socket->offset, sizeof(web_socket_request) - http_socket->offset, 0);
+        http_socket->offset += us_socket_write(SSL, s, (char *) web_socket_request + http_socket->offset, sizeof(web_socket_request) - http_socket->offset, 0);
     }
 
     return s;
 }
 
-struct us_new_socket_t *on_http_socket_close(struct us_new_socket_t *s) {
+struct us_socket_t *on_http_socket_close(struct us_socket_t *s) {
 
     printf("Closed!\n");
 
     return s;
 }
 
-struct us_new_socket_t *on_http_socket_end(struct us_new_socket_t *s) {
-    return us_new_socket_close(SSL, s);
+struct us_socket_t *on_http_socket_end(struct us_socket_t *s) {
+    return us_socket_close(SSL, s);
 }
 
-struct us_new_socket_t *on_http_socket_data(struct us_new_socket_t *s, char *data, int length) {
+struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int length) {
     /* Get socket extension and the socket's context's extension */
-    struct http_socket *http_socket = (struct http_socket *) us_new_socket_ext(SSL, s);
-    //struct http_context *http_context = (struct http_context *) us_new_socket_context_ext(SSL, us_new_socket_context(SSL, s));
+    struct http_socket *http_socket = (struct http_socket *) us_socket_ext(SSL, s);
+    //struct http_context *http_context = (struct http_context *) us_socket_context_ext(SSL, us_socket_context(SSL, s));
 
     /* We treat all data events as a response */
-    http_socket->offset = us_new_socket_write(SSL, s, (char *) web_socket_request, sizeof(web_socket_request), 0);
+    http_socket->offset = us_socket_write(SSL, s, (char *) web_socket_request, sizeof(web_socket_request), 0);
 
     /* */
     responses++;
@@ -100,14 +100,14 @@ struct us_new_socket_t *on_http_socket_data(struct us_new_socket_t *s, char *dat
     return s;
 }
 
-struct us_new_socket_t *on_http_socket_open(struct us_new_socket_t *s, int is_client, char *ip, int ip_length) {
-    struct http_socket *http_socket = (struct http_socket *) us_new_socket_ext(SSL, s);
+struct us_socket_t *on_http_socket_open(struct us_socket_t *s, int is_client, char *ip, int ip_length) {
+    struct http_socket *http_socket = (struct http_socket *) us_socket_ext(SSL, s);
 
     /* Reset offsets */
     http_socket->offset = 0;
 
     /* Send an upgrade request */
-    http_socket->upgrade_offset = us_new_socket_write(SSL, s, request, sizeof(request) - 1, 0);
+    http_socket->upgrade_offset = us_socket_write(SSL, s, request, sizeof(request) - 1, 0);
     if (http_socket->upgrade_offset == sizeof(request) - 1) {
         next_connection(s);
     }
@@ -115,12 +115,12 @@ struct us_new_socket_t *on_http_socket_open(struct us_new_socket_t *s, int is_cl
     return s;
 }
 
-struct us_new_socket_t *on_http_socket_timeout(struct us_new_socket_t *s) {
+struct us_socket_t *on_http_socket_timeout(struct us_socket_t *s) {
     /* Print current statistics */
     printf("Msg/sec: %f\n", ((float)responses) / LIBUS_TIMEOUT_GRANULARITY);
 
     responses = 0;
-    us_new_socket_timeout(SSL, s, LIBUS_TIMEOUT_GRANULARITY);
+    us_socket_timeout(SSL, s, LIBUS_TIMEOUT_GRANULARITY);
 
     return s;
 }
@@ -140,22 +140,22 @@ int main(int argc, char **argv) {
     SSL = atoi(argv[4]);
 
     /* Create the event loop */
-    struct us_loop *loop = us_create_loop(1, on_wakeup, on_pre, on_post, 0);
+    struct us_loop_t *loop = us_create_loop(0, on_wakeup, on_pre, on_post, 0);
 
     /* Create a socket context for HTTP */
-    struct us_new_socket_context_options_t options = {};
-    struct us_new_socket_context_t *http_context = us_new_create_socket_context(SSL, loop, 0, options);
+    struct us_socket_context_options_t options = {};
+    struct us_socket_context_t *http_context = us_create_socket_context(SSL, loop, 0, options);
 
     /* Set up event handlers */
-    us_new_socket_context_on_open(SSL, http_context, on_http_socket_open);
-    us_new_socket_context_on_data(SSL, http_context, on_http_socket_data);
-    us_new_socket_context_on_writable(SSL, http_context, on_http_socket_writable);
-    us_new_socket_context_on_close(SSL, http_context, on_http_socket_close);
-    us_new_socket_context_on_timeout(SSL, http_context, on_http_socket_timeout);
-    us_new_socket_context_on_end(SSL, http_context, on_http_socket_end);
+    us_socket_context_on_open(SSL, http_context, on_http_socket_open);
+    us_socket_context_on_data(SSL, http_context, on_http_socket_data);
+    us_socket_context_on_writable(SSL, http_context, on_http_socket_writable);
+    us_socket_context_on_close(SSL, http_context, on_http_socket_close);
+    us_socket_context_on_timeout(SSL, http_context, on_http_socket_timeout);
+    us_socket_context_on_end(SSL, http_context, on_http_socket_end);
 
     /* Start making HTTP connections */
-    us_new_socket_context_connect(SSL, http_context, host, port, 0, sizeof(struct http_socket));
+    us_socket_context_connect(SSL, http_context, host, port, 0, sizeof(struct http_socket));
 
     us_loop_run(loop);
 }
