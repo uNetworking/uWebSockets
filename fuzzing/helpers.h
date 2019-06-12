@@ -9,11 +9,19 @@
 
 /* We use this to pad the fuzz */
 static inline const uint8_t *makePadded(const uint8_t *data, size_t size) {
-    static char *padded = new char[1024  * 500];
+    static int paddedLength = 512 * 1024;
+    static char *padded = new char[128 + paddedLength + 128];
 
-    memcpy(padded, data, size);
+    /* Increase landing area if required */
+    if (paddedLength < size) {
+        delete [] padded;
+        paddedLength = size;
+        padded = new char [128 + paddedLength + 128];
+    }
 
-    return (uint8_t *) padded;
+    memcpy(padded + 128, data, size);
+
+    return (uint8_t *) padded + 128;
 }
 
 /* Splits the fuzz data in one or many chunks */
