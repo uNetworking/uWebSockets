@@ -123,7 +123,7 @@ struct us_socket_context_t *us_create_child_socket_context(int ssl, struct us_so
 }
 
 int us_socket_write(int ssl, struct us_socket_t *s, const char *data, int length, int msg_more) {
-
+    return length;
 }
 
 void us_socket_timeout(int ssl, struct us_socket_t *s, unsigned int seconds) {
