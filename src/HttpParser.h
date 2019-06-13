@@ -135,7 +135,7 @@ private:
     const size_t MAX_FALLBACK_SIZE = 1024 * 4;
 
     static unsigned int toUnsignedInteger(std::string_view str) {
-        int unsignedIntegerValue = 0;
+        unsigned int unsignedIntegerValue = 0;
         for (unsigned char c : str) {
             unsignedIntegerValue = unsignedIntegerValue * 10 + (c - '0');
         }
