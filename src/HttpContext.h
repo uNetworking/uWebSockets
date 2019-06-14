@@ -168,7 +168,7 @@ private:
                 }
 
                 /* Returning from a request handler without responding or attaching an onAborted handler is ill-use */
-                if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted) {
+                if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted && !httpResponseData->inStream) {
                     /* Throw exception here? */
                     std::cerr << "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!" << std::endl;
                     std::terminate();
