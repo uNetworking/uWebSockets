@@ -28,7 +28,7 @@ static inline const uint8_t *makePadded(const uint8_t *data, size_t size) {
 static inline void makeChunked(const uint8_t *data, size_t size, std::function<void(const uint8_t *data, size_t size)> cb) {
     /* First byte determines chunk size; 0 is all that remains, 1-255 is small chunk */
     for (int i = 0; i < size; ) {
-        unsigned int chunkSize = data[++i];
+        unsigned int chunkSize = data[i++];
         if (!chunkSize) {
             chunkSize = size - i;
         } else {
