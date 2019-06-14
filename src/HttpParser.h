@@ -86,9 +86,9 @@ public:
         didYield = yield;
     }
 
-    std::string_view getHeader(std::string_view header) {
+    std::string_view getHeader(std::string_view lowerCasedHeader) {
         for (Header *h = headers; (++h)->key.length(); ) {
-            if (h->key.length() == header.length() && !strncmp(h->key.data(), header.data(), header.length())) {
+            if (h->key.length() == lowerCasedHeader.length() && !strncmp(h->key.data(), lowerCasedHeader.data(), lowerCasedHeader.length())) {
                 return h->value;
             }
         }
