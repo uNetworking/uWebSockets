@@ -57,6 +57,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         /* We need at least 1 byte post padding */
         if (size) {
             size--;
+        } else {
+            /* We might be given zero length chunks */
+            return;
         }
         
         /* Parse it */
