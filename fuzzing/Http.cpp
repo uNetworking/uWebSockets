@@ -54,6 +54,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
     /* Iterate the padded fuzz as chunks */
     makeChunked(makePadded(data, size), size, [&httpParser, user](const uint8_t *data, size_t size) {
+        /* We need at least 1 byte padding */
+        size = std::max<size_t>(0, size - 1);
+        
         /* Parse it */
         httpParser.consumePostPadded((char *) data, size, user, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
