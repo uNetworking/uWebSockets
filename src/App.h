@@ -135,7 +135,8 @@ public:
         webSocketContext->getExt()->maxPayloadLength = behavior.maxPayloadLength;
         webSocketContext->getExt()->idleTimeout = behavior.idleTimeout;
 
-        return std::move(get(pattern, [webSocketContext, this, behavior = std::move(behavior)](auto *res, auto *req) mutable {
+        return std::move(get(pattern, [webSocketContext, httpContext = this->httpContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
+
             /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
             if (secWebSocketKey.length() == 24) {
