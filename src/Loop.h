@@ -80,16 +80,17 @@ private:
         return ((Loop *) us_create_loop(hint, wakeupCb, preCb, postCb, sizeof(LoopData)))->init();
     }
 
-    struct LoopCleaner
-    {
-       ~LoopCleaner()
-       {
-          if(loop && cleanMe)
-             loop->free();
-       }
-       Loop *loop = nullptr;
-       bool cleanMe = false;
+    /* What to do with loops created with existingNativeLoop? */
+    struct LoopCleaner {
+        ~LoopCleaner() {
+            if(loop && cleanMe) {
+                loop->free();
+            }
+        }
+        Loop *loop = nullptr;
+        bool cleanMe = false;
     };
+    
 public:
     /* Lazily initializes a per-thread loop and returns it.
      * Will automatically free all initialized loops at exit. */
