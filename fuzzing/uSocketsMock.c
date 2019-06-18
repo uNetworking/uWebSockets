@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdalign.h>
+#include <string.h>
 
 struct us_loop_t {
 
@@ -220,8 +221,31 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
     /* Emit open event */
     s = s->context->on_open(s, 0, 0, 0);
     if (!us_socket_is_closed(0, s)) {
-        /* Emit a bunch of data events here */
-        s = s->context->on_data(s, data, size);
+
+        /* Loop over the data, emitting it in chunks of 0-255 bytes */
+        for (int i = 0; i < size; ) {
+            unsigned char chunkLength = data[i++];
+            if (i + chunkLength > size) {
+                chunkLength = size - i;
+            }
+
+            /* Copy the data chunk to a properly padded buffer */
+            static char *paddedBuffer;
+            if (!paddedBuffer) {
+                paddedBuffer = malloc(128 + 255 + 128);
+                memset(paddedBuffer, 0, 128 + 255 + 128);
+            }
+            memcpy(paddedBuffer + 128, data + i, chunkLength);
+
+            /* Emit a bunch of data events here */
+            s = s->context->on_data(s, paddedBuffer + 128, chunkLength);
+            if (us_socket_is_closed(0, s)) {
+                break;
+            }
+
+            i += chunkLength;
+        }
+
         if (!us_socket_is_closed(0, s)) {
             /* Emit close event */
             s = s->context->on_close(s);
