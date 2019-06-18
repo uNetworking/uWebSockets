@@ -80,26 +80,35 @@ private:
         return ((Loop *) us_create_loop(hint, wakeupCb, preCb, postCb, sizeof(LoopData)))->init();
     }
 
+    /* What to do with loops created with existingNativeLoop? */
+    struct LoopCleaner {
+        ~LoopCleaner() {
+            if(loop && cleanMe) {
+                loop->free();
+            }
+        }
+        Loop *loop = nullptr;
+        bool cleanMe = false;
+    };
+    
 public:
     /* Lazily initializes a per-thread loop and returns it.
      * Will automatically free all initialized loops at exit. */
     static Loop *get(void *existingNativeLoop = nullptr) {
-        static thread_local Loop *lazyLoop;
-        if (!lazyLoop) {
+        static thread_local LoopCleaner lazyLoop;
+        if (!lazyLoop.loop) {
             /* If we are given a native loop pointer we pass that to uSockets and let it deal with it */
             if (existingNativeLoop) {
                 /* Todo: here we want to pass the pointer, not a boolean */
-                lazyLoop = create(existingNativeLoop);
+                lazyLoop.loop = create(existingNativeLoop);
                 /* We cannot register automatic free here, must be manually done */
             } else {
-                lazyLoop = create(nullptr);
-                std::atexit([]() {
-                    Loop::get()->free();
-                });
+                lazyLoop.loop = create(nullptr);
+                lazyLoop.cleanMe = true;
             }
         }
 
-        return lazyLoop;
+        return lazyLoop.loop;
     }
 
     /* Freeing the default loop should be done once */
