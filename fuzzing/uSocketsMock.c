@@ -115,6 +115,7 @@ struct us_socket_t {
 
     int closed;
     int shutdown;
+    int wants_writable;
 
     //struct us_socket_t *next;
 };
@@ -133,9 +134,6 @@ struct us_socket_t *us_socket_context_adopt_socket(int ssl, struct us_socket_con
     struct us_socket_t *new_s = (struct us_socket_t *) realloc(s, sizeof(struct us_socket_t) + ext_size);
     new_s->context = context;
 
-    //printf("us_socket_context_adopt_socket: %p till %p\n", s, new_s);
-    //printf("new context is: %p\n", new_s->context);
-
     return new_s;
 }
 
@@ -144,12 +142,23 @@ struct us_socket_context_t *us_create_child_socket_context(int ssl, struct us_so
     struct us_socket_context_options_t options = {};
     struct us_socket_context_t *child_context = us_create_socket_context(ssl, context->loop, context_ext_size, options);
 
-    //printf("us_create_child_socket_context: %p\n", child_context);
-
     return child_context;
 }
 
 int us_socket_write(int ssl, struct us_socket_t *s, const char *data, int length, int msg_more) {
+
+    if (!length) {
+        return 0;
+    }
+
+    /* First byte determines if we send everything or not, to stress the buffering mechanism */
+    if (data[0] % 2 == 0) {
+        /* Send only half, but first set our outgoing flag */
+        s->wants_writable = 1;
+        return length / 2;
+    }
+
+    /* Send everything */
     return length;
 }
 
@@ -174,23 +183,22 @@ void us_socket_shutdown(int ssl, struct us_socket_t *s) {
 }
 
 int us_socket_is_shut_down(int ssl, struct us_socket_t *s) {
-
-    //printf("us_socket_is_shut_down: %d\n", s->shutdown);
-
     return s->shutdown;
 }
 
 int us_socket_is_closed(int ssl, struct us_socket_t *s) {
-
-    //printf("us_socket_is_closed: %d\n", s->closed);
-
     return s->closed;
 }
 
 struct us_socket_t *us_socket_close(int ssl, struct us_socket_t *s) {
-    s->closed = 1;
 
-    //printf("us_socket_close\n");
+    if (!us_socket_is_closed(0, s)) {
+        /* Emit close event */
+        s = s->context->on_close(s);
+    }
+
+    /* We are now closed */
+    s->closed = 1;
 
     /* Add us to the close list */
 
@@ -204,8 +212,6 @@ void us_socket_remote_address(int ssl, struct us_socket_t *s, char *buf, int *le
 /* We expose this function to let fuzz targets push data to uSockets */
 void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int size) {
 
-    //printf("us_loop_read_mocked_data\n");
-
     /* We are unwound so let's free all closed polls here */
 
 
@@ -217,10 +223,21 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
     s->context = loop->listen_socket->context;
     s->closed = 0;
     s->shutdown = 0;
+    s->wants_writable = 0;
 
     /* Emit open event */
     s = s->context->on_open(s, 0, 0, 0);
-    if (!us_socket_is_closed(0, s)) {
+    if (!us_socket_is_closed(0, s) && !us_socket_is_shut_down(0, s)) {
+
+        /* Trigger writable event if we want it */
+        if (s->wants_writable) {
+            s->wants_writable = 0;
+            s = s->context->on_writable(s);
+            /* Check if we closed inside of writable */
+            if (us_socket_is_closed(0, s) || us_socket_is_shut_down(0, s)) {
+                goto done;
+            }
+        }
 
         /* Loop over the data, emitting it in chunks of 0-255 bytes */
         for (int i = 0; i < size; ) {
@@ -239,17 +256,28 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
 
             /* Emit a bunch of data events here */
             s = s->context->on_data(s, paddedBuffer + 128, chunkLength);
-            if (us_socket_is_closed(0, s)) {
+            if (us_socket_is_closed(0, s) || us_socket_is_shut_down(0, s)) {
                 break;
+            }
+
+            /* Also trigger it here */
+            if (s->wants_writable) {
+                s->wants_writable = 0;
+                s = s->context->on_writable(s);
+                /* Check if we closed inside of writable */
+                if (us_socket_is_closed(0, s) || us_socket_is_shut_down(0, s)) {
+                    goto done;
+                }
             }
 
             i += chunkLength;
         }
+    }
 
-        if (!us_socket_is_closed(0, s)) {
-            /* Emit close event */
-            s = s->context->on_close(s);
-        }
+done:
+    if (!us_socket_is_closed(0, s)) {
+        /* Emit close event */
+        s = s->context->on_close(s);
     }
 
     /* Free the socket */
