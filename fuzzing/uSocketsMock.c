@@ -151,8 +151,8 @@ int us_socket_write(int ssl, struct us_socket_t *s, const char *data, int length
         return 0;
     }
 
-    /* First byte determines if we send everything or not, to stress the buffering mechanism */
-    if (data[0] % 2 == 0) {
+    /* Last byte determines if we send everything or not, to stress the buffering mechanism */
+    if (data[length - 1] % 2 == 0) {
         /* Send only half, but first set our outgoing flag */
         s->wants_writable = 1;
         return length / 2;
