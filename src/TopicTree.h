@@ -78,9 +78,6 @@ public:
     }
 
     TopicTree() {
-        /* Disable this for now */
-        return;
-
         /* Dynamically hook us up with the Loop post handler */
         Loop::get()->addPostHandler([this](Loop *loop) {
 
