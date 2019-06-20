@@ -19,5 +19,8 @@ A secure web server must be capable of receiving mass amount of malicious input 
 ### While entire (mocked) examples are fuzzed:
 
 * HelloWorld
+* EchoServer
 
-No defects or issues are left unfixed, covered up or otherwise neglected.
+No defects or issues are left unfixed, covered up or otherwise neglected. In fact we **cannot** cover up security issues as OSS-Fuzz automatically and publicly reports security issues as they happen.
+
+Currently we are at ~80% total fuzz coverage and OSS-Fuzz is reporting **zero** issues whatsoever. The goal is to approach 90% total coverage.
