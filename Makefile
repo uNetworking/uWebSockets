@@ -1,29 +1,20 @@
-default:
-# HelloWorld (non-SSL, non-Zlib compile)
-	$(CC) -DLIBUS_NO_SSL -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
-	$(CXX) -DLIBUS_NO_SSL -DUWS_NO_ZLIB -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/HelloWorld.cpp
-	$(CXX) -flto -O3 -s *.o -o HelloWorld
-	rm -f *.o
+EXAMPLE_FILES := HelloWorld EchoServer
+THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
+override CXXFLAGS += -std=c++17 -Isrc -IuSockets/src
+override LDFLAGS += uSockets/*.o -lz
 
-# HelloWorldThreaded (non-SSL, non-Zlib compile)
-	$(CC) -DLIBUS_NO_SSL -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
-	$(CXX) -DLIBUS_NO_SSL -DUWS_NO_ZLIB -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/HelloWorldThreaded.cpp
-	$(CXX) -pthread -flto -O3 -s *.o -o HelloWorldThreaded
-	rm -f *.o
+# If we are on macOS we need libuv
+ifeq ($(shell uname -s),Darwin)
+	override LDFLAGS += -luv
+endif
 
-# EchoServer (non-SSL, non-Zlib compile)
-	$(CC) -DLIBUS_NO_SSL -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
-	$(CXX) -DLIBUS_NO_SSL -DUWS_NO_ZLIB -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/EchoServer.cpp
-	$(CXX) -flto -O3 -s *.o -o EchoServer
-	rm -f *.o
-
-# EchoServerThreaded (non-SSL, non-Zlib compile)
-	$(CC) -DLIBUS_NO_SSL -flto -O3 -c -IuSockets/src uSockets/src/*.c uSockets/src/eventing/*.c
-	$(CXX) -DLIBUS_NO_SSL -DUWS_NO_ZLIB -flto -O3 -c -std=c++17 -Isrc -IuSockets/src examples/EchoServerThreaded.cpp
-	$(CXX) -pthread -flto -O3 -s *.o -o EchoServerThreaded
-	rm -f *.o
+.PHONY: examples
+examples:
+	cd uSockets && WITH_SSL=0 make
+	$(foreach FILE,$(EXAMPLE_FILES),$(CXX) -flto -O3 $(CXXFLAGS) examples/$(FILE).cpp -o $(FILE) $(LDFLAGS);)
+	$(foreach FILE,$(THREADED_EXAMPLE_FILES),$(CXX) -pthread -flto -O3 $(CXXFLAGS) examples/$(FILE).cpp -o $(FILE) $(LDFLAGS);)
 
 all:
-	make default && rm -f *.o
+	make examples
 	cd fuzzing && make && rm -f *.o
 	cd benchmarks && make && rm -f *.o
