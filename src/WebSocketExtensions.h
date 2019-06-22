@@ -58,7 +58,11 @@ public:
         int hashedToken = 0;
         while (in != stop && (isalnum(*in) || *in == '-' || *in == '_')) {
             if (isdigit(*in)) {
-                hashedToken = hashedToken * 10 - (*in - '0');
+                /* This check is a quick and incorrect fix for integer overflow
+                 * in oss-fuzz but we don't care as it doesn't matter either way */
+                if (hashedToken > SHRT_MIN && hashedToken < SHRT_MAX) {
+                    hashedToken = hashedToken * 10 - (*in - '0');
+                }
             } else {
                 hashedToken += *in;
             }
