@@ -55,6 +55,9 @@ public:
             in++;
         }
 
+        /* Don't care more than this for now */
+        static_assert(SHRT_MIN > INT_MIN, "Integer overflow fix is invalid for this platform, report this as a bug!");
+
         int hashedToken = 0;
         while (in != stop && (isalnum(*in) || *in == '-' || *in == '_')) {
             if (isdigit(*in)) {
