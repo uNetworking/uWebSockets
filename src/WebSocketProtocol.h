@@ -193,11 +193,13 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
     } else if (reportedLength <= UINT16_MAX) {
         headerLength = 4;
         dst[1] = 126;
-        *((uint16_t *) &dst[2]) = cond_byte_swap<uint16_t>(reportedLength);
+        uint16_t tmp = cond_byte_swap<uint16_t>(reportedLength);
+        memcpy(&dst[2], &tmp, sizeof(uint16_t));
     } else {
         headerLength = 10;
         dst[1] = 127;
-        *((uint64_t *) &dst[2]) = cond_byte_swap<uint64_t>(reportedLength);
+        uint64_t tmp = cond_byte_swap<uint64_t>(reportedLength);
+        memcpy(&dst[2], &tmp, sizeof(uint64_t));
     }
 
     int flags = 0;
