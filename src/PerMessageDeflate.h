@@ -139,13 +139,16 @@ struct InflationStream {
         do {
             inflationStream.next_out = (Bytef *) zlibContext->inflationBuffer;
             inflationStream.avail_out = LARGE_BUFFER_SIZE;
-            err = ::inflate(&inflationStream, Z_FINISH);
-            if (!inflationStream.avail_in) {
+
+            err = ::inflate(&inflationStream, Z_SYNC_FLUSH);
+            if (err == Z_OK && inflationStream.avail_out) {
                 break;
             }
 
             zlibContext->dynamicInflationBuffer.append(zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
-        } while (err == Z_BUF_ERROR && zlibContext->dynamicInflationBuffer.length() <= maxPayloadLength);
+
+
+        } while (inflationStream.avail_out == 0 && zlibContext->dynamicInflationBuffer.length() <= maxPayloadLength);
 
         inflateReset(&inflationStream);
 
