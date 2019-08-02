@@ -3,11 +3,6 @@ THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
 override CXXFLAGS += -std=c++17 -Isrc -IuSockets/src
 override LDFLAGS += uSockets/*.o -lz
 
-# If we are on macOS we need libuv
-ifeq ($(shell uname -s),Darwin)
-	override LDFLAGS += -luv
-endif
-
 .PHONY: examples
 examples:
 	cd uSockets && WITH_SSL=0 make
