@@ -17,8 +17,14 @@
 
 /* This standalone module implements deflate / inflate streams */
 
-#ifndef PERMESSAGEDEFLATE_H
-#define PERMESSAGEDEFLATE_H
+#ifndef UWS_PERMESSAGEDEFLATE_H
+#define UWS_PERMESSAGEDEFLATE_H
+
+#include <zlib.h>
+#include <string>
+
+namespace uWS {
+
 /* Do not compile this module if we don't want it */
 #ifdef UWS_NO_ZLIB
 struct ZlibContext {};
@@ -34,12 +40,7 @@ struct DeflationStream {
 };
 #else
 
-#include <zlib.h>
-
-#include <string>
-#include <iostream>
-
-#define LARGE_BUFFER_SIZE 1024 * 16 // fix this
+#define LARGE_BUFFER_SIZE 1024 * 16 // todo: fix this
 
 struct ZlibContext {
     /* Any returned data is valid until next same-class call.
@@ -111,7 +112,6 @@ struct DeflationStream {
     }
 
     ~DeflationStream() {
-        std::cout << "Destructing DeflationStream" << std::endl;
         deflateEnd(&deflationStream);
     }
 };
@@ -124,7 +124,6 @@ struct InflationStream {
     }
 
     ~InflationStream() {
-        std::cout << "Destructing inflationstream" << std::endl;
         inflateEnd(&inflationStream);
     }
 
@@ -140,13 +139,16 @@ struct InflationStream {
         do {
             inflationStream.next_out = (Bytef *) zlibContext->inflationBuffer;
             inflationStream.avail_out = LARGE_BUFFER_SIZE;
-            err = ::inflate(&inflationStream, Z_FINISH);
-            if (!inflationStream.avail_in) {
+
+            err = ::inflate(&inflationStream, Z_SYNC_FLUSH);
+            if (err == Z_OK && inflationStream.avail_out) {
                 break;
             }
 
             zlibContext->dynamicInflationBuffer.append(zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
-        } while (err == Z_BUF_ERROR && zlibContext->dynamicInflationBuffer.length() <= maxPayloadLength);
+
+
+        } while (inflationStream.avail_out == 0 && zlibContext->dynamicInflationBuffer.length() <= maxPayloadLength);
 
         inflateReset(&inflationStream);
 
@@ -165,4 +167,7 @@ struct InflationStream {
 };
 
 #endif
-#endif // PERMESSAGEDEFLATE_H
+
+}
+
+#endif // UWS_PERMESSAGEDEFLATE_H

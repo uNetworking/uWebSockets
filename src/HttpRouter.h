@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-#ifndef HTTPROUTER_HPP
-#define HTTPROUTER_HPP
+#ifndef UWS_HTTPROUTER_HPP
+#define UWS_HTTPROUTER_HPP
+
+// todo: this module also needs a few clean-ups and simplifications
 
 /* HTTP router is an independent module subject to unit testing and fuzz testing */
 /* This module is not fully optimized yet, waiting for more features before doing so */
 
 #include <map>
-#include <functional>
 #include <vector>
 #include <cstring>
 #include <iostream>
@@ -30,16 +31,18 @@
 #include <sstream>
 #include <string>
 
+#include "f2/function2.hpp"
+
 namespace uWS {
 
-template <class USERDATA>
-class HttpRouter {
+template <typename USERDATA>
+struct HttpRouter {
 private:
     static const unsigned int MAX_URL_SEGMENTS = 100;
 
     /* Basically a pre-allocated stack */
     struct RouteParameters {
-        friend class HttpRouter;
+        friend struct HttpRouter;
     private:
         std::string_view params[MAX_URL_SEGMENTS];
         int paramsTop;
@@ -59,7 +62,9 @@ private:
         }
     } routeParameters;
 
-    std::vector<std::function<void(USERDATA, std::pair<int, std::string_view *>)>> handlers;
+    std::vector<fu2::unique_function<bool(USERDATA &, std::pair<int, std::string_view *>)>> handlers;
+
+    HttpRouter(const HttpRouter &other) = delete;
 
     struct Node {
         std::string name;
@@ -74,7 +79,7 @@ private:
     /* Set URL for router. Will reset any URL cache */
     inline void setUrl(std::string_view url) {
         /* Remove / from input URL */
-        currentUrl = url.substr(1);
+        currentUrl = url.substr(std::min<unsigned int>(url.length(), 1));
         urlSegmentTop = -1;
     }
 
@@ -109,20 +114,37 @@ private:
         return urlSegmentVector[urlSegment];
     }
 
-    int matchUrlSegment(Node *parent, int urlSegment) {
+    /* Experimental path, executes as many handlers it can */
+    bool executeHandlers(Node *parent, int urlSegment, USERDATA &userData) {
         /* If we have no more URL and not on first round, return where we may stand */
         if (urlSegment && !getUrlSegment(urlSegment).length()) {
-            return parent->handler;
+            /* We have reached accross the entire URL with no stoppage, execute */
+            int handlerIndex = parent->handler;
+            if (handlerIndex) {
+                return handlers[handlerIndex](userData, {routeParameters.paramsTop, routeParameters.params});
+            } else {
+                /* Unhandled */
+                return false;
+            }
         }
 
         for (auto *p : parent->children) {
             if (p->name.length() && p->name[0] == '*') {
-                /* Wildcard match */
-                return p->handler;
+                /* Wildcard match (can be seen as a shortcut) */
+                int handlerIndex = p->handler;
+                if (handlerIndex) {
+                    int handler = handlers[handlerIndex](userData, {routeParameters.paramsTop, routeParameters.params});
+                    if (handler) {
+                        return handler;
+                    }
+                } else {
+                    /* Unhandled */
+                    return false;
+                }
             } else if (p->name.length() && p->name[0] == ':' && getUrlSegment(urlSegment).length()) {
                 /* Parameter match */
                 routeParameters.push(getUrlSegment(urlSegment));
-                int handler = matchUrlSegment(p, urlSegment + 1);
+                int handler = executeHandlers(p, urlSegment + 1, userData);
                 if (handler) {
                     return handler;
                 } else {
@@ -131,33 +153,13 @@ private:
                 }
             } else if (p->name == getUrlSegment(urlSegment)) {
                 /* Static match */
-                int handler = matchUrlSegment(p, urlSegment + 1);
+                int handler = executeHandlers(p, urlSegment + 1, userData);
                 if (handler) {
                     return handler;
                 }
             }
         }
-        return 0;
-    }
-
-    /* Route method and url to handlerIndex */
-    int lookupNew(std::string_view method, std::string_view url) {
-        setUrl(url);
-        routeParameters.reset();
-
-        /* Begin by finding the method node */
-        Node *parent = &tree;
-        for (auto &p : parent->children) {
-            if (p->name == method) {
-                parent = p;
-            }
-        }
-
-        if (parent != &tree) {
-            return matchUrlSegment(parent, 0);
-        } else {
-            return 0;
-        }
+        return false;
     }
 
     void printNode(Node *node, int indentation) {
@@ -181,10 +183,8 @@ private:
 
 public:
     HttpRouter() {
-        /* Make sure unhandled is at index 0 */
-        unhandled([](USERDATA, auto args) {
-
-        });
+        /* We want to use 0 as "no handler" */
+        handlers.resize(1);
     }
 
     ~HttpRouter() {
@@ -197,18 +197,8 @@ public:
         printNode(&tree, -1);
     }
 
-    /* Captures all unhandled routes */
-    HttpRouter *unhandled(std::function<void(USERDATA, std::pair<int, std::string_view *> params)> handler) {
-        if (handlers.size()) {
-            handlers[0] = handler;
-        } else {
-            handlers.push_back(handler);
-        }
-        return this;
-    }
-
     /* Register a route to be routed */
-    HttpRouter *add(std::string method, std::string_view pattern, std::function<void(USERDATA, std::pair<int, std::string_view *>)> handler) {
+    HttpRouter *add(std::string method, std::string_view pattern, fu2::unique_function<bool(USERDATA &, std::pair<int, std::string_view *>)> &&handler) {
         /* Step over any initial slash */
         if (pattern[0] == '/') {
             pattern = pattern.substr(1);
@@ -233,7 +223,7 @@ public:
 
         /* Add this handler to the list of handlers */
         short handlerIndex = handlers.size();
-        handlers.push_back(handler);
+        handlers.emplace_back(std::move(handler));
 
         /* Build the routing tree */
         Node *parent = &tree;
@@ -265,12 +255,31 @@ public:
         return this;
     }
 
-    /* Route the method and url pair. Calls registered callback or unhandled handler */
-    void route(std::string_view method, std::string_view url, USERDATA userData) {
-        handlers[lookupNew(method, url)](userData, {routeParameters.paramsTop, routeParameters.params});
+    /* Routes by method and url until handler found and said handler consumes the request by returning true.
+     * If a handler returns false, we keep searching for another match. If we cannot find a handler that
+     * a) matches the url and method and b) consume the request, then we fail and return false.
+     * In that case, a second pass where method changed to "*" to denote "any" could be used to
+     * give such routes a chance. If second pass fails, we have an unhandled request and you may
+     * do whatever you want with your connection, such as close it, or respond with a fix message */
+    bool route(std::string_view method, std::string_view url, USERDATA &userData) {
+        /* Reset url parsing cache */
+        setUrl(url);
+        routeParameters.reset();
+
+        /* Begin by finding the method node */
+        for (auto &p : tree.children) {
+            if (p->name == method) {
+                /* Then route the url */
+                return executeHandlers(p, 0, userData);
+            }
+        }
+
+        /* We did not find any handler for this method.
+         * You may want to re-route with "*" as method. */
+        return false;
     }
 };
 
 }
 
-#endif // HTTPROUTER_HPP
+#endif // UWS_HTTPROUTER_HPP

@@ -1,9 +1,9 @@
 <div align="center">
 <img src="misc/logo.svg" height="180" />
 
-*µWebSockets™ (it's "[micro](https://en.wikipedia.org/wiki/Micro-)") is simple, secure & standards compliant web I/O for the most demanding*<sup>[[1]](benchmarks)</sup> *of applications.*
+*µWebSockets™ (it's "[micro](https://en.wikipedia.org/wiki/Micro-)") is simple, secure*<sup>[[1]](fuzzing)</sup> *& standards compliant web I/O for the most demanding*<sup>[[2]](benchmarks)</sup> *of applications.*
 
-• [Read more](misc/READMORE.md)
+• [Read more](misc/READMORE.md) • [Read about uSockets](https://github.com/uNetworking/uSockets) • [See uWebSockets.js](https://github.com/uNetworking/uWebSockets.js)
 
 </div>
 
@@ -38,13 +38,14 @@ uWS::SSLApp({
     
 }).run();
 ```
+Don't miss the [user manual](https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md#user-manual), the [C++ examples](https://github.com/uNetworking/uWebSockets/tree/master/examples) or the [JavaScript examples](https://github.com/uNetworking/uWebSockets.js/tree/master/examples). JavaScript examples are very applicable to C++ developers, so go through them as well.
 
 #### Pay what you want.
-A free & open source ([permissive](LICENSE)) project since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018. You can always buy me a coffee via [PayPal](https://paypal.me/uwebsockets).
+A free & open source ([permissive](LICENSE)) project since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018 and/or 2019. Individual donations are always accepted via [PayPal](https://paypal.me/uwebsockets).
 
 <div align="center"><img src="misc/2018.png"/></div>
 
-*Become a paying sponsor to unlock support, issue reporting, roadmaps and to drop suggestions.*
+*Code is provided as-is, do not expect or demand **free** consulting services, personal tutoring, advice or debugging.*
 
 #### Deploy like a boss.
 Commercial support is available via a per-hourly consulting plan or as otherwise negotiated. If you're stuck, worried about design or just in need of help don't hesitate throwing [me, the author](https://github.com/alexhultman) a mail and we'll figure out what's best for both parties. I want your business to have a proper understanding of the problem before rushing in to one of the many pitfalls.

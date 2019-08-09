@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef WEBSOCKETDATA_H
-#define WEBSOCKETDATA_H
+#ifndef UWS_WEBSOCKETDATA_H
+#define UWS_WEBSOCKETDATA_H
 
 #include "WebSocketProtocol.h"
 #include "AsyncSocketData.h"
@@ -26,7 +26,6 @@
 
 namespace uWS {
 
-// take care with get_ext here !
 struct WebSocketData : AsyncSocketData<false>, WebSocketState<true> {
     template <bool, bool> friend struct WebSocketContext;
     template <bool, bool> friend struct WebSocket;
@@ -43,7 +42,7 @@ private:
     /* We might have a dedicated compressor */
     DeflationStream *deflationStream = nullptr;
 public:
-    WebSocketData(bool perMessageDeflate, bool slidingCompression) : WebSocketState<true>() {
+    WebSocketData(bool perMessageDeflate, bool slidingCompression, std::string &&backpressure) : AsyncSocketData<false>(std::move(backpressure)), WebSocketState<true>() {
         compressionStatus = perMessageDeflate ? ENABLED : DISABLED;
 
         /* Initialize the dedicated sliding window */
@@ -53,8 +52,6 @@ public:
     }
 
     ~WebSocketData() {
-        std::cout << "destruting webocketdata" << std::endl;
-
         if (deflationStream) {
             delete deflationStream;
         }
@@ -63,4 +60,4 @@ public:
 
 }
 
-#endif // WEBSOCKETDATA_H
+#endif // UWS_WEBSOCKETDATA_H

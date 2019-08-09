@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef HTTPRESPONSE_H
-#define HTTPRESPONSE_H
+#ifndef UWS_HTTPRESPONSE_H
+#define UWS_HTTPRESPONSE_H
 
 /* An HttpResponse is the channel on which you send back a response */
 
@@ -39,10 +39,12 @@ static const int HTTP_TIMEOUT_S = 10;
 
 template <bool SSL>
 struct HttpResponse : public AsyncSocket<SSL> {
+    /* Solely used for getHttpResponseData() */
+    template <bool> friend struct TemplatedApp;
     typedef AsyncSocket<SSL> Super;
 private:
     HttpResponseData<SSL> *getHttpResponseData() {
-        return (HttpResponseData<SSL> *) Super::getExt();
+        return (HttpResponseData<SSL> *) Super::getAsyncSocketData();
     }
 
     /* Write an unsigned 32-bit integer in hex */
@@ -63,9 +65,24 @@ private:
         Super::write(buf, length);
     }
 
+    /* When we are done with a response we mark it like so */
+    void markDone(HttpResponseData<SSL> *httpResponseData) {
+        httpResponseData->onAborted = nullptr;
+        /* Also remove onWritable so that we do not emit when draining behind the scenes. */
+        httpResponseData->onWritable = nullptr;
+
+        /* We are done with this request */
+        httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
+    }
+
+    /* Called only once per request */
+    void writeMark() {
+        writeHeader("uWebSockets", "v0.15");
+    }
+
     /* Returns true on success, indicating that it might be feasible to write more data.
      * Will start timeout if stream reaches totalSize or write failure. */
-    bool internalEnd(std::string_view data, int totalSize, bool optional) {
+    bool internalEnd(std::string_view data, int totalSize, bool optional, bool allowContentLength = true) {
         /* Write status if not already done */
         writeStatus(HTTP_200_OK);
 
@@ -92,15 +109,20 @@ private:
             /* Terminating 0 chunk */
             Super::write("\r\n0\r\n\r\n", 7);
 
+            markDone(httpResponseData);
+
             /* tryEnd can never fail when in chunked mode, since we do not have tryWrite (yet), only write */
             Super::timeout(HTTP_TIMEOUT_S);
             return true;
         } else {
             /* Write content-length on first call */
             if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_END_CALLED)) {
-                /* Ending with no response should not leave any content-length */
-                if (totalSize) {
-                    /* We have a known send size */
+                /* Write mark, this propagates to WebSockets too */
+                writeMark();
+
+                /* WebSocket upgrades does not allow content-length */
+                if (allowContentLength) {
+                    /* Even zero is a valid content-length */
                     Super::write("Content-Length: ", 16);
                     writeUnsigned(totalSize);
                     Super::write("\r\n\r\n", 4);
@@ -129,18 +151,23 @@ private:
 
             /* Remove onAborted function if we reach the end */
             if (httpResponseData->offset == totalSize) {
-                httpResponseData->onAborted = nullptr;
-                /* Also remove onWritable so that we do not emit when draining behind the scenes. */
-                httpResponseData->onWritable = nullptr;
+                markDone(httpResponseData);
             }
 
             return success;
         }
     }
 
+    /* This call is identical to end, but will never write content-length and is thus suitable for upgrades */
+    void upgrade() {
+        internalEnd({nullptr, 0}, 0, false, false);
+    }
+
 public:
     /* Immediately terminate this Http response */
     using Super::close;
+
+    using Super::getRemoteAddress;
 
     /* Note: Headers are not checked in regards to timeout.
      * We only check when you actively push data or end the request */
@@ -188,9 +215,10 @@ public:
         internalEnd(data, data.length(), false);
     }
 
-    /* Try and end the response. Returns true on success. Starts a timeout in some cases. */
-    bool tryEnd(std::string_view data, int totalSize = 0) {
-        return internalEnd(data, totalSize, true);
+    /* Try and end the response. Returns [true, true] on success.
+     * Starts a timeout in some cases. Returns [ok, hasResponded] */
+    std::pair<bool, bool> tryEnd(std::string_view data, int totalSize = 0) {
+        return {internalEnd(data, totalSize, true), hasResponded()};
     }
 
     /* Write parts of the response in chunking fashion. Starts timeout if failed. */
@@ -206,6 +234,9 @@ public:
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
+            /* Write mark on first call to write */
+            writeMark();
+
             writeHeader("Transfer-Encoding", "chunked");
             httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
         }
@@ -228,6 +259,35 @@ public:
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         return httpResponseData->offset;
+    }
+
+    /* Checking if we have fully responded and are ready for another request */
+    bool hasResponded() {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        return !(httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING);
+    }
+
+    /* EXPERIMENTAL - corks the response if possible */
+    HttpResponse *cork(fu2::unique_function<void()> &&handler) {
+        bool corked = Super::isCorked();
+        if (!corked && Super::canCork()) {
+            Super::cork();
+            corked = true;
+        }
+
+        handler();
+
+        if (corked) {
+            /* Timeout on uncork failure (EXPERIMENTAL) */
+            auto [written, failed] = Super::uncork();
+            if (failed) {
+                // do we have the same timeout for websockets?
+                Super::timeout(10); // this is completely wrong!
+            }
+        }
+
+        return this;
     }
 
     /* Attach handler for writable HTTP response */
@@ -255,4 +315,4 @@ public:
 
 }
 
-#endif // HTTPRESPONSE_H
+#endif // UWS_HTTPRESPONSE_H

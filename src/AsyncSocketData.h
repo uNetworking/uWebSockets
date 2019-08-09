@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
-#ifndef ASYNCSOCKETDATA_H
-#define ASYNCSOCKETDATA_H
+#ifndef UWS_ASYNCSOCKETDATA_H
+#define UWS_ASYNCSOCKETDATA_H
+
+namespace uWS {
 
 /* Depending on how we want AsyncSocket to function, this will need to change */
 
@@ -26,6 +28,16 @@ template <bool SSL>
 struct AsyncSocketData {
     /* This will do for now */
     std::string buffer;
+
+    /* Allow move constructing us */
+    AsyncSocketData(std::string &&backpressure) : buffer(std::move(backpressure)) {
+
+    }
+
+    /* Or emppty */
+    AsyncSocketData() = default;
 };
 
-#endif // ASYNCSOCKETDATA_H
+}
+
+#endif // UWS_ASYNCSOCKETDATA_H

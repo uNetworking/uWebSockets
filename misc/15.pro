@@ -21,7 +21,6 @@ HEADERS += \
     ../src/HttpContextData.h \
     ../src/HttpResponseData.h \
     ../src/HttpResponse.h \
-    ../src/StaticDispatch.h \
     ../src/LoopData.h \
     ../src/AsyncSocket.h \
     ../src/AsyncSocketData.h \
@@ -33,7 +32,8 @@ HEADERS += \
     ../src/WebSocketContext.h \
     ../src/WebSocketContextData.h \
     ../src/WebSocketExtensions.h \
-    ../src/PerMessageDeflate.h
+    ../src/PerMessageDeflate.h \
+    ../src/TopicTree.h
 
 INCLUDEPATH += ../uSockets/src ../src
 QMAKE_CXXFLAGS += -Wno-unused-variable -Wno-unused-parameter -Wno-unused-but-set-parameter -fsanitize=address

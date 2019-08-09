@@ -15,25 +15,18 @@
  * limitations under the License.
  */
 
-#ifndef LOOP_H
-#define LOOP_H
+#ifndef UWS_LOOP_H
+#define UWS_LOOP_H
 
 /* The loop is lazily created per-thread and run with uWS::run() */
 
 #include "LoopData.h"
-
 #include <libusockets.h>
-
-
-
-
-#include <iostream>
 
 namespace uWS {
 struct Loop {
 private:
-    static void wakeupCb(us_loop *loop) {
-        //std::cout << "wakeupCB called" << std::endl;
+    static void wakeupCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
         /* Swap current deferQueue */
@@ -49,16 +42,26 @@ private:
         loopData->deferQueues[oldDeferQueue].clear();
     }
 
-    static void preCb(us_loop *loop) {
+    static void preCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
         if (loopData->preHandler) {
             loopData->preHandler((Loop *) loop);
         }
+
+        /* trying this one here */
+        for (auto &f : loopData->postHandlers) {
+            f((Loop *) loop);
+        }
     }
 
-    static void postCb(us_loop *loop) {
+    static void postCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
+
+        /* We should move over to using only these */
+        for (auto &f : loopData->postHandlers) {
+            f((Loop *) loop);
+        }
 
         if (loopData->postHandler) {
             loopData->postHandler((Loop *) loop);
@@ -66,99 +69,105 @@ private:
     }
 
     Loop() = delete;
-
-    ~Loop() {
-        std::cout << "Loop destructor called" << std::endl;
-    }
+    ~Loop() = default;
 
     Loop *init() {
-        new (us_loop_ext((us_loop *) this)) LoopData;
+        new (us_loop_ext((us_loop_t *) this)) LoopData;
         return this;
     }
 
-    static Loop *create(bool defaultLoop) {
-        return ((Loop *) us_create_loop(defaultLoop, wakeupCb, preCb, postCb, sizeof(LoopData)))->init();
+    static Loop *create(void *hint) {
+        return ((Loop *) us_create_loop(hint, wakeupCb, preCb, postCb, sizeof(LoopData)))->init();
     }
 
+    /* What to do with loops created with existingNativeLoop? */
+    struct LoopCleaner {
+        ~LoopCleaner() {
+            if(loop && cleanMe) {
+                loop->free();
+            }
+        }
+        Loop *loop = nullptr;
+        bool cleanMe = false;
+    };
+    
 public:
-    /* Returns the default loop if called from one thread, or a dedicated per-thread loop if called from multiple threads */
-    static Loop *defaultLoop() {
-        /* Deliver and attach the default loop to the first thread who calls us */
-        static thread_local bool ownsDefaultLoop;
-        static Loop *defaultLoop;
-        if (!defaultLoop) {
-            ownsDefaultLoop = true;
-            defaultLoop = create(true);
-            std::atexit([]() {
-                Loop::defaultLoop()->free();
-            });
-            return defaultLoop;
-        } else if (ownsDefaultLoop) {
-            return defaultLoop;
+    /* Lazily initializes a per-thread loop and returns it.
+     * Will automatically free all initialized loops at exit. */
+    static Loop *get(void *existingNativeLoop = nullptr) {
+        static thread_local LoopCleaner lazyLoop;
+        if (!lazyLoop.loop) {
+            /* If we are given a native loop pointer we pass that to uSockets and let it deal with it */
+            if (existingNativeLoop) {
+                /* Todo: here we want to pass the pointer, not a boolean */
+                lazyLoop.loop = create(existingNativeLoop);
+                /* We cannot register automatic free here, must be manually done */
+            } else {
+                lazyLoop.loop = create(nullptr);
+                lazyLoop.cleanMe = true;
+            }
         }
 
-        /* Other threads get their non-default loops lazily created */
-        static thread_local Loop *threadLocalLoop;
-        if (!threadLocalLoop) {
-            threadLocalLoop = create(false);
-            return threadLocalLoop;
-        }
-        return threadLocalLoop;
+        return lazyLoop.loop;
     }
 
     /* Freeing the default loop should be done once */
     void free() {
-        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
         loopData->~LoopData();
-        us_loop_free((us_loop *) this);
+        /* uSockets will track whether this loop is owned by us or a borrowed alien loop */
+        us_loop_free((us_loop_t *) this);
+    }
 
-        std::cout << "Loop::free" << std::endl;
+    /* We want to have multiple of these */
+    void addPostHandler(fu2::unique_function<void(Loop *)> &&handler) {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
+
+        loopData->postHandlers.emplace_back(std::move(handler));
     }
 
     /* Set postCb callback */
-    void setPostHandler(std::function<void(Loop *)> handler) {
-        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+    void setPostHandler(fu2::unique_function<void(Loop *)> &&handler) {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
-        loopData->postHandler = handler;
+        loopData->postHandler = std::move(handler);
     }
 
-    void setPreHandler(std::function<void(Loop *)> handler) {
-        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+    void setPreHandler(fu2::unique_function<void(Loop *)> &&handler) {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
-        loopData->preHandler = handler;
+        loopData->preHandler = std::move(handler);
     }
 
     /* Defer this callback on Loop's thread of execution */
-    void defer(std::function<void()> cb) {
-        LoopData *loopData = (LoopData *) us_loop_ext((us_loop *) this);
+    void defer(fu2::unique_function<void()> &&cb) {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
-        //std::cout << "defer called" << std::endl;
         //if (std::thread::get_id() == ) // todo: add fast path for same thread id
         loopData->deferMutex.lock();
-        loopData->deferQueues[loopData->currentDeferQueue].emplace_back(cb);
+        loopData->deferQueues[loopData->currentDeferQueue].emplace_back(std::move(cb));
         loopData->deferMutex.unlock();
 
-        //std::cout << "us_wakeup_loop called" << std::endl;
-        us_wakeup_loop((us_loop *) this);
+        us_wakeup_loop((us_loop_t *) this);
     }
 
     /* Actively block and run this loop */
     void run() {
-        us_loop_run((us_loop *) this);
+        us_loop_run((us_loop_t *) this);
     }
 
     /* Passively integrate with the underlying default loop */
     /* Used to seamlessly integrate with third parties such as Node.js */
     void integrate() {
-
+        us_loop_integrate((us_loop_t *) this);
     }
 };
 
 /* Can be called from any thread to run the thread local loop */
 inline void run() {
-    Loop::defaultLoop()->run();
+    Loop::get()->run();
 }
 
 }
 
-#endif // LOOP_H
+#endif // UWS_LOOP_H

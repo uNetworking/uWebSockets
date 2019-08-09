@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-#ifndef HTTPPARSER_H
-#define HTTPPARSER_H
+#ifndef UWS_HTTPPARSER_H
+#define UWS_HTTPPARSER_H
+
+// todo: HttpParser is in need of a few clean-ups and refactorings
 
 /* The HTTP parser is an independent module subject to unit testing / fuzz testing */
 
 #include <string>
-#include <functional>
 #include <cstring>
 #include <algorithm>
+#include "f2/function2.hpp"
 
 namespace uWS {
 
-class HttpRequest {
+/* We require at least this much post padding */
+static const int MINIMUM_HTTP_POST_PADDING = 32;
 
-    friend class HttpParser;
+struct HttpRequest {
+
+    friend struct HttpParser;
 
 private:
     const static int MAX_HEADERS = 50;
@@ -37,23 +42,58 @@ private:
         std::string_view key, value;
     } headers[MAX_HEADERS];
     int querySeparator;
+    bool didYield;
 
     std::pair<int, std::string_view *> currentParameters;
 
 public:
-    std::string_view getHeader(std::string_view header) {
+    bool getYield() {
+        return didYield;
+    }
+
+    /* Iteration over headers (key, value) */
+    struct HeaderIterator {
+        Header *ptr;
+
+        bool operator!=(const HeaderIterator &other) const {
+            /* Comparison with end is a special case */
+            if (ptr != other.ptr) {
+                return other.ptr || ptr->key.length();
+            }
+            return false;
+        }
+
+        HeaderIterator &operator++() {
+            ptr++;
+            return *this;
+        }
+
+        std::pair<std::string_view, std::string_view> operator*() const {
+            return {ptr->key, ptr->value};
+        }
+    };
+
+    HeaderIterator begin() {
+        return {headers + 1};
+    }
+
+    HeaderIterator end() {
+        return {nullptr};
+    }
+
+    /* If you do not want to handle this route */
+    void setYield(bool yield) {
+        didYield = yield;
+    }
+
+    std::string_view getHeader(std::string_view lowerCasedHeader) {
         for (Header *h = headers; (++h)->key.length(); ) {
-            if (h->key.length() == header.length() && !strncmp(h->key.data(), header.data(), header.length())) {
+            if (h->key.length() == lowerCasedHeader.length() && !strncmp(h->key.data(), lowerCasedHeader.data(), lowerCasedHeader.length())) {
                 return h->value;
             }
         }
         return std::string_view(nullptr, 0);
     }
-
-    // todo: implement this
-    /*int getHeader(std::string_view header) {
-        return 0;
-    }*/
 
     std::string_view getUrl() {
         return std::string_view(headers->value.data(), querySeparator);
@@ -64,14 +104,19 @@ public:
     }
 
     std::string_view getQuery() {
-        return std::string_view(headers->value.data() + querySeparator, headers->value.length() - querySeparator);
+        if (querySeparator < headers->value.length()) {
+            /* Strip the initial ? */
+            return std::string_view(headers->value.data() + querySeparator + 1, headers->value.length() - querySeparator - 1);
+        } else {
+            return std::string_view(nullptr, 0);
+        }
     }
 
     void setParameters(std::pair<int, std::string_view *> parameters) {
         currentParameters = parameters;
     }
 
-    std::string_view getParameter(int index) {
+    std::string_view getParameter(unsigned int index) {
         if (currentParameters.first < index) {
             return {};
         } else {
@@ -81,16 +126,16 @@ public:
 
 };
 
-class HttpParser {
+struct HttpParser {
 
 private:
     std::string fallback;
-    int remainingStreamingBytes = 0;
+    unsigned int remainingStreamingBytes = 0;
 
     const size_t MAX_FALLBACK_SIZE = 1024 * 4;
 
     static unsigned int toUnsignedInteger(std::string_view str) {
-        int unsignedIntegerValue = 0;
+        unsigned int unsignedIntegerValue = 0;
         for (unsigned char c : str) {
             unsignedIntegerValue = unsignedIntegerValue * 10 + (c - '0');
         }
@@ -128,7 +173,7 @@ private:
 
     // the only caller of getHeaders
     template <int CONSUME_MINIMALLY>
-    std::pair<int, void *> fenceAndConsumePostPadded(char *data, int length, void *user, HttpRequest *req, std::function<void *(void *, HttpRequest *)> &requestHandler, std::function<void *(void *, std::string_view, bool)> &dataHandler) {
+    std::pair<int, void *> fenceAndConsumePostPadded(char *data, int length, void *user, HttpRequest *req, fu2::unique_function<void *(void *, HttpRequest *)> &requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &dataHandler) {
         int consumedTotal = 0;
         data[length] = '\r';
 
@@ -139,29 +184,27 @@ private:
 
             req->headers->value = std::string_view(req->headers->value.data(), std::max<int>(0, req->headers->value.length() - 9));
 
-            // querySeparator is untested, todo: go through this
+            /* Parse query */
             const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());
             req->querySeparator = (querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data();
 
-            // this one should return socket and exit on closed
-            // what happens with data left for websockets?
+            /* If returned socket is not what we put in we need
+             * to break here as we either have upgraded to
+             * WebSockets or otherwise closed the socket. */
             void *returnedUser = requestHandler(user, req);
             if (returnedUser != user) {
-                // upgraded socket, or otherwise broken
-
-                // return pair of consumed and user
+                /* We are upgraded to WebSocket or otherwise broken */
                 return {consumedTotal, returnedUser};
             }
 
-            // do not check this for GET!
-
+            // todo: do not check this for GET (get should not have a body)
             // todo: also support reading chunked streams
             std::string_view contentLengthString = req->getHeader("content-length");
             if (contentLengthString.length()) {
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
 
                 if (!CONSUME_MINIMALLY) {
-                    int emittable = std::min(remainingStreamingBytes, length);
+                    unsigned int emittable = std::min<unsigned int>(remainingStreamingBytes, length);
                     dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
                     remainingStreamingBytes -= emittable;
 
@@ -169,6 +212,9 @@ private:
                     length -= emittable;
                     consumedTotal += emittable;
                 }
+            } else {
+                /* Still emit an empty data chunk to signal no data */
+                dataHandler(user, {}, true);
             }
 
             if (CONSUME_MINIMALLY) {
@@ -180,14 +226,19 @@ private:
 
 public:
 
-    // todo: what can we do with the socket inside the handlers? we need to check on return from any handler if we closed or terminated or upgraded the socket
-    void *consumePostPadded(char *data, int length, void *user, std::function<void *(void *, HttpRequest *)> &&requestHandler, std::function<void *(void *, std::string_view, bool)> &&dataHandler, std::function<void *(void *)> &&errorHandler) {
+    /* We do this to prolong the validity of parsed headers by keeping only the fallback buffer alive */
+    std::string &&salvageFallbackBuffer() {
+        return std::move(fallback);
+    }
+
+    void *consumePostPadded(char *data, int length, void *user, fu2::unique_function<void *(void *, HttpRequest *)> &&requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &&dataHandler, fu2::unique_function<void *(void *)> &&errorHandler) {
 
         HttpRequest req;
 
         if (remainingStreamingBytes) {
 
             // this is exactly the same as below!
+            // todo: refactor this
             if (remainingStreamingBytes >= length) {
                 void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
                 remainingStreamingBytes -= length;
@@ -210,7 +261,8 @@ public:
 
             int maxCopyDistance = std::min(MAX_FALLBACK_SIZE - fallback.length(), (size_t) length);
 
-            fallback.reserve(maxCopyDistance + 32); // padding should be same as libus
+            /* We don't want fallback to be short string optimized, since we want to move it */
+            fallback.reserve(fallback.length() + maxCopyDistance + std::max<int>(MINIMUM_HTTP_POST_PADDING, sizeof(std::string)));
             fallback.append(data, maxCopyDistance);
 
             // break here on break
@@ -248,7 +300,7 @@ public:
 
             } else {
                 if (fallback.length() == MAX_FALLBACK_SIZE) {
-                    // you don't really need error handler, just return something strange!
+                    // note: you don't really need error handler, just return something strange!
                     // we could have it return a constant pointer to denote error!
                     return errorHandler(user);
                 }
@@ -279,4 +331,4 @@ public:
 
 }
 
-#endif // HTTPPARSER_H
+#endif // UWS_HTTPPARSER_H

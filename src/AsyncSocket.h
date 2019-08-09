@@ -15,51 +15,48 @@
  * limitations under the License.
  */
 
-#ifndef ASYNCSOCKET_H
-#define ASYNCSOCKET_H
+#ifndef UWS_ASYNCSOCKET_H
+#define UWS_ASYNCSOCKET_H
 
 /* This class implements async socket memory management strategies */
 
-#include "StaticDispatch.h"
 #include "LoopData.h"
 #include "AsyncSocketData.h"
 
 namespace uWS {
 
+    template <bool, bool> struct WebSocketContext;
+
 template <bool SSL>
-struct AsyncSocket : StaticDispatch<SSL> {
+struct AsyncSocket {
     template <bool> friend struct HttpContext;
     template <bool, bool> friend struct WebSocketContext;
-protected:
-    using SOCKET_TYPE = typename StaticDispatch<SSL>::SOCKET_TYPE;
-    using StaticDispatch<SSL>::static_dispatch;
+    friend struct TopicTree;
 
+protected:
     /* Get loop data for socket */
     LoopData *getLoopData() {
-        return (LoopData *) us_loop_ext(
-                    static_dispatch(us_ssl_socket_context_loop, us_socket_context_loop)(
-                        static_dispatch(us_ssl_socket_get_context, us_socket_get_context)((SOCKET_TYPE *) this))
-                    );
+        return (LoopData *) us_loop_ext(us_socket_context_loop(SSL, us_socket_context(SSL, (us_socket_t *) this)));
     }
 
     /* Get socket extension */
-    void *getExt() {
-        return static_dispatch(us_ssl_socket_ext, us_socket_ext)((SOCKET_TYPE *) this);
+    AsyncSocketData<SSL> *getAsyncSocketData() {
+        return (AsyncSocketData<SSL> *) us_socket_ext(SSL, (us_socket_t *) this);
     }
 
     /* Socket timeout */
     void timeout(unsigned int seconds) {
-        static_dispatch(us_ssl_socket_timeout, us_socket_timeout)((SOCKET_TYPE *) this, seconds);
+        us_socket_timeout(SSL, (us_socket_t *) this, seconds);
     }
 
     /* Shutdown socket without any automatic drainage */
     void shutdown() {
-        static_dispatch(us_ssl_socket_shutdown, us_socket_shutdown)((SOCKET_TYPE *) this);
+        us_socket_shutdown(SSL, (us_socket_t *) this);
     }
 
     /* Immediately close socket */
-    SOCKET_TYPE *close() {
-        return static_dispatch(us_ssl_socket_close, us_socket_close)((SOCKET_TYPE *) this);
+    us_socket_t *close() {
+        return us_socket_close(SSL, (us_socket_t *) this);
     }
 
     /* Cork this socket. Only one socket may ever be corked per-loop at any given time */
@@ -73,6 +70,11 @@ protected:
         return getLoopData()->corkedSocket == this;
     }
 
+    /* Returns whether we could cork (it is free) */
+    bool canCork() {
+        return getLoopData()->corkedSocket == nullptr;
+    }
+
     /* Returns a suitable buffer for temporary assemblation of send data */
     std::pair<char *, bool> getSendBuffer(size_t size) {
         /* If we are corked and we have room, return the cork buffer itself */
@@ -82,39 +84,40 @@ protected:
             loopData->corkOffset += size;
             return {sendBuffer, false};
         } else {
-            // slow path for now
-
+            /* Slow path for now, we want to always be corked if possible */
             return {(char *) malloc(size), true};
-
-            // if we are out of buffer, fail this completely?
-
         }
     }
 
     /* Returns the user space backpressure. */
     int getBufferedAmount() {
-        AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
+        return getAsyncSocketData()->buffer.size();
+    }
 
-        return asyncSocketData->buffer.size();
+    /* Returns the remote IP address or empty string on failure */
+    std::string_view getRemoteAddress() {
+        static thread_local char buf[16];
+        int ipLength = 16;
+        us_socket_remote_address(SSL, (us_socket_t *) this, buf, &ipLength);
+        return std::string_view(buf, ipLength);
     }
 
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
      * Returns pair of bytes written (anywhere) and wheter or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */
     std::pair<int, bool> write(const char *src, int length, bool optionally = false, int nextLength = 0) {
-        /* Fake success if closed, simpel fix to allow uncork of closed socket to succeed */
-        if (us_socket_is_closed((us_socket *) this)) {
-            std::cout << "Faking successful send due to closed socket!" << std::endl;
+        /* Fake success if closed, simple fix to allow uncork of closed socket to succeed */
+        if (us_socket_is_closed(SSL, (us_socket_t *) this)) {
             return {length, false};
         }
 
         LoopData *loopData = getLoopData();
-        AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) getExt();
+        AsyncSocketData<SSL> *asyncSocketData = getAsyncSocketData();
 
         /* We are limited if we have a per-socket buffer */
         if (asyncSocketData->buffer.length()) {
             /* Write off as much as we can */
-            int written = static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, asyncSocketData->buffer.data(), asyncSocketData->buffer.length(), /*nextLength != 0 | */length);
+            int written = us_socket_write(SSL, (us_socket_t *) this, asyncSocketData->buffer.data(), asyncSocketData->buffer.length(), /*nextLength != 0 | */length);
 
             /* On failure return, otherwise continue down the function */
             if (written < asyncSocketData->buffer.length()) {
@@ -128,9 +131,6 @@ protected:
                 } else {
                     /* This path is horrible and points towards erroneous usage */
                     asyncSocketData->buffer.append(src, length);
-
-                    // todo: remove this when we are no longer morons
-                    std::cout << "Warning: fudge this is horrible!!" << std::endl;
 
                     return {length, true};
                 }
@@ -165,7 +165,7 @@ protected:
                 }
             } else {
                 /* We are not corked */
-                int written = static_dispatch(us_ssl_socket_write, us_socket_write)((SOCKET_TYPE *) this, src, length, nextLength != 0);
+                int written = us_socket_write(SSL, (us_socket_t *) this, src, length, nextLength != 0);
 
                 /* Did we fail? */
                 if (written < length) {
@@ -173,8 +173,6 @@ protected:
                     if (optionally) {
                         return {written, true};
                     }
-
-                    std::cout << "Buffering at bottom of write (okay)!" << std::endl;
 
                     /* Fall back to worst possible case (should be very rare for HTTP) */
                     /* At least we can reserve room for next chunk if we know it up front */
@@ -226,4 +224,4 @@ protected:
 
 }
 
-#endif // ASYNCSOCKET_H
+#endif // UWS_ASYNCSOCKET_H

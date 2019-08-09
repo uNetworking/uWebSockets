@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-#ifndef HTTPCONTEXTDATA_H
-#define HTTPCONTEXTDATA_H
+#ifndef UWS_HTTPCONTEXTDATA_H
+#define UWS_HTTPCONTEXTDATA_H
 
 #include "HttpRouter.h"
 
-#include <functional>
+#include <vector>
+#include "f2/function2.hpp"
 
 namespace uWS {
 template<bool> struct HttpResponse;
-class HttpRequest;
+struct HttpRequest;
 
 template <bool SSL>
-struct HttpContextData {
+struct alignas(16) HttpContextData {
     template <bool> friend struct HttpContext;
     template <bool> friend struct HttpResponse;
 private:
+    std::vector<fu2::unique_function<void(HttpResponse<SSL> *, int)>> filterHandlers;
+
     struct RouterData {
         HttpResponse<SSL> *httpResponse;
         HttpRequest *httpRequest;
@@ -42,4 +45,4 @@ private:
 
 }
 
-#endif // HTTPCONTEXTDATA_H
+#endif // UWS_HTTPCONTEXTDATA_H

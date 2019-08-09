@@ -15,13 +15,15 @@
  * limitations under the License.
 */
 
-#ifndef LIBWSHANDSHAKE_H
-#define LIBWSHANDSHAKE_H
+#ifndef UWS_WEBSOCKETHANDSHAKE_H
+#define UWS_WEBSOCKETHANDSHAKE_H
 
 #include <cstdint>
 #include <cstddef>
 
-class WebSocketHandshake {
+namespace uWS {
+
+struct WebSocketHandshake {
     template <int N, typename T>
     struct static_for {
         void operator()(uint32_t *a, uint32_t *b) {
@@ -127,4 +129,6 @@ public:
     }
 };
 
-#endif // LIBWSHANDSHAKE_H
+}
+
+#endif // UWS_WEBSOCKETHANDSHAKE_H

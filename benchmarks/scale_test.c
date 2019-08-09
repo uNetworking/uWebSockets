@@ -1,4 +1,4 @@
-/* This is a simple yet efficient WebSocket server benchmark much like WRK */
+/* This is a scalability test for testing million(s) of pinging connections */
 
 #include <libusockets.h>
 int SSL;
@@ -6,8 +6,6 @@ int SSL;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-// request eller upgradeRequest samt webSocketFrame
 
 unsigned char web_socket_request[26] = {130, 128 | 20, 1, 2, 3, 4};
 
@@ -21,7 +19,19 @@ char *host;
 int port;
 int connections;
 
-int responses;
+/* Send ping every 16 seconds */
+int WEBSOCKET_PING_INTERVAL = 16;
+
+/* We only establish 20k connections per address */
+int CONNECTIONS_PER_ADDRESS = 20000;
+
+/* How many connections a time */
+int BATCH_CONNECT = 1;
+
+/* Currently open and alive connections */
+int opened_connections;
+/* Dead connections */
+int closed_connections;
 
 struct http_socket {
     /* How far we have streamed our websocket request */
@@ -47,12 +57,13 @@ void on_post(struct us_loop_t *loop) {
 
 void next_connection(struct us_socket_t *s) {
     /* We could wait with this until properly upgraded */
-    if (--connections) {
-        us_socket_context_connect(SSL, us_socket_context(SSL, s), host, port, 0, sizeof(struct http_socket));
-    } else {
-        printf("Running benchmark now...\n");
+    if (--connections/* > BATCH_CONNECT*/) {
+        /* Swap address */
+        int address = opened_connections / CONNECTIONS_PER_ADDRESS + 1;
+        char buf[16];
+        sprintf(buf, "127.0.0.%d", address);
 
-        us_socket_timeout(SSL, s, LIBUS_TIMEOUT_GRANULARITY);
+        us_socket_context_connect(SSL, us_socket_context(SSL, s), buf, port, 0, sizeof(struct http_socket));
     }
 }
 
@@ -66,10 +77,17 @@ struct us_socket_t *on_http_socket_writable(struct us_socket_t *s) {
         /* Now we should be */
         if (http_socket->upgrade_offset == sizeof(request) - 1) {
             next_connection(s);
+
+            /* Make sure to send ping */
+            us_socket_timeout(SSL, s, WEBSOCKET_PING_INTERVAL);
         }
     } else {
         /* Stream whatever is remaining of the request */
         http_socket->offset += us_socket_write(SSL, s, (char *) web_socket_request + http_socket->offset, sizeof(web_socket_request) - http_socket->offset, 0);
+        if (http_socket->offset == sizeof(web_socket_request)) {
+            /* Reset timeout if we managed to */
+            us_socket_timeout(SSL, s, WEBSOCKET_PING_INTERVAL);
+        }
     }
 
     return s;
@@ -77,7 +95,10 @@ struct us_socket_t *on_http_socket_writable(struct us_socket_t *s) {
 
 struct us_socket_t *on_http_socket_close(struct us_socket_t *s) {
 
-    printf("Closed!\n");
+    closed_connections++;
+    if (closed_connections % 1000 == 0) {
+        printf("Alive: %d, dead: %d\n", opened_connections, closed_connections);
+    }
 
     return s;
 }
@@ -86,41 +107,42 @@ struct us_socket_t *on_http_socket_end(struct us_socket_t *s) {
     return us_socket_close(SSL, s);
 }
 
+// should never get a response!
 struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int length) {
-    /* Get socket extension and the socket's context's extension */
-    struct http_socket *http_socket = (struct http_socket *) us_socket_ext(SSL, s);
-    //struct http_context *http_context = (struct http_context *) us_socket_context_ext(SSL, us_socket_context(SSL, s));
-
-    /* We treat all data events as a response */
-    http_socket->offset = us_socket_write(SSL, s, (char *) web_socket_request, sizeof(web_socket_request), 0);
-
-    /* */
-    responses++;
-
     return s;
 }
 
 struct us_socket_t *on_http_socket_open(struct us_socket_t *s, int is_client, char *ip, int ip_length) {
     struct http_socket *http_socket = (struct http_socket *) us_socket_ext(SSL, s);
 
-    /* Reset offsets */
-    http_socket->offset = 0;
+    /* Display number of opened connections */
+    opened_connections++;
+    if (opened_connections % 1000 == 0) {
+        printf("Alive: %d, dead: %d\n", opened_connections, closed_connections);
+    }
 
     /* Send an upgrade request */
     http_socket->upgrade_offset = us_socket_write(SSL, s, request, sizeof(request) - 1, 0);
     if (http_socket->upgrade_offset == sizeof(request) - 1) {
         next_connection(s);
+
+        /* Make sure to send ping */
+        us_socket_timeout(SSL, s, WEBSOCKET_PING_INTERVAL);
     }
 
     return s;
 }
 
+// here we should send a message as ping (part of the test)
 struct us_socket_t *on_http_socket_timeout(struct us_socket_t *s) {
-    /* Print current statistics */
-    printf("Msg/sec: %f\n", ((float)responses) / LIBUS_TIMEOUT_GRANULARITY);
+    struct http_socket *http_socket = (struct http_socket *) us_socket_ext(SSL, s);
 
-    responses = 0;
-    us_socket_timeout(SSL, s, LIBUS_TIMEOUT_GRANULARITY);
+    /* Send ping here */
+    http_socket->offset = us_socket_write(SSL, s, (char *) web_socket_request, sizeof(web_socket_request), 0);
+    if (http_socket->offset == sizeof(web_socket_request)) {
+        /* Reset timeout if we managed to */
+        us_socket_timeout(SSL, s, WEBSOCKET_PING_INTERVAL);
+    }
 
     return s;
 }
@@ -155,7 +177,9 @@ int main(int argc, char **argv) {
     us_socket_context_on_end(SSL, http_context, on_http_socket_end);
 
     /* Start making HTTP connections */
-    us_socket_context_connect(SSL, http_context, host, port, 0, sizeof(struct http_socket));
+    for (int i = 0; i < BATCH_CONNECT; i++) {
+        us_socket_context_connect(SSL, http_context, host, port, 0, sizeof(struct http_socket));
+    }
 
     us_loop_run(loop);
 }

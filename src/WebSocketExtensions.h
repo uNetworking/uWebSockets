@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef WEBSOCKETEXTENSIONS_H
-#define WEBSOCKETEXTENSIONS_H
+#ifndef UWS_WEBSOCKETEXTENSIONS_H
+#define UWS_WEBSOCKETEXTENSIONS_H
 
 #include <string_view>
 
@@ -31,17 +31,6 @@ enum Options : unsigned int {
     SLIDING_DEFLATE_WINDOW = 16
 };
 
-template <bool isServer>
-class ExtensionsNegotiator {
-protected:
-    int options;
-public:
-    ExtensionsNegotiator(int wantedOptions);
-    std::string generateOffer();
-    void readOffer(std::string_view offer);
-    int getNegotiatedOptions();
-};
-
 enum ExtensionTokens {
     TOK_PERMESSAGE_DEFLATE = 1838,
     TOK_SERVER_NO_CONTEXT_TAKEOVER = 2807,
@@ -50,7 +39,7 @@ enum ExtensionTokens {
     TOK_CLIENT_MAX_WINDOW_BITS = 2348
 };
 
-class ExtensionsParser {
+struct ExtensionsParser {
 private:
     int *lastInteger = nullptr;
 
@@ -61,112 +50,119 @@ public:
     int serverMaxWindowBits = 0;
     int clientMaxWindowBits = 0;
 
-    int getToken(const char *&in, const char *stop);
-    ExtensionsParser(const char *data, size_t length);
+    int getToken(const char *&in, const char *stop) {
+        while (in != stop && !isalnum(*in)) {
+            in++;
+        }
+
+        /* Don't care more than this for now */
+        static_assert(SHRT_MIN > INT_MIN, "Integer overflow fix is invalid for this platform, report this as a bug!");
+
+        int hashedToken = 0;
+        while (in != stop && (isalnum(*in) || *in == '-' || *in == '_')) {
+            if (isdigit(*in)) {
+                /* This check is a quick and incorrect fix for integer overflow
+                 * in oss-fuzz but we don't care as it doesn't matter either way */
+                if (hashedToken > SHRT_MIN && hashedToken < SHRT_MAX) {
+                    hashedToken = hashedToken * 10 - (*in - '0');
+                }
+            } else {
+                hashedToken += *in;
+            }
+            in++;
+        }
+        return hashedToken;
+    }
+
+    ExtensionsParser(const char *data, size_t length) {
+        const char *stop = data + length;
+        int token = 1;
+        for (; token && token != TOK_PERMESSAGE_DEFLATE; token = getToken(data, stop));
+
+        perMessageDeflate = (token == TOK_PERMESSAGE_DEFLATE);
+        while ((token = getToken(data, stop))) {
+            switch (token) {
+            case TOK_PERMESSAGE_DEFLATE:
+                return;
+            case TOK_SERVER_NO_CONTEXT_TAKEOVER:
+                serverNoContextTakeover = true;
+                break;
+            case TOK_CLIENT_NO_CONTEXT_TAKEOVER:
+                clientNoContextTakeover = true;
+                break;
+            case TOK_SERVER_MAX_WINDOW_BITS:
+                serverMaxWindowBits = 1;
+                lastInteger = &serverMaxWindowBits;
+                break;
+            case TOK_CLIENT_MAX_WINDOW_BITS:
+                clientMaxWindowBits = 1;
+                lastInteger = &clientMaxWindowBits;
+                break;
+            default:
+                if (token < 0 && lastInteger) {
+                    *lastInteger = -token;
+                }
+                break;
+            }
+        }
+    }
 };
 
-int ExtensionsParser::getToken(const char *&in, const char *stop) {
-    while (!isalnum(*in) && in != stop) {
-        in++;
-    }
-
-    int hashedToken = 0;
-    while (isalnum(*in) || *in == '-' || *in == '_') {
-        if (isdigit(*in)) {
-            hashedToken = hashedToken * 10 - (*in - '0');
-        } else {
-            hashedToken += *in;
-        }
-        in++;
-    }
-    return hashedToken;
-}
-
-ExtensionsParser::ExtensionsParser(const char *data, size_t length) {
-    const char *stop = data + length;
-    int token = 1;
-    for (; token && token != TOK_PERMESSAGE_DEFLATE; token = getToken(data, stop));
-
-    perMessageDeflate = (token == TOK_PERMESSAGE_DEFLATE);
-    while ((token = getToken(data, stop))) {
-        switch (token) {
-        case TOK_PERMESSAGE_DEFLATE:
-            return;
-        case TOK_SERVER_NO_CONTEXT_TAKEOVER:
-            serverNoContextTakeover = true;
-            break;
-        case TOK_CLIENT_NO_CONTEXT_TAKEOVER:
-            clientNoContextTakeover = true;
-            break;
-        case TOK_SERVER_MAX_WINDOW_BITS:
-            serverMaxWindowBits = 1;
-            lastInteger = &serverMaxWindowBits;
-            break;
-        case TOK_CLIENT_MAX_WINDOW_BITS:
-            clientMaxWindowBits = 1;
-            lastInteger = &clientMaxWindowBits;
-            break;
-        default:
-            if (token < 0 && lastInteger) {
-                *lastInteger = -token;
-            }
-            break;
-        }
-    }
-}
-
 template <bool isServer>
-ExtensionsNegotiator<isServer>::ExtensionsNegotiator(int wantedOptions) {
-    options = wantedOptions;
-}
+struct ExtensionsNegotiator {
+protected:
+    int options;
 
-template <bool isServer>
-std::string ExtensionsNegotiator<isServer>::generateOffer() {
-    std::string extensionsOffer;
-    if (options & Options::PERMESSAGE_DEFLATE) {
-        extensionsOffer += "permessage-deflate";
-
-        if (options & Options::CLIENT_NO_CONTEXT_TAKEOVER) {
-            extensionsOffer += "; client_no_context_takeover";
-        }
-
-        /* It is questionable sending this improves anything */
-        /*if (options & Options::SERVER_NO_CONTEXT_TAKEOVER) {
-            extensionsOffer += "; server_no_context_takeover";
-        }*/
+public:
+    ExtensionsNegotiator(int wantedOptions) {
+        options = wantedOptions;
     }
 
-    return extensionsOffer;
-}
+    std::string generateOffer() {
+        std::string extensionsOffer;
+        if (options & Options::PERMESSAGE_DEFLATE) {
+            extensionsOffer += "permessage-deflate";
 
-template <bool isServer>
-void ExtensionsNegotiator<isServer>::readOffer(std::string_view offer) {
-    if (isServer) {
-        ExtensionsParser extensionsParser(offer.data(), offer.length());
-        if ((options & PERMESSAGE_DEFLATE) && extensionsParser.perMessageDeflate) {
-            if (extensionsParser.clientNoContextTakeover || (options & CLIENT_NO_CONTEXT_TAKEOVER)) {
-                options |= CLIENT_NO_CONTEXT_TAKEOVER;
+            if (options & Options::CLIENT_NO_CONTEXT_TAKEOVER) {
+                extensionsOffer += "; client_no_context_takeover";
             }
 
-            /* We leave this option for us to read even if the client did not send it */
-            if (extensionsParser.serverNoContextTakeover) {
-                options |= SERVER_NO_CONTEXT_TAKEOVER;
-            }/* else {
-                options &= ~SERVER_NO_CONTEXT_TAKEOVER;
+            /* It is questionable sending this improves anything */
+            /*if (options & Options::SERVER_NO_CONTEXT_TAKEOVER) {
+                extensionsOffer += "; server_no_context_takeover";
             }*/
-        } else {
-            options &= ~PERMESSAGE_DEFLATE;
         }
-    } else {
-        // todo!
+
+        return extensionsOffer;
     }
+
+    void readOffer(std::string_view offer) {
+        if (isServer) {
+            ExtensionsParser extensionsParser(offer.data(), offer.length());
+            if ((options & PERMESSAGE_DEFLATE) && extensionsParser.perMessageDeflate) {
+                if (extensionsParser.clientNoContextTakeover || (options & CLIENT_NO_CONTEXT_TAKEOVER)) {
+                    options |= CLIENT_NO_CONTEXT_TAKEOVER;
+                }
+
+                /* We leave this option for us to read even if the client did not send it */
+                if (extensionsParser.serverNoContextTakeover) {
+                    options |= SERVER_NO_CONTEXT_TAKEOVER;
+                }/* else {
+                    options &= ~SERVER_NO_CONTEXT_TAKEOVER;
+                }*/
+            } else {
+                options &= ~PERMESSAGE_DEFLATE;
+            }
+        } else {
+            // todo!
+        }
+    }
+
+    int getNegotiatedOptions() {
+        return options;
+    }
+};
+
 }
 
-template <bool isServer>
-int ExtensionsNegotiator<isServer>::getNegotiatedOptions() {
-    return options;
-}
-
-}
-
-#endif // WEBSOCKETEXTENSIONS_H
+#endif // UWS_WEBSOCKETEXTENSIONS_H

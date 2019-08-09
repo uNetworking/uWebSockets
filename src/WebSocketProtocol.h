@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef WEBSOCKETPROTOCOL_UWS_H
-#define WEBSOCKETPROTOCOL_UWS_H
+#ifndef UWS_WEBSOCKETPROTOCOL_H
+#define UWS_WEBSOCKETPROTOCOL_H
 
 #include <cstdint>
 #include <cstring>
@@ -72,6 +72,13 @@ public:
 
 namespace protocol {
 
+template <typename T>
+T bit_cast(char *c) {
+    T val;
+    memcpy(&val, c, sizeof(T));
+    return val;
+}
+
 /* Byte swap for little-endian systems */
 template <typename T>
 T cond_byte_swap(T value) {
@@ -82,7 +89,7 @@ T cond_byte_swap(T value) {
             uint8_t b[sizeof(T)];
         } src = { value }, dst;
 
-        for (int i = 0; i < sizeof(value); i++) {
+        for (unsigned int i = 0; i < sizeof(value); i++) {
             dst.b[i] = src.b[sizeof(value) - 1 - i];
         }
 
@@ -186,11 +193,13 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
     } else if (reportedLength <= UINT16_MAX) {
         headerLength = 4;
         dst[1] = 126;
-        *((uint16_t *) &dst[2]) = cond_byte_swap<uint16_t>(reportedLength);
+        uint16_t tmp = cond_byte_swap<uint16_t>(reportedLength);
+        memcpy(&dst[2], &tmp, sizeof(uint16_t));
     } else {
         headerLength = 10;
         dst[1] = 127;
-        *((uint64_t *) &dst[2]) = cond_byte_swap<uint64_t>(reportedLength);
+        uint64_t tmp = cond_byte_swap<uint64_t>(reportedLength);
+        memcpy(&dst[2], &tmp, sizeof(uint64_t));
     }
 
     int flags = 0;
@@ -230,8 +239,8 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
 }
 
 // essentially this is only a parser
-template <const bool isServer, class Impl>
-class WIN32_EXPORT WebSocketProtocol {
+template <const bool isServer, typename Impl>
+struct WIN32_EXPORT WebSocketProtocol {
 public:
     static const unsigned int SHORT_MESSAGE_HEADER = isServer ? 6 : 2;
     static const unsigned int MEDIUM_MESSAGE_HEADER = isServer ? 8 : 4;
@@ -399,12 +408,12 @@ public:
                 } else if (payloadLength(src) == 126) {
                     if (length < MEDIUM_MESSAGE_HEADER) {
                         break;
-                    } else if(consumeMessage<MEDIUM_MESSAGE_HEADER, uint16_t>(protocol::cond_byte_swap<uint16_t>(*(uint16_t *) &src[2]), src, length, wState, user)) {
+                    } else if(consumeMessage<MEDIUM_MESSAGE_HEADER, uint16_t>(protocol::cond_byte_swap<uint16_t>(protocol::bit_cast<uint16_t>(src + 2)), src, length, wState, user)) {
                         return;
                     }
                 } else if (length < LONG_MESSAGE_HEADER) {
                     break;
-                } else if (consumeMessage<LONG_MESSAGE_HEADER, uint64_t>(protocol::cond_byte_swap<uint64_t>(*(uint64_t *) &src[2]), src, length, wState, user)) {
+                } else if (consumeMessage<LONG_MESSAGE_HEADER, uint64_t>(protocol::cond_byte_swap<uint64_t>(protocol::bit_cast<uint64_t>(src + 2)), src, length, wState, user)) {
                     return;
                 }
             }
@@ -423,4 +432,4 @@ public:
 
 }
 
-#endif // WEBSOCKETPROTOCOL_UWS_H
+#endif // UWS_WEBSOCKETPROTOCOL_H

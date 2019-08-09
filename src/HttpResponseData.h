@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-#ifndef HTTPRESPONSEDATA_H
-#define HTTPRESPONSEDATA_H
+#ifndef UWS_HTTPRESPONSEDATA_H
+#define UWS_HTTPRESPONSEDATA_H
 
 /* This data belongs to the HttpResponse */
 
 #include "HttpParser.h"
 #include "AsyncSocketData.h"
-#include <functional>
 
 #include "f2/function2.hpp"
 
 namespace uWS {
 
 template <bool SSL>
-struct HttpResponseData : HttpParser, AsyncSocketData<SSL> {
+struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
     template <bool> friend struct HttpResponse;
     template <bool> friend struct HttpContext;
 private:
@@ -38,17 +37,14 @@ private:
         HTTP_STATUS_CALLED = 1, // used
         HTTP_WRITE_CALLED = 2, // used
         HTTP_END_CALLED = 4, // used
-        HTTP_UPGRADED_TO_WEBSOCKET = 8, // not used
+        HTTP_RESPONSE_PENDING = 8, // used
         HTTP_ENDED_STREAM_OUT = 16 // not used
     };
 
     /* Per socket event handlers */
     fu2::unique_function<bool(int)> onWritable;
     fu2::unique_function<void()> onAborted;
-    //std::function<void()> onData;
-
-    fu2::unique_function<void(std::string_view, bool)> inStream;
-    //std::function<std::pair<bool, std::string_view>(int)> outStream;
+    fu2::unique_function<void(std::string_view, bool)> inStream; // onData
     /* Outgoing offset */
     int offset = 0;
 
@@ -58,4 +54,4 @@ private:
 
 }
 
-#endif // HTTPRESPONSEDATA_H
+#endif // UWS_HTTPRESPONSEDATA_H
