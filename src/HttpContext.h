@@ -202,6 +202,12 @@ private:
                     if (us_socket_is_shut_down(SSL, (us_socket_t *) user)) {
                         return nullptr;
                     }
+                    
+                    /* If we were given the last data chunk, reset data handler to ensure following
+                     * requests on the same socket won't trigger any previously registered behavior */
+                    if (fin) {
+                        httpResponseData->inStream = nullptr;
+                    }
                 }
                 return user;
             }, [](void *user) {
