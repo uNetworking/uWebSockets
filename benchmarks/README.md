@@ -11,3 +11,7 @@ Here are the current relative comparisons:
 Http | WebSockets
 --- | ---
 ![](../misc/bigshot_lineup.png) | ![](../misc/websocket_lineup.png)
+
+Over the period of a few years I have never come across any web server which can score as high as µWebSockets do. This is not to say that µWebSockets is fastest, as "fastest" is a silly superlative nobody should *ever* use.
+
+Never trust anyone using superlatives to describe their work; they are more often wrong than right.
