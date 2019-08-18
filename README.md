@@ -1,7 +1,7 @@
 <div align="center">
 <img src="misc/logo.svg" height="180" />
 
-*µWebSockets™ (it's "[micro](https://en.wikipedia.org/wiki/Micro-)") is simple, secure*<sup>[[1]](fuzzing)</sup> *& standards compliant web I/O for the most demanding*<sup>[[2]](benchmarks)</sup> *of applications.*
+*µWebSockets™ (it's "[micro](https://en.wikipedia.org/wiki/Micro-)") is simple, secure*<sup>[[1]](fuzzing)</sup> *& standards compliant*<sup>[[2]](https://unetworking.github.io/uWebSockets.js/report.pdf)</sup> *web I/O for the most demanding*<sup>[[3]](benchmarks)</sup> *of applications.*
 
 • [Read more](misc/READMORE.md) • [Read about uSockets](https://github.com/uNetworking/uSockets) • [See uWebSockets.js](https://github.com/uNetworking/uWebSockets.js)
 
