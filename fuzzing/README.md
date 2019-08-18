@@ -24,3 +24,6 @@ A secure web server must be capable of receiving mass amount of malicious input 
 No defects or issues are left unfixed, covered up or otherwise neglected. In fact we **cannot** cover up security issues as OSS-Fuzz automatically and publicly reports security issues as they happen.
 
 Currently we are at ~80% total fuzz coverage and OSS-Fuzz is reporting **zero** issues whatsoever. The goal is to approach 90% total coverage.
+
+### Security awards
+Google have sent us thousands of USD for the integration with OSS-Fuzz - we continue working on bettering the testing with every new release.
