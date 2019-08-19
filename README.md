@@ -5,6 +5,8 @@
 
 • [Read more](misc/READMORE.md) • [Read about uSockets](https://github.com/uNetworking/uSockets) • [See uWebSockets.js](https://github.com/uNetworking/uWebSockets.js)
 
+*© 2016-2019, >39,632,272 downloads*
+
 </div>
 
 #### Express yourself briefly.
