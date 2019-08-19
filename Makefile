@@ -13,3 +13,6 @@ all:
 	make examples
 	cd fuzzing && make && rm -f *.o
 	cd benchmarks && make && rm -f *.o
+
+clean:
+	rm -rf $(EXAMPLE_FILES) $(THREADED_EXAMPLE_FILES)
