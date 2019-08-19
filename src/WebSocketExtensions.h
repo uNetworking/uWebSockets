@@ -18,6 +18,7 @@
 #ifndef UWS_WEBSOCKETEXTENSIONS_H
 #define UWS_WEBSOCKETEXTENSIONS_H
 
+#include <climits>
 #include <string_view>
 
 namespace uWS {
