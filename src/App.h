@@ -30,8 +30,7 @@
 
 namespace uWS {
 
-/* Compress options (really more like PerMessageDeflateOptions) */
-enum CompressOptions {
+enum CompressorType {
     /* Compression disabled */
     DISABLED = 0,
     /* We compress using a shared non-sliding window. No added memory usage, worse compression. */
@@ -86,7 +85,7 @@ public:
     }
 
     struct WebSocketBehavior {
-        CompressOptions compression = DISABLED;
+        CompressorType compression = DISABLED;
         CompressorOptions compressorOptions;
         int maxPayloadLength = 16 * 1024;
         int idleTimeout = 120;
