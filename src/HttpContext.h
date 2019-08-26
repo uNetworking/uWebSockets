@@ -142,7 +142,13 @@ private:
 
                 /* Route the method and URL in two passes */
                 typename HttpContextData<SSL>::RouterData routerData = {(HttpResponse<SSL> *) s, httpRequest};
-                if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData)) {
+
+                std::string_view method = httpRequest->getMethod();
+                if (httpRequest->getHeader("sec-websocket-key").length() == 24) {
+                    method = "ws"; // independent routing for WebSockets
+                }
+
+                if (!httpContextData->router.route(method, httpRequest->getUrl(), routerData)) {
                     /* If first pass failed, we try and match by "any" method */
                     if (!httpContextData->router.route("*", httpRequest->getUrl(), routerData)) {
                         /* If second pass fail, we have to force close this socket as we have no handler for it */
