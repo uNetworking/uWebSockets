@@ -10,6 +10,7 @@ int main() {
     uWS::App().ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::SHARED_COMPRESSOR,
+        .compressorOptions = {},
         .maxPayloadLength = 16 * 1024,
 	.idleTimeout = 10,
         /* Handlers */

@@ -19,6 +19,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
     app = new uWS::TemplatedApp<false>(uWS::App().ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::SHARED_COMPRESSOR,
+        .compressorOptions = {},
         .maxPayloadLength = 16 * 1024,
         .idleTimeout = 10,
         /* Handlers */

@@ -25,6 +25,11 @@
 
 namespace uWS {
 
+struct CompressorOptions {
+    int windowBits = -15;
+    int memLevel = 8;
+};
+
 /* Do not compile this module if we don't want it */
 #ifdef UWS_NO_ZLIB
 struct ZlibContext {};
@@ -34,6 +39,9 @@ struct InflationStream {
     }
 };
 struct DeflationStream {
+    DeflationStream(CompressorOptions& compressorOptions) {
+    }
+
     std::string_view deflate(ZlibContext *zlibContext, std::string_view raw, bool reset) {
         return raw;
     }
@@ -66,7 +74,16 @@ struct DeflationStream {
     z_stream deflationStream = {};
 
     DeflationStream() {
-        deflateInit2(&deflationStream, 1, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY);
+        CompressorOptions compressorOptions; // use default values
+        init(compressorOptions);
+    }
+
+    DeflationStream(CompressorOptions& compressorOptions) {
+        init(compressorOptions);
+    }
+
+    void init(CompressorOptions& compressorOptions) {
+        deflateInit2(&deflationStream, 1, Z_DEFLATED, compressorOptions.windowBits, compressorOptions.memLevel, Z_DEFAULT_STRATEGY);
     }
 
     /* Deflate and optionally reset */

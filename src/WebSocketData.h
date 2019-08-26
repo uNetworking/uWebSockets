@@ -42,12 +42,12 @@ private:
     /* We might have a dedicated compressor */
     DeflationStream *deflationStream = nullptr;
 public:
-    WebSocketData(bool perMessageDeflate, bool slidingCompression, std::string &&backpressure) : AsyncSocketData<false>(std::move(backpressure)), WebSocketState<true>() {
+    WebSocketData(bool perMessageDeflate, bool slidingCompression, CompressorOptions& compressorOptions, std::string &&backpressure) : AsyncSocketData<false>(std::move(backpressure)), WebSocketState<true>() {
         compressionStatus = perMessageDeflate ? ENABLED : DISABLED;
 
         /* Initialize the dedicated sliding window */
         if (perMessageDeflate && slidingCompression) {
-            deflationStream = new DeflationStream;
+            deflationStream = new DeflationStream(compressorOptions);
         }
     }
 

@@ -34,6 +34,7 @@ int main(int argc, char **argv) {
     }).ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::DEDICATED_COMPRESSOR,
+        .compressorOptions = {},
         .maxPayloadLength = 16 * 1024 * 1024,
         .idleTimeout = 10,
         /* Handlers */
