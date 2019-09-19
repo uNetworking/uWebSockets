@@ -150,7 +150,7 @@ public:
         );
 
         /* We frame the message right here and only pass raw bytes to the pub/subber */
-        char dst[1024];
+        char dst[message.length() + 14];
         size_t dst_length = protocol::formatMessage<true>(dst, message.data(), message.length(), OpCode::TEXT, message.length(), false);
 
         webSocketContextData->topicTree.publish(std::string(topic), dst, dst_length);
