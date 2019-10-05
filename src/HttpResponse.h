@@ -71,6 +71,7 @@ private:
         /* Also remove onWritable so that we do not emit when draining behind the scenes. */
         httpResponseData->onWritable = nullptr;
 
+
         /* We are done with this request */
         httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
     }
@@ -164,6 +165,16 @@ private:
     }
 
 public:
+
+    // This is the pointer to whatever data is being processed by some other thread for whatever reason
+
+    AsyncProcData* getProcData(){
+        return this->getHttpResponseData()->asyncProcData;
+    }
+
+    void setProcData(AsyncProcData* dptr){
+        this->getHttpResponseData()->asyncProcData = dptr;
+    }
     /* Immediately terminate this Http response */
     using Super::close;
 

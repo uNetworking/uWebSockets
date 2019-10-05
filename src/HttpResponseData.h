@@ -24,8 +24,17 @@
 #include "AsyncSocketData.h"
 
 #include "f2/function2.hpp"
+#include <atomic>
 
 namespace uWS {
+
+struct AsyncProcData{
+    std::string out;
+    // The mutex for proc data, lock with adhoc thead until the request's thread can handle it.
+    std::mutex procDataMutex;
+    std::atomic<bool> asyncProcStarted;
+    std::string asyncInput;
+};
 
 template <bool SSL>
 struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
@@ -50,6 +59,9 @@ private:
 
     /* Current state (content-length sent, status sent, write called, etc */
     int state = 0;
+
+    AsyncProcData* asyncProcData = nullptr;
+
 };
 
 }
