@@ -1,5 +1,5 @@
 EXAMPLE_FILES := HelloWorld EchoServer BroadcastingEchoServer
-THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
+THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded BatchProcessingExample
 override CXXFLAGS += -std=c++17 -Isrc -IuSockets/src
 override LDFLAGS += uSockets/*.o -lz
 
