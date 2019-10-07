@@ -6,6 +6,8 @@
 #include <set>
 #include <chrono>
 
+namespace uWS {
+
 /* A Subscriber is an extension of a socket */
 struct Subscriber {
     /* List of all our subscriptions (subscribersNextSubscription) */
@@ -215,6 +217,10 @@ public:
     /* Drain the tree by emitting what to send with every Subscriber */
     void drain(/*std::function<int(Subscriber *, std::string_view)> cb*/) {
 
+        if (!numTriggeredTopics) {
+            return;
+        }
+
         /* Up to 64 triggered Topics per batch */
         std::map<uint64_t, std::string> intersectionCache;
 
@@ -285,6 +291,13 @@ public:
 
             min = nextMin;
         }
+
+        /* Clear messages of triggered Topics */
+        for (int i = 0; i < numTriggeredTopics; i++) {
+            triggeredTopics[i]->messages.clear();
+            triggeredTopics[i]->triggered = false;
+        }
+        numTriggeredTopics = 0;
     }
 
     void print(Topic *root = nullptr, int indentation = 1) {
@@ -302,3 +315,5 @@ public:
         }
     }
 };
+
+}

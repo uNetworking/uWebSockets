@@ -128,7 +128,7 @@ public:
         }
 
         /* Make sure to unsubscribe from any pub/sub node at exit */
-        webSocketContextData->topicTree.unsubscribeAll(this);
+        webSocketContextData->topicTree.unsubscribeAll((Subscriber *) this);
     }
 
     /* Subscribe to a topic according to MQTT rules and syntax */
@@ -138,9 +138,7 @@ public:
         );
 
         /* Fix this up */
-        bool *valid = new bool;
-        *valid = true;
-        webSocketContextData->topicTree.subscribe(std::string(topic), this, valid);
+        webSocketContextData->topicTree.subscribe(topic, (Subscriber *) this);
     }
 
     /* Publish a message to a topic according to MQTT rules and syntax */
@@ -153,7 +151,7 @@ public:
         char dst[1024];
         size_t dst_length = protocol::formatMessage<true>(dst, message.data(), message.length(), OpCode::TEXT, message.length(), false);
 
-        webSocketContextData->topicTree.publish(std::string(topic), dst, dst_length);
+        webSocketContextData->topicTree.publish(topic, std::string_view(dst, dst_length));
     }
 };
 

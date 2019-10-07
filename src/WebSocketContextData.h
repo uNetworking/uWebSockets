@@ -22,7 +22,7 @@
 #include <string_view>
 
 #include "WebSocketProtocol.h"
-#include "TopicTree.h"
+#include "TopicTreeDraft.h"
 
 namespace uWS {
 
@@ -43,6 +43,23 @@ struct WebSocketContextData {
 
     /* Each websocket context has a topic tree for pub/sub */
     TopicTree topicTree;
+
+    WebSocketContextData() : topicTree([](Subscriber *s, std::string_view data) -> int {
+        //std::cout << "Skickar data: " << data << " på sub: " << s << std::endl;
+
+
+        auto *asyncSocket = (AsyncSocket<SSL> *) s;
+
+        asyncSocket->write(data.data(), data.length());
+
+        return 0;
+    }) {
+
+        Loop::get()->addPostHandler([this](Loop *loop) {
+
+            topicTree.drain();
+        });
+    }
 };
 
 }

@@ -31,6 +31,7 @@ template <bool SSL>
 struct AsyncSocket {
     template <bool> friend struct HttpContext;
     template <bool, bool> friend struct WebSocketContext;
+    template <bool> friend struct WebSocketContextData;
     friend struct TopicTree;
 
 protected:
