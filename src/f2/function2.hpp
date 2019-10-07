@@ -36,11 +36,12 @@
 #endif
 #endif // FU2_WITH_DISABLED_EXCEPTIONS
 // - FU2_HAS_NO_FUNCTIONAL_HEADER
-#if !defined(FU2_WITH_NO_FUNCTIONAL_HEADER) ||                                 \
-    !defined(FU2_NO_FUNCTIONAL_HEADER) ||                                      \
+#if !defined(FU2_WITH_NO_FUNCTIONAL_HEADER) &&                                 \
+    !defined(FU2_NO_FUNCTIONAL_HEADER) &&                                      \
     !defined(FU2_HAS_DISABLED_EXCEPTIONS)
-#define FU2_HAS_NO_FUNCTIONAL_HEADER
 #include <functional>
+#else
+#define FU2_HAS_NO_FUNCTIONAL_HEADER
 #endif
 // - FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
 #if defined(FU2_WITH_CXX17_NOEXCEPT_FUNCTION_TYPE)
@@ -57,8 +58,51 @@
 #endif
 #endif // FU2_WITH_CXX17_NOEXCEPT_FUNCTION_TYPE
 
+// - FU2_HAS_NO_EMPTY_PROPAGATION
+#if defined(FU2_WITH_NO_EMPTY_PROPAGATION)
+#define FU2_HAS_NO_EMPTY_PROPAGATION
+#endif // FU2_WITH_NO_EMPTY_PROPAGATION
+
 #if !defined(FU2_HAS_DISABLED_EXCEPTIONS)
 #include <exception>
+#endif
+
+/// Hint for the compiler that this point should be unreachable
+#if defined(_MSC_VER)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE_INTRINSIC() __assume(false)
+#elif defined(__GNUC__)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE_INTRINSIC() __builtin_unreachable()
+#elif defined(__has_builtin) && __has_builtin(__builtin_unreachable)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE_INTRINSIC() __builtin_unreachable()
+#else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE_INTRINSIC() abort()
+#endif
+
+/// Causes the application to exit abnormally
+#if defined(_MSC_VER)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_TRAP() __debugbreak()
+#elif defined(__GNUC__)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_TRAP() __builtin_trap()
+#elif defined(__has_builtin) && __has_builtin(__builtin_trap)
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_TRAP() __builtin_trap()
+#else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_TRAP() *(volatile int*)0x11 = 0
+#endif
+
+#ifndef NDEBUG
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE() ::fu2::detail::unreachable_debug()
+#else
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#define FU2_DETAIL_UNREACHABLE() FU2_DETAIL_UNREACHABLE_INTRINSIC()
 #endif
 
 namespace fu2 {
@@ -70,7 +114,7 @@ class function;
 template <typename...>
 struct identity {};
 
-// Equivalent to C++17's std::void_t which is targets a bug in GCC,
+// Equivalent to C++17's std::void_t which targets a bug in GCC,
 // that prevents correct SFINAE behavior.
 // See http://stackoverflow.com/questions/35753920 for details.
 template <typename...>
@@ -78,6 +122,9 @@ struct deduce_to_void : std::common_type<void> {};
 
 template <typename... T>
 using void_t = typename deduce_to_void<T...>::type;
+
+template <typename T>
+using unrefcv_t = std::remove_cv_t<std::remove_reference_t<T>>;
 
 // Copy enabler helper class
 template <bool /*Copyable*/>
@@ -115,8 +162,16 @@ struct property {
   static constexpr auto const is_throwing = Throws;
 
   // Is true when the function throws an exception on empty invocation.
-  static constexpr auto const is_strong_exception_guaranteed = Throws;
+  static constexpr auto const is_strong_exception_guaranteed =
+      HasStrongExceptGuarantee;
 };
+
+#ifndef NDEBUG
+[[noreturn]] inline void unreachable_debug() {
+  FU2_DETAIL_TRAP();
+  std::abort();
+}
+#endif
 
 /// Provides utilities for invocing callable objects
 namespace invocation {
@@ -191,9 +246,9 @@ struct can_invoke<Pointer, identity<T&>,
     : std::true_type {};
 template <typename Pointer, typename T>
 struct can_invoke<Pointer, identity<T&&>,
-                  decltype((void)(std::declval<T&&>().*
-                                  std::declval<Pointer>()))> : std::true_type {
-};
+                  decltype(
+                      (void)(std::declval<T&&>().*std::declval<Pointer>()))>
+    : std::true_type {};
 template <typename Pointer, typename T>
 struct can_invoke<Pointer, identity<T*>,
                   decltype(
@@ -334,12 +389,11 @@ struct box_factory<box<IsCopyable, T, Allocator>> {
 };
 
 /// Creates a box containing the given value and allocator
-template <bool IsCopyable, typename T,
-          typename Allocator = std::allocator<std::decay_t<T>>>
+template <bool IsCopyable, typename T, typename Allocator>
 auto make_box(std::integral_constant<bool, IsCopyable>, T&& value,
-              Allocator&& allocator = Allocator{}) {
-  return box<IsCopyable, std::decay_t<T>, std::decay_t<Allocator>>{
-      std::forward<T>(value), std::forward<Allocator>(allocator)};
+              Allocator&& allocator) {
+  return box<IsCopyable, std::decay_t<T>, std::decay_t<Allocator>>(
+      std::forward<T>(value), std::forward<Allocator>(allocator));
 }
 
 template <typename T>
@@ -408,13 +462,13 @@ struct bad_function_call : std::exception {
     return "bad function call";
   }
 };
-#elif
+#else
 using std::bad_function_call;
 #endif
 #endif
 
 #ifdef FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
-#define FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)                                      \
+#define FU2_DETAIL_EXPAND_QUALIFIERS_NOEXCEPT(F)                               \
   F(, , noexcept, , &)                                                         \
   F(const, , noexcept, , &)                                                    \
   F(, volatile, noexcept, , &)                                                 \
@@ -427,11 +481,17 @@ using std::bad_function_call;
   F(const, , noexcept, &&, &&)                                                 \
   F(, volatile, noexcept, &&, &&)                                              \
   F(const, volatile, noexcept, &&, &&)
+#define FU2_DETAIL_EXPAND_CV_NOEXCEPT(F)                                       \
+  F(, , noexcept)                                                              \
+  F(const, , noexcept)                                                         \
+  F(, volatile, noexcept)                                                      \
+  F(const, volatile, noexcept)
 #else // FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
-#define FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)
+#define FU2_DETAIL_EXPAND_QUALIFIERS_NOEXCEPT(F)
+#define FU2_DETAIL_EXPAND_CV_NOEXCEPT(F)
 #endif // FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE
 
-#define FU2_EXPAND_QUALIFIERS(F)                                               \
+#define FU2_DETAIL_EXPAND_QUALIFIERS(F)                                        \
   F(, , , , &)                                                                 \
   F(const, , , , &)                                                            \
   F(, volatile, , , &)                                                         \
@@ -444,7 +504,13 @@ using std::bad_function_call;
   F(const, , , &&, &&)                                                         \
   F(, volatile, , &&, &&)                                                      \
   F(const, volatile, , &&, &&)                                                 \
-  FU2_EXPAND_QUALIFIERS_NOEXCEPT(F)
+  FU2_DETAIL_EXPAND_QUALIFIERS_NOEXCEPT(F)
+#define FU2_DETAIL_EXPAND_CV(F)                                                \
+  F(, , )                                                                      \
+  F(const, , )                                                                 \
+  F(, volatile, )                                                              \
+  F(const, volatile, )                                                         \
+  FU2_DETAIL_EXPAND_CV_NOEXCEPT(F)
 
 /// If the function is qualified as noexcept, the call will never throw
 template <bool IsNoexcept>
@@ -518,7 +584,7 @@ using is_noexcept_noexcept = std::true_type;
     };                                                                         \
   };
 
-FU2_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
+FU2_DETAIL_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
 #undef FU2_DEFINE_FUNCTION_TRAIT
 
 /// Deduces to the function pointer to the given signature
@@ -669,7 +735,9 @@ class operator_impl;
       auto parent = static_cast<Function CONST VOLATILE*>(this);               \
       using erasure_t = std::decay_t<decltype(parent->erasure_)>;              \
                                                                                \
-      return erasure_t::template invoke<Index>(                                \
+      /* `std::decay_t<decltype(parent->erasure_)>` is a workaround for a   */ \
+      /* compiler regression of MSVC 16.3.1, see #29 for details.           */ \
+      return std::decay_t<decltype(parent->erasure_)>::template invoke<Index>( \
           static_cast<erasure_t CONST VOLATILE REF>(parent->erasure_),         \
           std::forward<Args>(args)...);                                        \
     }                                                                          \
@@ -678,7 +746,7 @@ class operator_impl;
             typename Ret, typename... Args>                                    \
   class operator_impl<Index, function<Config, Property>,                       \
                       Ret(Args...) CONST VOLATILE OVL_REF NOEXCEPT>            \
-      : copyable<Config::is_owning || Config::is_copyable> {                   \
+      : copyable<!Config::is_owning || Config::is_copyable> {                  \
                                                                                \
     template <std::size_t, typename, typename...>                              \
     friend class operator_impl;                                                \
@@ -696,13 +764,15 @@ class operator_impl;
           static_cast<function<Config, Property> CONST VOLATILE*>(this);       \
       using erasure_t = std::decay_t<decltype(parent->erasure_)>;              \
                                                                                \
-      return erasure_t::template invoke<Index>(                                \
+      /* `std::decay_t<decltype(parent->erasure_)>` is a workaround for a   */ \
+      /* compiler regression of MSVC 16.3.1, see #29 for details.           */ \
+      return std::decay_t<decltype(parent->erasure_)>::template invoke<Index>( \
           static_cast<erasure_t CONST VOLATILE REF>(parent->erasure_),         \
           std::forward<Args>(args)...);                                        \
     }                                                                          \
   };
 
-FU2_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
+FU2_DETAIL_EXPAND_QUALIFIERS(FU2_DEFINE_FUNCTION_TRAIT)
 #undef FU2_DEFINE_FUNCTION_TRAIT
 } // namespace invocation_table
 
@@ -759,7 +829,7 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
             // Just swap both pointers if we allocated on the heap
             to->ptr_ = from->ptr_;
 
-#ifndef _NDEBUG
+#ifndef NDEBUG
             // We don't need to null the pointer since we know that
             // we don't own the data anymore through the vtable
             // which is set to empty.
@@ -814,9 +884,7 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
         }
       }
 
-      // TODO Use an unreachable intrinsic
-      assert(false && "Unreachable!");
-      std::exit(-1);
+      FU2_DETAIL_UNREACHABLE();
     }
 
     template <typename Box>
@@ -864,6 +932,9 @@ class vtable<property<IsThrowing, HasStrongExceptGuarantee, FormalArgs...>> {
       case opcode::op_fetch_empty: {
         write_empty(to, true);
         break;
+      }
+      default: {
+        FU2_DETAIL_UNREACHABLE();
       }
     }
   }
@@ -1045,13 +1116,28 @@ public:
   }
 
   template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
-  constexpr erasure(T&& callable, Allocator&& allocator = Allocator{}) {
+  constexpr erasure(std::false_type /*use_bool_op*/, T&& callable,
+                    Allocator&& allocator = Allocator{}) {
     vtable_t::init(vtable_,
                    type_erasure::make_box(
                        std::integral_constant<bool, Config::is_copyable>{},
                        std::forward<T>(callable),
                        std::forward<Allocator>(allocator)),
                    this->opaque_ptr(), capacity());
+  }
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
+  constexpr erasure(std::true_type /*use_bool_op*/, T&& callable,
+                    Allocator&& allocator = Allocator{}) {
+    if (bool(callable)) {
+      vtable_t::init(vtable_,
+                     type_erasure::make_box(
+                         std::integral_constant<bool, Config::is_copyable>{},
+                         std::forward<T>(callable),
+                         std::forward<Allocator>(allocator)),
+                     this->opaque_ptr(), capacity());
+    } else {
+      vtable_.set_empty();
+    }
   }
 
   ~erasure() {
@@ -1089,19 +1175,9 @@ public:
     return *this;
   }
 
-  template <typename T>
-  constexpr erasure& operator=(T&& callable) {
-    vtable_.weak_destroy(this->opaque_ptr(), capacity());
-    vtable_t::init(vtable_,
-                   type_erasure::make_box(
-                       std::integral_constant<bool, Config::is_copyable>{},
-                       std::forward<T>(callable)),
-                   this->opaque_ptr(), capacity());
-    return *this;
-  }
-
-  template <typename T, typename Allocator>
-  void assign(T&& callable, Allocator&& allocator) {
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
+  void assign(std::false_type /*use_bool_op*/, T&& callable,
+              Allocator&& allocator = {}) {
     vtable_.weak_destroy(this->opaque_ptr(), capacity());
     vtable_t::init(vtable_,
                    type_erasure::make_box(
@@ -1109,6 +1185,17 @@ public:
                        std::forward<T>(callable),
                        std::forward<Allocator>(allocator)),
                    this->opaque_ptr(), capacity());
+  }
+
+  template <typename T, typename Allocator = std::allocator<std::decay_t<T>>>
+  void assign(std::true_type /*use_bool_op*/, T&& callable,
+              Allocator&& allocator = {}) {
+    if (bool(callable)) {
+      assign(std::false_type{}, std::forward<T>(callable),
+             std::forward<Allocator>(allocator));
+    } else {
+      operator=(nullptr);
+    }
   }
 
   /// Returns true when the erasure doesn't hold any erased object
@@ -1177,10 +1264,15 @@ public:
 
   template <typename T>
   // NOLINTNEXTLINE(cppcoreguidlines-pro-type-member-init)
-  constexpr erasure(T&& object)
+  constexpr erasure(std::false_type /*use_bool_op*/, T&& object)
       : invoke_table_(invoke_table_t::template get_invocation_view_table_of<
                       std::decay_t<T>>()),
         view_(address_taker<std::decay_t<T>>::take(std::forward<T>(object))) {
+  }
+  template <typename T>
+  // NOLINTNEXTLINE(cppcoreguidlines-pro-type-member-init)
+  constexpr erasure(std::true_type use_bool_op, T&& object) {
+    this->assign(use_bool_op, std::forward<T>(object));
   }
 
   ~erasure() = default;
@@ -1211,11 +1303,19 @@ public:
   }
 
   template <typename T>
-  constexpr erasure& operator=(T&& object) {
+  constexpr void assign(std::false_type /*use_bool_op*/, T&& callable) {
     invoke_table_ = invoke_table_t::template get_invocation_view_table_of<
         std::decay_t<T>>();
-    view_.ptr_ = address_taker<std::decay_t<T>>::take(std::forward<T>(object));
-    return *this;
+    view_.ptr_ =
+        address_taker<std::decay_t<T>>::take(std::forward<T>(callable));
+  }
+  template <typename T>
+  constexpr void assign(std::true_type /*use_bool_op*/, T&& callable) {
+    if (bool(callable)) {
+      assign(std::false_type{}, std::forward<T>(callable));
+    } else {
+      operator=(nullptr);
+    }
   }
 
   /// Returns true when the erasure doesn't hold any erased object
@@ -1254,9 +1354,48 @@ struct accepts_all<
     void_t<std::enable_if_t<accepts_one<T, Signatures>::value>...>>
     : std::true_type {};
 
+/// Deduces to a true_type if the type T is implementing operator bool()
+/// or if the type is convertible to bool directly, this also implements an
+/// optimizations for function references `void(&)()` which are can never
+/// be null and for such a conversion to bool would never return false.
+#if defined(FU2_HAS_NO_EMPTY_PROPAGATION)
+template <typename T>
+struct use_bool_op : std::false_type {};
+#else
+template <typename T, typename = void>
+struct has_bool_op : std::false_type {};
+template <typename T>
+struct has_bool_op<T, void_t<decltype(bool(std::declval<T>()))>>
+    : std::true_type {
+#ifndef NDEBUG
+  static_assert(!std::is_pointer<T>::value,
+                "Missing deduction for function pointer!");
+#endif
+};
+
+template <typename T>
+struct use_bool_op : has_bool_op<T> {};
+
+#define FU2_DEFINE_USE_OP_TRAIT(CONST, VOLATILE, NOEXCEPT)                     \
+  template <typename Ret, typename... Args>                                    \
+  struct use_bool_op<Ret (*CONST VOLATILE)(Args...) NOEXCEPT>                  \
+      : std::true_type {};
+
+FU2_DETAIL_EXPAND_CV(FU2_DEFINE_USE_OP_TRAIT)
+#undef FU2_DEFINE_USE_OP_TRAIT
+
+template <typename Ret, typename... Args>
+struct use_bool_op<Ret(Args...)> : std::false_type {};
+
+#if defined(FU2_HAS_CXX17_NOEXCEPT_FUNCTION_TYPE)
+template <typename Ret, typename... Args>
+struct use_bool_op<Ret(Args...) noexcept> : std::false_type {};
+#endif
+#endif // FU2_HAS_NO_EMPTY_PROPAGATION
+
 template <typename Config, typename T>
 struct assert_wrong_copy_assign {
-  static_assert(!Config::is_copyable ||
+  static_assert(!Config::is_owning || !Config::is_copyable ||
                     std::is_copy_constructible<std::decay_t<T>>::value,
                 "Can't wrap a non copyable object into a unique function!");
 
@@ -1372,7 +1511,8 @@ public:
             enable_if_can_accept_all_t<T>* = nullptr,
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
-  constexpr function(T&& callable) : erasure_(std::forward<T>(callable)) {
+  constexpr function(T&& callable)
+      : erasure_(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable)) {
   }
   template <typename T, typename Allocator, //
             enable_if_not_convertible_to_this<T>* = nullptr,
@@ -1381,7 +1521,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   constexpr function(T&& callable, Allocator&& allocator)
-      : erasure_(std::forward<T>(callable),
+      : erasure_(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable),
                  std::forward<Allocator>(allocator)) {
   }
 
@@ -1418,7 +1558,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   function& operator=(T&& callable) {
-    erasure_ = std::forward<T>(callable);
+    erasure_.assign(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable));
     return *this;
   }
 
@@ -1445,7 +1585,7 @@ public:
             assert_wrong_copy_assign_t<T>* = nullptr,
             assert_no_strong_except_guarantee_t<T>* = nullptr>
   void assign(T&& callable, Allocator&& allocator = Allocator{}) {
-    erasure_.assign(std::forward<T>(callable),
+    erasure_.assign(use_bool_op<unrefcv_t<T>>{}, std::forward<T>(callable),
                     std::forward<Allocator>(allocator));
   }
 
@@ -1582,13 +1722,13 @@ using function_view = function_base<false, true, capacity_default, //
 /// Exception type that is thrown when invoking empty function objects
 /// and exception support isn't disabled.
 ///
-/// Exception suport is enabled if
+/// Exception support is enabled if
 /// the template parameter 'Throwing' is set to true (default).
 ///
 /// This type will default to std::bad_function_call if the
 /// functional header is used, otherwise the library provides its own type.
 ///
-/// You may disable the inclusion of the functionl header
+/// You may disable the inclusion of the functional header
 /// through defining `FU2_WITH_NO_FUNCTIONAL_HEADER`.
 ///
 using detail::type_erasure::invocation_table::bad_function_call;
@@ -1612,7 +1752,13 @@ constexpr auto overload(T&&... callables) {
 }
 } // namespace fu2
 
-#undef FU2_EXPAND_QUALIFIERS
-#undef FU2_EXPAND_QUALIFIERS_NOEXCEPT
+#undef FU2_DETAIL_EXPAND_QUALIFIERS
+#undef FU2_DETAIL_EXPAND_QUALIFIERS_NOEXCEPT
+#undef FU2_DETAIL_EXPAND_CV
+#undef FU2_DETAIL_EXPAND_CV_NOEXCEPT
+#undef FU2_DETAIL_UNREACHABLE_INTRINSIC
+#undef FU2_DETAIL_UNREACHABLE_INTRINSIC
+#undef FU2_DETAIL_TRAP
 
 #endif // FU2_INCLUDED_FUNCTION2_HPP_
+
