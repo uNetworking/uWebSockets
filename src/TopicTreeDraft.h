@@ -3,15 +3,13 @@
 #include <map>
 #include <string_view>
 #include <functional>
+#include <set>
+#include <chrono>
 
 /* A Subscriber is an extension of a socket */
 struct Subscriber {
     /* List of all our subscriptions (subscribersNextSubscription) */
     struct Subscription *subscriptions;
-
-    /* Reserved */
-    bool triggered = false;
-    Subscriber *nextTriggeredSubscriber = nullptr;
 };
 
 struct Topic {
@@ -23,7 +21,6 @@ struct Topic {
     Topic *parent = nullptr;
 
     /* Next triggered Topic */
-    Topic *nextTriggered = nullptr;
     bool triggered = false;
 
     /* Exact string matches */
@@ -35,11 +32,10 @@ struct Topic {
     /* Terminating wildcard child */
     Topic *terminatingWildcardChild = nullptr;
 
-    /* Subscriptions to this very topic */
-    Subscription *subscriptions;
+    /* What we published */
+    std::map<int, std::string> messages;
 
-    /* Collective backpressure */
-    std::string backpressure;
+    std::set<Subscriber *> subs;
 };
 
 /* A Subscription is a link between Topic and Subscriber */
@@ -62,12 +58,21 @@ struct Subscription {
 
 struct TopicTree {
 private:
-    Topic *root = new Topic;
-    Topic *triggered = nullptr;
+    std::function<int(Subscriber *, std::string_view)> cb;
 
+    Topic *root = new Topic;
+
+    /* Global messageId for deduplication of overlapping topics and ordering between topics */
+    int messageId = 0;
+
+    /* The triggered topics */
+    Topic *triggeredTopics[64];
+    int numTriggeredTopics = 0;
+    Subscriber *min = (Subscriber *) UINTPTR_MAX;
+    
     /* Cull or trim unused Topic nodes from leaf to root */
     void trimTree(Topic *topic) {
-        if (!topic->subscriptions && !topic->children.size() && !topic->terminatingWildcardChild && !topic->wildcardChild) {
+        if (!topic->subs.size() && !topic->children.size() && !topic->terminatingWildcardChild && !topic->wildcardChild) {
             Topic *parent = topic->parent;
 
             if (topic->length == 1) {
@@ -84,7 +89,7 @@ private:
         }
     }
 
-    /* Should be getData and commit */
+    /* Should be getData and commit? */
     void publish(Topic *iterator, size_t start, size_t stop, std::string_view topic, std::string_view message) {
         for (; stop != std::string::npos; start = stop + 1) {
             stop = topic.find('/', start);
@@ -92,16 +97,17 @@ private:
 
             /* Do we have a terminating wildcard child? */
             if (iterator->terminatingWildcardChild) {
-                iterator->terminatingWildcardChild->backpressure.append(message);
+                iterator->terminatingWildcardChild->messages[messageId] = message;
 
                 /* Add this topic to triggered */
                 if (!iterator->terminatingWildcardChild->triggered) {
-                    if (triggered == nullptr) {
-                        triggered = iterator->terminatingWildcardChild;
-                    } else {
-                        iterator->terminatingWildcardChild->nextTriggered = triggered;
-                        triggered = iterator->terminatingWildcardChild;
+                    triggeredTopics[numTriggeredTopics++] = iterator->terminatingWildcardChild;
+
+                    /* Keep track of lowest subscriber */
+                    if (*iterator->terminatingWildcardChild->subs.begin() < min) {
+                        min = *iterator->terminatingWildcardChild->subs.begin();
                     }
+
                     iterator->terminatingWildcardChild->triggered = true;
                 }
             }
@@ -121,21 +127,27 @@ private:
         }
 
         /* If we went all the way we matched exactly */
-        iterator->backpressure.append(message);
+        iterator->messages[messageId] = message;
+
         /* Add this topic to triggered */
         if (!iterator->triggered) {
-            if (triggered == nullptr) {
-                triggered = iterator;
+            triggeredTopics[numTriggeredTopics++] = iterator;
+
+            /* Keep track of lowest subscriber */
+            if (*iterator->subs.begin() < min) {
+                min = *iterator->subs.begin();
             }
-            else {
-                iterator->nextTriggered = triggered;
-                triggered = iterator;
-            }
+
             iterator->triggered = true;
         }
     }
 
 public:
+
+    TopicTree(std::function<int(Subscriber *, std::string_view)> cb) {
+        this->cb = cb;
+    }
+
     void subscribe(std::string_view topic, Subscriber *subscriber) {
         /* Start iterating from the root */
         Topic *iterator = root;
@@ -155,7 +167,6 @@ public:
                 newTopic->parent = iterator;
                 newTopic->name = new char[segment.length()];
                 newTopic->length = segment.length();
-                newTopic->subscriptions = nullptr;
                 newTopic->terminatingWildcardChild = nullptr;
                 newTopic->wildcardChild = nullptr;
                 memcpy(newTopic->name, segment.data(), segment.length());
@@ -179,65 +190,101 @@ public:
             }
         }
 
-        /* Allocate new Subscription */
-        Subscription *subscription = new Subscription;
-        subscription->subscriber = subscriber;
-        subscription->topic = iterator;
-
-        /* Link Subscription to Subscriber*/
-        subscription->subscribersNextSubscription = subscriber->subscriptions;
-        subscriber->subscriptions = subscription;
-
-        /* Link Subscription to Topic */
-        subscription->topicNextSubscription = iterator->subscriptions;
-        iterator->subscriptions = subscription;
+        /* Add socket to Topic's Set */
+        iterator->subs.insert(subscriber);
     }
 
     void publish(std::string_view topic, std::string_view message) {
         publish(root, 0, 0, topic, message);
+        messageId++;
     }
 
     /* Rarely used, probably */
     void unsubscribe(std::string_view topic, Subscriber *subscriber) {
         /* Subscribers are likely to have very few subscriptions (20 or fewer) */
-        /*Subscription *iterator = subscriber->subscriptions;
-        while (iterator) {
-            // avlänka OM DET ÄR RÄTT TOPIC!
-            iterator->topic->subscriptions = nullptr;
 
-            trimTree(iterator->topic);
-            iterator = iterator->subscribersNextSubscription;
-        }*/
     }
 
     void unsubscribeAll(Subscriber *subscriber) {
-        Subscription *iterator = subscriber->subscriptions;
-        while (iterator) {
-            // avlänka
-            iterator->topic->subscriptions = nullptr;
-
+        for (Subscription *iterator = subscriber->subscriptions; iterator; iterator = iterator->subscribersNextSubscription) {
+            iterator->topic->subs.erase(subscriber);
             trimTree(iterator->topic);
-            iterator = iterator->subscribersNextSubscription;
         }
     }
 
     /* Drain the tree by emitting what to send with every Subscriber */
-    void drain(std::function<int(Subscriber *, std::string_view)> cb) {
+    void drain(/*std::function<int(Subscriber *, std::string_view)> cb*/) {
 
-        // for all triggered topics
-        Topic *iterator = triggered;
-        while (iterator) {
-            cb(nullptr, iterator->backpressure);
+        /* Up to 64 triggered Topics per batch */
+        std::map<uint64_t, std::string> intersectionCache;
 
-            iterator = iterator->nextTriggered;
+        /* Loop over these here */
+        std::set<Subscriber *>::iterator it[64];
+        std::set<Subscriber *>::iterator end[64];
+        for (int i = 0; i < numTriggeredTopics; i++) {
+            it[i] = triggeredTopics[i]->subs.begin();
+            end[i] = triggeredTopics[i]->subs.end();
         }
-
         
-    }
+        /* Empty all sets from unique subscribers */
+        for (int nonEmpty = numTriggeredTopics; nonEmpty; ) {
 
-    /* Drain one particular Subscriber, as called from its writable callback */
-    void drain(Subscriber *subscriber, std::function<int(std::string_view)> cb) {
-        // know what backpressure to send
+            Subscriber *nextMin = (Subscriber *)UINTPTR_MAX;
+
+            /* The message sets relevant for this intersection */
+            std::map<int, std::string> *perSubscriberIntersectingTopicMessages[64];
+            int numPerSubscriberIntersectingTopicMessages = 0;
+
+            uint64_t intersection = 0;
+
+            for (int i = 0; i < numTriggeredTopics; i++) {
+                if ((it[i] != end[i]) && (*it[i] == min)) {
+
+                    /* Mark this intersection */
+                    intersection |= (1 << i);
+                    perSubscriberIntersectingTopicMessages[numPerSubscriberIntersectingTopicMessages++] = &triggeredTopics[i]->messages;
+
+                    it[i]++;
+                    if (it[i] == end[i]) {
+                        nonEmpty--;
+                    }
+                    else {
+                        if (nextMin > *it[i]) {
+                            nextMin = *it[i];
+                        }
+                    }
+                }
+                else {
+                    /* We need to lower nextMin to us, in the case of min being the last in a set */
+                    if ((it[i] != end[i]) && (nextMin > *it[i])) {
+                        nextMin = *it[i];
+                    }
+                }
+            }
+
+            /* Generate cache for intersection */
+            if (intersectionCache[intersection].length() == 0) {
+
+                /* Build the union in order without duplicates */
+                std::map<int, std::string> complete;
+                for (int i = 0; i < numPerSubscriberIntersectingTopicMessages; i++) {
+                    complete.insert(perSubscriberIntersectingTopicMessages[i]->begin(), perSubscriberIntersectingTopicMessages[i]->end());
+                }
+
+                /* Create the linear cache */
+                std::string res;
+                for (auto &p : complete) {
+                    res.append(p.second);
+                }
+
+                cb(min, intersectionCache[intersection] = std::move(res));
+            }
+            else {
+                cb(min, intersectionCache[intersection]);
+            }
+
+            min = nextMin;
+        }
     }
 
     void print(Topic *root = nullptr, int indentation = 1) {
@@ -250,7 +297,7 @@ public:
             for (int i = 0; i < indentation; i++) {
                 std::cout << "  ";
             }
-            std::cout << std::string_view(p.second->name, p.second->length) << " = " << p.second->backpressure.c_str() << std::endl;
+            std::cout << std::string_view(p.second->name, p.second->length) << " = " << p.second->messages.size() << " publishes, " << p.second->subs.size() << " subscribers" << std::endl;
             print(p.second, indentation + 1);
         }
     }
