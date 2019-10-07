@@ -48,7 +48,7 @@ struct WebSocketContextData {
         //std::cout << "Skickar data: " << data << " på sub: " << s << std::endl;
 
 
-        auto *asyncSocket = (AsyncSocket<SSL> *) s;
+        auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
 
         asyncSocket->write(data.data(), data.length());
 

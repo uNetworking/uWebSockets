@@ -128,7 +128,7 @@ public:
         }
 
         /* Make sure to unsubscribe from any pub/sub node at exit */
-        webSocketContextData->topicTree.unsubscribeAll((Subscriber *) this);
+        webSocketContextData->topicTree.unsubscribeAll(webSocketData->subscriber);
     }
 
     /* Subscribe to a topic according to MQTT rules and syntax */
@@ -137,8 +137,13 @@ public:
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
 
-        /* Fix this up */
-        webSocketContextData->topicTree.subscribe(topic, (Subscriber *) this);
+        /* Make us a subscriber if we aren't yet */
+        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
+        if (!webSocketData->subscriber) {
+            webSocketData->subscriber = new Subscriber(this);
+        }
+
+        webSocketContextData->topicTree.subscribe(topic, webSocketData->subscriber);
     }
 
     /* Publish a message to a topic according to MQTT rules and syntax */

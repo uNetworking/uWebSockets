@@ -1,3 +1,23 @@
+/*
+ * Authored by Alex Hultman, 2018-2019.
+ * Intellectual property of third-party.
+
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ *     http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef UWS_TOPICTREE_H
+#define UWS_TOPICTREE_H
+
 #include <iostream>
 #include <vector>
 #include <map>
@@ -5,13 +25,16 @@
 #include <functional>
 #include <set>
 #include <chrono>
+#include <list>
 
 namespace uWS {
 
 /* A Subscriber is an extension of a socket */
 struct Subscriber {
-    /* List of all our subscriptions (subscribersNextSubscription) */
-    struct Subscription *subscriptions;
+    std::list<struct Topic *> subscriptions;
+    void *user;
+
+    Subscriber(void *user) : user(user) {}
 };
 
 struct Topic {
@@ -38,24 +61,6 @@ struct Topic {
     std::map<int, std::string> messages;
 
     std::set<Subscriber *> subs;
-};
-
-/* A Subscription is a link between Topic and Subscriber */
-struct Subscription {
-    /* The Topic we are subscribed to */
-    Topic *topic;
-
-    /* What subscriber we are linked to */
-    Subscriber *subscriber;
-
-    /* Backpressure relating to the Topic */
-    int backpressure;
-
-    /* Next subscription from subscriber point of view */
-    Subscription *subscribersNextSubscription;
-
-    /* Next subscription from topic point of view */
-    Subscription *topicNextSubscription;
 };
 
 struct TopicTree {
@@ -194,6 +199,9 @@ public:
 
         /* Add socket to Topic's Set */
         iterator->subs.insert(subscriber);
+
+        /* Add Topic to list of subscriptions */
+        subscriber->subscriptions.push_back(iterator);
     }
 
     void publish(std::string_view topic, std::string_view message) {
@@ -207,89 +215,108 @@ public:
 
     }
 
+    /* Can be called with nullptr, ignore it then */
     void unsubscribeAll(Subscriber *subscriber) {
-        for (Subscription *iterator = subscriber->subscriptions; iterator; iterator = iterator->subscribersNextSubscription) {
-            iterator->topic->subs.erase(subscriber);
-            trimTree(iterator->topic);
+        if (subscriber) {
+            for (Topic *topic : subscriber->subscriptions) {
+                topic->subs.erase(subscriber);
+                trimTree(topic);
+            }
         }
     }
 
     /* Drain the tree by emitting what to send with every Subscriber */
-    void drain(/*std::function<int(Subscriber *, std::string_view)> cb*/) {
+    void drain() {
 
+        /* Do nothing if nothing to send */
         if (!numTriggeredTopics) {
             return;
         }
 
-        /* Up to 64 triggered Topics per batch */
-        std::map<uint64_t, std::string> intersectionCache;
+        /* Fast path for one topic (can also be used with heuristics) */
+        if (numTriggeredTopics == -555555) {
+            /* Disabled */
+            /*std::string res;
+            for (auto &p : triggeredTopics[0]->messages) {
+                res.append(p.second);
+            }
 
-        /* Loop over these here */
-        std::set<Subscriber *>::iterator it[64];
-        std::set<Subscriber *>::iterator end[64];
-        for (int i = 0; i < numTriggeredTopics; i++) {
-            it[i] = triggeredTopics[i]->subs.begin();
-            end[i] = triggeredTopics[i]->subs.end();
-        }
-        
-        /* Empty all sets from unique subscribers */
-        for (int nonEmpty = numTriggeredTopics; nonEmpty; ) {
+            for (Subscriber *s : triggeredTopics[0]->subs) {
+                cb(s, res);
+            }*/
+        } else {
 
-            Subscriber *nextMin = (Subscriber *)UINTPTR_MAX;
+            /* Up to 64 triggered Topics per batch */
+            std::map<uint64_t, std::string> intersectionCache;
 
-            /* The message sets relevant for this intersection */
-            std::map<int, std::string> *perSubscriberIntersectingTopicMessages[64];
-            int numPerSubscriberIntersectingTopicMessages = 0;
-
-            uint64_t intersection = 0;
-
+            /* Loop over these here */
+            std::set<Subscriber *>::iterator it[64];
+            std::set<Subscriber *>::iterator end[64];
             for (int i = 0; i < numTriggeredTopics; i++) {
-                if ((it[i] != end[i]) && (*it[i] == min)) {
+                it[i] = triggeredTopics[i]->subs.begin();
+                end[i] = triggeredTopics[i]->subs.end();
+            }
+            
+            /* Empty all sets from unique subscribers */
+            for (int nonEmpty = numTriggeredTopics; nonEmpty; ) {
 
-                    /* Mark this intersection */
-                    intersection |= (1 << i);
-                    perSubscriberIntersectingTopicMessages[numPerSubscriberIntersectingTopicMessages++] = &triggeredTopics[i]->messages;
+                Subscriber *nextMin = (Subscriber *)UINTPTR_MAX;
 
-                    it[i]++;
-                    if (it[i] == end[i]) {
-                        nonEmpty--;
+                /* The message sets relevant for this intersection */
+                std::map<int, std::string> *perSubscriberIntersectingTopicMessages[64];
+                int numPerSubscriberIntersectingTopicMessages = 0;
+
+                uint64_t intersection = 0;
+
+                for (int i = 0; i < numTriggeredTopics; i++) {
+                    if ((it[i] != end[i]) && (*it[i] == min)) {
+
+                        /* Mark this intersection */
+                        intersection |= (1 << i);
+                        perSubscriberIntersectingTopicMessages[numPerSubscriberIntersectingTopicMessages++] = &triggeredTopics[i]->messages;
+
+                        it[i]++;
+                        if (it[i] == end[i]) {
+                            nonEmpty--;
+                        }
+                        else {
+                            if (nextMin > *it[i]) {
+                                nextMin = *it[i];
+                            }
+                        }
                     }
                     else {
-                        if (nextMin > *it[i]) {
+                        /* We need to lower nextMin to us, in the case of min being the last in a set */
+                        if ((it[i] != end[i]) && (nextMin > *it[i])) {
                             nextMin = *it[i];
                         }
                     }
                 }
-                else {
-                    /* We need to lower nextMin to us, in the case of min being the last in a set */
-                    if ((it[i] != end[i]) && (nextMin > *it[i])) {
-                        nextMin = *it[i];
+
+                /* Generate cache for intersection */
+                if (intersectionCache[intersection].length() == 0) {
+
+                    /* Build the union in order without duplicates */
+                    std::map<int, std::string> complete;
+                    for (int i = 0; i < numPerSubscriberIntersectingTopicMessages; i++) {
+                        complete.insert(perSubscriberIntersectingTopicMessages[i]->begin(), perSubscriberIntersectingTopicMessages[i]->end());
                     }
+
+                    /* Create the linear cache */
+                    std::string res;
+                    for (auto &p : complete) {
+                        res.append(p.second);
+                    }
+
+                    cb(min, intersectionCache[intersection] = std::move(res));
                 }
-            }
-
-            /* Generate cache for intersection */
-            if (intersectionCache[intersection].length() == 0) {
-
-                /* Build the union in order without duplicates */
-                std::map<int, std::string> complete;
-                for (int i = 0; i < numPerSubscriberIntersectingTopicMessages; i++) {
-                    complete.insert(perSubscriberIntersectingTopicMessages[i]->begin(), perSubscriberIntersectingTopicMessages[i]->end());
-                }
-
-                /* Create the linear cache */
-                std::string res;
-                for (auto &p : complete) {
-                    res.append(p.second);
+                else {
+                    cb(min, intersectionCache[intersection]);
                 }
 
-                cb(min, intersectionCache[intersection] = std::move(res));
-            }
-            else {
-                cb(min, intersectionCache[intersection]);
+                min = nextMin;
             }
 
-            min = nextMin;
         }
 
         /* Clear messages of triggered Topics */
@@ -317,3 +344,5 @@ public:
 };
 
 }
+
+#endif

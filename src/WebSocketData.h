@@ -41,6 +41,9 @@ private:
 
     /* We might have a dedicated compressor */
     DeflationStream *deflationStream = nullptr;
+
+    /* We could be a subscriber */
+    Subscriber *subscriber = nullptr;
 public:
     WebSocketData(bool perMessageDeflate, bool slidingCompression, std::string &&backpressure) : AsyncSocketData<false>(std::move(backpressure)), WebSocketState<true>() {
         compressionStatus = perMessageDeflate ? ENABLED : DISABLED;
@@ -54,6 +57,10 @@ public:
     ~WebSocketData() {
         if (deflationStream) {
             delete deflationStream;
+        }
+
+        if (subscriber) {
+            delete subscriber;
         }
     }
 };

@@ -237,7 +237,7 @@ private:
                 }
 
                 /* Make sure to unsubscribe from any pub/sub node at exit */
-                webSocketContextData->topicTree.unsubscribeAll((Subscriber *) s);
+                webSocketContextData->topicTree.unsubscribeAll(webSocketData->subscriber);
             }
 
             /* Destruct in-placed data struct */
