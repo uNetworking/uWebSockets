@@ -77,7 +77,7 @@ private:
 
     /* Called only once per request */
     void writeMark() {
-        writeHeader("uWebSockets", "v0.15");
+        writeHeader("uWebSockets", "v0.16");
     }
 
     /* Returns true on success, indicating that it might be feasible to write more data.
