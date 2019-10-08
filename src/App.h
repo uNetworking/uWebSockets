@@ -89,6 +89,7 @@ public:
         CompressOptions compression = DISABLED;
         int maxPayloadLength = 16 * 1024;
         int idleTimeout = 120;
+        int maxBackpressure = 1 * 1024 * 1204;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
@@ -134,6 +135,7 @@ public:
         /* Copy settings */
         webSocketContext->getExt()->maxPayloadLength = behavior.maxPayloadLength;
         webSocketContext->getExt()->idleTimeout = behavior.idleTimeout;
+        webSocketContext->getExt()->maxBackpressure = behavior.maxBackpressure;
 
         return std::move(get(pattern, [webSocketContext, httpContext = this->httpContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
 

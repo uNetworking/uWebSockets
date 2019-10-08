@@ -42,7 +42,7 @@ struct WebSocketContextData {
     int idleTimeout = 0;
 
     /* There needs to be a maxBackpressure which will force close everything over that limit */
-    size_t maxBackpressure = 16 * 1024;
+    size_t maxBackpressure = 0;
 
     /* Each websocket context has a topic tree for pub/sub */
     TopicTree topicTree;
@@ -51,8 +51,17 @@ struct WebSocketContextData {
         /* We rely on writing to regular asyncSockets */
         auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
 
-        asyncSocket->timeout(this->idleTimeout);
-        asyncSocket->write(data.data(), data.length());
+        auto [written, failed] = asyncSocket->write(data.data(), data.length());
+        if (!failed) {
+            asyncSocket->timeout(this->idleTimeout);
+        } else {
+            /* Note: this assumes we are not corked, as corking will swallow things and fail later on */
+
+            /* Check if we now have too much backpressure (todo: don't buffer up before check) */
+            if (asyncSocket->getBufferedAmount() > maxBackpressure) {
+                asyncSocket->close();
+            }
+        }
 
         /* Reserved, unused */
         return 0;
