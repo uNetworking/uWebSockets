@@ -149,6 +149,12 @@ public:
                     ->writeHeader("Connection", "Upgrade")
                     ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept);
 
+                /* Select first subprotocol if present */
+                std::string_view secWebSocketProtocol = req->getHeader("sec-websocket-protocol");
+                if (secWebSocketProtocol.length()) {
+                    res->writeHeader("Sec-WebSocket-Protocol", secWebSocketProtocol.substr(0, secWebSocketProtocol.find(',')));
+                }
+
                 /* Negotiate compression */
                 bool perMessageDeflate = false;
                 bool slidingDeflateWindow = false;
