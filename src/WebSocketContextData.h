@@ -47,10 +47,11 @@ struct WebSocketContextData {
     /* Each websocket context has a topic tree for pub/sub */
     TopicTree topicTree;
 
-    WebSocketContextData() : topicTree([](Subscriber *s, std::string_view data) -> int {
+    WebSocketContextData() : topicTree([this](Subscriber *s, std::string_view data) -> int {
         /* We rely on writing to regular asyncSockets */
         auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
 
+        asyncSocket->timeout(this->idleTimeout);
         asyncSocket->write(data.data(), data.length());
 
         /* Reserved, unused */

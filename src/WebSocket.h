@@ -55,6 +55,12 @@ public:
 
     /* Send or buffer a WebSocket frame, compressed or not. Returns false on increased user space backpressure. */
     bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
+        /* Every send resets the timeout */
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
+            (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
+        );
+        AsyncSocket<SSL>::timeout(webSocketContextData->idleTimeout);
+
         /* Transform the message to compressed domain if requested */
         if (compress) {
             WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
