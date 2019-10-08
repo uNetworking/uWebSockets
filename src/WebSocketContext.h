@@ -225,7 +225,6 @@ private:
 
         /* Handle socket disconnections */
         us_socket_context_on_close(SSL, getSocketContext(), [](auto *s) {
-
             /* For whatever reason, if we already have emitted close event, do not emit it again */
             WebSocketData *webSocketData = (WebSocketData *) (us_socket_ext(SSL, s));
             if (!webSocketData->isShuttingDown) {
@@ -238,6 +237,8 @@ private:
 
                 /* Make sure to unsubscribe from any pub/sub node at exit */
                 webSocketContextData->topicTree.unsubscribeAll(webSocketData->subscriber);
+                delete webSocketData->subscriber;
+                webSocketData->subscriber = nullptr;
             }
 
             /* Destruct in-placed data struct */

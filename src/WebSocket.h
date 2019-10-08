@@ -129,6 +129,8 @@ public:
 
         /* Make sure to unsubscribe from any pub/sub node at exit */
         webSocketContextData->topicTree.unsubscribeAll(webSocketData->subscriber);
+        delete webSocketData->subscriber;
+        webSocketData->subscriber = nullptr;
     }
 
     /* Subscribe to a topic according to MQTT rules and syntax */
@@ -147,16 +149,17 @@ public:
     }
 
     /* Publish a message to a topic according to MQTT rules and syntax */
-    void publish(std::string_view topic, std::string_view message) {
+    void publish(std::string_view topic, std::string_view message, OpCode opCode = OpCode::TEXT, bool compress = false) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
 
         /* We frame the message right here and only pass raw bytes to the pub/subber */
-        char dst[1024];
-        size_t dst_length = protocol::formatMessage<true>(dst, message.data(), message.length(), OpCode::TEXT, message.length(), false);
+        char *dst = (char *) malloc(protocol::messageFrameSize(message.size()));
+        size_t dst_length = protocol::formatMessage<true>(dst, message.data(), message.length(), opCode, message.length(), false);
 
         webSocketContextData->topicTree.publish(topic, std::string_view(dst, dst_length));
+        free(dst);
     }
 };
 

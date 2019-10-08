@@ -58,7 +58,7 @@ struct Topic {
     Topic *terminatingWildcardChild = nullptr;
 
     /* What we published */
-    std::map<int, std::string> messages;
+    std::map<unsigned int, std::string> messages;
 
     std::set<Subscriber *> subs;
 };
@@ -70,7 +70,7 @@ private:
     Topic *root = new Topic;
 
     /* Global messageId for deduplication of overlapping topics and ordering between topics */
-    int messageId = 0;
+    unsigned int messageId = 0;
 
     /* The triggered topics */
     Topic *triggeredTopics[64];
@@ -89,7 +89,29 @@ private:
                     parent->wildcardChild = nullptr;
                 }
             }
+            /* Erase us from our parents set (wildcards also live here) */
             parent->children.erase(std::string_view(topic->name, topic->length));
+
+            /* If this node is triggered, make sure to remove it from the triggered list */
+            if (topic->triggered) {
+                Topic *tmp[64];
+                int length = 0;
+                for (int i = 0; i < numTriggeredTopics; i++) {
+                    if (triggeredTopics[i] != topic) {
+                        tmp[length++] = triggeredTopics[i];
+                    }
+                }
+
+                for (int i = 0; i < length; i++) {
+                    triggeredTopics[i] = tmp[i];
+                }
+                numTriggeredTopics = length;
+            }
+
+            /* Free various memory for the node */
+            delete [] topic->name;
+            delete topic;
+
             if (parent != root) {
                 trimTree(parent);
             }
@@ -153,6 +175,10 @@ public:
 
     TopicTree(std::function<int(Subscriber *, std::string_view)> cb) {
         this->cb = cb;
+    }
+
+    ~TopicTree() {
+        delete root;
     }
 
     void subscribe(std::string_view topic, Subscriber *subscriber) {
@@ -222,10 +248,12 @@ public:
                 topic->subs.erase(subscriber);
                 trimTree(topic);
             }
+            subscriber->subscriptions.clear();
         }
     }
 
     /* Drain the tree by emitting what to send with every Subscriber */
+    /* Better name would be commit() and making it public so that one can commit and shutdown, etc */
     void drain() {
 
         /* Do nothing if nothing to send */
@@ -233,18 +261,16 @@ public:
             return;
         }
 
-        /* Fast path for one topic (can also be used with heuristics) */
-        if (numTriggeredTopics == -555555) {
-            /* Disabled */
-            /*std::string res;
-            for (auto &p : triggeredTopics[0]->messages) {
-                res.append(p.second);
+        /* bug fix: update min, as the one tracked via subscribe gets invalid as you unsubscribe */
+        min = (Subscriber *)UINTPTR_MAX;
+        for (int i = 0; i < numTriggeredTopics; i++) {
+            if ((triggeredTopics[i]->subs.size()) && (min > *triggeredTopics[i]->subs.begin())) {
+                min = *triggeredTopics[i]->subs.begin();
             }
+        }
 
-            for (Subscriber *s : triggeredTopics[0]->subs) {
-                cb(s, res);
-            }*/
-        } else {
+        /* Check if we really have any sockets still */
+        if (min != (Subscriber *)UINTPTR_MAX) {
 
             /* Up to 64 triggered Topics per batch */
             std::map<uint64_t, std::string> intersectionCache;
@@ -263,7 +289,7 @@ public:
                 Subscriber *nextMin = (Subscriber *)UINTPTR_MAX;
 
                 /* The message sets relevant for this intersection */
-                std::map<int, std::string> *perSubscriberIntersectingTopicMessages[64];
+                std::map<unsigned int, std::string> *perSubscriberIntersectingTopicMessages[64];
                 int numPerSubscriberIntersectingTopicMessages = 0;
 
                 uint64_t intersection = 0;
@@ -297,7 +323,7 @@ public:
                 if (intersectionCache[intersection].length() == 0) {
 
                     /* Build the union in order without duplicates */
-                    std::map<int, std::string> complete;
+                    std::map<unsigned int, std::string> complete;
                     for (int i = 0; i < numPerSubscriberIntersectingTopicMessages; i++) {
                         complete.insert(perSubscriberIntersectingTopicMessages[i]->begin(), perSubscriberIntersectingTopicMessages[i]->end());
                     }
@@ -337,7 +363,13 @@ public:
             for (int i = 0; i < indentation; i++) {
                 std::cout << "  ";
             }
-            std::cout << std::string_view(p.second->name, p.second->length) << " = " << p.second->messages.size() << " publishes, " << p.second->subs.size() << " subscribers" << std::endl;
+            std::cout << std::string_view(p.second->name, p.second->length) << " = " << p.second->messages.size() << " publishes, " << p.second->subs.size() << " subscribers {";
+
+            for (auto &p : p.second->subs) {
+                std::cout << p << " referring to socket: " << p->user << ", ";
+            }
+            std::cout << "}" << std::endl;
+
             print(p.second, indentation + 1);
         }
     }

@@ -41,22 +41,24 @@ struct WebSocketContextData {
     size_t maxPayloadLength = 0;
     int idleTimeout = 0;
 
+    /* There needs to be a maxBackpressure which will force close everything over that limit */
+    size_t maxBackpressure = 16 * 1024;
+
     /* Each websocket context has a topic tree for pub/sub */
     TopicTree topicTree;
 
     WebSocketContextData() : topicTree([](Subscriber *s, std::string_view data) -> int {
-        //std::cout << "Skickar data: " << data << " på sub: " << s << std::endl;
-
-
+        /* We rely on writing to regular asyncSockets */
         auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
 
         asyncSocket->write(data.data(), data.length());
 
+        /* Reserved, unused */
         return 0;
     }) {
-
+        /* bug: This should probably happen in both post and pre, esp for libuv */
         Loop::get()->addPostHandler([this](Loop *loop) {
-
+            /* Commit pub/sub batches every loop iteration */
             topicTree.drain();
         });
     }
