@@ -154,6 +154,17 @@ public:
         webSocketContextData->topicTree.subscribe(topic, webSocketData->subscriber);
     }
 
+    /* Unsubscribe from a topic, returns true if we were subscribed */
+    bool unsubscribe(std::string_view topic) {
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
+            (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
+        );
+
+        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
+
+        return webSocketContextData->topicTree.unsubscribe(topic, webSocketData->subscriber);
+    }
+
     /* Publish a message to a topic according to MQTT rules and syntax */
     void publish(std::string_view topic, std::string_view message, OpCode opCode = OpCode::TEXT, bool compress = false) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
