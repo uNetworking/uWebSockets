@@ -295,6 +295,19 @@ public:
             return;
         }
 
+        /* bug fix: Filter triggered topics without subscribers */
+        int numFilteredTriggeredTopics = 0;
+        for (int i = 0; i < numTriggeredTopics; i++) {
+            if (triggeredTopics[i]->subs.size()) {
+                triggeredTopics[numFilteredTriggeredTopics++] = triggeredTopics[i];
+            }
+        }
+        numTriggeredTopics = numFilteredTriggeredTopics;
+
+        if (!numTriggeredTopics) {
+            return;
+        }
+
         /* bug fix: update min, as the one tracked via subscribe gets invalid as you unsubscribe */
         min = (Subscriber *)UINTPTR_MAX;
         for (int i = 0; i < numTriggeredTopics; i++) {
