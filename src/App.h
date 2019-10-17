@@ -54,6 +54,13 @@ public:
         httpContext->filter(std::move(filterHandler));
     }
 
+    /* Publishes a message to all websocket contexts */
+    void publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress = false) {
+        for (auto *webSocketContext : webSocketContexts) {
+            webSocketContext->getExt()->publish(topic, message, opCode, compress);
+        }
+    }
+
     ~TemplatedApp() {
         /* Let's just put everything here */
         if (httpContext) {

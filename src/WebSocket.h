@@ -170,13 +170,8 @@ public:
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
-
-        /* We frame the message right here and only pass raw bytes to the pub/subber */
-        char *dst = (char *) malloc(protocol::messageFrameSize(message.size()));
-        size_t dst_length = protocol::formatMessage<true>(dst, message.data(), message.length(), opCode, message.length(), false);
-
-        webSocketContextData->topicTree.publish(topic, std::string_view(dst, dst_length));
-        free(dst);
+        /* Is the same as publishing per websocket context */
+        webSocketContextData->publish(topic, message, opCode, compress);
     }
 };
 

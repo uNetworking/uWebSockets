@@ -72,6 +72,16 @@ struct WebSocketContextData {
             topicTree.drain();
         });
     }
+
+    /* Helper for topictree publish, common path from app and ws */
+    void publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress) {
+        /* We frame the message right here and only pass raw bytes to the pub/subber */
+        char *dst = (char *) malloc(protocol::messageFrameSize(message.size()));
+        size_t dst_length = protocol::formatMessage<true>(dst, message.data(), message.length(), opCode, message.length(), false);
+
+        topicTree.publish(topic, std::string_view(dst, dst_length));
+        ::free(dst);
+    }
 };
 
 }
