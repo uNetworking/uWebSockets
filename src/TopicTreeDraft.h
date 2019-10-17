@@ -345,7 +345,7 @@ public:
                     if ((it[i] != end[i]) && (*it[i] == min)) {
 
                         /* Mark this intersection */
-                        intersection |= (1 << i);
+                        intersection |= ((uint64_t)1 << i);
                         perSubscriberIntersectingTopicMessages[numPerSubscriberIntersectingTopicMessages++] = &triggeredTopics[i]->messages;
 
                         it[i]++;
