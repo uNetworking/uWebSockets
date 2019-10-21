@@ -18,11 +18,11 @@
 #ifndef UWS_ASYNCSOCKETDATA_H
 #define UWS_ASYNCSOCKETDATA_H
 
+#include <string>
+
 namespace uWS {
 
 /* Depending on how we want AsyncSocket to function, this will need to change */
-
-#include <string>
 
 template <bool SSL>
 struct AsyncSocketData {
