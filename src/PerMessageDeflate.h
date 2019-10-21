@@ -20,7 +20,10 @@
 #ifndef UWS_PERMESSAGEDEFLATE_H
 #define UWS_PERMESSAGEDEFLATE_H
 
+#ifndef UWS_NO_ZLIB
 #include <zlib.h>
+#endif
+
 #include <string>
 
 namespace uWS {
