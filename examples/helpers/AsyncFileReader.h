@@ -45,7 +45,7 @@ public:
 
         // get loop for thread
 
-        loop = uWS::Loop::defaultLoop();
+        loop = uWS::Loop::get();
     }
 
     /* Returns any data already cached for this offset */
