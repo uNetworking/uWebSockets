@@ -45,26 +45,16 @@ private:
     static void preCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
-        if (loopData->preHandler) {
-            loopData->preHandler((Loop *) loop);
-        }
-
-        /* trying this one here */
-        for (auto &f : loopData->postHandlers) {
-            f((Loop *) loop);
+        for (auto &p : loopData->preHandlers) {
+            p.second((Loop *) loop);
         }
     }
 
     static void postCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
-        /* We should move over to using only these */
-        for (auto &f : loopData->postHandlers) {
-            f((Loop *) loop);
-        }
-
-        if (loopData->postHandler) {
-            loopData->postHandler((Loop *) loop);
+        for (auto &p : loopData->postHandlers) {
+            p.second((Loop *) loop);
         }
     }
 
@@ -119,24 +109,30 @@ public:
         us_loop_free((us_loop_t *) this);
     }
 
-    /* We want to have multiple of these */
-    void addPostHandler(fu2::unique_function<void(Loop *)> &&handler) {
+    void addPostHandler(void *key, fu2::unique_function<void(Loop *)> &&handler) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
-        loopData->postHandlers.emplace_back(std::move(handler));
+        loopData->postHandlers.emplace(key, std::move(handler));
     }
 
-    /* Set postCb callback */
-    void setPostHandler(fu2::unique_function<void(Loop *)> &&handler) {
+    /* Bug: what if you remove a handler while iterating them? */
+    void removePostHandler(void *key) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
-        loopData->postHandler = std::move(handler);
+        loopData->postHandlers.erase(key);
     }
 
-    void setPreHandler(fu2::unique_function<void(Loop *)> &&handler) {
+    void addPreHandler(void *key, fu2::unique_function<void(Loop *)> &&handler) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
-        loopData->preHandler = std::move(handler);
+        loopData->preHandlers.emplace(key, std::move(handler));
+    }
+
+    /* Bug: what if you remove a handler while iterating them? */
+    void removePreHandler(void *key) {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
+
+        loopData->preHandlers.erase(key);
     }
 
     /* Defer this callback on Loop's thread of execution */

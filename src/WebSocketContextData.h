@@ -47,6 +47,12 @@ struct WebSocketContextData {
     /* Each websocket context has a topic tree for pub/sub */
     TopicTree topicTree;
 
+    ~WebSocketContextData() {
+        /* We must unregister any loop post handler here */
+        Loop::get()->removePostHandler(this);
+        Loop::get()->removePreHandler(this);
+    }
+
     WebSocketContextData() : topicTree([this](Subscriber *s, std::string_view data) -> int {
         /* We rely on writing to regular asyncSockets */
         auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
@@ -66,8 +72,13 @@ struct WebSocketContextData {
         /* Reserved, unused */
         return 0;
     }) {
-        /* bug: This should probably happen in both post and pre, esp for libuv */
-        Loop::get()->addPostHandler([this](Loop *loop) {
+        /* We empty for both pre and post just to make sure */
+        Loop::get()->addPostHandler(this, [this](Loop *loop) {
+            /* Commit pub/sub batches every loop iteration */
+            topicTree.drain();
+        });
+
+        Loop::get()->addPreHandler(this, [this](Loop *loop) {
             /* Commit pub/sub batches every loop iteration */
             topicTree.drain();
         });

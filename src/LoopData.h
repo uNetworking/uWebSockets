@@ -22,6 +22,7 @@
 #include <functional>
 #include <vector>
 #include <mutex>
+#include <map>
 
 #include "PerMessageDeflate.h"
 
@@ -38,10 +39,8 @@ private:
     int currentDeferQueue = 0;
     std::vector<fu2::unique_function<void()>> deferQueues[2];
 
-    fu2::unique_function<void(Loop *)> postHandler, preHandler;
-
-    /* Move over to these later on */
-    std::vector<fu2::unique_function<void(Loop *)>> postHandlers;
+    /* Map from void ptr to handler */
+    std::map<void *, fu2::unique_function<void(Loop *)>> postHandlers, preHandlers;
 
 public:
     ~LoopData() {
