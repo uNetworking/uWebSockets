@@ -229,10 +229,12 @@ public:
         }
 
         /* Add socket to Topic's Set */
-        iterator->subs.insert(subscriber);
+        auto [it, inserted] = iterator->subs.insert(subscriber);
 
-        /* Add Topic to list of subscriptions */
-        subscriber->subscriptions.push_back(iterator);
+        /* Add Topic to list of subscriptions only if we weren't already subscribed */
+        if (inserted) {
+            subscriber->subscriptions.push_back(iterator);
+        }
     }
 
     void publish(std::string_view topic, std::string_view message) {
