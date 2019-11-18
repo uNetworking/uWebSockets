@@ -186,9 +186,14 @@ private:
                 /* We always get an empty chunk even if there is no data */
                 if (httpResponseData->inStream) {
 
-                    /* Getting a chunk of data while having a data handler should reset timeout (todo: if last, short timeout, if not last, bigger timeout) */
-                    /* Really, we only need to reset timeout to the larger delay if we are not fin */
-                    us_socket_timeout(SSL, (struct us_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
+                    /* Todo: can this handle timeout for non-post as well? */
+                    if (fin) {
+                        /* If we just got the last chunk (or empty chunk), disable timeout */
+                        us_socket_timeout(SSL, (struct us_socket_t *) user, 0);
+                    } else {
+                        /* We still have some more data coming in later, so reset timeout */
+                        us_socket_timeout(SSL, (struct us_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
+                    }
 
                     /* We might respond in the handler, so do not change timeout after this */
                     httpResponseData->inStream(data, fin);
