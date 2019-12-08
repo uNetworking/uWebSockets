@@ -402,20 +402,20 @@ public:
         numTriggeredTopics = 0;
     }
 
-    void print(Topic *root = nullptr, int indentation = 1) {
-        if (root == nullptr) {
+    void print(Topic *rootTopic = nullptr, int indentation = 1) {
+        if (rootTopic == nullptr) {
             std::cout << "Print of tree:" << std::endl;
-            root = this->root;
+            rootTopic = root;
         }
 
-        for (auto p : root->children) {
+        for (auto p : rootTopic->children) {
             for (int i = 0; i < indentation; i++) {
                 std::cout << "  ";
             }
             std::cout << std::string_view(p.second->name, p.second->length) << " = " << p.second->messages.size() << " publishes, " << p.second->subs.size() << " subscribers {";
 
-            for (auto &p : p.second->subs) {
-                std::cout << p << " referring to socket: " << p->user << ", ";
+            for (auto &s : p.second->subs) {
+                std::cout << s << " referring to socket: " << s->user << ", ";
             }
             std::cout << "}" << std::endl;
 

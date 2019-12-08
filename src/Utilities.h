@@ -34,7 +34,7 @@ inline int u32toaHex(uint32_t value, char *dst) {
         value /= 16;
     } while (value > 0);
 
-    int ret = p - temp;
+    int ret = int(p - temp);
 
     do {
         *dst++ = *--p;
@@ -51,7 +51,7 @@ inline int u32toa(uint32_t value, char *dst) {
         value /= 10;
     } while (value > 0);
 
-    int ret = p - temp;
+    int ret = int(p - temp);
 
     do {
         *dst++ = *--p;

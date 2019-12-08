@@ -87,7 +87,7 @@ T cond_byte_swap(T value) {
         union {
             T i;
             uint8_t b[sizeof(T)];
-        } src = { value }, dst;
+        } src = { value }, dst = {};
 
         for (unsigned int i = 0; i < sizeof(value); i++) {
             dst.b[i] = src.b[sizeof(value) - 1 - i];
@@ -189,11 +189,11 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
     size_t headerLength;
     if (reportedLength < 126) {
         headerLength = 2;
-        dst[1] = reportedLength;
+        dst[1] = (char)reportedLength;
     } else if (reportedLength <= UINT16_MAX) {
         headerLength = 4;
         dst[1] = 126;
-        uint16_t tmp = cond_byte_swap<uint16_t>(reportedLength);
+        uint16_t tmp = cond_byte_swap<uint16_t>(uint16_t(reportedLength));
         memcpy(&dst[2], &tmp, sizeof(uint16_t));
     } else {
         headerLength = 10;
@@ -320,7 +320,7 @@ protected:
             }
 
             src += payLength + MESSAGE_HEADER;
-            length -= payLength + MESSAGE_HEADER;
+            length -= (unsigned int)payLength + MESSAGE_HEADER;
             wState->state.spillLength = 0;
             return false;
         } else {

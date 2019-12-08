@@ -79,7 +79,7 @@ private:
     /* Set URL for router. Will reset any URL cache */
     inline void setUrl(std::string_view url) {
         /* Remove / from input URL */
-        currentUrl = url.substr(std::min<unsigned int>(url.length(), 1));
+        currentUrl = url.substr(std::min(url.length(), size_t(1)));
         urlSegmentTop = -1;
     }
 
@@ -222,7 +222,7 @@ public:
         }
 
         /* Add this handler to the list of handlers */
-        short handlerIndex = handlers.size();
+        short handlerIndex = short(handlers.size());
         handlers.emplace_back(std::move(handler));
 
         /* Build the routing tree */

@@ -65,6 +65,8 @@ public:
     ZlibContext *zlibContext = nullptr;
     InflationStream *inflationStream = nullptr;
     DeflationStream *deflationStream = nullptr;
+
+    char padding[1];
 };
 
 }

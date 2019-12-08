@@ -41,6 +41,8 @@ private:
 
     HttpRouter<RouterData> router;
     void *upgradedWebSocket = nullptr;
+
+    char padding[1];
 };
 
 }

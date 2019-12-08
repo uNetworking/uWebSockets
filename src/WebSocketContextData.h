@@ -57,7 +57,7 @@ struct WebSocketContextData {
         /* We rely on writing to regular asyncSockets */
         auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
 
-        auto [written, failed] = asyncSocket->write(data.data(), data.length());
+        auto [written, failed] = asyncSocket->write(data.data(), int(data.length()));
         if (!failed) {
             asyncSocket->timeout(this->idleTimeout);
         } else {
@@ -73,12 +73,12 @@ struct WebSocketContextData {
         return 0;
     }) {
         /* We empty for both pre and post just to make sure */
-        Loop::get()->addPostHandler(this, [this](Loop *loop) {
+        Loop::get()->addPostHandler(this, [this](Loop *) {
             /* Commit pub/sub batches every loop iteration */
             topicTree.drain();
         });
 
-        Loop::get()->addPreHandler(this, [this](Loop *loop) {
+        Loop::get()->addPreHandler(this, [this](Loop *) {
             /* Commit pub/sub batches every loop iteration */
             topicTree.drain();
         });
