@@ -23,6 +23,7 @@
 /* HTTP router is an independent module subject to unit testing and fuzz testing */
 /* This module is not fully optimized yet, waiting for more features before doing so */
 
+#include <algorithm>
 #include <map>
 #include <vector>
 #include <cstring>
