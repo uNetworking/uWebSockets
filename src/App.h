@@ -248,11 +248,11 @@ public:
                 /* Tell the router that we did not handle this request */
                 req->setYield(true);
             }
-        }));
+        }, true));
     }
 
-    TemplatedApp &&get(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("get", pattern, std::move(handler));
+    TemplatedApp &&get(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler, bool upgrade = false) {
+        httpContext->onHttp("get", pattern, std::move(handler), upgrade);
         return std::move(*this);
     }
 

@@ -140,15 +140,12 @@ private:
                 /* Mark pending request and emit it */
                 httpResponseData->state = HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
 
-                /* Route the method and URL in two passes */
-                typename HttpContextData<SSL>::RouterData routerData = {(HttpResponse<SSL> *) s, httpRequest};
-                if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData)) {
-                    /* If first pass failed, we try and match by "any" method */
-                    if (!httpContextData->router.route("*", httpRequest->getUrl(), routerData)) {
-                        /* If second pass fail, we have to force close this socket as we have no handler for it */
-                        us_socket_close(SSL, (us_socket_t *) s);
-                        return nullptr;
-                    }
+                /* Route the method and URL */
+                httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
+                if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
+                    /* We have to force close this socket as we have no handler for it */
+                    us_socket_close(SSL, (us_socket_t *) s);
+                    return nullptr;
                 }
 
                 /* First of all we need to check if this socket was deleted due to upgrade */
@@ -346,12 +343,21 @@ public:
     }
 
     /* Register an HTTP route handler acording to URL pattern */
-    void onHttp(std::string method, std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    void onHttp(std::string method, std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler, bool upgrade = false) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.add(method, pattern, [handler = std::move(handler)](typename HttpContextData<SSL>::RouterData &user, std::pair<int, std::string_view *> params) mutable {
+        /* Todo: This is ugly, fix */
+        std::vector<std::string> methods;
+        if (method == "*") {
+            methods = httpContextData->router.methods;
+        } else {
+            methods = {method};
+        }
+
+        httpContextData->router.add(methods, pattern, [handler = std::move(handler)](auto *r) mutable {
+            auto user = r->getUserData();
             user.httpRequest->setYield(false);
-            user.httpRequest->setParameters(params);
+            user.httpRequest->setParameters(r->getParameters());
             handler(user.httpResponse, user.httpRequest);
 
             /* If any handler yielded, the router will keep looking for a suitable handler. */
@@ -359,7 +365,7 @@ public:
                 return false;
             }
             return true;
-        });
+        }, method == "*" ? httpContextData->router.LOW_PRIORITY : (upgrade ? httpContextData->router.HIGH_PRIORITY : httpContextData->router.MEDIUM_PRIORITY));
     }
 
     /* Listen to port using this HttpContext */
