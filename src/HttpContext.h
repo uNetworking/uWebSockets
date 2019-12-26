@@ -236,7 +236,7 @@ private:
                 AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) httpContextData->upgradedWebSocket;
 
                 /* Uncork here as well (note: what if we failed to uncork and we then pub/sub before we even upgraded?) */
-                auto [written, failed] = asyncSocket->uncork();
+                /*auto [written, failed] = */asyncSocket->uncork();
 
                 /* Reset upgradedWebSocket before we return */
                 httpContextData->upgradedWebSocket = nullptr;
@@ -276,7 +276,7 @@ private:
             }
 
             /* Drain any socket buffer, this might empty our backpressure and thus finish the request */
-            auto [written, failed] = asyncSocket->write(nullptr, 0, true, 0);
+            /*auto [written, failed] = */asyncSocket->write(nullptr, 0, true, 0);
 
             /* Expect another writable event, or another request within the timeout */
             asyncSocket->timeout(HTTP_IDLE_TIMEOUT_S);

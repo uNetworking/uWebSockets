@@ -77,7 +77,7 @@ private:
 
     /* Called only once per request */
     void writeMark() {
-        writeHeader("uWebSockets", "v0.16");
+        writeHeader("uWebSockets", "v0.17");
     }
 
     /* Returns true on success, indicating that it might be feasible to write more data.
@@ -142,7 +142,7 @@ private:
             httpResponseData->offset += written;
 
             /* Success is when we wrote the entire thing without any failures */
-            bool success = written == data.length() && !failed;
+            bool success = (unsigned int) written == data.length() && !failed;
 
             /* If we are now at the end, start a timeout. Also start a timeout if we failed. */
             if (!success || httpResponseData->offset == totalSize) {

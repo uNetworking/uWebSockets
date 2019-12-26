@@ -104,7 +104,7 @@ public:
     }
 
     std::string_view getQuery() {
-        if (querySeparator < headers->value.length()) {
+        if (querySeparator < (int) headers->value.length()) {
             /* Strip the initial ? */
             return std::string_view(headers->value.data() + querySeparator + 1, headers->value.length() - querySeparator - 1);
         } else {
@@ -117,7 +117,7 @@ public:
     }
 
     std::string_view getParameter(unsigned int index) {
-        if (currentParameters.first < index) {
+        if (currentParameters.first < (int) index) {
             return {};
         } else {
             return currentParameters.second[index];
@@ -239,8 +239,8 @@ public:
 
             // this is exactly the same as below!
             // todo: refactor this
-            if (remainingStreamingBytes >= length) {
-                void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
+            if (remainingStreamingBytes >= (unsigned int) length) {
+                void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == (unsigned int) length);
                 remainingStreamingBytes -= length;
                 return returnedUser;
             } else {
@@ -280,8 +280,8 @@ public:
 
                 if (remainingStreamingBytes) {
                     // this is exactly the same as above!
-                    if (remainingStreamingBytes >= length) {
-                        void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
+                    if (remainingStreamingBytes >= (unsigned int) length) {
+                        void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == (unsigned int) length);
                         remainingStreamingBytes -= length;
                         return returnedUser;
                     } else {
@@ -317,7 +317,7 @@ public:
         length -= consumed.first;
 
         if (length) {
-            if (length < MAX_FALLBACK_SIZE) {
+            if ((unsigned int) length < MAX_FALLBACK_SIZE) {
                 fallback.append(data, length);
             } else {
                 return errorHandler(user);

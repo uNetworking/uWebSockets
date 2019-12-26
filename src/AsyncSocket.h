@@ -121,7 +121,7 @@ protected:
             int written = us_socket_write(SSL, (us_socket_t *) this, asyncSocketData->buffer.data(), asyncSocketData->buffer.length(), /*nextLength != 0 | */length);
 
             /* On failure return, otherwise continue down the function */
-            if (written < asyncSocketData->buffer.length()) {
+            if ((unsigned int) written < asyncSocketData->buffer.length()) {
 
                 /* Update buffering (todo: we can do better here if we keep track of what happens to this guy later on) */
                 asyncSocketData->buffer = asyncSocketData->buffer.substr(written);

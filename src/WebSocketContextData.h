@@ -64,7 +64,7 @@ struct WebSocketContextData {
             /* Note: this assumes we are not corked, as corking will swallow things and fail later on */
 
             /* Check if we now have too much backpressure (todo: don't buffer up before check) */
-            if (asyncSocket->getBufferedAmount() > maxBackpressure) {
+            if ((unsigned int) asyncSocket->getBufferedAmount() > maxBackpressure) {
                 asyncSocket->close();
             }
         }
