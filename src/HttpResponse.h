@@ -268,23 +268,22 @@ public:
         return !(httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING);
     }
 
-    /* EXPERIMENTAL - corks the response if possible */
+    /* Corks the response if possible. Leaves already corked socket be. */
     HttpResponse *cork(fu2::unique_function<void()> &&handler) {
-        bool corked = Super::isCorked();
-        if (!corked && Super::canCork()) {
+        if (!Super::isCorked() && Super::canCork()) {
             Super::cork();
-            corked = true;
-        }
+            handler();
 
-        handler();
-
-        if (corked) {
-            /* Timeout on uncork failure (EXPERIMENTAL) */
+            /* Timeout on uncork failure, since most writes will succeed while corked */
             auto [written, failed] = Super::uncork();
             if (failed) {
-                // do we have the same timeout for websockets?
-                Super::timeout(10); // this is completely wrong!
+                /* For now we only have one single timeout so let's use it */
+                /* This behavior should equal the behavior in HttpContext when uncorking fails */
+                Super::timeout(HTTP_TIMEOUT_S);
             }
+        } else {
+            /* We are already corked, or can't cork so let's just call the handler */
+            handler();
         }
 
         return this;

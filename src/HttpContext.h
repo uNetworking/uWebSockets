@@ -218,12 +218,13 @@ private:
                 return nullptr;
             });
 
-            // basically we need to uncork in all cases, except for nullptr
+            /* We need to uncork in all cases, except for nullptr (closed socket, or upgraded socket) */
             if (returnedSocket != nullptr) {
                 /* Timeout on uncork failure */
                 auto [written, failed] = ((AsyncSocket<SSL> *) returnedSocket)->uncork();
                 if (failed) {
-                    // do we have the same timeout for websockets?
+                    /* All Http sockets timeout by this, and this behavior match the one in HttpResponse::cork */
+                    /* Warning: both HTTP_IDLE_TIMEOUT_S and HTTP_TIMEOUT_S are 10 seconds and both are used the same */
                     ((AsyncSocket<SSL> *) s)->timeout(HTTP_IDLE_TIMEOUT_S);
                 }
 
