@@ -149,7 +149,7 @@ public:
         webSocketContext->getExt()->idleTimeout = behavior.idleTimeout;
         webSocketContext->getExt()->maxBackpressure = behavior.maxBackpressure;
 
-        return std::move(get(pattern, [webSocketContext, httpContext = this->httpContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
+        httpContext->onHttp("get", pattern, [webSocketContext, httpContext = this->httpContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
 
             /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
@@ -248,11 +248,12 @@ public:
                 /* Tell the router that we did not handle this request */
                 req->setYield(true);
             }
-        }, true));
+        }, true);
+        return std::move(*this);
     }
 
-    TemplatedApp &&get(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler, bool upgrade = false) {
-        httpContext->onHttp("get", pattern, std::move(handler), upgrade);
+    TemplatedApp &&get(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+        httpContext->onHttp("get", pattern, std::move(handler));
         return std::move(*this);
     }
 

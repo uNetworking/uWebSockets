@@ -40,7 +40,7 @@ struct HttpRouter {
 
     USERDATA userData;
 
-    std::vector<std::string> methods = {"GET", "POST", "HEAD", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"};
+    std::vector<std::string> methods = {"get", "post", "head", "put", "delete", "connect", "options", "trace", "patch"};
 
     /* 32-bit */
     const static uint32_t HANDLER_MASK = 0x0fffffff;
