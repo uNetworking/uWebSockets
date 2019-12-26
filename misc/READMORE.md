@@ -1,5 +1,6 @@
-## FAQ
-You can read the frequently asked questions [here](FAQ.md).
+# µWebSockets v0.17 user manual
+
+For a list of frequently asked questions you may filter the GitHub issue tracker by label FAQ. Please don't misuse the issue tracker as your personal Q&A.
 
 ## Motivation and goals
 µWebSockets is a simple to use yet thoroughly optimized implementation of HTTP and WebSockets.
@@ -72,6 +73,33 @@ In other words, the more specific a route is, the earlier it will match. This al
 You should never call res.end(huge buffer). res.end guarantees sending so backpressure will probably spike. Instead you should use res.tryEnd to stream huge data part by part. Use in combination with res.onWritable and res.onAborted callbacks.
 
 Tip: Check out the JavaScript project, it has many useful examples of async streaming of huge data.
+
+#### Corking
+It is very important to understand the corking mechanism, as that is responsible for efficiently formatting, packing and sending data. Without corking your app will still work reliably, but can perform very bad and use excessive networking. In some cases the performance can be dreadful without proper corking.
+
+That's why your sockets will be corked by default in most simple cases, including all of the examples provided. However there are cases where default corking cannot happen automatically.
+
+* Whenever your registered business logic (your callbacks) are called from the library, such as when receiving a message or when a socket opens, you'll be corked by default. Whatever you do with the socket inside of that callback will be efficient and properly corked.
+
+* If you have callbacks registered to some other library, say libhiredis, those callbacks will not be called with corked sockets (how could **we** know when to cork the socket if we don't control the third-party library!?).
+
+* Only one single socket can be corked at any point in time (isolated per thread, of course). It is efficient to cork-and-uncork.
+
+* Whenever your callback is a coroutine, such as the JavaScript async/await, automatic corking can only happen in the very first portion of the coroutine (consider await a separator which essentially cuts the coroutine into smaller segments). Only the first "segment" of the coroutine will be called from µWS, the following async segments will be called by the JavaScript runtime at a later point in time and will thus not be under our control with default corking enabled.
+
+* Corking is important even for calls which seem to be "atomic" and only send one chunk. res->end, res->tryEnd, res->writeStatus, res->writeHeader will most likely send multiple chunks of data and is very important to properly cork.
+
+You can make sure corking is enabled, even for cases where default corking would be enabled, by wrapping whatever sending function calls in a lambda like so:
+
+```c++
+res->cork([]() {
+    res->end("This Http response will be properly corked and efficient in all cases");
+});
+```
+
+The above res->end call will actually call three separate send functions; res->writeStatus, res->writeHeader and whatever it does itself. By wrapping the call in res->cork you make sure these three send functions are efficient and only result in one single send syscall and one single SSL block if using SSL.
+
+Keep this in mind, corking is by far the single most important performance trick to use. Even when streaming huge amounts of data it can be useful to cork. At least in the very tip of the response, as that holds the headers and status.
 
 ### The App.ws route
 WebSocket "routes" are registered similarly, but not identically.
@@ -173,3 +201,5 @@ int main() {
 One event-loop per thread, isolated and without shared data. That's the design here. Just like Node.js, but instead of per-process, it's per thread (well, obviously you can do it per-process also).
 
 If you want to, you can simply take the previous example, put it inside of a few `std::thread` and listen to separate ports, or share the same port (works on Linux). More features like these will probably come, such as master/slave set-ups but it really isn't that hard to understand the concept - keep things isolated and spawn multiple instances of whatever code you have.
+
+Recent Node.js versions may scale using multiple threads, via the new Worker threads support. Scaling using that feature is identical to scaling using multiple threads in C++.
