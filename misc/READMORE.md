@@ -58,19 +58,15 @@ Data that you capture in a res follows RAII and is move-only so you can properly
 The "any" route will match any method.
 
 #### Pattern matching
-* Static matches, think "/hello/this/is/static".
-* Wildcard matches, think "/hello/*".
-* Parameter matches, think "/candy/:kind", where value of :kind is retrieved by req.getParameter(0).
+Routes are matched in **order of specificity**, not by the order you register them:
 
-Routes are matched in order of insert. However, keep in mind routes are stored in a tree, where every URL segment is a node added in order. This means you should **add shorter routes first** in order to not be surprised with the matching order, caused by longer routes added before.
+* Highest priority - static routes, think "/hello/this/is/static".
+* Middle priority - parameter routes, think "/candy/:kind", where value of :kind is retrieved by req.getParameter(0).
+* Lowest priority - wildcard routes, think "/hello/*".
 
-Example:
+In other words, the more specific a route is, the earlier it will match. This allows you to define wildcard routes that match a wide range of URLs and then "carve" out more specific behavior from that.
 
-* Adding /a/:b/c as 1
-* Adding /a/b as 2
-* Adding /a/:b as 3
-
-Now, even though route 2 looks to be prioritized before route 3, that's not the case. This because the longer route 1 already established all nodes of route 3, and thus already "tainted" the route order. Therefore make sure to add shorter routes before longer ones so that it becomes easier to spot their order.
+"Any" routes, those who match any HTTP method, will match with lower priority than routes which specify their specific HTTP method (such as GET) if and only if the two routes otherwise are equally specific.
 
 #### Streaming data
 You should never call res.end(huge buffer). res.end guarantees sending so backpressure will probably spike. Instead you should use res.tryEnd to stream huge data part by part. Use in combination with res.onWritable and res.onAborted callbacks.
