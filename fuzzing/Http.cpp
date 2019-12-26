@@ -20,25 +20,49 @@ struct StaticData {
 
     StaticData() {
 
-        router.add("get", "/:hello/:hi", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+        router.add({"get"}, "/:hello/:hi", [](auto *h) mutable {
+            auto [paramsTop, params] = h->getParameters();
+
+            /* Something is horribly wrong */
+            if (paramsTop != 1 || !params[0].length() || !params[1].length()) {
+                exit(-1);
+            }
 
             /* This route did handle it */
             return true;
         });
 
-        router.add("post", "/:hello/:hi/*", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+        router.add({"post"}, "/:hello/:hi/*", [](auto *h) mutable {
+            auto [paramsTop, params] = h->getParameters();
+
+            /* Something is horribly wrong */
+            if (paramsTop != 1 || !params[0].length() || !params[1].length()) {
+                exit(-1);
+            }
 
             /* This route did handle it */
             return true;
         });
 
-        router.add("get", "/*", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+        router.add({"get"}, "/*", [](auto *h) mutable {
+            auto [paramsTop, params] = h->getParameters();
+
+            /* Something is horribly wrong */
+            if (paramsTop != -1) {
+                exit(-1);
+            }
 
             /* This route did not handle it */
             return false;
         });
 
-        router.add("get", "/hi", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+        router.add({"get"}, "/hi", [](auto *h) mutable {
+            auto [paramsTop, params] = h->getParameters();
+
+            /* Something is horribly wrong */
+            if (paramsTop != -1) {
+                exit(-1);
+            }
 
             /* This route did handle it */
             return true;
@@ -70,8 +94,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
             readBytes(httpRequest->getQuery());
 
             /* Route the method and URL in two passes */
-            StaticData::RouterData routerData = {};
-            if (!staticData.router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData)) {
+            staticData.router.getUserData() = {};
+            if (!staticData.router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
                 /* It was not handled */
                 return nullptr;
             }
