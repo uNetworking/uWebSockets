@@ -223,7 +223,7 @@ public:
                             (us_socket_context_t *) webSocketContext, (us_socket_t *) res, sizeof(WebSocketData) + sizeof(UserData));
 
                 /* Update corked socket in case we got a new one (assuming we always are corked in handlers). */
-                webSocket->cork();
+                webSocket->AsyncSocket<SSL>::cork();
 
                 /* Initialize websocket with any moved backpressure intact */
                 httpContext->upgradeToWebSocket(

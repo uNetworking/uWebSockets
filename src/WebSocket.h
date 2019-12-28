@@ -139,6 +139,21 @@ public:
         webSocketData->subscriber = nullptr;
     }
 
+    /* Corks the response if possible. Leaves already corked socket be. */
+    void cork(fu2::unique_function<void()> &&handler) {
+        if (!Super::isCorked() && Super::canCork()) {
+            Super::cork();
+            handler();
+
+            /* There is no timeout when failing to uncork for WebSockets,
+             * as that is handled by idleTimeout */
+            auto [written, failed] = Super::uncork();
+        } else {
+            /* We are already corked, or can't cork so let's just call the handler */
+            handler();
+        }
+    }
+
     /* Subscribe to a topic according to MQTT rules and syntax */
     void subscribe(std::string_view topic) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
