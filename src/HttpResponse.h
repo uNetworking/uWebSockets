@@ -88,7 +88,7 @@ private:
 
         /* If no total size given then assume this chunk is everything */
         if (!totalSize) {
-            totalSize = data.length();
+            totalSize = (int) data.length();
         }
 
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
@@ -99,11 +99,11 @@ private:
             /* Do not allow sending 0 chunk here */
             if (data.length()) {
                 Super::write("\r\n", 2);
-                writeUnsignedHex(data.length());
+                writeUnsignedHex((unsigned int) data.length());
                 Super::write("\r\n", 2);
 
                 /* Ignoring optional for now */
-                Super::write(data.data(), data.length());
+                Super::write(data.data(), (int) data.length());
             }
 
             /* Terminating 0 chunk */
@@ -138,7 +138,7 @@ private:
              * if it failed to drain any prior failed header writes */
 
             /* Write as much as possible without causing backpressure */
-            auto [written, failed] = Super::write(data.data(), data.length(), optional);
+            auto [written, failed] = Super::write(data.data(), (int) data.length(), optional);
             httpResponseData->offset += written;
 
             /* Success is when we wrote the entire thing without any failures */
@@ -185,7 +185,7 @@ public:
         httpResponseData->state |= HttpResponseData<SSL>::HTTP_STATUS_CALLED;
 
         Super::write("HTTP/1.1 ", 9);
-        Super::write(status.data(), status.length());
+        Super::write(status.data(), (int) status.length());
         Super::write("\r\n", 2);
         return this;
     }
@@ -194,16 +194,16 @@ public:
     HttpResponse *writeHeader(std::string_view key, std::string_view value) {
         writeStatus(HTTP_200_OK);
 
-        Super::write(key.data(), key.length());
+        Super::write(key.data(), (int) key.length());
         Super::write(": ", 2);
-        Super::write(value.data(), value.length());
+        Super::write(value.data(), (int) value.length());
         Super::write("\r\n", 2);
         return this;
     }
 
     /* Write an HTTP header with unsigned int value */
     HttpResponse *writeHeader(std::string_view key, unsigned int value) {
-        Super::write(key.data(), key.length());
+        Super::write(key.data(), (int) key.length());
         Super::write(": ", 2);
         writeUnsigned(value);
         Super::write("\r\n", 2);
@@ -212,7 +212,7 @@ public:
 
     /* End the response with an optional data chunk. Always starts a timeout. */
     void end(std::string_view data = {}) {
-        internalEnd(data, data.length(), false);
+        internalEnd(data, (int) data.length(), false);
     }
 
     /* Try and end the response. Returns [true, true] on success.
@@ -242,10 +242,10 @@ public:
         }
 
         Super::write("\r\n", 2);
-        writeUnsignedHex(data.length());
+        writeUnsignedHex((unsigned int) data.length());
         Super::write("\r\n", 2);
 
-        auto [written, failed] = Super::write(data.data(), data.length());
+        auto [written, failed] = Super::write(data.data(), (int) data.length());
         if (failed) {
             Super::timeout(HTTP_TIMEOUT_S);
         }

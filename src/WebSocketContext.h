@@ -179,7 +179,7 @@ private:
             } else {
                 /* Here we never mind any size optimizations as we are in the worst possible path */
                 webSocketData->fragmentBuffer.append(data, length);
-                webSocketData->controlTipLength += length;
+                webSocketData->controlTipLength += (int) length;
 
                 if (!remainingBytes && fin) {
                     char *controlBuffer = (char *) webSocketData->fragmentBuffer.data() + webSocketData->fragmentBuffer.length() - webSocketData->controlTipLength;

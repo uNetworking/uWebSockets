@@ -82,7 +82,7 @@ protected:
         LoopData *loopData = getLoopData();
         if (loopData->corkedSocket == this && loopData->corkOffset + size < LoopData::CORK_BUFFER_SIZE) {
             char *sendBuffer = loopData->corkBuffer + loopData->corkOffset;
-            loopData->corkOffset += size;
+            loopData->corkOffset += (int) size;
             return {sendBuffer, false};
         } else {
             /* Slow path for now, we want to always be corked if possible */
@@ -92,7 +92,7 @@ protected:
 
     /* Returns the user space backpressure. */
     int getBufferedAmount() {
-        return getAsyncSocketData()->buffer.size();
+        return (int) getAsyncSocketData()->buffer.size();
     }
 
     /* Returns the remote IP address or empty string on failure */
@@ -118,7 +118,7 @@ protected:
         /* We are limited if we have a per-socket buffer */
         if (asyncSocketData->buffer.length()) {
             /* Write off as much as we can */
-            int written = us_socket_write(SSL, (us_socket_t *) this, asyncSocketData->buffer.data(), asyncSocketData->buffer.length(), /*nextLength != 0 | */length);
+            int written = us_socket_write(SSL, (us_socket_t *) this, asyncSocketData->buffer.data(), (int) asyncSocketData->buffer.length(), /*nextLength != 0 | */length);
 
             /* On failure return, otherwise continue down the function */
             if ((unsigned int) written < asyncSocketData->buffer.length()) {

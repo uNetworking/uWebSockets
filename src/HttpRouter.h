@@ -107,7 +107,7 @@ private:
     /* Set URL for router. Will reset any URL cache */
     inline void setUrl(std::string_view url) {
         /* Remove / from input URL */
-        currentUrl = url.substr(std::min<unsigned int>(url.length(), 1));
+        currentUrl = url.substr(std::min<unsigned int>((unsigned int) url.length(), 1));
         urlSegmentTop = -1;
     }
 
@@ -230,7 +230,7 @@ public:
                 node = getNode(node, std::string(getUrlSegment(i)));
             }
             /* Insert handler in order sorted by priority (most significant 1 byte) */
-            node->handlers.insert(std::upper_bound(node->handlers.begin(), node->handlers.end(), priority | handlers.size()), priority | handlers.size());
+            node->handlers.insert(std::upper_bound(node->handlers.begin(), node->handlers.end(), (uint32_t) (priority | handlers.size())), (uint32_t) (priority | handlers.size()));
         }
 
         /* Alloate this handler */

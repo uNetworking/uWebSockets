@@ -150,7 +150,7 @@ private:
             if (*postPaddedBuffer == '\r') {
                 if ((postPaddedBuffer != end) & (postPaddedBuffer[1] == '\n') & (i > 0)) {
                     headers->key = std::string_view(nullptr, 0);
-                    return (postPaddedBuffer + 2) - start;
+                    return (unsigned int) ((postPaddedBuffer + 2) - start);
                 } else {
                     return 0;
                 }
@@ -182,11 +182,11 @@ private:
             length -= consumed;
             consumedTotal += consumed;
 
-            req->headers->value = std::string_view(req->headers->value.data(), std::max<int>(0, req->headers->value.length() - 9));
+            req->headers->value = std::string_view(req->headers->value.data(), std::max<int>(0, (int) req->headers->value.length() - 9));
 
             /* Parse query */
             const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());
-            req->querySeparator = (querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data();
+            req->querySeparator = (int) ((querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data());
 
             /* If returned socket is not what we put in we need
              * to break here as we either have upgraded to
@@ -257,16 +257,16 @@ public:
             }
 
         } else if (fallback.length()) {
-            int had = fallback.length();
+            int had = (int) fallback.length();
 
-            int maxCopyDistance = std::min(MAX_FALLBACK_SIZE - fallback.length(), (size_t) length);
+            int maxCopyDistance = (int) std::min(MAX_FALLBACK_SIZE - fallback.length(), (size_t) length);
 
             /* We don't want fallback to be short string optimized, since we want to move it */
             fallback.reserve(fallback.length() + maxCopyDistance + std::max<int>(MINIMUM_HTTP_POST_PADDING, sizeof(std::string)));
             fallback.append(data, maxCopyDistance);
 
             // break here on break
-            std::pair<int, void *> consumed = fenceAndConsumePostPadded<true>(fallback.data(), fallback.length(), user, &req, requestHandler, dataHandler);
+            std::pair<int, void *> consumed = fenceAndConsumePostPadded<true>(fallback.data(), (int) fallback.length(), user, &req, requestHandler, dataHandler);
             if (consumed.second != user) {
                 return consumed.second;
             }

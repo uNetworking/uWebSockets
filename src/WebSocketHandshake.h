@@ -120,10 +120,10 @@ public:
         for (int i = 0; i < 5; i++) {
             uint32_t tmp = b_output[i];
             char *bytes = (char *) &b_output[i];
-            bytes[3] = tmp & 0xff;
-            bytes[2] = (tmp >> 8) & 0xff;
-            bytes[1] = (tmp >> 16) & 0xff;
-            bytes[0] = (tmp >> 24) & 0xff;
+            bytes[3] = (char) (tmp & 0xff);
+            bytes[2] = (char) ((tmp >> 8) & 0xff);
+            bytes[1] = (char) ((tmp >> 16) & 0xff);
+            bytes[0] = (char) ((tmp >> 24) & 0xff);
         }
         base64((unsigned char *) b_output, output);
     }

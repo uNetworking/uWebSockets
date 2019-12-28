@@ -84,7 +84,7 @@ public:
         auto[sendBuffer, requiresWrite] = Super::getSendBuffer(messageFrameSize);
         protocol::formatMessage<isServer>(sendBuffer, message.data(), message.length(), opCode, message.length(), compress);
         if (requiresWrite) {
-            auto[written, failed] = Super::write(sendBuffer, messageFrameSize);
+            auto[written, failed] = Super::write(sendBuffer, (int) messageFrameSize);
 
             /* For now, we are slow here (fix!) */
             free(sendBuffer);
@@ -110,9 +110,9 @@ public:
 
         /* Format and send the close frame */
         static const int MAX_CLOSE_PAYLOAD = 123;
-        int length = std::min<size_t>(MAX_CLOSE_PAYLOAD, message.length());
+        int length = (int) std::min<size_t>(MAX_CLOSE_PAYLOAD, message.length());
         char closePayload[MAX_CLOSE_PAYLOAD + 2];
-        int closePayloadLength = protocol::formatClosePayload(closePayload, code, message.data(), length);
+        int closePayloadLength = (int) protocol::formatClosePayload(closePayload, (uint16_t) code, message.data(), length);
         bool ok = send(std::string_view(closePayload, closePayloadLength), OpCode::CLOSE);
 
         /* FIN if we are ok and not corked */

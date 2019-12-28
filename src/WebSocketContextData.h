@@ -57,7 +57,7 @@ struct WebSocketContextData {
         /* We rely on writing to regular asyncSockets */
         auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
 
-        auto [written, failed] = asyncSocket->write(data.data(), data.length());
+        auto [written, failed] = asyncSocket->write(data.data(), (int) data.length());
         if (!failed) {
             asyncSocket->timeout(this->idleTimeout);
         } else {
