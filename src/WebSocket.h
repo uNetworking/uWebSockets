@@ -55,12 +55,6 @@ public:
 
     /* Send or buffer a WebSocket frame, compressed or not. Returns false on increased user space backpressure. */
     bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
-        /* Every send resets the timeout */
-        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
-            (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
-        );
-        AsyncSocket<SSL>::timeout(webSocketContextData->idleTimeout);
-
         /* Transform the message to compressed domain if requested */
         if (compress) {
             WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
@@ -79,19 +73,43 @@ public:
             }
         }
 
+        /* Check to see if we can cork for the user */
+        bool automaticallyCorked = false;
+        if (!Super::isCorked() && Super::canCork()) {
+            automaticallyCorked = true;
+            Super::cork();
+        }
+
         /* Get size, alloate size, write if needed */
         size_t messageFrameSize = protocol::messageFrameSize(message.length());
         auto[sendBuffer, requiresWrite] = Super::getSendBuffer(messageFrameSize);
         protocol::formatMessage<isServer>(sendBuffer, message.data(), message.length(), opCode, message.length(), compress);
+        /* This is the slow path, when we couldn't cork for the user */
         if (requiresWrite) {
             auto[written, failed] = Super::write(sendBuffer, (int) messageFrameSize);
 
-            /* For now, we are slow here (fix!) */
+            /* For now, we are slow here */
             free(sendBuffer);
 
-            /* Return true for success */
-            return !failed;
+            if (failed) {
+                /* Return false for failure, skipping to reset the timeout below */
+                return false;
+            }
         }
+
+        /* Uncork here if we automatically corked for the user */
+        if (automaticallyCorked) {
+            auto [written, failed] = Super::uncork();
+            if (failed) {
+                return false;
+            }
+        }
+
+        /* Every successful send resets the timeout */
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
+            (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
+        );
+        AsyncSocket<SSL>::timeout(webSocketContextData->idleTimeout);
 
         /* Return success */
         return true;
