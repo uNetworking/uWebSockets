@@ -24,9 +24,7 @@
 #include <map>
 #include <vector>
 #include <cstring>
-#include <iostream>
 #include <string_view>
-#include <sstream>
 #include <string>
 #include <algorithm>
 #include <memory>
@@ -37,12 +35,13 @@ namespace uWS {
 
 template <class USERDATA>
 struct HttpRouter {
-
-    USERDATA userData;
-
+    /* These are public for now */
     std::vector<std::string> methods = {"get", "post", "head", "put", "delete", "connect", "options", "trace", "patch"};
 
-    /* 32-bit */
+private:
+    USERDATA userData;
+
+    /* 32-bit handler id */
     const static uint32_t HANDLER_MASK = 0x0fffffff;
     const static uint32_t HIGH_PRIORITY = 0xd0000000;
     const static uint32_t MEDIUM_PRIORITY = 0xe0000000;
@@ -50,18 +49,23 @@ struct HttpRouter {
 
     static const unsigned int MAX_URL_SEGMENTS = 100;
     
-private:
     /* Methods and their respective priority */
     std::map<std::string, int> priority;
 
+    /* List of handlers */
+    std::vector<fu2::unique_function<bool(HttpRouter *)>> handlers;
+
+    /* Current URL cache */
+    std::string_view currentUrl;
+    std::string_view urlSegmentVector[MAX_URL_SEGMENTS];
+    int urlSegmentTop;
+
+    /* The matching tree */
     struct Node {
         std::string name;
         std::vector<std::unique_ptr<Node>> children;
         std::vector<uint32_t> handlers;
     } root = {"rootNode"};
-
-    /* List of handlers */
-    std::vector<fu2::unique_function<bool(HttpRouter *)>> handlers;
 
     /* Advance from parent to child, adding child if necessary */
     Node *getNode(Node *parent, std::string child) {
@@ -99,10 +103,6 @@ private:
             paramsTop--;
         }
     } routeParameters;
-
-    std::string_view currentUrl;
-    std::string_view urlSegmentVector[MAX_URL_SEGMENTS];
-    int urlSegmentTop;
 
     /* Set URL for router. Will reset any URL cache */
     inline void setUrl(std::string_view url) {
@@ -187,10 +187,6 @@ public:
         for (std::string &method : methods) {
             priority[method] = p++;
         }
-    }
-
-    void print() {
-        printNode(&root, 0);
     }
 
     std::pair<int, std::string_view *> getParameters() {
