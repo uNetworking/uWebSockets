@@ -26,6 +26,7 @@
 #include "AsyncSocket.h"
 
 #include <string_view>
+#include <iostream>
 #include "f2/function2.hpp"
 
 namespace uWS {
