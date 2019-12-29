@@ -18,9 +18,6 @@
 #ifndef UWS_HTTPROUTER_HPP
 #define UWS_HTTPROUTER_HPP
 
-/* HTTP router is an independent module subject to unit testing and fuzz testing */
-/* This module is not fully optimized yet, waiting for more features before doing so */
-
 #include <map>
 #include <vector>
 #include <cstring>
@@ -37,17 +34,14 @@ template <class USERDATA>
 struct HttpRouter {
     /* These are public for now */
     std::vector<std::string> methods = {"get", "post", "head", "put", "delete", "connect", "options", "trace", "patch"};
+    static const uint32_t HIGH_PRIORITY = 0xd0000000, MEDIUM_PRIORITY = 0xe0000000, LOW_PRIORITY = 0xf0000000;
 
 private:
     USERDATA userData;
-
-    /* 32-bit handler id */
-    const static uint32_t HANDLER_MASK = 0x0fffffff;
-    const static uint32_t HIGH_PRIORITY = 0xd0000000;
-    const static uint32_t MEDIUM_PRIORITY = 0xe0000000;
-    const static uint32_t LOW_PRIORITY = 0xf0000000;
-
     static const unsigned int MAX_URL_SEGMENTS = 100;
+
+    /* Handler ids are 32-bit */
+    static const uint32_t HANDLER_MASK = 0x0fffffff;
     
     /* Methods and their respective priority */
     std::map<std::string, int> priority;
@@ -142,7 +136,7 @@ private:
         return urlSegmentVector[urlSegment];
     }
 
-    /* Experimental path, executes as many handlers it can */
+    /* Executes as many handlers it can */
     bool executeHandlers(Node *parent, int urlSegment, USERDATA &userData) {
         /* If we have no more URL and not on first round, return where we may stand */
         if (urlSegment && !getUrlSegment(urlSegment).length()) {
