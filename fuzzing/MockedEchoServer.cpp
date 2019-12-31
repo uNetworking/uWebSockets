@@ -19,7 +19,8 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
     app = new uWS::TemplatedApp<false>(uWS::App().ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::SHARED_COMPRESSOR,
-        .maxPayloadLength = 16 * 1024,
+        /* We want this to be low so that we can hit it, yet bigger than 256 */
+        .maxPayloadLength = 300,
         .idleTimeout = 10,
         /* Handlers */
         .open = [](auto *ws, auto *req) {
@@ -30,6 +31,12 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
             }
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
+            if (message.length() > 300) {
+                /* Inform the sanitizer of the fault */
+                fprintf(stderr, "Too long message passed\n");
+                free((void *) -1);
+            }
+
             if (message.length() && message[0] == 'C') {
                 ws->close();
             } else if (message.length() && message[0] == 'E') {
