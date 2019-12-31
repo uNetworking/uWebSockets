@@ -1,8 +1,8 @@
 # You can select which sanitizer to use by setting this
 SANITIZER ?= address
 # These are set by OSS-Fuzz, we default to AddressSanitizer
-CXXFLAGS ?= -DLIBUS_NO_SSL -fsanitize=$(SANITIZER),fuzzer
-CFLAGS ?= -DLIBUS_NO_SSL
+override CXXFLAGS += -DLIBUS_NO_SSL -fsanitize=$(SANITIZER),fuzzer
+override CFLAGS += -DLIBUS_NO_SSL
 OUT ?= .
 
 oss-fuzz:

@@ -100,6 +100,11 @@ private:
                 if (!webSocketData->fragmentBuffer.length()) {
                     webSocketData->fragmentBuffer.reserve(length + remainingBytes);
                 }
+                /* Fragments forming a big message are not caught until appending them */
+                if (refusePayloadLength(length + webSocketData->fragmentBuffer.length(), webSocketState, s)) {
+                    forceClose(webSocketState, s);
+                    return true;
+                }
                 webSocketData->fragmentBuffer.append(data, length);
 
                 /* Are we done now? */
