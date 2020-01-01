@@ -33,5 +33,8 @@ examples:
 
 all:
 	make examples
-	cd fuzzing && make && rm -f *.o
-	cd benchmarks && make && rm -f *.o
+	make -C fuzzing
+	make -C benchmarks
+clean:
+	rm -rf $(EXAMPLE_FILES) $(THREADED_EXAMPLE_FILES)
+	rm -rf fuzzing/*.o benchmarks/*.o
