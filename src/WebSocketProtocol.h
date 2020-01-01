@@ -167,7 +167,10 @@ static inline size_t formatClosePayload(char *dst, uint16_t code, const char *me
     if (code) {
         code = cond_byte_swap<uint16_t>(code);
         memcpy(dst, &code, 2);
-        memcpy(dst + 2, message, length);
+        /* It is invalid to pass nullptr to memcpy, even though length is 0 */
+        if (message) {
+            memcpy(dst + 2, message, length);
+        }
         return length + 2;
     }
     return 0;
