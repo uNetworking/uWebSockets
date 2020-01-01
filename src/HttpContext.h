@@ -247,6 +247,9 @@ private:
                 return (us_socket_t *) asyncSocket;
             }
 
+            /* It is okay to uncork a closed socket and we need to */
+            ((AsyncSocket<SSL> *) s)->uncork();
+
             /* We cannot return nullptr to the underlying stack in any case */
             return s;
         });
