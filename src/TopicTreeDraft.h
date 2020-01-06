@@ -230,6 +230,7 @@ public:
 
         /* Add socket to Topic's Set */
         auto [it, inserted] = iterator->subs.insert(subscriber);
+        (void)it;
 
         /* Add Topic to list of subscriptions only if we weren't already subscribed */
         if (inserted) {
