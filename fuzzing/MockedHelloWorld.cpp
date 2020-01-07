@@ -20,7 +20,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
         } else {
             res->end("Hello world!");
         }
-    })/*.post("/*", [](auto *res, auto *req) {
+    }).post("/*", [](auto *res, auto *req) {
         res->onAborted([]() {
 
         });
@@ -29,7 +29,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
                 res->end(chunk);
             }
         });
-    })*/.listen(9001, [](us_listen_socket_t *listenSocket) {
+    }).listen(9001, [](us_listen_socket_t *listenSocket) {
         if (listenSocket) {
             std::cout << "Listening on port " << 9001 << std::endl;
             ::listenSocket = listenSocket;
