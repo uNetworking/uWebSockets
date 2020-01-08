@@ -14,6 +14,7 @@ oss-fuzz:
 	$(CC) $(CFLAGS) -DLIBUS_NO_SSL -c -O3 uSocketsMock.c
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedHelloWorld.cpp uSocketsMock.o -lz -o $(OUT)/MockedHelloWorld $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedEchoServer.cpp uSocketsMock.o -lz -o $(OUT)/MockedEchoServer $(LIB_FUZZING_ENGINE)
+	$(CXX) $(CXXFLAGS) -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedBroadcastingEchoServer.cpp uSocketsMock.o -lz -o $(OUT)/MockedBroadcastingEchoServer $(LIB_FUZZING_ENGINE)
 
 broken:
 # Too small tests, failing coverage test
