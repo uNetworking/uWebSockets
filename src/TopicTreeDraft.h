@@ -136,9 +136,6 @@ private:
                 /* Add this topic to triggered */
                 if (!iterator->terminatingWildcardChild->triggered) {
                     triggeredTopics[numTriggeredTopics++] = iterator->terminatingWildcardChild;
-
-     
-
                     iterator->terminatingWildcardChild->triggered = true;
                 }
             }
@@ -163,9 +160,6 @@ private:
         /* Add this topic to triggered */
         if (!iterator->triggered) {
             triggeredTopics[numTriggeredTopics++] = iterator;
-
-      
-
             iterator->triggered = true;
         }
     }
