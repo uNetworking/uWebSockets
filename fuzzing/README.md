@@ -15,11 +15,13 @@ A secure web server must be capable of receiving mass amount of malicious input 
 * WebSocket permessage-deflate compression/inflation helper
 * Http parser
 * Http method/url router
+* Pub/sub "topic tree"
 
 ### While entire (mocked) examples are fuzzed:
 
 * HelloWorld
 * EchoServer
+* BroadcastingEchoServer
 
 No defects or issues are left unfixed, covered up or otherwise neglected. In fact we **cannot** cover up security issues as OSS-Fuzz automatically and publicly reports security issues as they happen.
 
