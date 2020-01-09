@@ -10,6 +10,7 @@ oss-fuzz:
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 WebSocket.cpp -o $(OUT)/WebSocket $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Http.cpp -o $(OUT)/Http $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 PerMessageDeflate.cpp -o $(OUT)/PerMessageDeflate $(LIB_FUZZING_ENGINE) -lz
+	$(CXX) $(CXXFLAGS) -std=c++17 -O3 TopicTree.cpp -o $(OUT)/TopicTree $(LIB_FUZZING_ENGINE)
 # "Integration tests"
 	$(CC) $(CFLAGS) -DLIBUS_NO_SSL -c -O3 uSocketsMock.c
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedHelloWorld.cpp uSocketsMock.o -lz -o $(OUT)/MockedHelloWorld $(LIB_FUZZING_ENGINE)
