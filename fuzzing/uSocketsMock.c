@@ -221,10 +221,6 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
 
     /* We are unwound so let's free all closed polls here */
 
-
-    /* Call pre_cb */
-    loop->pre_cb(loop);
-
     /* We have one listen socket */
     int socket_ext_size = loop->listen_socket->socket_ext_size;
 
@@ -236,13 +232,18 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
     s->wants_writable = 0;
 
     /* Emit open event */
+    loop->pre_cb(loop);
     s = s->context->on_open(s, 0, 0, 0);
+    loop->post_cb(loop);
+
     if (!us_socket_is_closed(0, s) && !us_socket_is_shut_down(0, s)) {
 
         /* Trigger writable event if we want it */
         if (s->wants_writable) {
             s->wants_writable = 0;
+            loop->pre_cb(loop);
             s = s->context->on_writable(s);
+            loop->post_cb(loop);
             /* Check if we closed inside of writable */
             if (us_socket_is_closed(0, s) || us_socket_is_shut_down(0, s)) {
                 goto done;
@@ -265,7 +266,9 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
             memcpy(paddedBuffer + 128, data + i, chunkLength);
 
             /* Emit a bunch of data events here */
+            loop->pre_cb(loop);
             s = s->context->on_data(s, paddedBuffer + 128, chunkLength);
+            loop->post_cb(loop);
             if (us_socket_is_closed(0, s) || us_socket_is_shut_down(0, s)) {
                 break;
             }
@@ -273,7 +276,9 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
             /* Also trigger it here */
             if (s->wants_writable) {
                 s->wants_writable = 0;
+                loop->pre_cb(loop);
                 s = s->context->on_writable(s);
+                loop->post_cb(loop);
                 /* Check if we closed inside of writable */
                 if (us_socket_is_closed(0, s) || us_socket_is_shut_down(0, s)) {
                     goto done;
@@ -287,12 +292,11 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
 done:
     if (!us_socket_is_closed(0, s)) {
         /* Emit close event */
+        loop->pre_cb(loop);
         s = s->context->on_close(s);
+        loop->post_cb(loop);
     }
 
     /* Free the socket */
     free(s);
-
-    /* Call post_cb */
-    loop->post_cb(loop);
 }
