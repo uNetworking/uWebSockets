@@ -13,6 +13,10 @@ struct us_loop_t {
 
     /* The list of closed sockets */
     struct us_socket_t *close_list;
+
+    /* Post and pre callbacks */
+    void (*pre_cb)(struct us_loop_t *loop);
+    void (*post_cb)(struct us_loop_t *loop);
 };
 
 struct us_loop_t *us_create_loop(void *hint, void (*wakeup_cb)(struct us_loop_t *loop), void (*pre_cb)(struct us_loop_t *loop), void (*post_cb)(struct us_loop_t *loop), unsigned int ext_size) {
@@ -20,6 +24,9 @@ struct us_loop_t *us_create_loop(void *hint, void (*wakeup_cb)(struct us_loop_t 
 
     loop->listen_socket = 0;
     loop->close_list = 0;
+
+    loop->pre_cb = pre_cb;
+    loop->post_cb = post_cb;
 
     return loop;
 }
@@ -215,6 +222,9 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
     /* We are unwound so let's free all closed polls here */
 
 
+    /* Call pre_cb */
+    loop->pre_cb(loop);
+
     /* We have one listen socket */
     int socket_ext_size = loop->listen_socket->socket_ext_size;
 
@@ -282,4 +292,7 @@ done:
 
     /* Free the socket */
     free(s);
+
+    /* Call post_cb */
+    loop->post_cb(loop);
 }
