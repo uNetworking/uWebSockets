@@ -11,7 +11,7 @@ us_listen_socket_t *listenSocket;
 extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
 
     app = new uWS::TemplatedApp<false>(uWS::App().get("/*", [](auto *res, auto *req) {
-        if (req->getHeader("use_write").length()) {
+        if (req->getHeader("write").length()) {
             res->writeStatus("200 OK")->writeHeader("write", "true")->write("Hello");
             res->write(" world!");
             res->end();
@@ -29,6 +29,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
         });
         res->onData([res](std::string_view chunk, bool isEnd) {
             if (isEnd) {
+                res->write("something ahead");
                 res->end(chunk);
             }
         });
