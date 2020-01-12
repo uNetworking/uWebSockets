@@ -29,8 +29,10 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
         });
         res->onData([res](std::string_view chunk, bool isEnd) {
             if (isEnd) {
-                res->write("something ahead");
-                res->end(chunk);
+                res->cork([res, chunk]() {
+                    res->write("something ahead");
+                    res->end(chunk);
+                });
             }
         });
     }).any("/:candy/*", [](auto *res, auto *req) {
