@@ -51,7 +51,8 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
 
         },
         .close = [](auto *ws, int code, std::string_view message) {
-
+             /* Not necessary but we'll call it for coverage */
+             ws->unsubscribeAll();
         }
     }).listen(9001, [](us_listen_socket_t *listenSocket) {
         if (listenSocket) {
