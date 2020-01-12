@@ -22,12 +22,33 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
         }
     }).post("/*", [](auto *res, auto *req) {
         res->onAborted([]() {
+            /* We might as well use this opportunity to stress the loop a bit */
+            uWS::Loop::get()->defer([]() {
 
+            });
         });
         res->onData([res](std::string_view chunk, bool isEnd) {
             if (isEnd) {
                 res->end(chunk);
             }
+        });
+    }).any("/:candy/*", [](auto *res, auto *req) {
+        if (req->getParameter(0).length() == 0) {
+            free((void *) -1);
+        }
+        /* Some invalid queries */
+        req->getParameter(30000);
+        req->getParameter(-34234);
+        req->getHeader("yhello");
+        req->getQuery();
+
+        /*req->onAborted([]() {
+
+        });*/
+
+        /* As of now, this will be called immediately, but changes could make it properly deferred */
+        uWS::Loop::get()->defer([res]() {
+            res->end("Deferred answer here");
         });
     }).listen(9001, [](us_listen_socket_t *listenSocket) {
         if (listenSocket) {
