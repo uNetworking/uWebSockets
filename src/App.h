@@ -232,13 +232,14 @@ public:
                             webSocket->init(perMessageDeflate, slidingDeflateWindow, std::move(backpressure))
                             );
 
+                /* Arm idleTimeout */
+                us_socket_timeout(SSL, (us_socket_t *) webSocket, behavior.idleTimeout);
+
+                /* Default construct the UserData right before calling open handler */
+                new (webSocket->getUserData()) UserData;
+
                 /* Emit open event and start the timeout */
                 if (behavior.open) {
-                    us_socket_timeout(SSL, (us_socket_t *) webSocket, behavior.idleTimeout);
-
-                    /* Default construct the UserData right before calling open handler */
-                    new (webSocket->getUserData()) UserData;
-
                     behavior.open(webSocket, req);
                 }
 
