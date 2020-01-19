@@ -42,7 +42,7 @@ private:
 
     /* Handler ids are 32-bit */
     static const uint32_t HANDLER_MASK = 0x0fffffff;
-    
+
     /* Methods and their respective priority */
     std::map<std::string, int> priority;
 
@@ -59,19 +59,26 @@ private:
         std::string name;
         std::vector<std::unique_ptr<Node>> children;
         std::vector<uint32_t> handlers;
+        bool isHighPriority;
     } root = {"rootNode"};
 
     /* Advance from parent to child, adding child if necessary */
-    Node *getNode(Node *parent, std::string child) {
+    Node *getNode(Node *parent, std::string child, bool isHighPriority) {
         for (std::unique_ptr<Node> &node : parent->children) {
-            if (node->name == child) {
+            if (node->name == child && node->isHighPriority == isHighPriority) {
                 return node.get();
             }
         }
 
         /* Insert sorted, but keep order if parent is root (we sort methods by priority elsewhere) */
         std::unique_ptr<Node> newNode(new Node({child}));
+        newNode->isHighPriority = isHighPriority;
         return parent->children.emplace(std::upper_bound(parent->children.begin(), parent->children.end(), newNode, [parent, this](auto &a, auto &b) {
+
+            if (a->isHighPriority != b->isHighPriority) {
+                return a->isHighPriority;
+            }
+
             return b->name.length() && (parent != &root) && (b->name < a->name);
         }), std::move(newNode))->get();
     }
@@ -213,11 +220,11 @@ public:
     void add(std::vector<std::string> methods, std::string pattern, fu2::unique_function<bool(HttpRouter *)> &&handler, int priority = MEDIUM_PRIORITY) {
         for (std::string method : methods) {
             /* Lookup method */
-            Node *node = getNode(&root, method);
+            Node *node = getNode(&root, method, false);
             /* Iterate over all segments */
             setUrl(pattern);
             for (int i = 0; getUrlSegment(i).length() || i == 0; i++) {
-                node = getNode(node, std::string(getUrlSegment(i)));
+                node = getNode(node, std::string(getUrlSegment(i)), priority == HIGH_PRIORITY);
             }
             /* Insert handler in order sorted by priority (most significant 1 byte) */
             node->handlers.insert(std::upper_bound(node->handlers.begin(), node->handlers.end(), (uint32_t) (priority | handlers.size())), (uint32_t) (priority | handlers.size()));

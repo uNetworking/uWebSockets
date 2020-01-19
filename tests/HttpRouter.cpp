@@ -119,7 +119,7 @@ void testUpgrade() {
     }, r.HIGH_PRIORITY);
 
     assert(r.route("get", "/something"));
-    assert(result == "GS");
+    assert(result == "WWGS");
     result.clear();
 
     assert(r.route("get", "/") == false);
@@ -150,7 +150,7 @@ void testBugReports() {
         }, r.MEDIUM_PRIORITY);
 
         r.route("get", "/ok");
-        assert(result == "GSWWGW");
+        assert(result == "WWGSGW");
     }
 
     {
@@ -171,6 +171,64 @@ void testBugReports() {
 
         r.route("get", "/");
         assert(result == "WSGS");
+    }
+
+    {
+        uWS::HttpRouter<int> r;
+        std::string result;
+
+        /* WS on /* */
+        r.add({"get"}, "/*", [&result](auto *) {
+            result += "WW";
+            return false;
+        }, r.HIGH_PRIORITY);
+
+        /* GET on /static */
+        r.add({"get"}, "/static", [&result](auto *) {
+            result += "GSL";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        /* ANY on /* */
+        r.add(r.methods, "/*", [&result](auto *) {
+            result += "AW";
+            return false;
+        }, r.LOW_PRIORITY);
+
+        r.route("get", "/static");
+        assert(result == "WWGSLAW");
+    }
+
+    {
+        uWS::HttpRouter<int> r;
+        std::string result;
+
+        /* WS on /* */
+        r.add({"get"}, "/*", [&result](auto *) {
+            result += "WW";
+            return false;
+        }, r.HIGH_PRIORITY);
+
+        /* GET on / */
+        r.add({"get"}, "/", [&result](auto *) {
+            result += "GSS";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        /* GET on /static */
+        r.add({"get"}, "/static", [&result](auto *) {
+            result += "GSL";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        /* ANY on /* */
+        r.add(r.methods, "/*", [&result](auto *) {
+            result += "AW";
+            return false;
+        }, r.LOW_PRIORITY);
+
+        r.route("get", "/static");
+        assert(result == "WWGSLAW");
     }
 }
 
