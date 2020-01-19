@@ -138,7 +138,9 @@ public:
         webSocketContext->getExt()->messageHandler = std::move(behavior.message);
         webSocketContext->getExt()->drainHandler = std::move(behavior.drain);
         webSocketContext->getExt()->closeHandler = std::move([closeHandler = std::move(behavior.close)](WebSocket<SSL, true> *ws, int code, std::string_view message) mutable {
-            closeHandler(ws, code, message);
+            if (closeHandler) {
+                closeHandler(ws, code, message);
+            }
 
             /* Destruct user data after returning from close handler */
             ((UserData *) ws->getUserData())->~UserData();
