@@ -217,7 +217,7 @@ public:
     }
 
     /* Adds the corresponding entires in matching tree and handler list */
-    void add(std::vector<std::string> methods, std::string pattern, fu2::unique_function<bool(HttpRouter *)> &&handler, int priority = MEDIUM_PRIORITY) {
+    void add(std::vector<std::string> methods, std::string pattern, fu2::unique_function<bool(HttpRouter *)> &&handler, uint32_t priority = MEDIUM_PRIORITY) {
         for (std::string method : methods) {
             /* Lookup method */
             Node *node = getNode(&root, method, false);
