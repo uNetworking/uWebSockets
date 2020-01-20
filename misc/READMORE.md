@@ -27,9 +27,6 @@ There are a few compilation flags for µSockets (see its documentation), but com
 * LIBUS_NO_SSL - disable OpenSSL dependency/functionality for uSockets and uWebSockets builds
 * UWS_NO_ZLIB - disable Zlib dependency/functionality for uWebSockets
 
-## Node.js
-V8 addon is developed over at https://github.com/uNetworking/uWebSockets.js.
-
 ## User manual
 
 ### uWS::App & uWS::SSLApp
