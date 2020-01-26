@@ -75,10 +75,12 @@ private:
         httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
     }
 
+#ifndef UWS_HTTPRESPONSE_NO_WRITEMARK
     /* Called only once per request */
     void writeMark() {
         writeHeader("uWebSockets", "v0.17");
     }
+#endif
 
     /* Returns true on success, indicating that it might be feasible to write more data.
      * Will start timeout if stream reaches totalSize or write failure. */
@@ -117,9 +119,10 @@ private:
         } else {
             /* Write content-length on first call */
             if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_END_CALLED)) {
+#ifndef UWS_HTTPRESPONSE_NO_WRITEMARK
                 /* Write mark, this propagates to WebSockets too */
                 writeMark();
-
+#endif
                 /* WebSocket upgrades does not allow content-length */
                 if (allowContentLength) {
                     /* Even zero is a valid content-length */
@@ -234,9 +237,10 @@ public:
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
+#ifndef UWS_HTTPRESPONSE_NO_WRITEMARK
             /* Write mark on first call to write */
             writeMark();
-
+#endif
             writeHeader("Transfer-Encoding", "chunked");
             httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
         }
