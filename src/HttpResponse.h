@@ -77,7 +77,9 @@ private:
 
     /* Called only once per request */
     void writeMark() {
+#ifndef UWS_HTTPRESPONSE_NO_WRITEMARK
         writeHeader("uWebSockets", "v0.17");
+#endif
     }
 
     /* Returns true on success, indicating that it might be feasible to write more data.
