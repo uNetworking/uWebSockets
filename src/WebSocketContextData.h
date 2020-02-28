@@ -36,6 +36,9 @@ struct WebSocketContextData {
     fu2::unique_function<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler = nullptr;
     fu2::unique_function<void(WebSocket<SSL, true> *)> drainHandler = nullptr;
     fu2::unique_function<void(WebSocket<SSL, true> *, int, std::string_view)> closeHandler = nullptr;
+    /* Todo: these should take message also; breaking change for v0.18 */
+    fu2::unique_function<void(WebSocket<SSL, true> *)> pingHandler = nullptr;
+    fu2::unique_function<void(WebSocket<SSL, true> *)> pongHandler = nullptr;
 
     /* Settings for this context */
     size_t maxPayloadLength = 0;

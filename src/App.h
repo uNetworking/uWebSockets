@@ -145,6 +145,8 @@ public:
             /* Destruct user data after returning from close handler */
             ((UserData *) ws->getUserData())->~UserData();
         });
+        webSocketContext->getExt()->pingHandler = std::move(behavior.ping);
+        webSocketContext->getExt()->pongHandler = std::move(behavior.pong);
 
         /* Copy settings */
         webSocketContext->getExt()->maxPayloadLength = behavior.maxPayloadLength;
