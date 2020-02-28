@@ -170,15 +170,19 @@ private:
                 } else {
                     if (opCode == PING) {
                         webSocket->send(std::string_view(data, length), (OpCode) OpCode::PONG);
-                        /*group->pingHandler(webSocket, data, length);
-                        if (webSocket->isClosed() || webSocket->isShuttingDown()) {
-                            return true;
-                        }*/
+                        if (webSocketContextData->pingHandler) {
+                            webSocketContextData->pingHandler(webSocket);
+                            if (us_socket_is_closed(SSL, (us_socket_t *) s) || webSocketData->isShuttingDown) {
+                                return true;
+                            }
+                        }
                     } else if (opCode == PONG) {
-                        /*group->pongHandler(webSocket, data, length);
-                        if (webSocket->isClosed() || webSocket->isShuttingDown()) {
-                            return true;
-                        }*/
+                        if (webSocketContextData->pongHandler) {
+                            webSocketContextData->pongHandler(webSocket);
+                            if (us_socket_is_closed(SSL, (us_socket_t *) s) || webSocketData->isShuttingDown) {
+                                return true;
+                            }
+                        }
                     }
                 }
             } else {
@@ -195,15 +199,19 @@ private:
                     } else {
                         if (opCode == PING) {
                             webSocket->send(std::string_view(controlBuffer, webSocketData->controlTipLength), (OpCode) OpCode::PONG);
-                            /*group->pingHandler(webSocket, controlBuffer, webSocket->controlTipLength);
-                            if (webSocket->isClosed() || webSocket->isShuttingDown()) {
-                                return true;
-                            }*/
+                            if (webSocketContextData->pingHandler) {
+                                webSocketContextData->pingHandler(webSocket);
+                                if (us_socket_is_closed(SSL, (us_socket_t *) s) || webSocketData->isShuttingDown) {
+                                    return true;
+                                }
+                            }
                         } else if (opCode == PONG) {
-                            /*group->pongHandler(webSocket, controlBuffer, webSocket->controlTipLength);
-                            if (webSocket->isClosed() || webSocket->isShuttingDown()) {
-                                return true;
-                            }*/
+                            if (webSocketContextData->pongHandler) {
+                                webSocketContextData->pongHandler(webSocket);
+                                if (us_socket_is_closed(SSL, (us_socket_t *) s) || webSocketData->isShuttingDown) {
+                                    return true;
+                                }
+                            }
                         }
                     }
 
