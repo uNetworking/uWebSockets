@@ -25,6 +25,8 @@ A secure web server must be capable of receiving mass amount of malicious input 
 
 No defects or issues are left unfixed, covered up or otherwise neglected. In fact we **cannot** cover up security issues as OSS-Fuzz automatically and publicly reports security issues as they happen.
 
+Here is the list of public issues (issues are kept private for 90 days or until fixed): https://bugs.chromium.org/p/oss-fuzz/issues/list?q=label%3AProj-uwebsockets&can=1
+
 Currently we are at ~90% total fuzz coverage and OSS-Fuzz is reporting **zero** issues whatsoever. The goal is to approach 100% total coverage.
 
 ### Security awards
