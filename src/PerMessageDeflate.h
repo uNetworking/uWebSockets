@@ -31,7 +31,7 @@ namespace uWS {
         /* We compress using a dedicated sliding window. Major memory usage added, better compression of similarly repeated messages. */
         DEDICATED_COMPRESSOR = 2,
         /* Flags for limiting memory usage of dedicated compressor */
-        DEDICATED_COMPRESSOR_2KB = 2 | 4,
+        DEDICATED_COMPRESSOR_3KB = 2 | 4,
         DEDICATED_COMPRESSOR_4KB = 2 | 8,
         DEDICATED_COMPRESSOR_8KB = 2 | 16,
         DEDICATED_COMPRESSOR_16KB = 2 | 32,
@@ -97,8 +97,8 @@ struct DeflationStream {
         /* Memory usage is given by 2 ^ (windowBits + 2) + 2 ^ (memLevel + 9) */
         int windowBits = -15, memLevel = 8;
 
-        if (compressOptions == DEDICATED_COMPRESSOR_2KB) {
-            windowBits = -8;
+        if (compressOptions == DEDICATED_COMPRESSOR_3KB) {
+            windowBits = -9;
             memLevel = 1;
         } else if (compressOptions == DEDICATED_COMPRESSOR_4KB) {
             windowBits = -9;
