@@ -27,18 +27,9 @@
 #include "WebSocket.h"
 #include "WebSocketExtensions.h"
 #include "WebSocketHandshake.h"
+#include "PerMessageDeflate.h"
 
 namespace uWS {
-
-/* Compress options (really more like PerMessageDeflateOptions) */
-enum CompressOptions {
-    /* Compression disabled */
-    DISABLED = 0,
-    /* We compress using a shared non-sliding window. No added memory usage, worse compression. */
-    SHARED_COMPRESSOR = 1,
-    /* We compress using a dedicated sliding window. Major memory usage added, better compression of similarly repeated messages. */
-    DEDICATED_COMPRESSOR = 2
-};
 
 template <bool SSL>
 struct TemplatedApp {
@@ -130,7 +121,7 @@ public:
             if (!loopData->zlibContext) {
                 loopData->zlibContext = new ZlibContext;
                 loopData->inflationStream = new InflationStream;
-                loopData->deflationStream = new DeflationStream;
+                loopData->deflationStream = new DeflationStream(CompressOptions::DEDICATED_COMPRESSOR);
             }
         }
 
@@ -173,9 +164,10 @@ public:
                     res->writeHeader("Sec-WebSocket-Protocol", secWebSocketProtocol.substr(0, secWebSocketProtocol.find(',')));
                 }
 
-                /* Negotiate compression */
+                /* Negotiate compression, we may use a smaller compression window than we negotiate */
                 bool perMessageDeflate = false;
-                bool slidingDeflateWindow = false;
+                /* We are always allowed to share compressor, if perMessageDeflate */
+                int compressOptions = behavior.compression & SHARED_COMPRESSOR;
                 if (behavior.compression != DISABLED) {
                     std::string_view extensions = req->getHeader("sec-websocket-extensions");
                     if (extensions.length()) {
@@ -205,7 +197,7 @@ public:
 
                         /* Is the server allowed to compress with a sliding window? */
                         if (!(extensionsNegotiator.getNegotiatedOptions() & SERVER_NO_CONTEXT_TAKEOVER)) {
-                            slidingDeflateWindow = true;
+                            compressOptions = behavior.compression;
                         }
                     }
                 }
@@ -231,7 +223,7 @@ public:
 
                 /* Initialize websocket with any moved backpressure intact */
                 httpContext->upgradeToWebSocket(
-                            webSocket->init(perMessageDeflate, slidingDeflateWindow, std::move(backpressure))
+                            webSocket->init(perMessageDeflate, compressOptions, std::move(backpressure))
                             );
 
                 /* Arm idleTimeout */

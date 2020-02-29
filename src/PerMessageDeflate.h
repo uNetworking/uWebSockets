@@ -20,6 +20,28 @@
 #ifndef UWS_PERMESSAGEDEFLATE_H
 #define UWS_PERMESSAGEDEFLATE_H
 
+/* We always define these options no matter if ZLIB is enabled or not */
+namespace uWS {
+    /* Compress options (really more like PerMessageDeflateOptions) */
+    enum CompressOptions : int {
+        /* Compression disabled */
+        DISABLED = 0,
+        /* We compress using a shared non-sliding window. No added memory usage, worse compression. */
+        SHARED_COMPRESSOR = 1,
+        /* We compress using a dedicated sliding window. Major memory usage added, better compression of similarly repeated messages. */
+        DEDICATED_COMPRESSOR = 2,
+        /* Flags for limiting memory usage of dedicated compressor */
+        DEDICATED_COMPRESSOR_2KB = 2 | 4,
+        DEDICATED_COMPRESSOR_4KB = 2 | 8,
+        DEDICATED_COMPRESSOR_8KB = 2 | 16,
+        DEDICATED_COMPRESSOR_16KB = 2 | 32,
+        DEDICATED_COMPRESSOR_32KB = 2 | 64,
+        DEDICATED_COMPRESSOR_64KB = 2 | 128,
+        DEDICATED_COMPRESSOR_128KB = 2 | 256,
+        DEDICATED_COMPRESSOR_256KB = 2 | 512
+    };
+}
+
 #ifndef UWS_NO_ZLIB
 #include <zlib.h>
 #endif
@@ -68,8 +90,42 @@ struct ZlibContext {
 struct DeflationStream {
     z_stream deflationStream = {};
 
-    DeflationStream() {
-        deflateInit2(&deflationStream, 1, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY);
+    DeflationStream(int compressOptions) {
+
+        /* Sliding inflator should be about 44kb by default, less than compressor */
+
+        /* Memory usage is given by 2 ^ (windowBits + 2) + 2 ^ (memLevel + 9) */
+        int windowBits = -15, memLevel = 8;
+
+        if (compressOptions == DEDICATED_COMPRESSOR_2KB) {
+            windowBits = -8;
+            memLevel = 1;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_4KB) {
+            windowBits = -9;
+            memLevel = 2;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_8KB) {
+            windowBits = -10;
+            memLevel = 3;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_16KB) {
+            windowBits = -11;
+            memLevel = 4;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_32KB) {
+            windowBits = -12;
+            memLevel = 5;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_64KB) {
+            windowBits = -13;
+            memLevel = 6;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_128KB) {
+            windowBits = -14;
+            memLevel = 7;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_256KB) {
+            windowBits = -15;
+            memLevel = 8;
+        }
+
+        /* DEDICATED_COMPRESSOR_256KB is the same as DEDICATED_COMPRESSOR */
+
+        deflateInit2(&deflationStream, 1, Z_DEFLATED, windowBits, memLevel, Z_DEFAULT_STRATEGY);
     }
 
     /* Deflate and optionally reset */
