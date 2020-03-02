@@ -62,6 +62,8 @@ struct DeflationStream {
     std::string_view deflate(ZlibContext *zlibContext, std::string_view raw, bool reset) {
         return raw;
     }
+    DeflationStream(int compressOptions) {
+    }
 };
 #else
 
