@@ -14,7 +14,7 @@ struct StaticData {
     uWS::ZlibContext zlibContext;
 
     uWS::InflationStream inflationStream;
-    uWS::DeflationStream deflationStream = DEDICATED_COMPRESSOR_8KB;
+    uWS::DeflationStream deflationStream = uWS::DEDICATED_COMPRESSOR_8KB;
 } staticData;
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
