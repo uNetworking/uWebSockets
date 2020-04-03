@@ -102,6 +102,10 @@ public:
         static_assert(alignof(UserData) <= LIBUS_EXT_ALIGNMENT,
         "µWebSockets cannot satisfy UserData alignment requirements. You need to recompile µSockets with LIBUS_EXT_ALIGNMENT adjusted accordingly.");
 
+        if (!httpContext) {
+            return std::move(*this);
+        }
+
         /* Every route has its own websocket context with its own behavior and user data type */
         auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::get(), (us_socket_context_t *) httpContext);
 
@@ -250,53 +254,73 @@ public:
     }
 
     TemplatedApp &&get(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("get", pattern, std::move(handler));
+        if (httpContext) {
+            httpContext->onHttp("get", pattern, std::move(handler));
+        }
         return std::move(*this);
     }
 
     TemplatedApp &&post(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("post", pattern, std::move(handler));
+        if (httpContext) {
+            httpContext->onHttp("post", pattern, std::move(handler));
+        }
         return std::move(*this);
     }
 
     TemplatedApp &&options(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("options", pattern, std::move(handler));
+        if (httpContext) {
+            httpContext->onHttp("options", pattern, std::move(handler));
+        }
         return std::move(*this);
     }
 
     TemplatedApp &&del(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("delete", pattern, std::move(handler));
+        if (httpContext) {
+            httpContext->onHttp("delete", pattern, std::move(handler));
+        }
         return std::move(*this);
     }
 
     TemplatedApp &&patch(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("patch", pattern, std::move(handler));
+        if (httpContext) {
+            httpContext->onHttp("patch", pattern, std::move(handler));
+        }
         return std::move(*this);
     }
 
     TemplatedApp &&put(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("put", pattern, std::move(handler));
+        if (httpContext) {
+            httpContext->onHttp("put", pattern, std::move(handler));
+        }
         return std::move(*this);
     }
 
     TemplatedApp &&head(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("head", pattern, std::move(handler));
+        if (httpContext) {
+            httpContext->onHttp("head", pattern, std::move(handler));
+        }
         return std::move(*this);
     }
 
     TemplatedApp &&connect(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("connect", pattern, std::move(handler));
+        if (httpContext) {
+            httpContext->onHttp("connect", pattern, std::move(handler));
+        }
         return std::move(*this);
     }
 
     TemplatedApp &&trace(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("trace", pattern, std::move(handler));
+        if (httpContext) {
+            httpContext->onHttp("trace", pattern, std::move(handler));
+        }
         return std::move(*this);
     }
 
     /* This one catches any method */
     TemplatedApp &&any(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
-        httpContext->onHttp("*", pattern, std::move(handler));
+        if (httpContext) {
+            httpContext->onHttp("*", pattern, std::move(handler));
+        }
         return std::move(*this);
     }
 
@@ -305,7 +329,7 @@ public:
         if (!host.length()) {
             return listen(port, std::move(handler));
         }
-        handler(httpContext->listen(host.c_str(), port, 0));
+        handler(httpContext ? httpContext->listen(host.c_str(), port, 0) : nullptr);
         return std::move(*this);
     }
 
@@ -314,19 +338,19 @@ public:
         if (!host.length()) {
             return listen(port, options, std::move(handler));
         }
-        handler(httpContext->listen(host.c_str(), port, options));
+        handler(httpContext ? httpContext->listen(host.c_str(), port, options) : nullptr);
         return std::move(*this);
     }
 
     /* Port, callback */
     TemplatedApp &&listen(int port, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
-        handler(httpContext->listen(nullptr, port, 0));
+        handler(httpContext ? httpContext->listen(nullptr, port, 0) : nullptr);
         return std::move(*this);
     }
 
     /* Port, options, callback */
     TemplatedApp &&listen(int port, int options, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
-        handler(httpContext->listen(nullptr, port, options));
+        handler(httpContext ? httpContext->listen(nullptr, port, options) : nullptr);
         return std::move(*this);
     }
 
