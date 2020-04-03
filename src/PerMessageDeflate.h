@@ -54,8 +54,9 @@ namespace uWS {
 #ifdef UWS_NO_ZLIB
 struct ZlibContext {};
 struct InflationStream {
-    std::string_view inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
-        return compressed;
+    std::pair<std::string_view, bool> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
+        /* Anything here goes, it is never going to be called */
+        return {compressed, false};
     }
 };
 struct DeflationStream {
@@ -188,7 +189,8 @@ struct InflationStream {
         inflateEnd(&inflationStream);
     }
 
-    std::string_view inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
+    /* Zero length inflates are possible and valid */
+    std::pair<std::string_view, bool> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
 
         /* We clear this one here, could be done better */
         zlibContext->dynamicInflationBuffer.clear();
@@ -214,7 +216,7 @@ struct InflationStream {
         inflateReset(&inflationStream);
 
         if ((err != Z_BUF_ERROR && err != Z_OK) || zlibContext->dynamicInflationBuffer.length() > maxPayloadLength) {
-            return {nullptr, 0};
+            return {{nullptr, 0}, false};
         }
 
         if (zlibContext->dynamicInflationBuffer.length()) {
@@ -222,7 +224,7 @@ struct InflationStream {
 
             /* Let's be strict about the max size */
             if (zlibContext->dynamicInflationBuffer.length() > maxPayloadLength) {
-                return {nullptr, 0};
+                return {{nullptr, 0}, false};
             }
 
             return {zlibContext->dynamicInflationBuffer.data(), zlibContext->dynamicInflationBuffer.length()};
@@ -230,10 +232,10 @@ struct InflationStream {
 
         /* Let's be strict about the max size */
         if ((LARGE_BUFFER_SIZE - inflationStream.avail_out) > maxPayloadLength) {
-            return {nullptr, 0};
+            return {{nullptr, 0}, false};
         }
 
-        return {zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out};
+        return {{zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out}, true};
     }
 
 };

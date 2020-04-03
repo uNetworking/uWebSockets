@@ -72,8 +72,8 @@ private:
                         webSocketData->compressionStatus = WebSocketData::CompressionStatus::ENABLED;
 
                         LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(SSL, us_socket_context(SSL, (us_socket_t *) s)));
-                        std::string_view inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {data, length}, webSocketContextData->maxPayloadLength);
-                        if (!inflatedFrame.length()) {
+                        auto [inflatedFrame, valid] = loopData->inflationStream->inflate(loopData->zlibContext, {data, length}, webSocketContextData->maxPayloadLength);
+                        if (!valid) {
                             forceClose(webSocketState, s);
                             return true;
                         } else {
@@ -124,8 +124,8 @@ private:
                                 )
                             );
 
-                            std::string_view inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4}, webSocketContextData->maxPayloadLength);
-                            if (!inflatedFrame.length()) {
+                            auto [inflatedFrame, valid] = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4}, webSocketContextData->maxPayloadLength);
+                            if (!valid) {
                                 forceClose(webSocketState, s);
                                 return true;
                             } else {
