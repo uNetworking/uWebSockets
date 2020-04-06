@@ -363,6 +363,13 @@ public:
             auto user = r->getUserData();
             user.httpRequest->setYield(false);
             user.httpRequest->setParameters(r->getParameters());
+
+            /* Middleware? Automatically respond to expectations */
+            std::string_view expect = user.httpRequest->getHeader("expect");
+            if (expect.length() && expect == "100-continue") {
+                user.httpResponse->writeContinue();
+            }
+
             handler(user.httpResponse, user.httpRequest);
 
             /* If any handler yielded, the router will keep looking for a suitable handler. */

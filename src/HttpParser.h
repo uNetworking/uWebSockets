@@ -27,6 +27,8 @@
 #include <algorithm>
 #include "f2/function2.hpp"
 
+#include "BloomFilter.h"
+
 namespace uWS {
 
 /* We require at least this much post padding */
@@ -43,7 +45,7 @@ private:
     } headers[MAX_HEADERS];
     int querySeparator;
     bool didYield;
-
+    BloomFilter bf;
     std::pair<int, std::string_view *> currentParameters;
 
 public:
@@ -87,9 +89,11 @@ public:
     }
 
     std::string_view getHeader(std::string_view lowerCasedHeader) {
-        for (Header *h = headers; (++h)->key.length(); ) {
-            if (h->key.length() == lowerCasedHeader.length() && !strncmp(h->key.data(), lowerCasedHeader.data(), lowerCasedHeader.length())) {
-                return h->value;
+        if (bf.mightHave(lowerCasedHeader)) {
+            for (Header *h = headers; (++h)->key.length(); ) {
+                if (h->key.length() == lowerCasedHeader.length() && !strncmp(h->key.data(), lowerCasedHeader.data(), lowerCasedHeader.length())) {
+                    return h->value;
+                }
             }
         }
         return std::string_view(nullptr, 0);
@@ -142,7 +146,7 @@ private:
         return unsignedIntegerValue;
     }
 
-    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers) {
+    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, BloomFilter *bf) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
 
         for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS; i++) {
@@ -177,12 +181,18 @@ private:
         int consumedTotal = 0;
         data[length] = '\r';
 
-        for (int consumed; length && (consumed = getHeaders(data, data + length, req->headers)); ) {
+        for (int consumed; length && (consumed = getHeaders(data, data + length, req->headers, &req->bf)); ) {
             data += consumed;
             length -= consumed;
             consumedTotal += consumed;
 
+            /* Strip away tail of first "header value" aka URL */
             req->headers->value = std::string_view(req->headers->value.data(), std::max<int>(0, (int) req->headers->value.length() - 9));
+
+            /* Add all headers to bloom filter */
+            for (HttpRequest::Header *h = req->headers; (++h)->key.length(); ) {
+                req->bf.add(h->key);
+            }
 
             /* Parse query */
             const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());

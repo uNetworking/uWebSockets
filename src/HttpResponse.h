@@ -174,6 +174,12 @@ public:
     /* Note: Headers are not checked in regards to timeout.
      * We only check when you actively push data or end the request */
 
+    /* Write 100 Continue, can be done any amount of times */
+    HttpResponse *writeContinue() {
+        Super::write("HTTP/1.1 100 Continue\r\n\r\n", 25);
+        return this;
+    }
+
     /* Write the HTTP status */
     HttpResponse *writeStatus(std::string_view status) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
