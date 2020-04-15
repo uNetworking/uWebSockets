@@ -27,14 +27,14 @@ endif
 
 .PHONY: examples
 examples:
-	cd uSockets && make
+	$(MAKE) -C uSockets
 	$(foreach FILE,$(EXAMPLE_FILES),$(CXX) -flto -O3 $(CXXFLAGS) examples/$(FILE).cpp -o $(FILE) $(LDFLAGS);)
 	$(foreach FILE,$(THREADED_EXAMPLE_FILES),$(CXX) -pthread -flto -O3 $(CXXFLAGS) examples/$(FILE).cpp -o $(FILE) $(LDFLAGS);)
 
 all:
-	make examples
-	make -C fuzzing
-	make -C benchmarks
+	$(MAKE) examples
+	$(MAKE) -C fuzzing
+	$(MAKE) -C benchmarks
 clean:
 	rm -rf $(EXAMPLE_FILES) $(THREADED_EXAMPLE_FILES)
 	rm -rf fuzzing/*.o benchmarks/*.o
