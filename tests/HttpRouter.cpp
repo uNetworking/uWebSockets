@@ -132,6 +132,40 @@ void testBugReports() {
         uWS::HttpRouter<int> r;
         std::string result;
 
+        r.add({"get"}, "/foo//////bar/baz/qux", [&result](auto *) {
+            result += "MANYSLASH";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        r.add({"get"}, "/foo", [&result](auto *) {
+            result += "FOO";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        r.route("get", "/foo");
+        r.route("get", "/foo/");
+        r.route("get", "/foo//bar/baz/qux");
+        r.route("get", "/foo//////bar/baz/qux");
+        assert(result == "FOOMANYSLASH");
+    }
+
+    {
+        uWS::HttpRouter<int> r;
+        std::string result;
+
+        r.add({"get"}, "/test/*", [&result](auto *) {
+            result += "TEST";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        r.route("get", "/test/");
+        assert(result == "TEST");
+    }
+
+    {
+        uWS::HttpRouter<int> r;
+        std::string result;
+
         /* WS on /* */
         r.add({"get"}, "/*", [&result](auto *) {
             result += "WW";
@@ -293,7 +327,7 @@ void testParameters() {
     r.route("get", "/candy/lollipop/");
     r.route("get", "/candy/lollipop");
     r.route("get", "/candy/");
-    assert(result == "");
+    assert(result == "GLWGPW");
 }
 
 int main() {
