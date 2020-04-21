@@ -82,7 +82,7 @@ private:
     };
     
 public:
-    /* Lazily initializes a per-thread loop and returns it.
+    /** Lazily initializes a per-thread loop and returns it.
      * Will automatically free all initialized loops at exit. */
     static Loop *get(void *existingNativeLoop = nullptr) {
         static thread_local LoopCleaner lazyLoop;
@@ -101,7 +101,7 @@ public:
         return lazyLoop.loop;
     }
 
-    /* Freeing the default loop should be done once */
+    /** Freeing the default loop should be done once */
     void free() {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
         loopData->~LoopData();
@@ -115,7 +115,7 @@ public:
         loopData->postHandlers.emplace(key, std::move(handler));
     }
 
-    /* Bug: what if you remove a handler while iterating them? */
+    /** Bug: what if you remove a handler while iterating them? */
     void removePostHandler(void *key) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
@@ -128,14 +128,14 @@ public:
         loopData->preHandlers.emplace(key, std::move(handler));
     }
 
-    /* Bug: what if you remove a handler while iterating them? */
+    /** Bug: what if you remove a handler while iterating them? */
     void removePreHandler(void *key) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
         loopData->preHandlers.erase(key);
     }
 
-    /* Defer this callback on Loop's thread of execution */
+    /** Defer this callback on Loop's thread of execution */
     void defer(fu2::unique_function<void()> &&cb) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
@@ -147,19 +147,19 @@ public:
         us_wakeup_loop((us_loop_t *) this);
     }
 
-    /* Actively block and run this loop */
+    /** Actively block and run this loop */
     void run() {
         us_loop_run((us_loop_t *) this);
     }
 
-    /* Passively integrate with the underlying default loop */
+    /** Passively integrate with the underlying default loop */
     /* Used to seamlessly integrate with third parties such as Node.js */
     void integrate() {
         us_loop_integrate((us_loop_t *) this);
     }
 };
 
-/* Can be called from any thread to run the thread local loop */
+/** Can be called from any thread to run the thread local loop */
 inline void run() {
     Loop::get()->run();
 }

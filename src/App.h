@@ -18,7 +18,7 @@
 #ifndef UWS_APP_H
 #define UWS_APP_H
 
-/* An app is a convenience wrapper of some of the most used fuctionalities and allows a
+/** An app is a convenience wrapper of some of the most used fuctionalities and allows a
  * builder-pattern kind of init. Apps operate on the implicit thread local Loop */
 
 #include "HttpContext.h"
@@ -40,12 +40,12 @@ private:
 
 public:
 
-    /* Attaches a "filter" function to track socket connections/disconnections */
+    /** Attaches a "filter" function to track socket connections/disconnections */
     void filter(fu2::unique_function<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         httpContext->filter(std::move(filterHandler));
     }
 
-    /* Publishes a message to all websocket contexts */
+    /** Publishes a message to all websocket contexts */
     void publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress = false) {
         for (auto *webSocketContext : webSocketContexts) {
             webSocketContext->getExt()->publish(topic, message, opCode, compress);
@@ -63,7 +63,7 @@ public:
         }
     }
 
-    /* Disallow copying, only move */
+    /** Disallow copying, only move */
     TemplatedApp(const TemplatedApp &other) = delete;
 
     TemplatedApp(TemplatedApp &&other) {
@@ -316,7 +316,7 @@ public:
         return std::move(*this);
     }
 
-    /* This one catches any method */
+    /** This one catches any method */
     TemplatedApp &&any(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("*", pattern, std::move(handler));
@@ -324,7 +324,7 @@ public:
         return std::move(*this);
     }
 
-    /* Host, port, callback */
+    /** Host, port, callback */
     TemplatedApp &&listen(std::string host, int port, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
         if (!host.length()) {
             return listen(port, std::move(handler));
@@ -333,7 +333,7 @@ public:
         return std::move(*this);
     }
 
-    /* Host, port, options, callback */
+    /** Host, port, options, callback */
     TemplatedApp &&listen(std::string host, int port, int options, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
         if (!host.length()) {
             return listen(port, options, std::move(handler));
@@ -342,13 +342,13 @@ public:
         return std::move(*this);
     }
 
-    /* Port, callback */
+    /** Port, callback */
     TemplatedApp &&listen(int port, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
         handler(httpContext ? httpContext->listen(nullptr, port, 0) : nullptr);
         return std::move(*this);
     }
 
-    /* Port, options, callback */
+    /** Port, options, callback */
     TemplatedApp &&listen(int port, int options, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
         handler(httpContext ? httpContext->listen(nullptr, port, options) : nullptr);
         return std::move(*this);

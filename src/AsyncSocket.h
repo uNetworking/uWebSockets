@@ -35,48 +35,48 @@ struct AsyncSocket {
     friend struct TopicTree;
 
 protected:
-    /* Get loop data for socket */
+    /** Get loop data for socket */
     LoopData *getLoopData() {
         return (LoopData *) us_loop_ext(us_socket_context_loop(SSL, us_socket_context(SSL, (us_socket_t *) this)));
     }
 
-    /* Get socket extension */
+    /** Get socket extension */
     AsyncSocketData<SSL> *getAsyncSocketData() {
         return (AsyncSocketData<SSL> *) us_socket_ext(SSL, (us_socket_t *) this);
     }
 
-    /* Socket timeout */
+    /** Socket timeout */
     void timeout(unsigned int seconds) {
         us_socket_timeout(SSL, (us_socket_t *) this, seconds);
     }
 
-    /* Shutdown socket without any automatic drainage */
+    /** Shutdown socket without any automatic drainage */
     void shutdown() {
         us_socket_shutdown(SSL, (us_socket_t *) this);
     }
 
-    /* Immediately close socket */
+    /** Immediately close socket */
     us_socket_t *close() {
         return us_socket_close(SSL, (us_socket_t *) this);
     }
 
-    /* Cork this socket. Only one socket may ever be corked per-loop at any given time */
+    /** Cork this socket. Only one socket may ever be corked per-loop at any given time */
     void cork() {
         /* What if another socket is corked? */
         getLoopData()->corkedSocket = this;
     }
 
-    /* Returns wheter we are corked or not */
+    /** Returns wheter we are corked or not */
     bool isCorked() {
         return getLoopData()->corkedSocket == this;
     }
 
-    /* Returns whether we could cork (it is free) */
+    /** Returns whether we could cork (it is free) */
     bool canCork() {
         return getLoopData()->corkedSocket == nullptr;
     }
 
-    /* Returns a suitable buffer for temporary assemblation of send data */
+    /** Returns a suitable buffer for temporary assemblation of send data */
     std::pair<char *, bool> getSendBuffer(size_t size) {
         /* If we are corked and we have room, return the cork buffer itself */
         LoopData *loopData = getLoopData();
@@ -90,12 +90,12 @@ protected:
         }
     }
 
-    /* Returns the user space backpressure. */
+    /** Returns the user space backpressure. */
     int getBufferedAmount() {
         return (int) getAsyncSocketData()->buffer.size();
     }
 
-    /* Returns the remote IP address or empty string on failure */
+    /** Returns the remote IP address or empty string on failure */
     std::string_view getRemoteAddress() {
         static thread_local char buf[16];
         int ipLength = 16;
@@ -103,7 +103,7 @@ protected:
         return std::string_view(buf, ipLength);
     }
 
-    /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
+    /** Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
      * Returns pair of bytes written (anywhere) and wheter or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */
     std::pair<int, bool> write(const char *src, int length, bool optionally = false, int nextLength = 0) {
@@ -195,7 +195,7 @@ protected:
         return {length, false};
     }
 
-    /* Uncork this socket and flush or buffer any corked and/or passed data. It is essential to remember doing this. */
+    /** Uncork this socket and flush or buffer any corked and/or passed data. It is essential to remember doing this. */
     /* It does NOT count bytes written from cork buffer (they are already accounted for in the write call responsible for its corking)! */
     std::pair<int, bool> uncork(const char *src = nullptr, int length = 0, bool optionally = false) {
         LoopData *loopData = getLoopData();

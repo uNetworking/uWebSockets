@@ -166,21 +166,21 @@ private:
     }
 
 public:
-    /* Immediately terminate this Http response */
+    /** Immediately terminate this Http response */
     using Super::close;
 
     using Super::getRemoteAddress;
 
-    /* Note: Headers are not checked in regards to timeout.
+    /** Note: Headers are not checked in regards to timeout.
      * We only check when you actively push data or end the request */
 
-    /* Write 100 Continue, can be done any amount of times */
+    /** Write 100 Continue, can be done any amount of times */
     HttpResponse *writeContinue() {
         Super::write("HTTP/1.1 100 Continue\r\n\r\n", 25);
         return this;
     }
 
-    /* Write the HTTP status */
+    /** Write the HTTP status */
     HttpResponse *writeStatus(std::string_view status) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
@@ -198,7 +198,7 @@ public:
         return this;
     }
 
-    /* Write an HTTP header with string value */
+    /** Write an HTTP header with string value */
     HttpResponse *writeHeader(std::string_view key, std::string_view value) {
         writeStatus(HTTP_200_OK);
 
@@ -209,7 +209,7 @@ public:
         return this;
     }
 
-    /* Write an HTTP header with unsigned int value */
+    /** Write an HTTP header with unsigned int value */
     HttpResponse *writeHeader(std::string_view key, unsigned int value) {
         Super::write(key.data(), (int) key.length());
         Super::write(": ", 2);
@@ -218,18 +218,18 @@ public:
         return this;
     }
 
-    /* End the response with an optional data chunk. Always starts a timeout. */
+    /** End the response with an optional data chunk. Always starts a timeout. */
     void end(std::string_view data = {}) {
         internalEnd(data, (int) data.length(), false);
     }
 
-    /* Try and end the response. Returns [true, true] on success.
+    /** Try and end the response. Returns [true, true] on success.
      * Starts a timeout in some cases. Returns [ok, hasResponded] */
     std::pair<bool, bool> tryEnd(std::string_view data, int totalSize = 0) {
         return {internalEnd(data, totalSize, true), hasResponded()};
     }
 
-    /* Write parts of the response in chunking fashion. Starts timeout if failed. */
+    /** Write parts of the response in chunking fashion. Starts timeout if failed. */
     bool write(std::string_view data) {
         writeStatus(HTTP_200_OK);
 
@@ -262,21 +262,21 @@ public:
         return !failed;
     }
 
-    /* Get the current byte write offset for this Http response */
+    /** Get the current byte write offset for this Http response */
     int getWriteOffset() {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         return httpResponseData->offset;
     }
 
-    /* Checking if we have fully responded and are ready for another request */
+    /** Checking if we have fully responded and are ready for another request */
     bool hasResponded() {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         return !(httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING);
     }
 
-    /* Corks the response if possible. Leaves already corked socket be. */
+    /** Corks the response if possible. Leaves already corked socket be. */
     HttpResponse *cork(fu2::unique_function<void()> &&handler) {
         if (!Super::isCorked() && Super::canCork()) {
             Super::cork();
@@ -297,7 +297,7 @@ public:
         return this;
     }
 
-    /* Attach handler for writable HTTP response */
+    /** Attach handler for writable HTTP response */
     HttpResponse *onWritable(fu2::unique_function<bool(int)> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
@@ -305,7 +305,7 @@ public:
         return this;
     }
 
-    /* Attach handler for aborted HTTP request */
+    /** Attach handler for aborted HTTP request */
     HttpResponse *onAborted(fu2::unique_function<void()> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
@@ -313,7 +313,7 @@ public:
         return this;
     }
 
-    /* Attach a read handler for data sent. Will be called with FIN set true if last segment. */
+    /** Attach a read handler for data sent. Will be called with FIN set true if last segment. */
     void onData(fu2::unique_function<void(std::string_view, bool)> &&handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();
         data->inStream = std::move(handler);

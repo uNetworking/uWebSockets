@@ -39,7 +39,7 @@ private:
     }
 public:
 
-    /* Returns pointer to the per socket user data */
+    /** Returns pointer to the per socket user data */
     void *getUserData() {
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
         /* We just have it overallocated by sizeof type */
@@ -50,10 +50,10 @@ public:
     using Super::getBufferedAmount;
     using Super::getRemoteAddress;
 
-    /* Simple, immediate close of the socket. Emits close event */
+    /** Simple, immediate close of the socket. Emits close event */
     using Super::close;
 
-    /* Send or buffer a WebSocket frame, compressed or not. Returns false on increased user space backpressure. */
+    /** Send or buffer a WebSocket frame, compressed or not. Returns false on increased user space backpressure. */
     bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
         /* Transform the message to compressed domain if requested */
         if (compress) {
@@ -115,7 +115,7 @@ public:
         return true;
     }
 
-    /* Send websocket close frame, emit close event, send FIN if successful */
+    /** Send websocket close frame, emit close event, send FIN if successful */
     void end(int code, std::string_view message = {}) {
         /* Check if we already called this one */
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
@@ -157,7 +157,7 @@ public:
         webSocketData->subscriber = nullptr;
     }
 
-    /* Corks the response if possible. Leaves already corked socket be. */
+    /** Corks the response if possible. Leaves already corked socket be. */
     void cork(fu2::unique_function<void()> &&handler) {
         if (!Super::isCorked() && Super::canCork()) {
             Super::cork();
@@ -172,7 +172,7 @@ public:
         }
     }
 
-    /* Subscribe to a topic according to MQTT rules and syntax */
+    /** Subscribe to a topic according to MQTT rules and syntax */
     void subscribe(std::string_view topic) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
@@ -187,7 +187,7 @@ public:
         webSocketContextData->topicTree.subscribe(topic, webSocketData->subscriber);
     }
 
-    /* Unsubscribe from a topic, returns true if we were subscribed */
+    /** Unsubscribe from a topic, returns true if we were subscribed */
     bool unsubscribe(std::string_view topic) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
@@ -198,7 +198,7 @@ public:
         return webSocketContextData->topicTree.unsubscribe(topic, webSocketData->subscriber);
     }
 
-    /* Unsubscribe from all topics you might be subscribed to */
+    /** Unsubscribe from all topics you might be subscribed to */
     void unsubscribeAll() {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
@@ -209,7 +209,7 @@ public:
         webSocketContextData->topicTree.unsubscribeAll(webSocketData->subscriber);
     }
 
-    /* Publish a message to a topic according to MQTT rules and syntax */
+    /** Publish a message to a topic according to MQTT rules and syntax */
     void publish(std::string_view topic, std::string_view message, OpCode opCode = OpCode::TEXT, bool compress = false) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)

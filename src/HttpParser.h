@@ -53,7 +53,7 @@ public:
         return didYield;
     }
 
-    /* Iteration over headers (key, value) */
+    /** Iteration over headers (key, value) */
     struct HeaderIterator {
         Header *ptr;
 
@@ -83,7 +83,7 @@ public:
         return {nullptr};
     }
 
-    /* If you do not want to handle this route */
+    /** If you do not want to handle this route */
     void setYield(bool yield) {
         didYield = yield;
     }
