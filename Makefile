@@ -1,3 +1,9 @@
+DESTDIR ?=
+
+prefix ?= "/usr/local"
+exec_prefix	?=	"$(prefix)"
+includedir?=	"$(exec_prefix)/include/uWebSockets"
+
 EXAMPLE_FILES := HelloWorld EchoServer BroadcastingEchoServer
 THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
 override CXXFLAGS += -lpthread -Wconversion -std=c++17 -Isrc -IuSockets/src
@@ -38,3 +44,9 @@ all:
 clean:
 	rm -rf $(EXAMPLE_FILES) $(THREADED_EXAMPLE_FILES)
 	rm -rf fuzzing/*.o benchmarks/*.o
+install:
+	# create the folder for the header files
+	install -d "$(DESTDIR)$(includedir)/f2"
+	# now install the header files
+	install -m 644 src/*.h "$(DESTDIR)$(includedir)/"
+	install -m 644 src/f2/function2.hpp "$(DESTDIR)$(includedir)/f2/"
