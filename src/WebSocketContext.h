@@ -310,14 +310,16 @@ private:
             AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) s;
             WebSocketData *webSocketData = (WebSocketData *)(us_socket_ext(SSL, s));
 
-            /* We store old backpressure since it is unclear whether write drained anything */
+            /* We store old backpressure since it is unclear whether write drained anything,
+             * however, in case of coming here with 0 backpressure we still need to emit drain event */
             int backpressure = asyncSocket->getBufferedAmount();
 
             /* Drain as much as possible */
             asyncSocket->write(nullptr, 0);
 
             /* Behavior: if we actively drain backpressure, always reset timeout (even if we are in shutdown) */
-            if (backpressure < asyncSocket->getBufferedAmount()) {
+            /* Also emit drain event if we came here with 0 backpressure */
+            if (!backpressure || backpressure < asyncSocket->getBufferedAmount()) {
                 auto *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL, us_socket_context(SSL, (us_socket_t *) s));
                 asyncSocket->timeout(webSocketContextData->idleTimeout);
             }
@@ -329,7 +331,7 @@ private:
                     /* Now perform the actual TCP/TLS shutdown which was postponed due to backpressure */
                     asyncSocket->shutdown();
                 }
-            } else if (backpressure > asyncSocket->getBufferedAmount()) {
+            } else if (!backpressure || backpressure > asyncSocket->getBufferedAmount()) {
                 /* Only call drain if we actually drained backpressure */
                 auto *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL, us_socket_context(SSL, (us_socket_t *) s));
                 if (webSocketContextData->drainHandler) {
