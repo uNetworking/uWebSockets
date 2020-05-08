@@ -1,3 +1,5 @@
 default:
-	$(CXX) -std=c++17 HttpRouter.cpp -o HttpRouter
+	$(CXX) -std=c++17 -fsanitize=address TopicTree.cpp -o TopicTree
+	./TopicTree
+	$(CXX) -std=c++17 -fsanitize=address HttpRouter.cpp -o HttpRouter
 	./HttpRouter
