@@ -49,7 +49,7 @@ public:
     struct State {
         unsigned int wantsHead : 1;
         unsigned int spillLength : 4;
-        int opStack : 2; // -1, 0, 1
+        signed int opStack : 2; // -1, 0, 1
         unsigned int lastFin : 1;
 
         // 15 bytes
