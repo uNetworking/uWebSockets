@@ -135,7 +135,7 @@ struct us_socket_t {
     //struct us_socket_t *next;
 };
 
-struct us_socket_t *us_socket_context_connect(int ssl, struct us_socket_context_t *context, const char *host, int port, int options, int socket_ext_size) {
+struct us_socket_t *us_socket_context_connect(int ssl, struct us_socket_context_t *context, const char *host, int port, const char *interface, int options, int socket_ext_size) {
     //printf("us_socket_context_connect\n");
 
     return 0;
