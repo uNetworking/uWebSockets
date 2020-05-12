@@ -3,6 +3,8 @@ THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
 override CXXFLAGS += -lpthread -Wconversion -std=c++17 -Isrc -IuSockets/src
 override LDFLAGS += uSockets/*.o -lz
 
+prefix ?= /usr/local
+
 # WITH_OPENSSL=1 enables OpenSSL 1.1+ support
 ifeq ($(WITH_OPENSSL),1)
 	# With problems on macOS, make sure to pass needed LDFLAGS required to find these
@@ -30,6 +32,10 @@ examples:
 	$(MAKE) -C uSockets
 	$(foreach FILE,$(EXAMPLE_FILES),$(CXX) -flto -O3 $(CXXFLAGS) examples/$(FILE).cpp -o $(FILE) $(LDFLAGS);)
 	$(foreach FILE,$(THREADED_EXAMPLE_FILES),$(CXX) -pthread -flto -O3 $(CXXFLAGS) examples/$(FILE).cpp -o $(FILE) $(LDFLAGS);)
+
+install:
+	mkdir -p "$(prefix)/include/uWebSockets/f2"
+	cp -r src/* "$(prefix)/include/uWebSockets"
 
 all:
 	$(MAKE) examples
