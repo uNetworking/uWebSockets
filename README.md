@@ -1,19 +1,35 @@
+
 <div align="center">
-<img src="misc/logo.svg" height="180" />
+<img src="https://raw.githubusercontent.com/uNetworking/uWebSockets/master/misc/logo.svg" height="180" /><br>
+<i>Simple, secure</i><sup><a href="https://github.com/uNetworking/uWebSockets/tree/master/fuzzing#fuzz-testing-of-various-parsers-and-mocked-examples">[1]</a></sup><i> & standards compliant</i><sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">[2]</a></sup><i> web server for the most demanding</i><sup><a href="https://github.com/uNetworking/uWebSockets/tree/master/benchmarks#benchmark-driven-development">[3]</a></sup><i> of applications.</i> <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">Read more...</a>
+<br><br>
 
-*µWebSockets™ (it's "[micro](https://en.wikipedia.org/wiki/Micro-)") is simple, secure*<sup>[[1]](fuzzing)</sup> *& standards compliant*<sup>[[2]](https://unetworking.github.io/uWebSockets.js/report.pdf)</sup> *web I/O for the most demanding*<sup>[[3]](benchmarks)</sup> *of applications.*
 
-• [User manual](misc/READMORE.md) • [uSockets](https://github.com/uNetworking/uSockets) • [For Python](https://github.com/uNetworking/uWebSockets.py) • [For Node.js](https://github.com/uNetworking/uWebSockets.js)
-
-*© 2016-2019, >39,632,272 downloads*
+<a href="https://github.com/uNetworking/uWebSockets/releases"><img src="https://img.shields.io/github/v/release/uNetworking/uWebSockets"></a> <a href="https://lgtm.com/projects/g/uNetworking/uWebSockets/context:cpp"><img alt="Language grade: C/C++" src="https://img.shields.io/lgtm/grade/cpp/g/uNetworking/uWebSockets.svg?logo=lgtm&logoWidth=18"/></a> <img src="https://img.shields.io/badge/downloads-50,000,000+-green" />
 
 </div>
+<br><br>
 
-#### Express yourself briefly.
+### :closed_lock_with_key: Optimized security
+Being meticulously optimized for speed and memory footprint, µWebSockets is fast enough to do encrypted TLS 1.3 messaging quicker than most alternative servers can do even unencrypted, cleartext messaging<sup><a href="https://github.com/uNetworking/uWebSockets/tree/master/benchmarks#benchmark-driven-development">[3]</a></sup>.
+
+Furthermore, we partake in Google's OSS-Fuzz with a ~90% daily fuzzing coverage with no sanitizer issues. LGTM scores us flawless A+ from having zero CodeQL alerts.
+
+
+### :arrow_forward: Rapid scripting
+µWebSockets is written entirely in C & C++ but has seamless integrations for both <a href="https://github.com/uNetworking/uWebSockets.py">Python3</a> and <a href="https://github.com/uNetworking/uWebSockets.js">Node.js</a> backends. This allows for rapid scripting of powerful apps, in your favorite environment.
+
+<img src="misc/nodejs.png" height="48"/>&nbsp;&nbsp;<img src="misc/python3.png" height="48"/>
+
+### :battery: Batteries included
+Designed around a convenient URL router with wildcard & parameter support - paired with efficient pub/sub features inspired by MQTT. µWebSockets should be the obvious, complete starting point for any real-time web project with high demands.
+
+Start building your Http & WebSocket apps in a swift; <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">read the docs</a> and <a href="https://github.com/uNetworking/uWebSockets/tree/master/examples">see examples</a>.
+
 ```c++
 uWS::SSLApp({
 
-    /* There are tons of SSL options */
+    /* There are tons of SSL options, see uSockets */
     .cert_file_name = "cert.pem",
     .key_file_name = "key.pem"
     
@@ -26,40 +42,41 @@ uWS::SSLApp({
 
     /* Just a few of the available handlers */
     .open = [](auto *ws, auto *req) {
-        ws->subscribe("buzzword weekly");
+        /* MQTT syntax */
+        ws->subscribe("sensors/+/house");
     },
     .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
         ws->send(message, opCode);
     }
     
-}).listen(9001, [](auto *token) {
+}).listen(9001, [](auto *listenSocket) {
 
-    if (token) {
+    if (listenSocket) {
         std::cout << "Listening on port " << 9001 << std::endl;
     }
     
 }).run();
 ```
-Don't miss the [user manual](https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md#user-manual), the [C++ examples](https://github.com/uNetworking/uWebSockets/tree/master/examples) or the [JavaScript examples](https://github.com/uNetworking/uWebSockets.js/tree/master/examples). JavaScript examples are very applicable to C++ developers, so go through them as well.
+### :briefcase: Commercially supported
+<a href="https://github.com/uNetworking">uNetworking AB</a> is a Swedish consulting & contracting company dealing with anything related to µWebSockets; development, support and customer success.
 
-#### Pay what you want.
-A free & open source ([permissive](LICENSE)) project since 2016. Kindly sponsored by [BitMEX](https://bitmex.com), [Bitfinex](https://bitfinex.com) & [Coinbase](https://www.coinbase.com/) in 2018 and/or 2019. Individual donations are always accepted via [PayPal](https://paypal.me/uwebsockets).
+Don't hesitate <a href="mailto:alexhultman@gmail.com">sending a mail</a> if you're building something large, in need of advice or having other business inquiries in mind. We'll figure out what's best for both parties and make sure you're not stepping into one of the many common pitfalls.
 
-<div align="center"><img src="misc/2018.png"/></div>
+Special thanks to BitMEX, Bitfinex, Google, Coinbase, Bitwyre and deepstreamHub for allowing the project itself to thrive on GitHub since 2016 - this project would not be possible without these beautiful companies.
 
-*Code is provided as-is, do not expect or demand **free** consulting services, personal tutoring, advice or debugging.*
+<img src="https://github.com/uNetworking/uWebSockets/raw/master/misc/2018.png" />
 
-#### Deploy like a boss.
-Commercial support is available via a per-hourly consulting plan or as otherwise negotiated. If you're stuck, worried about design or just in need of help don't hesitate throwing [me, the author](https://github.com/alexhultman) a mail and we'll figure out what's best for both parties. I want your business to have a proper understanding of the problem before rushing in to one of the many pitfalls.
+### :jigsaw: Pluggable architecture
+µWebSockets builds on <a href="https://github.com/uNetworking/uSockets">µSockets</a>, a foundation library implementing eventing, networking and cryptography in three different layers. Every layer has multiple implementations and you control the compiled composition with flags.
 
-#### Excel across the board.
-All that glitters is not gold. Especially so in a market driven by flashy logos, hype and pointless badges.
+In a nutshell:
 
-Http | WebSockets
---- | ---
-![](misc/bigshot_lineup.png) | ![](misc/websocket_lineup.png)
+* `WITH_WOLFSSL=1 WITH_LIBUV=1 make examples` builds examples utilizing WolfSSL and libuv
+* `WITH_OPENSSL=1 make examples` builds examples utilizing OpenSSL and the native kernel
 
-#### Keep it legal.
+See µSockets for an up-to-date list of flags and a more detailed explanation.
+
+### :handshake: Permissively licensed
 Intellectual property, all rights reserved.
 
-*You are forbidden to use logos, product names, texts, names or otherwise perceived brand identity, of copyright holder, in any way that might state or imply that the copyright holder endorses your distribution or in any way that might state or imply that you created the original software. Modified distributions must carry, from the original distribution, significantly different names and must not be confused with the original distribution.*
+Apache License 2.0 is a permissive license with few limitations. Make sure you properly understand the concept of licenses and how they relate to copyright & trademark laws. If you're uncertain about your permissions, please ask before assuming.
