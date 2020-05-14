@@ -1,17 +1,17 @@
 # Benchmark-driven development
 
-Just like testing code for correctness and stability, testing for performance is just as important if performance is a goal. You cannot really argue or reason about performance without having tests for it.
-
-* Do not trust anyone who claims performance of any kind unless they provide benchmarks. Do not listen to people who talk about performance without having actual scientific data to back their claims up.
-* Never accept absolute numbers without a direct comparison with an alternative solution. Many projects can give you a number, X, which can be "50 billion messages per second". How much is this? What kind of worth does this number have? Impossible to know without a comparison. Absolute numbers mean nothing, relative comparisons are what you should look for.
-* Make sure to benchmark the correct thing. This is an extremely common mistake, done by many of the most well-known developers out there. If you measure for CPU-time efficiency (which you do) then normalizing for spent CPU-time is the difference between a completely invalid, botched and bogus test and something that might be valid.
-
-Here are the current relative comparisons:
+Making decisions based on scientific benchmarking **while** you develop can guide you to create very efficient solutions if you have the dicipline to follow through. µWebSockets performs with **98%** the theoretical maximum for any user space Linux process - if anything would ever be faster, it would only be so by less than 2%. We know of no such project.
 
 Http | WebSockets
 --- | ---
 ![](../misc/bigshot_lineup.png) | ![](../misc/websocket_lineup.png)
 
-Over the period of a few years I have never come across any web server which can score as high as µWebSockets do. This is not to say that µWebSockets is fastest, as "fastest" is a silly superlative nobody should *ever* use.
+Because of the big lead in cleartext performance, it's actually possible to enable TLS 1.3 encryption in µWebSockets and still beat most of the competition in an unfair cleartext-vs-encrypted run. Performance retention of TLS 1.3 encryption with µWebSockets is about 60%, so you do the math.
 
-Never trust anyone using superlatives to describe their work; they are more often wrong than right.
+All of this is possible thanks to extensive benchmarking of many discarded prototypes & designs during development. The very first thing done in this project was to benchmark the Linux kernel against itself, to get a clear idea of expected maximum performance and thus a performance budget on this platform.
+
+From that point every line of code was benchmarked against the budget and thrown away if it failed the vision. Today µWebSockets does WebSocket messaging without any significant overhead, making it very unlikely to ever be outperformed.
+
+Of course, memory usage has always been a big factor in this. The name µWebSockets is meant to signify "small WebSockets" and comes from the memory optimizations made throughout. Holding many WebSockets should not require lots of RAM.
+
+If you're looking for a performant solution, look no further.
