@@ -24,7 +24,7 @@ Furthermore, we partake in Google's OSS-Fuzz with a ~90% daily fuzzing coverage 
 ### :battery: Batteries included
 Designed around a convenient URL router with wildcard & parameter support - paired with efficient pub/sub features inspired by MQTT. µWebSockets should be the obvious, complete starting point for any real-time web project with high demands.
 
-Start building your Http & WebSocket apps in a swift; <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">read the docs</a> and <a href="https://github.com/uNetworking/uWebSockets/tree/master/examples">see examples</a>.
+Start building your Http & WebSocket apps in a swift; <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">read the user manual</a> and <a href="https://github.com/uNetworking/uWebSockets/tree/master/examples">see examples</a>. <a href="https://unetworking.github.io/uWebSockets.js/generated/">Browse TypeDoc</a> for a quick overview.
 
 ```c++
 uWS::SSLApp({
