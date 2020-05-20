@@ -291,6 +291,11 @@ public:
         for (int i = 0; i < numTriggeredTopics; i++) {
             if (triggeredTopics[i]->subs.size()) {
                 triggeredTopics[numFilteredTriggeredTopics++] = triggeredTopics[i];
+            } else {
+                /* If we no longer have any subscribers, yet still keep this Topic alive (parent),
+                 * make sure to clear its potential messages. */
+                triggeredTopics[i]->messages.clear();
+                triggeredTopics[i]->triggered = false;
             }
         }
         numTriggeredTopics = numFilteredTriggeredTopics;
