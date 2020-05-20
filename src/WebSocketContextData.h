@@ -60,17 +60,21 @@ struct WebSocketContextData {
         /* We rely on writing to regular asyncSockets */
         auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
 
-        auto [written, failed] = asyncSocket->write(data.data(), (int) data.length());
-        if (!failed) {
-            asyncSocket->timeout(this->idleTimeout);
-        } else {
+        /* Check if we now have too much backpressure (todo: don't buffer up before check) */
+        if (!maxBackpressure || (unsigned int) asyncSocket->getBufferedAmount() < maxBackpressure) {
+            
             /* Note: this assumes we are not corked, as corking will swallow things and fail later on */
-
-            /* Check if we now have too much backpressure (todo: don't buffer up before check) */
-            if ((unsigned int) asyncSocket->getBufferedAmount() > maxBackpressure) {
-                asyncSocket->close();
+            auto [written, failed] = asyncSocket->write(data.data(), (int) data.length());
+            if (!failed) {
+                asyncSocket->timeout(this->idleTimeout);
             }
+            
+            /* Failing here must not immediately close the socket, as that could result in stack overflow,
+             * iterator invalidation and other TopicTree::drain bugs. We may shutdown the reading side of the socket,
+             * causing next iteration to error-close the socket from that context instead, if we want to */
         }
+        
+        /* If we have too much backpressure, simply skip sending from here */
 
         /* Reserved, unused */
         return 0;
