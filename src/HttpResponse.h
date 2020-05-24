@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2020.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -78,7 +78,8 @@ private:
     /* Called only once per request */
     void writeMark() {
 #ifndef UWS_HTTPRESPONSE_NO_WRITEMARK
-        writeHeader("uWebSockets", "v0.17");
+        /* We only expose major version */
+        writeHeader("uWebSockets", "17");
 #endif
     }
 
