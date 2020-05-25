@@ -177,7 +177,7 @@ Many users ask how they should stop the event loop. That's not how it is done, y
 
 Because the App itself is under RAII control, once the blocking .run call returns and the App goes out of scope, all memory will gracefully be deleted.
 
-### Putting it all toghether
+### Putting it all together
 
 ```c++
 int main() {
