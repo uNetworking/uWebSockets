@@ -3,6 +3,7 @@ THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
 override CXXFLAGS += -lpthread -Wconversion -std=c++17 -Isrc -IuSockets/src
 override LDFLAGS += uSockets/*.o -lz
 
+DESTDIR ?=
 prefix ?= /usr/local
 
 # WITH_OPENSSL=1 enables OpenSSL 1.1+ support
@@ -34,8 +35,8 @@ examples:
 	$(foreach FILE,$(THREADED_EXAMPLE_FILES),$(CXX) -pthread -flto -O3 $(CXXFLAGS) examples/$(FILE).cpp -o $(FILE) $(LDFLAGS);)
 
 install:
-	mkdir -p "$(prefix)/include/uWebSockets/f2"
-	cp -r src/* "$(prefix)/include/uWebSockets"
+	mkdir -p "$(DESTDIR)$(prefix)/include/uWebSockets/f2"
+	cp -r src/* "$(DESTDIR)$(prefix)/include/uWebSockets"
 
 all:
 	$(MAKE) examples
