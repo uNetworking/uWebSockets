@@ -28,6 +28,7 @@ namespace uWS {
 
 struct WebSocketData : AsyncSocketData<false>, WebSocketState<true> {
     template <bool, bool> friend struct WebSocketContext;
+    template <bool> friend struct WebSocketContextData;
     template <bool, bool> friend struct WebSocket;
 private:
     std::string fragmentBuffer;

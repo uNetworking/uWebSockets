@@ -29,7 +29,7 @@ int main() {
             }
 
             /* Simply broadcast every single message we get */
-            ws->publish("broadcast", message, opCode);
+            ws->publish("broadcast", message, opCode, true);
         },
         .drain = [](auto *ws) {
             /* Check getBufferedAmount here */

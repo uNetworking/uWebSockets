@@ -58,15 +58,15 @@ struct Topic {
     /* Terminating wildcard child */
     Topic *terminatingWildcardChild = nullptr;
 
-    /* What we published */
-    std::map<unsigned int, std::string> messages;
+    /* What we published, {inflated, deflated} */
+    std::map<unsigned int, std::pair<std::string, std::string>> messages;
 
     std::set<Subscriber *> subs;
 };
 
 struct TopicTree {
 private:
-    std::function<int(Subscriber *, std::string_view)> cb;
+    std::function<int(Subscriber *, std::pair<std::string_view, std::string_view>)> cb;
 
     Topic *root = new Topic;
 
@@ -120,7 +120,7 @@ private:
     }
 
     /* Should be getData and commit? */
-    void publish(Topic *iterator, size_t start, size_t stop, std::string_view topic, std::string_view message) {
+    void publish(Topic *iterator, size_t start, size_t stop, std::string_view topic, std::pair<std::string_view, std::string_view> message) {
         /* If we already have 64 triggered topics make sure to drain it here */
         if (numTriggeredTopics == 64) {
             drain();
@@ -167,7 +167,7 @@ private:
 
 public:
 
-    TopicTree(std::function<int(Subscriber *, std::string_view)> cb) {
+    TopicTree(std::function<int(Subscriber *, std::pair<std::string_view, std::string_view>)> cb) {
         this->cb = cb;
     }
 
@@ -226,7 +226,7 @@ public:
         }
     }
 
-    void publish(std::string_view topic, std::string_view message) {
+    void publish(std::string_view topic, std::pair<std::string_view, std::string_view> message) {
         publish(root, 0, 0, topic, message);
         messageId++;
     }
@@ -316,7 +316,7 @@ public:
         if (min != (Subscriber *)UINTPTR_MAX) {
 
             /* Up to 64 triggered Topics per batch */
-            std::map<uint64_t, std::string> intersectionCache;
+            std::map<uint64_t, std::pair<std::string, std::string>> intersectionCache;
 
             /* Loop over these here */
             std::set<Subscriber *>::iterator it[64];
@@ -332,7 +332,7 @@ public:
                 Subscriber *nextMin = (Subscriber *)UINTPTR_MAX;
 
                 /* The message sets relevant for this intersection */
-                std::map<unsigned int, std::string> *perSubscriberIntersectingTopicMessages[64];
+                std::map<unsigned int, std::pair<std::string, std::string>> *perSubscriberIntersectingTopicMessages[64];
                 int numPerSubscriberIntersectingTopicMessages = 0;
 
                 uint64_t intersection = 0;
@@ -363,18 +363,19 @@ public:
                 }
 
                 /* Generate cache for intersection */
-                if (intersectionCache[intersection].length() == 0) {
+                if (intersectionCache[intersection].first.length() == 0) {
 
                     /* Build the union in order without duplicates */
-                    std::map<unsigned int, std::string> complete;
+                    std::map<unsigned int, std::pair<std::string, std::string>> complete;
                     for (int i = 0; i < numPerSubscriberIntersectingTopicMessages; i++) {
                         complete.insert(perSubscriberIntersectingTopicMessages[i]->begin(), perSubscriberIntersectingTopicMessages[i]->end());
                     }
 
-                    /* Create the linear cache */
-                    std::string res;
+                    /* Create the linear cache, {inflated, deflated} */
+                    std::pair<std::string, std::string> res;
                     for (auto &p : complete) {
-                        res.append(p.second);
+                        res.first.append(p.second.first);
+                        res.second.append(p.second.second);
                     }
 
                     cb(min, intersectionCache[intersection] = std::move(res));
