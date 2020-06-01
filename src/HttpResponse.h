@@ -172,6 +172,11 @@ public:
 
     using Super::getRemoteAddress;
 
+    /* Manually upgrade to WebSocket, called in upgrade handler of a WebSocket route */
+    /*void upgrade() {
+
+    }*/
+
     /* Note: Headers are not checked in regards to timeout.
      * We only check when you actively push data or end the request */
 

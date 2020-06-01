@@ -8,6 +8,7 @@ int main() {
     /* ws->getUserData returns one of these */
     struct PerSocketData {
         /* Fill with user data */
+        int something;
     };
 
     /* Keep in mind that uWS::SSLApp({options}) is the same as uWS::App() when compiled without SSL support.
@@ -24,8 +25,15 @@ int main() {
         .idleTimeout = 10,
         .maxBackpressure = 1 * 1024 * 1204,
         /* Handlers */
+        .upgrade = [](auto *res, atuo *req) {
+            std::cout << "Upgrade now!" << std::endl;
+
+            /* Pass user data from upgrade to open handler here */
+            //res.upgrade({.something = 15}, req);
+        },
         .open = [](auto *ws, auto *req) {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
+            std::cout << "Something is: " << ws->getUserData().something << std::endl;
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode);

@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2020.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -87,7 +87,8 @@ public:
         CompressOptions compression = DISABLED;
         int maxPayloadLength = 16 * 1024;
         int idleTimeout = 120;
-        int maxBackpressure = 1 * 1024 * 1204;
+        int maxBackpressure = 1 * 1024 * 1024;
+        fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> upgrade = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
@@ -153,6 +154,27 @@ public:
             /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
             if (secWebSocketKey.length() == 24) {
+
+                /* Emit upgrade handler */
+                if (behavior.upgrade) {
+
+
+                    // a regular HttpResponse does not know about UserData or any of the Websocket upgrade procedure
+
+                    behavior.upgrade(res, req);
+
+                    // if upgrade handler does not upgrade or end within the callback, lift a token?
+
+
+
+                    // handle close here
+                }
+
+
+
+
+
+
                 /* Note: OpenSSL can be used here to speed this up somewhat */
                 char secWebSocketAccept[29] = {};
                 WebSocketHandshake::generate(secWebSocketKey.data(), secWebSocketAccept);
