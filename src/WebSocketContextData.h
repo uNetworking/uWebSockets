@@ -34,6 +34,7 @@ template <bool, bool> struct WebSocket;
 template <bool SSL>
 struct WebSocketContextData {
     /* The callbacks for this context */
+    fu2::unique_function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> openHandler = nullptr;
     fu2::unique_function<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler = nullptr;
     fu2::unique_function<void(WebSocket<SSL, true> *)> drainHandler = nullptr;
     fu2::unique_function<void(WebSocket<SSL, true> *, int, std::string_view)> closeHandler = nullptr;
@@ -44,6 +45,9 @@ struct WebSocketContextData {
     /* Settings for this context */
     size_t maxPayloadLength = 0;
     int idleTimeout = 0;
+
+    /* We do need these for async upgrade */
+    int compression;
 
     /* There needs to be a maxBackpressure which will force close everything over that limit */
     size_t maxBackpressure = 0;
@@ -77,12 +81,12 @@ struct WebSocketContextData {
             if (!failed) {
                 asyncSocket->timeout(this->idleTimeout);
             }
-            
+
             /* Failing here must not immediately close the socket, as that could result in stack overflow,
              * iterator invalidation and other TopicTree::drain bugs. We may shutdown the reading side of the socket,
              * causing next iteration to error-close the socket from that context instead, if we want to */
         }
-        
+
         /* If we have too much backpressure, simply skip sending from here */
 
         /* Reserved, unused */

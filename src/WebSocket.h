@@ -30,6 +30,7 @@ namespace uWS {
 template <bool SSL, bool isServer>
 struct WebSocket : AsyncSocket<SSL> {
     template <bool> friend struct TemplatedApp;
+    template <bool> friend struct HttpResponse;
 private:
     typedef AsyncSocket<SSL> Super;
 

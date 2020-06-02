@@ -21,6 +21,7 @@
 #include "WebSocketProtocol.h"
 #include "AsyncSocketData.h"
 #include "PerMessageDeflate.h"
+#include "TopicTree.h"
 
 #include <string>
 

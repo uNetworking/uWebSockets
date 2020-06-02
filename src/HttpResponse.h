@@ -27,6 +27,10 @@
 
 #include "WebSocketExtensions.h"
 #include "WebSocketHandshake.h"
+#include "WebSocket.h"
+#include "WebSocketContextData.h"
+
+#include "HttpContext.h"
 
 #include "f2/function2.hpp"
 
@@ -164,8 +168,17 @@ private:
         }
     }
 
+public:
     /* This call is identical to end, but will never write content-length and is thus suitable for upgrades */
-    void upgrade(std::string_view secWebSocketKey, std::string_view secWebSocketProtocol, std::string_view secWebSocketExtensions, int compression) {
+    template <typename UserData>
+    void upgrade(std::string_view secWebSocketKey, std::string_view secWebSocketProtocol,
+            std::string_view secWebSocketExtensions,
+            struct us_socket_context_t *webSocketContext) {
+
+        /* Extract needed parameters from WebSocketContextData */
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL, webSocketContext);
+        int compression = webSocketContextData->compression;
+        int idleTimeout = webSocketContextData->idleTimeout;
 
         /* Note: OpenSSL can be used here to speed this up somewhat */
         char secWebSocketAccept[29] = {};
@@ -177,7 +190,6 @@ private:
             ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept);
 
         /* Select first subprotocol if present */
-        //std::string_view secWebSocketProtocol = req->getHeader("sec-websocket-protocol");
         if (secWebSocketProtocol.length()) {
             writeHeader("Sec-WebSocket-Protocol", secWebSocketProtocol.substr(0, secWebSocketProtocol.find(',')));
         }
@@ -221,9 +233,49 @@ private:
         }
 
         internalEnd({nullptr, 0}, 0, false, false);
+
+        /* Grab the httpContext from res */
+        HttpContext<SSL> *httpContext = (HttpContext<SSL> *) us_socket_context(SSL, (struct us_socket_t *) this);
+
+        /* Move any backpressure */
+        std::string backpressure(std::move(((AsyncSocketData<SSL> *) getHttpResponseData())->buffer));
+
+        /* Keep any fallback buffer alive until we returned from open event, keeping req valid */
+        std::string fallback(std::move(getHttpResponseData()->salvageFallbackBuffer()));
+
+        /* Destroy HttpResponseData */
+        getHttpResponseData()->~HttpResponseData();
+
+        /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
+        WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) us_socket_context_adopt_socket(SSL,
+                    (us_socket_context_t *) webSocketContext, (us_socket_t *) this, sizeof(WebSocketData) + sizeof(UserData));
+
+        /* Update corked socket in case we got a new one (assuming we always are corked in handlers). */
+        webSocket->AsyncSocket<SSL>::cork();
+
+        /* Initialize websocket with any moved backpressure intact */
+
+
+        /* Todo: this is the only use of HttpContext! Move that code in here! */
+        /* We should not depend on the HttpContext.h! */
+        httpContext->upgradeToWebSocket(
+            webSocket->init(perMessageDeflate, compressOptions, std::move(backpressure))
+        );
+
+        /* Arm idleTimeout */
+        us_socket_timeout(SSL, (us_socket_t *) webSocket, /*behavior.*/idleTimeout);
+
+        /* Default construct the UserData right before calling open handler */
+        new (webSocket->getUserData()) UserData;
+
+        /* Emit open event and start the timeout */
+        if (webSocketContextData->openHandler) {
+            webSocketContextData->openHandler(webSocket, /*req*/ nullptr);
+        }
+
+        // if we weren't corked then uncork here! otherwise we were called from httpContext!
     }
 
-public:
     /* Immediately terminate this Http response */
     using Super::close;
 

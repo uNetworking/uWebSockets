@@ -86,7 +86,7 @@ public:
         int maxPayloadLength = 16 * 1024;
         int idleTimeout = 120;
         int maxBackpressure = 1 * 1024 * 1024;
-        fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> upgrade = nullptr;
+        fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
@@ -129,6 +129,7 @@ public:
         }
 
         /* Copy all handlers */
+        webSocketContext->getExt()->openHandler = std::move(behavior.open);
         webSocketContext->getExt()->messageHandler = std::move(behavior.message);
         webSocketContext->getExt()->drainHandler = std::move(behavior.drain);
         webSocketContext->getExt()->closeHandler = std::move([closeHandler = std::move(behavior.close)](WebSocket<SSL, true> *ws, int code, std::string_view message) mutable {
@@ -146,6 +147,7 @@ public:
         webSocketContext->getExt()->maxPayloadLength = behavior.maxPayloadLength;
         webSocketContext->getExt()->idleTimeout = behavior.idleTimeout;
         webSocketContext->getExt()->maxBackpressure = behavior.maxBackpressure;
+        webSocketContext->getExt()->compression = behavior.compression;
 
         httpContext->onHttp("get", pattern, [webSocketContext, httpContext = this->httpContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
 
@@ -159,7 +161,13 @@ public:
 
                     // a regular HttpResponse does not know about UserData or any of the Websocket upgrade procedure
 
-                    behavior.upgrade(res, req);
+                    // behavior.compression, (struct us_socket_context_t *) webSocketContext, httpContext, behavior.idleTimeout, behavior.open
+
+                    // webSocketContext håller behavior - håller den även httpContext?
+
+                    // int, void *, void *, int,
+
+                    behavior.upgrade(res, req, (struct us_socket_context_t *) webSocketContext);
 
                     // if upgrade handler does not upgrade or end within the callback, lift a token?
 
@@ -171,43 +179,12 @@ public:
                     std::string_view secWebSocketProtocol = req->getHeader("sec-websocket-protocol");
                     std::string_view secWebSocketExtensions = req->getHeader("sec-websocket-extensions");
 
-                    res->upgrade(secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, behavior.compression);
+                    res->template upgrade<UserData>(secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, (struct us_socket_context_t *) webSocketContext);
                 }
-
-
-
-
-
-                /* Move any backpressure */
-                std::string backpressure(std::move(((AsyncSocketData<SSL> *) res->getHttpResponseData())->buffer));
-
-                /* Keep any fallback buffer alive until we returned from open event, keeping req valid */
-                std::string fallback(std::move(res->getHttpResponseData()->salvageFallbackBuffer()));
-
-                /* Destroy HttpResponseData */
-                res->getHttpResponseData()->~HttpResponseData();
-
-                /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
-                WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) us_socket_context_adopt_socket(SSL,
-                            (us_socket_context_t *) webSocketContext, (us_socket_t *) res, sizeof(WebSocketData) + sizeof(UserData));
-
-                /* Update corked socket in case we got a new one (assuming we always are corked in handlers). */
-                webSocket->AsyncSocket<SSL>::cork();
-
-                /* Initialize websocket with any moved backpressure intact */
-                httpContext->upgradeToWebSocket(
-                            webSocket->init(/*perMessageDeflate*/ false, /*compressOptions*/ 0, std::move(backpressure))
-                            );
-
-                /* Arm idleTimeout */
-                us_socket_timeout(SSL, (us_socket_t *) webSocket, behavior.idleTimeout);
-
-                /* Default construct the UserData right before calling open handler */
-                new (webSocket->getUserData()) UserData;
 
                 /* Emit open event and start the timeout */
                 if (behavior.open) {
-                    behavior.open(webSocket, req);
+                    //behavior.open(webSocket, req);
                 }
 
                 /* We are going to get uncorked by the Http get return */
