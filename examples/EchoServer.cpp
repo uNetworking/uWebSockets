@@ -31,7 +31,7 @@ int main() {
         .upgrade = [](auto *res, auto *req, auto *context) {
 
             /* Immediate path */
-            res->template upgrade<PerSocketData>(req->getHeader("sec-websocket-key"),
+            res->template upgrade<PerSocketData>({.something = 13}, req->getHeader("sec-websocket-key"),
                 req->getHeader("sec-websocket-protocol"),
                 req->getHeader("sec-websocket-extensions"),
                 context);
@@ -69,7 +69,7 @@ int main() {
                 if (!*aborted) {
 
                     // this should get some kind of ticket
-                    res->template upgrade<PerSocketData>(secWebSocketKey,
+                    res->template upgrade<PerSocketData>({}, secWebSocketKey,
                         secWebSocketProtocol,
                         secWebSocketExtensions,
                         context);

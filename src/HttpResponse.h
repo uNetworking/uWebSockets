@@ -171,7 +171,7 @@ private:
 public:
     /* This call is identical to end, but will never write content-length and is thus suitable for upgrades */
     template <typename UserData>
-    void upgrade(std::string_view secWebSocketKey, std::string_view secWebSocketProtocol,
+    void upgrade(UserData &&userData, std::string_view secWebSocketKey, std::string_view secWebSocketProtocol,
             std::string_view secWebSocketExtensions,
             struct us_socket_context_t *webSocketContext) {
 
@@ -266,7 +266,7 @@ public:
         us_socket_timeout(SSL, (us_socket_t *) webSocket, /*behavior.*/idleTimeout);
 
         /* Default construct the UserData right before calling open handler */
-        new (webSocket->getUserData()) UserData;
+        new (webSocket->getUserData()) UserData(std::move(userData));
 
         /* Emit open event and start the timeout */
         if (webSocketContextData->openHandler) {

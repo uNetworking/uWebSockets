@@ -179,7 +179,7 @@ public:
                     std::string_view secWebSocketProtocol = req->getHeader("sec-websocket-protocol");
                     std::string_view secWebSocketExtensions = req->getHeader("sec-websocket-extensions");
 
-                    res->template upgrade<UserData>(secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, (struct us_socket_context_t *) webSocketContext);
+                    res->template upgrade<UserData>({}, secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, (struct us_socket_context_t *) webSocketContext);
                 }
 
                 /* Emit open event and start the timeout */
