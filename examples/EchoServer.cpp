@@ -23,7 +23,7 @@ int main() {
         .compression = uWS::SHARED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024,
         .idleTimeout = 10,
-        .maxBackpressure = 1 * 1024 * 1204,
+        .maxBackpressure = 1 * 1024 * 1024,
         /* Handlers */
 
         //.syncUpgrade()
