@@ -25,6 +25,9 @@
 #include "HttpContextData.h"
 #include "Utilities.h"
 
+#include "WebSocketExtensions.h"
+#include "WebSocketHandshake.h"
+
 #include "f2/function2.hpp"
 
 /* todo: tryWrite is missing currently, only send smaller segments with write */
@@ -162,7 +165,61 @@ private:
     }
 
     /* This call is identical to end, but will never write content-length and is thus suitable for upgrades */
-    void upgrade() {
+    void upgrade(std::string_view secWebSocketKey, std::string_view secWebSocketProtocol, std::string_view secWebSocketExtensions, int compression) {
+
+        /* Note: OpenSSL can be used here to speed this up somewhat */
+        char secWebSocketAccept[29] = {};
+        WebSocketHandshake::generate(secWebSocketKey.data(), secWebSocketAccept);
+
+        writeStatus("101 Switching Protocols")
+            ->writeHeader("Upgrade", "websocket")
+            ->writeHeader("Connection", "Upgrade")
+            ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept);
+
+        /* Select first subprotocol if present */
+        //std::string_view secWebSocketProtocol = req->getHeader("sec-websocket-protocol");
+        if (secWebSocketProtocol.length()) {
+            writeHeader("Sec-WebSocket-Protocol", secWebSocketProtocol.substr(0, secWebSocketProtocol.find(',')));
+        }
+
+        /* Negotiate compression, we may use a smaller compression window than we negotiate */
+        bool perMessageDeflate = false;
+        /* We are always allowed to share compressor, if perMessageDeflate */
+        int compressOptions = /*behavior.compression*/ compression & SHARED_COMPRESSOR;
+        if (/*behavior.compression*/ compression != DISABLED) {
+            //std::string_view extensions = req->getHeader("sec-websocket-extensions");
+            if (secWebSocketExtensions.length()) {
+                /* We never support client context takeover (the client cannot compress with a sliding window). */
+                int wantedOptions = PERMESSAGE_DEFLATE | CLIENT_NO_CONTEXT_TAKEOVER;
+
+                /* Shared compressor is the default */
+                if (/*behavior.compression*/ compression == SHARED_COMPRESSOR) {
+                    /* Disable per-socket compressor */
+                    wantedOptions |= SERVER_NO_CONTEXT_TAKEOVER;
+                }
+
+                /* isServer = true */
+                ExtensionsNegotiator<true> extensionsNegotiator(wantedOptions);
+                extensionsNegotiator.readOffer(secWebSocketExtensions);
+
+                /* Todo: remove these mid string copies */
+                std::string offer = extensionsNegotiator.generateOffer();
+                if (offer.length()) {
+                    writeHeader("Sec-WebSocket-Extensions", offer);
+                }
+
+                /* Did we negotiate permessage-deflate? */
+                if (extensionsNegotiator.getNegotiatedOptions() & PERMESSAGE_DEFLATE) {
+                    perMessageDeflate = true;
+                }
+
+                /* Is the server allowed to compress with a sliding window? */
+                if (!(extensionsNegotiator.getNegotiatedOptions() & SERVER_NO_CONTEXT_TAKEOVER)) {
+                    compressOptions = /*behavior.*/compression;
+                }
+            }
+        }
+
         internalEnd({nullptr, 0}, 0, false, false);
     }
 
