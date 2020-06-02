@@ -25,7 +25,7 @@ int main() {
         .idleTimeout = 10,
         .maxBackpressure = 1 * 1024 * 1204,
         /* Handlers */
-        .upgrade = [](auto *res, atuo *req) {
+        .upgrade = [](auto *res, auto *req) {
             std::cout << "Upgrade now!" << std::endl;
 
             /* Pass user data from upgrade to open handler here */
@@ -33,7 +33,7 @@ int main() {
         },
         .open = [](auto *ws, auto *req) {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
-            std::cout << "Something is: " << ws->getUserData().something << std::endl;
+            std::cout << "Something is: " << static_cast<PerSocketData *>(ws->getUserData())->something << std::endl;
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode);
