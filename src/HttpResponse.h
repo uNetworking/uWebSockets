@@ -270,7 +270,7 @@ public:
 
         /* Emit open event and start the timeout */
         if (webSocketContextData->openHandler) {
-            webSocketContextData->openHandler(webSocket, /*req*/ nullptr);
+            webSocketContextData->openHandler(webSocket);
         }
 
         // if we weren't corked then uncork here! otherwise we were called from httpContext!

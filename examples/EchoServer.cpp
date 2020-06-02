@@ -84,7 +84,7 @@ int main() {
 
 
         },
-        .open = [](auto *ws, auto *req) {
+        .open = [](auto *ws) {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
             std::cout << "Something is: " << static_cast<PerSocketData *>(ws->getUserData())->something << std::endl;
         },

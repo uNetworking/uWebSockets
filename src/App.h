@@ -87,7 +87,7 @@ public:
         int idleTimeout = 120;
         int maxBackpressure = 1 * 1024 * 1024;
         fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
-        fu2::unique_function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> open = nullptr;
+        fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> open = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> ping = nullptr;

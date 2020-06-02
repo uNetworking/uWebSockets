@@ -22,7 +22,7 @@ int main() {
                 .idleTimeout = 10,
                 .maxBackpressure = 1 * 1024 * 1204,
                 /* Handlers */
-                .open = [](auto *ws, auto *req) {
+                .open = [](auto *ws) {
 
                 },
                 .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {

@@ -34,7 +34,7 @@ template <bool, bool> struct WebSocket;
 template <bool SSL>
 struct WebSocketContextData {
     /* The callbacks for this context */
-    fu2::unique_function<void(uWS::WebSocket<SSL, true> *, HttpRequest *)> openHandler = nullptr;
+    fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> openHandler = nullptr;
     fu2::unique_function<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler = nullptr;
     fu2::unique_function<void(WebSocket<SSL, true> *)> drainHandler = nullptr;
     fu2::unique_function<void(WebSocket<SSL, true> *, int, std::string_view)> closeHandler = nullptr;
