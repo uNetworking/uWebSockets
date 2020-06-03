@@ -120,6 +120,9 @@ private:
             /* Cork this socket */
             ((AsyncSocket<SSL> *) s)->cork();
 
+            /* Mark that we are inside the parser now */
+            httpContextData->isParsingHttp = true;
+
             // clients need to know the cursor after http parse, not servers!
             // how far did we read then? we need to know to continue with websocket parsing data? or?
 
@@ -220,6 +223,9 @@ private:
                 return nullptr;
             });
 
+            /* Mark that we are no longer parsing Http */
+            httpContextData->isParsingHttp = false;
+
             /* We need to uncork in all cases, except for nullptr (closed socket, or upgraded socket) */
             if (returnedSocket != nullptr) {
                 /* Timeout on uncork failure */
@@ -315,7 +321,10 @@ private:
     void upgradeToWebSocket(void *newSocket) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->upgradedWebSocket = newSocket;
+        /* We should only mark this if inside the parser; if upgrading "async" we cannot set this */
+        if (httpContextData->isParsingHttp) {
+            httpContextData->upgradedWebSocket = newSocket;
+        }
     }
 
 public:
