@@ -86,7 +86,7 @@ private:
     void writeMark() {
 #ifndef UWS_HTTPRESPONSE_NO_WRITEMARK
         /* We only expose major version */
-        writeHeader("uWebSockets", "17");
+        writeHeader("uWebSockets", "18");
 #endif
     }
 
