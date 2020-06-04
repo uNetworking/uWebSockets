@@ -8,7 +8,6 @@ int main() {
     /* ws->getUserData returns one of these */
     struct PerSocketData {
         /* Fill with user data */
-        int something;
     };
 
     /* Keep in mind that uWS::SSLApp({options}) is the same as uWS::App() when compiled without SSL support.
@@ -25,68 +24,8 @@ int main() {
         .idleTimeout = 10,
         .maxBackpressure = 1 * 1024 * 1024,
         /* Handlers */
-
-        //.syncUpgrade()
-
-        .upgrade = [](auto *res, auto *req, auto *context) {
-
-            /* Immediate path */
-            res->template upgrade<PerSocketData>({.something = 13}, req->getHeader("sec-websocket-key"),
-                req->getHeader("sec-websocket-protocol"),
-                req->getHeader("sec-websocket-extensions"),
-                context);
-
-            return;
-
-            std::cout << "Upgrade request!" << std::endl;
-
-            /* Async path, you have to COPY headers */
-            std::string secWebSocketKey(req->getHeader("sec-websocket-key"));
-            std::string secWebSocketProtocol(req->getHeader("sec-websocket-protocol"));
-            std::string secWebSocketExtensions(req->getHeader("sec-websocket-extensions"));
-
-            /* If the client disconnects inbetween, you MUST avoid upgrading */
-            bool *aborted = new bool(false);
-            res->onAborted([=]() {
-                std::cout << "WebSocket upgrade aborted!" << std::endl;
-                *aborted = true;
-            });
-
-            /* Simulate checking auth for 10 seconds */
-            struct us_loop_t *loop = (struct us_loop_t *) uWS::Loop::get();
-            struct us_timer_t *delayTimer = us_create_timer(loop, 0, 0);
-            us_timer_set(delayTimer, [](struct us_timer_t *t) {
-                std::cout << "Timer triggered!" << std::endl;
-
-                us_timer_close(t);
-            }, 5000, 0);
-
-            /* Simulate doing async work by deferring upgrade to next event loop iteration */
-            uWS::Loop::get()->defer([=](){
-
-                std::cout << "Upgrading now!" << std::endl;
-
-                if (!*aborted) {
-
-                    // this should get some kind of ticket
-                    res->template upgrade<PerSocketData>({}, secWebSocketKey,
-                        secWebSocketProtocol,
-                        secWebSocketExtensions,
-                        context);
-                }
-
-                delete aborted;
-            });
-
-            /* Immediate path is in all seriousness a simple return bool */
-
-            // not exactly, you need to pass UserData - return a moved UserData and bool?
-
-
-        },
         .open = [](auto *ws) {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
-            std::cout << "Something is: " << static_cast<PerSocketData *>(ws->getUserData())->something << std::endl;
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode);

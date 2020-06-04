@@ -30,8 +30,6 @@
 #include "WebSocket.h"
 #include "WebSocketContextData.h"
 
-#include "HttpContext.h"
-
 #include "f2/function2.hpp"
 
 /* todo: tryWrite is missing currently, only send smaller segments with write */
@@ -169,7 +167,8 @@ private:
     }
 
 public:
-    /* This call is identical to end, but will never write content-length and is thus suitable for upgrades */
+    /* Manually upgrade to WebSocket. Typically called in upgrade handler. Immediately calls open handler.
+     * NOTE: Will invalidate 'this' as socket might change location in memory. Throw away aftert use. */
     template <typename UserData>
     void upgrade(UserData &&userData, std::string_view secWebSocketKey, std::string_view secWebSocketProtocol,
             std::string_view secWebSocketExtensions,
@@ -177,8 +176,6 @@ public:
 
         /* Extract needed parameters from WebSocketContextData */
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL, webSocketContext);
-        int compression = webSocketContextData->compression;
-        int idleTimeout = webSocketContextData->idleTimeout;
 
         /* Note: OpenSSL can be used here to speed this up somewhat */
         char secWebSocketAccept[29] = {};
@@ -197,15 +194,14 @@ public:
         /* Negotiate compression, we may use a smaller compression window than we negotiate */
         bool perMessageDeflate = false;
         /* We are always allowed to share compressor, if perMessageDeflate */
-        int compressOptions = /*behavior.compression*/ compression & SHARED_COMPRESSOR;
-        if (/*behavior.compression*/ compression != DISABLED) {
-            //std::string_view extensions = req->getHeader("sec-websocket-extensions");
+        int compressOptions = webSocketContextData->compression & SHARED_COMPRESSOR;
+        if (webSocketContextData->compression != DISABLED) {
             if (secWebSocketExtensions.length()) {
                 /* We never support client context takeover (the client cannot compress with a sliding window). */
                 int wantedOptions = PERMESSAGE_DEFLATE | CLIENT_NO_CONTEXT_TAKEOVER;
 
                 /* Shared compressor is the default */
-                if (/*behavior.compression*/ compression == SHARED_COMPRESSOR) {
+                if (webSocketContextData->compression == SHARED_COMPRESSOR) {
                     /* Disable per-socket compressor */
                     wantedOptions |= SERVER_NO_CONTEXT_TAKEOVER;
                 }
@@ -227,7 +223,7 @@ public:
 
                 /* Is the server allowed to compress with a sliding window? */
                 if (!(extensionsNegotiator.getNegotiatedOptions() & SERVER_NO_CONTEXT_TAKEOVER)) {
-                    compressOptions = /*behavior.*/compression;
+                    compressOptions = webSocketContextData->compression;
                 }
             }
         }
@@ -237,54 +233,50 @@ public:
         /* Grab the httpContext from res */
         HttpContext<SSL> *httpContext = (HttpContext<SSL> *) us_socket_context(SSL, (struct us_socket_t *) this);
 
-        /* Move any backpressure */
+        /* Move any backpressure out of HttpResponse */
         std::string backpressure(std::move(((AsyncSocketData<SSL> *) getHttpResponseData())->buffer));
-
-        /* Keep any fallback buffer alive until we returned from open event, keeping req valid */
-        std::string fallback(std::move(getHttpResponseData()->salvageFallbackBuffer()));
 
         /* Destroy HttpResponseData */
         getHttpResponseData()->~HttpResponseData();
+
+        /* Before we adopt and potentially change socket, check if we are corked */
+        bool wasCorked = Super::isCorked();
 
         /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
         WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) us_socket_context_adopt_socket(SSL,
                     (us_socket_context_t *) webSocketContext, (us_socket_t *) this, sizeof(WebSocketData) + sizeof(UserData));
 
-        /* Update corked socket in case we got a new one (assuming we always are corked in handlers). */
-        webSocket->AsyncSocket<SSL>::cork();
+        /* For whatever reason we were corked, update cork to the new socket */
+        if (wasCorked) {
+            webSocket->AsyncSocket<SSL>::cork();
+        }
 
         /* Initialize websocket with any moved backpressure intact */
+        webSocket->init(perMessageDeflate, compressOptions, std::move(backpressure));
 
-
-        /* Todo: this is the only use of HttpContext! Move that code in here! */
-        /* We should not depend on the HttpContext.h! */
-        httpContext->upgradeToWebSocket(
-            webSocket->init(perMessageDeflate, compressOptions, std::move(backpressure))
-        );
+        /* We should only mark this if inside the parser; if upgrading "async" we cannot set this */
+        HttpContextData<SSL> *httpContextData = httpContext->getSocketContextData();
+        if (httpContextData->isParsingHttp) {
+            /* We need to tell the Http parser that we changed socket */
+            httpContextData->upgradedWebSocket = webSocket;
+        }
 
         /* Arm idleTimeout */
-        us_socket_timeout(SSL, (us_socket_t *) webSocket, /*behavior.*/idleTimeout);
+        us_socket_timeout(SSL, (us_socket_t *) webSocket, webSocketContextData->idleTimeout);
 
-        /* Default construct the UserData right before calling open handler */
+        /* Move construct the UserData right before calling open handler */
         new (webSocket->getUserData()) UserData(std::move(userData));
 
         /* Emit open event and start the timeout */
         if (webSocketContextData->openHandler) {
             webSocketContextData->openHandler(webSocket);
         }
-
-        // if we weren't corked then uncork here! otherwise we were called from httpContext!
     }
 
     /* Immediately terminate this Http response */
     using Super::close;
 
     using Super::getRemoteAddress;
-
-    /* Manually upgrade to WebSocket, called in upgrade handler of a WebSocket route */
-    /*void upgrade() {
-
-    }*/
 
     /* Note: Headers are not checked in regards to timeout.
      * We only check when you actively push data or end the request */

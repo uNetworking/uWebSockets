@@ -157,34 +157,13 @@ public:
 
                 /* Emit upgrade handler */
                 if (behavior.upgrade) {
-
-
-                    // a regular HttpResponse does not know about UserData or any of the Websocket upgrade procedure
-
-                    // behavior.compression, (struct us_socket_context_t *) webSocketContext, httpContext, behavior.idleTimeout, behavior.open
-
-                    // webSocketContext håller behavior - håller den även httpContext?
-
-                    // int, void *, void *, int,
-
                     behavior.upgrade(res, req, (struct us_socket_context_t *) webSocketContext);
-
-                    // if upgrade handler does not upgrade or end within the callback, lift a token?
-
-
-
-                    // handle close here
                 } else {
                     /* Default handler upgrades to WebSocket */
                     std::string_view secWebSocketProtocol = req->getHeader("sec-websocket-protocol");
                     std::string_view secWebSocketExtensions = req->getHeader("sec-websocket-extensions");
 
                     res->template upgrade<UserData>({}, secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, (struct us_socket_context_t *) webSocketContext);
-                }
-
-                /* Emit open event and start the timeout */
-                if (behavior.open) {
-                    //behavior.open(webSocket, req);
                 }
 
                 /* We are going to get uncorked by the Http get return */

@@ -317,16 +317,6 @@ private:
         return this;
     }
 
-    /* Used by App in its WebSocket handler */
-    void upgradeToWebSocket(void *newSocket) {
-        HttpContextData<SSL> *httpContextData = getSocketContextData();
-
-        /* We should only mark this if inside the parser; if upgrading "async" we cannot set this */
-        if (httpContextData->isParsingHttp) {
-            httpContextData->upgradedWebSocket = newSocket;
-        }
-    }
-
 public:
     /* Construct a new HttpContext using specified loop */
     static HttpContext *create(Loop *loop, us_socket_context_options_t options = {}) {
