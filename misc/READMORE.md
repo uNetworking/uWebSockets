@@ -167,7 +167,7 @@ App.listen(port, [](auto *listenSocket) {
 })
 ```
 
-Cancelling listenning is done with the uSockets function call `us_listen_socket_close`.
+Cancelling listening is done with the uSockets function call `us_listen_socket_close`.
 
 ### App.run and fallthrough
 When you are done and want to enter the event loop, you call, once and only once, App.run.
