@@ -28,6 +28,7 @@
 #include "f2/function2.hpp"
 
 #include "BloomFilter.h"
+#include "ProxyParser.h"
 
 namespace uWS {
 
@@ -237,9 +238,9 @@ private:
 public:
 
     /* We do this to prolong the validity of parsed headers by keeping only the fallback buffer alive */
-    std::string &&salvageFallbackBuffer() {
+    /*std::string &&salvageFallbackBuffer() {
         return std::move(fallback);
-    }
+    }*/
 
     void *consumePostPadded(char *data, int length, void *user, fu2::unique_function<void *(void *, HttpRequest *)> &&requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &&dataHandler, fu2::unique_function<void *(void *)> &&errorHandler) {
 
@@ -274,6 +275,9 @@ public:
             /* We don't want fallback to be short string optimized, since we want to move it */
             fallback.reserve(fallback.length() + maxCopyDistance + std::max<int>(MINIMUM_HTTP_POST_PADDING, sizeof(std::string)));
             fallback.append(data, maxCopyDistance);
+
+            // parse proxy here
+
 
             // break here on break
             std::pair<int, void *> consumed = fenceAndConsumePostPadded<true>(fallback.data(), (int) fallback.length(), user, &req, requestHandler, dataHandler);
@@ -316,6 +320,17 @@ public:
                 }
                 return user;
             }
+        }
+
+        // parse proxy here
+                /* Parse proxy header */
+        ProxyParser pp;
+        auto [done, offset] = pp.parse({data, length});
+
+        if (!done) {
+
+        } else {
+            printf("Proxy parser is done\n");
         }
 
         std::pair<int, void *> consumed = fenceAndConsumePostPadded<false>(data, length, user, &req, requestHandler, dataHandler);

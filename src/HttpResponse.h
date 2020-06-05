@@ -52,6 +52,13 @@ private:
         return (HttpResponseData<SSL> *) Super::getAsyncSocketData();
     }
 
+    /* If we have proxy support */
+#ifdef WITH_PROXY
+    void getProxiedRemoteAddress() {
+
+    }
+#endif
+
     /* Write an unsigned 32-bit integer in hex */
     void writeUnsignedHex(unsigned int value) {
         char buf[10];
