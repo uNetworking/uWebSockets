@@ -41,8 +41,8 @@ private:
 
 public:
     /* Returns 4 or 16 bytes */
-    std::string_view getSourceIP() {
-        return {"hello", 5};
+    std::string_view getSourceIp() {
+        return {(char *) sourceIp, 16};
     }
 
     /* Returns [done, consumed] where done = false on failure */
@@ -85,6 +85,10 @@ public:
 
         printf("Family: %d\n", (header.fam & 0xf0) >> 4);
         printf("Transport: %d\n", (header.fam & 0x0f));
+
+        //memcpy(sourceIp, )
+
+
 
         return {true, 16 + hostLength};
     }

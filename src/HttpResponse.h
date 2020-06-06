@@ -52,13 +52,6 @@ private:
         return (HttpResponseData<SSL> *) Super::getAsyncSocketData();
     }
 
-    /* If we have proxy support */
-#ifdef WITH_PROXY
-    void getProxiedRemoteAddress() {
-        getHttpResponseData()->proxyParser.getSourceIp();
-    }
-#endif
-
     /* Write an unsigned 32-bit integer in hex */
     void writeUnsignedHex(unsigned int value) {
         char buf[10];
@@ -174,6 +167,17 @@ private:
     }
 
 public:
+    /* If we have proxy support */
+#ifdef WITH_PROXY
+    std::string_view getProxiedRemoteAddress() {
+        return getHttpResponseData()->proxyParser.getSourceIp();
+    }
+
+    std::string_view getProxiedRemoteAddressAsText() {
+        return Super::addressAsText(getProxiedRemoteAddress());
+    }
+#endif
+
     /* Manually upgrade to WebSocket. Typically called in upgrade handler. Immediately calls open handler.
      * NOTE: Will invalidate 'this' as socket might change location in memory. Throw away aftert use. */
     template <typename UserData>
@@ -284,6 +288,7 @@ public:
     using Super::close;
 
     using Super::getRemoteAddress;
+    using Super::getRemoteAddressAsText;
 
     /* Note: Headers are not checked in regards to timeout.
      * We only check when you actively push data or end the request */

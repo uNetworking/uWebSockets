@@ -28,12 +28,7 @@
 #include "f2/function2.hpp"
 
 #include "BloomFilter.h"
-
-
-// if using proxy parser, depend on the layout of HttpResponesData
 #include "ProxyParser.h"
-
-
 
 namespace uWS {
 
