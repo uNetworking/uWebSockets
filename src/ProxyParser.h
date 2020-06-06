@@ -14,6 +14,21 @@ struct proxy_hdr_v2 {
     uint16_t len;     /* number of following bytes part of the header */
 };
 
+union proxy_addr {
+    struct {        /* for TCP/UDP over IPv4, len = 12 */
+        uint32_t src_addr;
+        uint32_t dst_addr;
+        uint16_t src_port;
+        uint16_t dst_port;
+    } ipv4_addr;
+    struct {        /* for TCP/UDP over IPv6, len = 36 */
+            uint8_t  src_addr[16];
+            uint8_t  dst_addr[16];
+            uint16_t src_port;
+            uint16_t dst_port;
+    } ipv6_addr;
+};
+
 /* Byte swap for little-endian systems */
 template <typename T>
 T _cond_byte_swap(T value) {
@@ -35,14 +50,22 @@ T _cond_byte_swap(T value) {
 
 struct ProxyParser {
 private:
-    unsigned char sourceIp[16];
-    unsigned char destIp[16];
-    uint16_t sourcePort, destPort;
+    union proxy_addr addr;
+    uint8_t family;
 
 public:
     /* Returns 4 or 16 bytes */
     std::string_view getSourceIp() {
-        return {(char *) sourceIp, 16};
+
+        // ipv4 (ipv6 = 2)
+        if ((family & 0xf0) >> 4 == 1) {
+            return {(char *) &addr.ipv4_addr.src_addr, 4};
+        } else {
+            return {(char *) &addr.ipv6_addr.src_addr, 16};
+        }
+
+
+
     }
 
     /* Returns [done, consumed] where done = false on failure */
@@ -86,7 +109,10 @@ public:
         printf("Family: %d\n", (header.fam & 0xf0) >> 4);
         printf("Transport: %d\n", (header.fam & 0x0f));
 
-        //memcpy(sourceIp, )
+        family = header.fam;
+
+        // copy source ip
+        memcpy(&addr, data.data() + 16, hostLength);
 
 
 
