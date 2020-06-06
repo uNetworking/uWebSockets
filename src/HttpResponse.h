@@ -55,7 +55,7 @@ private:
     /* If we have proxy support */
 #ifdef WITH_PROXY
     void getProxiedRemoteAddress() {
-
+        getHttpResponseData()->proxyParser.getSourceIp();
     }
 #endif
 

@@ -6,6 +6,11 @@ override LDFLAGS += uSockets/*.o -lz
 DESTDIR ?=
 prefix ?= /usr/local
 
+# WITH_PROXY enables PROXY Protocol v2 support
+ifeq ($(WITH_PROXY),1)
+	override CXXFLAGS += -DWITH_PROXY
+endif
+
 # WITH_OPENSSL=1 enables OpenSSL 1.1+ support
 ifeq ($(WITH_OPENSSL),1)
 	# With problems on macOS, make sure to pass needed LDFLAGS required to find these
