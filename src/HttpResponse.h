@@ -167,10 +167,10 @@ private:
     }
 
 public:
-    /* If we have proxy support */
+    /* If we have proxy support; returns the proxed source address as reported by the proxy. */
 #ifdef WITH_PROXY
     std::string_view getProxiedRemoteAddress() {
-        return getHttpResponseData()->proxyParser.getSourceIp();
+        return getHttpResponseData()->proxyParser.getSourceAddress();
     }
 
     std::string_view getProxiedRemoteAddressAsText() {

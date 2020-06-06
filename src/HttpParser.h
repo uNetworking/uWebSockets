@@ -188,7 +188,7 @@ private:
         ProxyParser *pp = (ProxyParser *) reserved;
 
         /* Parse PROXY protocol */
-        auto [done, offset] = pp->parse({data, length});
+        auto [done, offset] = pp->parse({data, (unsigned int) length});
         if (!done) {
             return {0, user};
         } else {

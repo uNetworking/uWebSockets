@@ -50,22 +50,19 @@ T _cond_byte_swap(T value) {
 
 struct ProxyParser {
 private:
-    union proxy_addr addr;
-    uint8_t family;
+    union proxy_addr addr = {};
+    uint8_t family = 0;
 
 public:
-    /* Returns 4 or 16 bytes */
-    std::string_view getSourceIp() {
-
-        // ipv4 (ipv6 = 2)
+    /* Returns 4 or 16 bytes source address */
+    std::string_view getSourceAddress() {
         if ((family & 0xf0) >> 4 == 1) {
+            /* Family 1 is INET4 */
             return {(char *) &addr.ipv4_addr.src_addr, 4};
         } else {
+            /* Family 2 is INET6 */
             return {(char *) &addr.ipv6_addr.src_addr, 16};
         }
-
-
-
     }
 
     /* Returns [done, consumed] where done = false on failure */
@@ -78,13 +75,11 @@ public:
 
         /* HTTP does not start with \r, but PROXY always does */
         if (data[0] != '\r') {
-            //printf("This is HTTP\n");
             /* This is HTTP, so be done */
             return {true, 0};
         }
 
         /* We assume we are parsing PROXY V2 here */
-        printf("This is PROXY v2\n");
 
         /* We require 16 bytes here */
         if (data.length() < 16) {
@@ -99,10 +94,16 @@ public:
             return {false, 0};
         }
 
+        /* If we have version 2 */
+
         printf("Version: %d\n", (header.ver_cmd & 0xf0) >> 4);
         printf("Command: %d\n", (header.ver_cmd & 0x0f));
 
         uint16_t hostLength = _cond_byte_swap<uint16_t>(header.len);
+
+        if (data.length() < 16 + hostLength) {
+            return {false, 0};
+        }
 
         printf("Length: %d\n", hostLength);
 

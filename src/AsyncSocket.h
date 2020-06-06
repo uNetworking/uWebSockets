@@ -110,7 +110,7 @@ protected:
                 b[12], b[13], b[14], b[15]);
         }
 
-        return {buf, ipLength};
+        return {buf, (unsigned int) ipLength};
     }
 
     /* Returns the remote IP address or empty string on failure */
