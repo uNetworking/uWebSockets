@@ -100,6 +100,10 @@ protected:
         static thread_local char buf[64];
         int ipLength = 0;
 
+        if (!binary.length()) {
+            return {};
+        }
+
         unsigned char *b = (unsigned char *) binary.data();
 
         if (binary.length() == 4) {

@@ -50,12 +50,20 @@ T _cond_byte_swap(T value) {
 
 struct ProxyParser {
 private:
-    union proxy_addr addr = {};
+    union proxy_addr addr;
+
+    // we should have "unset" where the return value is "" from proxied ip!
     uint8_t family = 0;
 
 public:
     /* Returns 4 or 16 bytes source address */
     std::string_view getSourceAddress() {
+
+        // UNSPEC family and protocol
+        if (family == 0) {
+            return {};
+        }
+
         if ((family & 0xf0) >> 4 == 1) {
             /* Family 1 is INET4 */
             return {(char *) &addr.ipv4_addr.src_addr, 4};
