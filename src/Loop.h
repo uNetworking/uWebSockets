@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2020.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,7 +80,7 @@ private:
         Loop *loop = nullptr;
         bool cleanMe = false;
     };
-    
+
 public:
     /* Lazily initializes a per-thread loop and returns it.
      * Will automatically free all initialized loops at exit. */

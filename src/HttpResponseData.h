@@ -22,10 +22,9 @@
 
 #include "HttpParser.h"
 #include "AsyncSocketData.h"
+#include "ProxyParser.h"
 
 #include "f2/function2.hpp"
-
-#include "ProxyParser.h"
 
 namespace uWS {
 
@@ -53,8 +52,7 @@ private:
     /* Current state (content-length sent, status sent, write called, etc */
     int state = 0;
 
-#ifdef WITH_PROXY
-    // proxy protocol
+#ifdef UWS_WITH_PROXY
     ProxyParser proxyParser;
 #endif
 };

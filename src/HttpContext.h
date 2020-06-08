@@ -127,7 +127,7 @@ private:
             // how far did we read then? we need to know to continue with websocket parsing data? or?
 
             void *proxyParser = nullptr;
-#ifdef WITH_PROXY
+#ifdef UWS_WITH_PROXY
             proxyParser = &httpResponseData->proxyParser;
 #endif
 

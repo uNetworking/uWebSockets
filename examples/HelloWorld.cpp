@@ -1,5 +1,4 @@
 #include "App.h"
-#include <iostream>
 
 /* Note that uWS::SSLApp({options}) is the same as uWS::App() when compiled without SSL support */
 
@@ -10,8 +9,6 @@ int main() {
 	  .cert_file_name = "../misc/cert.pem",
 	  .passphrase = "1234"
 	}).get("/*", [](auto *res, auto *req) {
-		std::cout << res->getRemoteAddressAsText() << std::endl;
-		std::cout << res->getProxiedRemoteAddressAsText() << std::endl;
 	    res->end("Hello world!");
 	}).listen(3000, [](auto *token) {
 	    if (token) {

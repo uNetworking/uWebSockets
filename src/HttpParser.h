@@ -183,7 +183,7 @@ private:
         /* How much data we CONSUMED (to throw away) */
         int consumedTotal = 0;
 
-#ifdef WITH_PROXY
+#ifdef UWS_WITH_PROXY
         /* ProxyParser is passed as reserved parameter */
         ProxyParser *pp = (ProxyParser *) reserved;
 
