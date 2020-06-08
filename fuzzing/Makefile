@@ -9,6 +9,7 @@ oss-fuzz:
 # "Unit tests"
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 WebSocket.cpp -o $(OUT)/WebSocket $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Http.cpp -o $(OUT)/Http $(LIB_FUZZING_ENGINE)
+	$(CXX) $(CXXFLAGS) -DUWS_WITH_PROXY -std=c++17 -O3 Http.cpp -o $(OUT)/HttpWithProxy $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 PerMessageDeflate.cpp -o $(OUT)/PerMessageDeflate $(LIB_FUZZING_ENGINE) -lz
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 TopicTree.cpp -o $(OUT)/TopicTree $(LIB_FUZZING_ENGINE)
 # "Integration tests"
