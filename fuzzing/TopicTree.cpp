@@ -9,9 +9,9 @@
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     /* Create topic tree */
-    uWS::TopicTree topicTree([](uWS::Subscriber *s, std::string_view message) {
+    uWS::TopicTree topicTree([](uWS::Subscriber *s, std::pair<std::string_view, std::string_view> message) {
         /* We assume sane output */
-        if (!s || !message.length()) {
+        if (!s || !message.first.length()) {
             free((void *) -1);
         }
 
