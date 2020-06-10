@@ -87,7 +87,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         }
         
         /* Parse it */
-        httpParser.consumePostPadded((char *) data, size, user, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
+        httpParser.consumePostPadded((char *) data, size, user, nullptr, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
             readBytes(httpRequest->getHeader(httpRequest->getUrl()));
             readBytes(httpRequest->getMethod());
