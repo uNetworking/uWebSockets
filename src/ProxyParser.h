@@ -94,13 +94,13 @@ public:
     /* Returns [done, consumed] where done = false on failure */
     std::pair<bool, unsigned int> parse(std::string_view data) {
 
-        /* We require at least one byte to be done */
-        if (!data.length()) {
+        /* We require at least four bytes to determine protocol */
+        if (data.length() < 4) {
             return {false, 0};
         }
 
-        /* HTTP does not start with \r, but PROXY always does */
-        if (data[0] != '\r') {
+        /* HTTP can never start with "\r\n\r\n", but PROXY always does */
+        if (memcmp(data.data(), "\r\n\r\n", 4)) {
             /* This is HTTP, so be done */
             return {true, 0};
         }
