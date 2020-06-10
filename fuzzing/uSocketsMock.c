@@ -268,7 +268,7 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
             /* Copy the data chunk to a properly padded buffer */
             static char *paddedBuffer;
             if (!paddedBuffer) {
-                paddedBuffer = malloc(128 + 255 + 128);
+                paddedBuffer = (char *) malloc(128 + 255 + 128);
                 memset(paddedBuffer, 0, 128 + 255 + 128);
             }
             memcpy(paddedBuffer + 128, data + i, chunkLength);
