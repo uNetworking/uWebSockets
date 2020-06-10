@@ -277,16 +277,14 @@ public:
     }
 
     /* Can be called with nullptr, ignore it then */
-    void unsubscribeAll(Subscriber *subscriber) {
+    void unsubscribeAll(Subscriber *subscriber, bool mayFlush = true) {
         if (subscriber) {
             for (Topic *topic : subscriber->subscriptions) {
 
-                /* This is questionable; we are called mostly from socket close, so we will
-                 * potentially call drain callback with a closed socket, make sure to check there!
-                 * Well it doesn't really matter since there are checks in uSockets but still! */
+                /* We do not want to flush when closing a socket, it makes no sense to do so */
 
                 /* If this topic is triggered, drain the tree before we leave */
-                if (topic->triggered) {
+                if (mayFlush && topic->triggered) {
                     drain();
                 }
 

@@ -154,7 +154,7 @@ public:
         }
 
         /* Make sure to unsubscribe from any pub/sub node at exit */
-        webSocketContextData->topicTree.unsubscribeAll(webSocketData->subscriber);
+        webSocketContextData->topicTree.unsubscribeAll(webSocketData->subscriber, false);
         delete webSocketData->subscriber;
         webSocketData->subscriber = nullptr;
     }
