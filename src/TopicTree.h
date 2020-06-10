@@ -77,7 +77,7 @@ private:
     Topic *triggeredTopics[64];
     int numTriggeredTopics = 0;
     Subscriber *min = (Subscriber *) UINTPTR_MAX;
-    
+
     /* Cull or trim unused Topic nodes from leaf to root */
     void trimTree(Topic *topic) {
         if (!topic->subs.size() && !topic->children.size() && !topic->terminatingWildcardChild && !topic->wildcardChild) {
@@ -197,7 +197,7 @@ public:
                 newTopic->terminatingWildcardChild = nullptr;
                 newTopic->wildcardChild = nullptr;
                 memcpy(newTopic->name, segment.data(), segment.length());
-                
+
                 /* For simplicity we do insert wildcards with text */
                 iterator->children.insert(lb, {std::string_view(newTopic->name, segment.length()), newTopic});
 
@@ -215,6 +215,11 @@ public:
 
                 iterator = newTopic;
             }
+        }
+
+        /* If this topic is triggered, drain the tree before we join */
+        if (iterator->triggered) {
+            drain();
         }
 
         /* Add socket to Topic's Set */
@@ -253,6 +258,11 @@ public:
             /* Try and remove this topic from our list */
             for (auto it = subscriber->subscriptions.begin(); it != subscriber->subscriptions.end(); it++) {
                 if (*it == iterator) {
+                    /* If this topic is triggered, drain the tree before we leave */
+                    if (iterator->triggered) {
+                        drain();
+                    }
+
                     /* Remove topic ptr from our list */
                     subscriber->subscriptions.erase(it);
 
@@ -270,6 +280,17 @@ public:
     void unsubscribeAll(Subscriber *subscriber) {
         if (subscriber) {
             for (Topic *topic : subscriber->subscriptions) {
+
+                /* This is questionable; we are called mostly from socket close, so we will
+                 * potentially call drain callback with a closed socket, make sure to check there!
+                 * Well it doesn't really matter since there are checks in uSockets but still! */
+
+                /* If this topic is triggered, drain the tree before we leave */
+                if (topic->triggered) {
+                    drain();
+                }
+
+                /* Remove us from the topic's set */
                 topic->subs.erase(subscriber);
                 trimTree(topic);
             }
@@ -325,7 +346,7 @@ public:
                 it[i] = triggeredTopics[i]->subs.begin();
                 end[i] = triggeredTopics[i]->subs.end();
             }
-            
+
             /* Empty all sets from unique subscribers */
             for (int nonEmpty = numTriggeredTopics; nonEmpty; ) {
 

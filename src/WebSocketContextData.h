@@ -65,6 +65,13 @@ struct WebSocketContextData {
         /* We rely on writing to regular asyncSockets */
         auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
 
+        /* We might be called from unsubscribeAll from close handler of a socket,
+         * so make sure to check if we are a closed socket before trying to send */
+        if (us_socket_is_closed(SSL, (struct us_socket_t *) s->user) || us_socket_is_shut_down(SSL, (struct us_socket_t *) s->user)) {
+            /* Return code means nothing, todo: remove it */
+            return 0;
+        }
+
         /* Check if we now have too much backpressure (todo: don't buffer up before check) */
         if (!maxBackpressure || (unsigned int) asyncSocket->getBufferedAmount() < maxBackpressure) {
             /* Pick uncompressed data track */
