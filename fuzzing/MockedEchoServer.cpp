@@ -23,12 +23,12 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
         .maxPayloadLength = 300,
         .idleTimeout = 10,
         /* Handlers */
-        .open = [](auto *ws, auto *req) {
-            if (req->getHeader("close_me").length()) {
-                ws->close();
-            } else if (req->getHeader("end_me").length()) {
-                ws->end(1006);
-            }
+        .open = [](auto *ws) {
+            //if (req->getHeader("close_me").length()) {
+            //    ws->close();
+            //} else if (req->getHeader("end_me").length()) {
+            //    ws->end(1006);
+            //}
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             if (message.length() > 300) {
