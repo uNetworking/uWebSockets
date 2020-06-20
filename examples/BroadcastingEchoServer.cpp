@@ -11,7 +11,7 @@ int main() {
     /* Very simple WebSocket broadcasting echo server */
     uWS::App().ws<PerSocketData>("/*", {
         /* Settings */
-        .compression = uWS::SHARED_COMPRESSOR,
+        .compression = uWS::DEDICATED_COMPRESSOR_3KB,
         .maxPayloadLength = 16 * 1024 * 1024,
         .idleTimeout = 10,
         .maxBackpressure = 1 * 1024 * 1024,

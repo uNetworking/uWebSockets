@@ -64,9 +64,19 @@ struct Topic {
     std::set<Subscriber *> subs;
 };
 
+/* Outgoing batch of messages, per subscriber */
+struct PerSubscriberOutgoingBatch {
+    /* Uncompresed but framed and packed */
+    std::string_view framed;
+    /* Either (shared) compressed or unframed, packed */
+    std::string_view compressedOrUnframed;
+    /* Vector of lengths and compression will */
+    std::vector<std::pair<unsigned int, bool>> perMessageData;
+};
+
 struct TopicTree {
 private:
-    std::function<int(Subscriber *, std::pair<std::string_view, std::string_view>)> cb;
+    std::function<int(Subscriber *, PerSubscriberOutgoingBatch *)> cb;
 
     Topic *root = new Topic;
 
@@ -167,7 +177,10 @@ private:
 
 public:
 
-    TopicTree(std::function<int(Subscriber *, std::pair<std::string_view, std::string_view>)> cb) {
+    // this interface also needs a vector of unframed messages together with boolean whether they should be compressed or not
+    // a third track so to say: uncompressed, compressed shared, and unframed
+
+    TopicTree(std::function<int(Subscriber *, PerSubscriberOutgoingBatch *)> cb) {
         this->cb = cb;
     }
 
@@ -381,6 +394,9 @@ public:
                     }
                 }
 
+                /* Create an outgoing batch */
+                PerSubscriberOutgoingBatch outgoingBatch;
+
                 /* Generate cache for intersection */
                 if (intersectionCache[intersection].first.length() == 0) {
 
@@ -397,10 +413,22 @@ public:
                         res.second.append(p.second.second);
                     }
 
-                    cb(min, intersectionCache[intersection] = std::move(res));
+                    // convert
+                    auto p = intersectionCache[intersection] = std::move(res);
+
+                    outgoingBatch.framed = p.first;
+                    outgoingBatch.compressedOrUnframed = p.second;
+
+                    cb(min, &outgoingBatch);
                 }
                 else {
-                    cb(min, intersectionCache[intersection]);
+                    // convert
+                    auto p = intersectionCache[intersection];
+
+                    outgoingBatch.framed = p.first;
+                    outgoingBatch.compressedOrUnframed = p.second;
+
+                    cb(min, &outgoingBatch);
                 }
 
                 min = nextMin;
