@@ -63,7 +63,7 @@ public:
         );
 
         /* Skip sending and report success if we are over the limit of maxBackpressure */
-        if (webSocketContextData->maxBackpressure < getBufferedAmount()) {
+        if (webSocketContextData->maxBackpressure && webSocketContextData->maxBackpressure < getBufferedAmount()) {
             return true;
         }
 
