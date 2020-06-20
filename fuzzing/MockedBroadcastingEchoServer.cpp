@@ -23,9 +23,9 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
         .maxPayloadLength = 300,
         .idleTimeout = 10,
         /* Handlers */
-        .open = [](auto *ws, auto *req) {
+        .open = [](auto *ws) {
                 /* Subscribe to anything */
-                ws->subscribe(req->getHeader("topic"));
+                ws->subscribe(/*req->getHeader(*/"topic"/*)*/);
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             if (message.length() && message[0] == 'C') {
