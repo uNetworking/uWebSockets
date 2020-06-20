@@ -38,6 +38,11 @@ private:
 
 public:
 
+    /* Returns the SSL_CTX of this app, or nullptr. */
+    void *getNativeHandle() {
+        return us_socket_context_get_native_handle(SSL, (struct us_socket_context_t *) httpContext);
+    }
+
     /* Attaches a "filter" function to track socket connections/disconnections */
     void filter(fu2::unique_function<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         httpContext->filter(std::move(filterHandler));
