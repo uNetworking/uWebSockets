@@ -51,6 +51,7 @@ public:
     using Super::getBufferedAmount;
     using Super::getRemoteAddress;
     using Super::getRemoteAddressAsText;
+    using Super::getNativeHandle;
 
     /* Simple, immediate close of the socket. Emits close event */
     using Super::close;

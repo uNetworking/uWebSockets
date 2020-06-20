@@ -287,8 +287,10 @@ public:
     /* Immediately terminate this Http response */
     using Super::close;
 
+    /* See AsyncSocket */
     using Super::getRemoteAddress;
     using Super::getRemoteAddressAsText;
+    using Super::getNativeHandle;
 
     /* Note: Headers are not checked in regards to timeout.
      * We only check when you actively push data or end the request */
