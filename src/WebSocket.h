@@ -71,8 +71,8 @@ public:
         if (compress) {
             WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
 
-            /* Check and correct the compress hint */
-            if (opCode < 3 && webSocketData->compressionStatus == WebSocketData::ENABLED) {
+            /* Check and correct the compress hint. It is never valid to compress 0 bytes */
+            if (message.length() && opCode < 3 && webSocketData->compressionStatus == WebSocketData::ENABLED) {
                 LoopData *loopData = Super::getLoopData();
                 /* Compress using either shared or dedicated deflationStream */
                 if (webSocketData->deflationStream) {
@@ -94,7 +94,7 @@ public:
 
         /* Get size, alloate size, write if needed */
         size_t messageFrameSize = protocol::messageFrameSize(message.length());
-        auto[sendBuffer, requiresWrite] = Super::getSendBuffer(messageFrameSize);
+        auto [sendBuffer, requiresWrite] = Super::getSendBuffer(messageFrameSize);
         protocol::formatMessage<isServer>(sendBuffer, message.data(), message.length(), opCode, message.length(), compress);
         /* This is the slow path, when we couldn't cork for the user */
         if (requiresWrite) {

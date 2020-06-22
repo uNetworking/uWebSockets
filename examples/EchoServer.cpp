@@ -28,7 +28,7 @@ int main() {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
-            ws->send(message, opCode);
+            ws->send(message, opCode, true);
         },
         .drain = [](auto *ws) {
             /* Check ws->getBufferedAmount() here */

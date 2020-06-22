@@ -92,15 +92,22 @@ public:
                     WebSocket<SSL, true> *ws = (WebSocket<SSL, true> *) asyncSocket;
 
                     /* We need to handle being corked, and corking here */
-
+                    bool needsUncorking = false;
+                    if (!ws->isCorked() && ws->canCork()) {
+                        asyncSocket->cork();
+                        needsUncorking = true;
+                    }
 
                     while (selectedData.length()) {
-                        /* Interpret the data like so */
+                        /* Interpret the data like so, because this is how we shoved it in */
                         MessageMetadata mm;
                         memcpy((char *) &mm, selectedData.data(), sizeof(MessageMetadata));
                         std::string_view unframedMessage(selectedData.data() + sizeof(MessageMetadata), mm.length);
 
-                        //std::cout << "<" << unframedMessage << ">" << std::endl;
+                        /* Skip this message if our backpressure is too high */
+                        if (maxBackpressure && ws->getBufferedAmount() > maxBackpressure) {
+                            break;
+                        }
 
                         /* Here we perform the actual compression and framing */
                         ws->send(unframedMessage, mm.opCode, mm.compress);
@@ -110,7 +117,9 @@ public:
                     }
 
                     /* Here we need to uncork or keep it as was */
-
+                    if (needsUncorking) {
+                        asyncSocket->uncork();
+                    }
 
                     /* See below */
                     return 0;

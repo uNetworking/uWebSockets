@@ -131,7 +131,7 @@ struct DeflationStream {
         deflateInit2(&deflationStream, 1, Z_DEFLATED, windowBits, memLevel, Z_DEFAULT_STRATEGY);
     }
 
-    /* Deflate and optionally reset */
+    /* Deflate and optionally reset. You must not deflate an empty string. */
     std::string_view deflate(ZlibContext *zlibContext, std::string_view raw, bool reset) {
         /* Odd place to clear this one, fix */
         zlibContext->dynamicDeflationBuffer.clear();
@@ -167,6 +167,8 @@ struct DeflationStream {
             return {(char *) zlibContext->dynamicDeflationBuffer.data(), zlibContext->dynamicDeflationBuffer.length() - 4};
         }
 
+        /* Note: We will get an interger overflow resulting in heap buffer overflow if Z_BUF_ERROR is returned
+         * from passing 0 as avail_in. Therefore we must not deflate an empty string */
         return {
             zlibContext->deflationBuffer,
             DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out - 4
