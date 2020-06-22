@@ -29,7 +29,7 @@ endif
 
 # WITH_ASAN builds with sanitizers
 ifeq ($(WITH_ASAN),1)
-	override CXXFLAGS += -fsanitize=address
+	override CXXFLAGS += -fsanitize=address -g
 	override LDFLAGS += -lasan
 endif
 
