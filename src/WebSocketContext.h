@@ -52,8 +52,8 @@ private:
         }
     }
 
-    static void forceClose(uWS::WebSocketState<isServer> *wState, void *s) {
-        us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
+    static void forceClose(uWS::WebSocketState<isServer> *wState, void *s, std::string_view reason = {}) {
+        us_socket_close(SSL, (us_socket_t *) s, (int) reason.length(), (void *) reason.data());
     }
 
     /* Returns true on breakage */
@@ -74,7 +74,7 @@ private:
                         LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(SSL, us_socket_context(SSL, (us_socket_t *) s)));
                         auto [inflatedFrame, valid] = loopData->inflationStream->inflate(loopData->zlibContext, {data, length}, webSocketContextData->maxPayloadLength);
                         if (!valid) {
-                            forceClose(webSocketState, s);
+                            forceClose(webSocketState, s, ERR_TOO_BIG_MESSAGE_INFLATION);
                             return true;
                         } else {
                             data = (char *) inflatedFrame.data();
@@ -84,7 +84,7 @@ private:
 
                 /* Check text messages for Utf-8 validity */
                 if (opCode == 1 && !protocol::isValidUtf8((unsigned char *) data, length)) {
-                    forceClose(webSocketState, s);
+                    forceClose(webSocketState, s, ERR_INVALID_TEXT);
                     return true;
                 }
 
@@ -102,7 +102,7 @@ private:
                 }
                 /* Fragments forming a big message are not caught until appending them */
                 if (refusePayloadLength(length + webSocketData->fragmentBuffer.length(), webSocketState, s)) {
-                    forceClose(webSocketState, s);
+                    forceClose(webSocketState, s, ERR_TOO_BIG_MESSAGE);
                     return true;
                 }
                 webSocketData->fragmentBuffer.append(data, length);
@@ -126,7 +126,7 @@ private:
 
                             auto [inflatedFrame, valid] = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4}, webSocketContextData->maxPayloadLength);
                             if (!valid) {
-                                forceClose(webSocketState, s);
+                                forceClose(webSocketState, s, ERR_TOO_BIG_MESSAGE_INFLATION);
                                 return true;
                             } else {
                                 data = (char *) inflatedFrame.data();
@@ -142,7 +142,7 @@ private:
 
                     /* Check text messages for Utf-8 validity */
                     if (opCode == 1 && !protocol::isValidUtf8((unsigned char *) data, length)) {
-                        forceClose(webSocketState, s);
+                        forceClose(webSocketState, s, ERR_INVALID_TEXT);
                         return true;
                     }
 
@@ -245,7 +245,7 @@ private:
                 auto *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL, us_socket_context(SSL, (us_socket_t *) s));
 
                 if (webSocketContextData->closeHandler) {
-                    webSocketContextData->closeHandler((WebSocket<SSL, true> *) s, 1006, {});
+                    webSocketContextData->closeHandler((WebSocket<SSL, true> *) s, 1006, {(char *) reason, (size_t) code});
                 }
 
                 /* Make sure to unsubscribe from any pub/sub node at exit */
@@ -360,7 +360,8 @@ private:
         us_socket_context_on_timeout(SSL, getSocketContext(), [](auto *s) {
 
             /* Timeout is very simple; we just close it */
-            us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
+            /* Warning: we happen to know forceClose will not use first parameter so pass nullptr here */
+            forceClose(nullptr, s, ERR_WEBSOCKET_TIMEOUT);
 
             return s;
         });

@@ -21,8 +21,16 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
+#include <string_view>
 
 namespace uWS {
+
+/* We should not overcomplicate these */
+const std::string_view ERR_TOO_BIG_MESSAGE("Received too big message");
+const std::string_view ERR_WEBSOCKET_TIMEOUT("WebSocket timed out from inactivity");
+const std::string_view ERR_INVALID_TEXT("Received invalid UTF-8");
+const std::string_view ERR_TOO_BIG_MESSAGE_INFLATION("Received too big message, or other inflation error");
+const std::string_view ERR_INVALID_CLOSE_PAYLOAD("Received invalid close payload");
 
 enum OpCode : unsigned char {
     TEXT = 1,
@@ -310,7 +318,7 @@ protected:
         wState->state.lastFin = isFin(src);
 
         if (Impl::refusePayloadLength(payLength, wState, user)) {
-            Impl::forceClose(wState, user);
+            Impl::forceClose(wState, user, ERR_TOO_BIG_MESSAGE);
             return true;
         }
 
