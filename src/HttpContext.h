@@ -24,6 +24,7 @@
 #include "HttpContextData.h"
 #include "HttpResponseData.h"
 #include "AsyncSocket.h"
+#include "WebSocketData.h"
 
 #include <string_view>
 #include <iostream>
@@ -250,7 +251,16 @@ private:
                 AsyncSocket<SSL> *asyncSocket = (AsyncSocket<SSL> *) httpContextData->upgradedWebSocket;
 
                 /* Uncork here as well (note: what if we failed to uncork and we then pub/sub before we even upgraded?) */
-                /*auto [written, failed] = */asyncSocket->uncork();
+                auto [written, failed] = asyncSocket->uncork();
+
+                /* If we succeeded in uncorking, check if we have sent WebSocket FIN */
+                if (!failed) {
+                    WebSocketData *webSocketData = (WebSocketData *) asyncSocket->getAsyncSocketData();
+                    if (webSocketData->isShuttingDown) {
+                        /* In that case, also send TCP FIN (this is similar to what we have in ws drain handler) */
+                        asyncSocket->shutdown();
+                    }
+                }
 
                 /* Reset upgradedWebSocket before we return */
                 httpContextData->upgradedWebSocket = nullptr;

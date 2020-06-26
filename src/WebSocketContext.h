@@ -302,6 +302,10 @@ private:
         /* Handle HTTP write out (note: SSL_read may trigger this spuriously, the app need to handle spurious calls) */
         us_socket_context_on_writable(SSL, getSocketContext(), [](auto *s) {
 
+            /* NOTE: Are we called here corked? If so, the below write code is broken, since
+             * we will have 0 as getBufferedAmount due to writing to cork buffer, then sending TCP FIN before
+             * we actually uncorked and sent off things */
+
             /* It makes sense to check for us_is_shut_down here and return if so, to avoid shutting down twice */
             if (us_socket_is_shut_down(SSL, (us_socket_t *) s)) {
                 return s;

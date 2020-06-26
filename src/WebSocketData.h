@@ -28,9 +28,11 @@
 namespace uWS {
 
 struct WebSocketData : AsyncSocketData<false>, WebSocketState<true> {
+    /* This guy has a lot of friends - why? */
     template <bool, bool> friend struct WebSocketContext;
     template <bool> friend struct WebSocketContextData;
     template <bool, bool> friend struct WebSocket;
+    template <bool> friend struct HttpContext;
 private:
     std::string fragmentBuffer;
     int controlTipLength = 0;
