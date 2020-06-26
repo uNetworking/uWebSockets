@@ -124,8 +124,9 @@ public:
         return true;
     }
 
-    /* Send websocket close frame, emit close event, send FIN if successful */
-    void end(int code, std::string_view message = {}) {
+    /* Send websocket close frame, emit close event, send FIN if successful.
+     * Will not append a close reason if code is 0 or 1005. */
+    void end(int code = 0, std::string_view message = {}) {
         /* Check if we already called this one */
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
         if (webSocketData->isShuttingDown) {

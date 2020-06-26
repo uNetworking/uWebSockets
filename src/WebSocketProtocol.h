@@ -151,20 +151,23 @@ struct CloseFrame {
 };
 
 static inline CloseFrame parseClosePayload(char *src, size_t length) {
-    CloseFrame cf = {};
+    /* If we get no code or message, default to reporting 1005 no status code present */
+    CloseFrame cf = {1005};
     if (length >= 2) {
         memcpy(&cf.code, src, 2);
         cf = {cond_byte_swap<uint16_t>(cf.code), src + 2, length - 2};
         if (cf.code < 1000 || cf.code > 4999 || (cf.code > 1011 && cf.code < 4000) ||
             (cf.code >= 1004 && cf.code <= 1006) || !isValidUtf8((unsigned char *) cf.message, cf.length)) {
-            return {};
+            /* Even though we got a WebSocket close frame, it in itself is abnormal */
+            return {1006};
         }
     }
     return cf;
 }
 
 static inline size_t formatClosePayload(char *dst, uint16_t code, const char *message, size_t length) {
-    if (code) {
+    /* We could have more strict checks here, but never append code 0 or 1005 or 1006 */
+    if (code && code != 1005 && code != 1006) {
         code = cond_byte_swap<uint16_t>(code);
         memcpy(dst, &code, 2);
         /* It is invalid to pass nullptr to memcpy, even though length is 0 */
