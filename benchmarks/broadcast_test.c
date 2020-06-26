@@ -91,7 +91,7 @@ struct us_socket_t *on_http_socket_writable(struct us_socket_t *s) {
     return s;
 }
 
-struct us_socket_t *on_http_socket_close(struct us_socket_t *s) {
+struct us_socket_t *on_http_socket_close(struct us_socket_t *s, int code, void *reason) {
 
     printf("Client was disconnected, exiting!\n");
     exit(-1);
@@ -100,7 +100,7 @@ struct us_socket_t *on_http_socket_close(struct us_socket_t *s) {
 }
 
 struct us_socket_t *on_http_socket_end(struct us_socket_t *s) {
-    return us_socket_close(SSL, s);
+    return us_socket_close(SSL, s, 0, NULL);
 }
 
 struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int length) {

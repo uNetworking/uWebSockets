@@ -79,7 +79,7 @@ private:
         });
 
         /* Handle socket disconnections */
-        us_socket_context_on_close(SSL, getSocketContext(), [](us_socket_t *s) {
+        us_socket_context_on_close(SSL, getSocketContext(), [](us_socket_t *s, int code, void *reason) {
             /* Get socket ext */
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_socket_ext(SSL, s);
 
@@ -144,7 +144,7 @@ private:
 
                 /* Are we not ready for another request yet? Terminate the connection. */
                 if (httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) {
-                    us_socket_close(SSL, (us_socket_t *) s);
+                    us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
                 }
 
@@ -155,7 +155,7 @@ private:
                 httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
                 if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
                     /* We have to force close this socket as we have no handler for it */
-                    us_socket_close(SSL, (us_socket_t *) s);
+                    us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
                 }
 
@@ -225,7 +225,7 @@ private:
                 return user;
             }, [](void *user) {
                  /* Close any socket on HTTP errors */
-                us_socket_close(SSL, (us_socket_t *) user);
+                us_socket_close(SSL, (us_socket_t *) user, 0, nullptr);
                 return nullptr;
             });
 

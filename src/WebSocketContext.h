@@ -53,7 +53,7 @@ private:
     }
 
     static void forceClose(uWS::WebSocketState<isServer> *wState, void *s) {
-        us_socket_close(SSL, (us_socket_t *) s);
+        us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
     }
 
     /* Returns true on breakage */
@@ -237,7 +237,7 @@ private:
          * any backpressure from HTTP state kept. */
 
         /* Handle socket disconnections */
-        us_socket_context_on_close(SSL, getSocketContext(), [](auto *s) {
+        us_socket_context_on_close(SSL, getSocketContext(), [](auto *s, int code, void *reason) {
             /* For whatever reason, if we already have emitted close event, do not emit it again */
             WebSocketData *webSocketData = (WebSocketData *) (us_socket_ext(SSL, s));
             if (!webSocketData->isShuttingDown) {
@@ -351,7 +351,7 @@ private:
         us_socket_context_on_end(SSL, getSocketContext(), [](auto *s) {
 
             /* If we get a fin, we just close I guess */
-            us_socket_close(SSL, (us_socket_t *) s);
+            us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
 
             return s;
         });
@@ -360,7 +360,7 @@ private:
         us_socket_context_on_timeout(SSL, getSocketContext(), [](auto *s) {
 
             /* Timeout is very simple; we just close it */
-            us_socket_close(SSL, (us_socket_t *) s);
+            us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
 
             return s;
         });

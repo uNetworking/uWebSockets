@@ -62,7 +62,7 @@ protected:
 
     /* Immediately close socket */
     us_socket_t *close() {
-        return us_socket_close(SSL, (us_socket_t *) this);
+        return us_socket_close(SSL, (us_socket_t *) this, 0, nullptr);
     }
 
     /* Cork this socket. Only one socket may ever be corked per-loop at any given time */

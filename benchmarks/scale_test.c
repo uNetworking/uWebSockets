@@ -93,7 +93,7 @@ struct us_socket_t *on_http_socket_writable(struct us_socket_t *s) {
     return s;
 }
 
-struct us_socket_t *on_http_socket_close(struct us_socket_t *s) {
+struct us_socket_t *on_http_socket_close(struct us_socket_t *s, int code, void *reason) {
 
     closed_connections++;
     if (closed_connections % 1000 == 0) {
@@ -104,7 +104,7 @@ struct us_socket_t *on_http_socket_close(struct us_socket_t *s) {
 }
 
 struct us_socket_t *on_http_socket_end(struct us_socket_t *s) {
-    return us_socket_close(SSL, s);
+    return us_socket_close(SSL, s, 0, NULL);
 }
 
 // should never get a response!
