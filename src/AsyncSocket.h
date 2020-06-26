@@ -96,8 +96,8 @@ protected:
     }
 
     /* Returns the user space backpressure. */
-    int getBufferedAmount() {
-        return (int) getAsyncSocketData()->buffer.size();
+    unsigned int getBufferedAmount() {
+        return (unsigned int) getAsyncSocketData()->buffer.size();
     }
 
     /* Returns the text representation of an IPv4 or IPv6 address */
