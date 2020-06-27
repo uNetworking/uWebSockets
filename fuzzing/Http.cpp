@@ -10,6 +10,9 @@
 /* And the router */
 #include "../src/HttpRouter.h"
 
+/* Also ProxyParser */
+#include "../src/ProxyParser.h"
+
 struct StaticData {
 
     struct RouterData {
@@ -76,8 +79,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     /* User data */
     void *user = (void *) 13;
 
+    /* If we are built with WITH_PROXY, pass a ProxyParser as reserved */
+    void *reserved = nullptr;
+#ifdef UWS_WITH_PROXY
+    uWS::ProxyParser pp;
+    reserved = (void *) &pp;
+#endif
+
     /* Iterate the padded fuzz as chunks */
-    makeChunked(makePadded(data, size), size, [&httpParser, user](const uint8_t *data, size_t size) {
+    makeChunked(makePadded(data, size), size, [&httpParser, user, reserved](const uint8_t *data, size_t size) {
         /* We need at least 1 byte post padding */
         if (size) {
             size--;
@@ -85,9 +95,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
             /* We might be given zero length chunks */
             return;
         }
-        
+
         /* Parse it */
-        httpParser.consumePostPadded((char *) data, size, user, nullptr, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
+        httpParser.consumePostPadded((char *) data, size, user, reserved, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
             readBytes(httpRequest->getHeader(httpRequest->getUrl()));
             readBytes(httpRequest->getMethod());
