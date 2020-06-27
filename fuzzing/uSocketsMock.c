@@ -55,7 +55,7 @@ struct us_socket_context_t {
     alignas(16) struct us_loop_t *loop;
 
     struct us_socket_t *(*on_open)(struct us_socket_t *s, int is_client, char *ip, int ip_length);
-    struct us_socket_t *(*on_close)(struct us_socket_t *s);
+    struct us_socket_t *(*on_close)(struct us_socket_t *s, int code, void *reason);
     struct us_socket_t *(*on_data)(struct us_socket_t *s, char *data, int length);
     struct us_socket_t *(*on_writable)(struct us_socket_t *s);
     struct us_socket_t *(*on_timeout)(struct us_socket_t *s);
@@ -81,7 +81,7 @@ void us_socket_context_on_open(int ssl, struct us_socket_context_t *context, str
     context->on_open = on_open;
 }
 
-void us_socket_context_on_close(int ssl, struct us_socket_context_t *context, struct us_socket_t *(*on_close)(struct us_socket_t *s)) {
+void us_socket_context_on_close(int ssl, struct us_socket_context_t *context, struct us_socket_t *(*on_close)(struct us_socket_t *s, int code, void *reason)) {
     context->on_close = on_close;
 }
 
@@ -205,11 +205,11 @@ int us_socket_is_closed(int ssl, struct us_socket_t *s) {
     return s->closed;
 }
 
-struct us_socket_t *us_socket_close(int ssl, struct us_socket_t *s) {
+struct us_socket_t *us_socket_close(int ssl, struct us_socket_t *s, int code, void *reason) {
 
     if (!us_socket_is_closed(0, s)) {
         /* Emit close event */
-        s = s->context->on_close(s);
+        s = s->context->on_close(s, code, reason);
     }
 
     /* We are now closed */
@@ -301,7 +301,7 @@ done:
     if (!us_socket_is_closed(0, s)) {
         /* Emit close event */
         loop->pre_cb(loop);
-        s = s->context->on_close(s);
+        s = s->context->on_close(s, 0, NULL);
         loop->post_cb(loop);
     }
 
