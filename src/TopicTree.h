@@ -415,27 +415,6 @@ public:
         }
         numTriggeredTopics = 0;
     }
-
-    void print(Topic *root = nullptr, int indentation = 1) {
-        if (root == nullptr) {
-            std::cout << "Print of tree:" << std::endl;
-            root = this->root;
-        }
-
-        for (auto p : root->children) {
-            for (int i = 0; i < indentation; i++) {
-                std::cout << "  ";
-            }
-            std::cout << std::string_view(p.second->name, p.second->length) << " = " << p.second->messages.size() << " publishes, " << p.second->subs.size() << " subscribers {";
-
-            for (auto &p : p.second->subs) {
-                std::cout << p << " referring to socket: " << p->user << ", ";
-            }
-            std::cout << "}" << std::endl;
-
-            print(p.second, indentation + 1);
-        }
-    }
 };
 
 }
