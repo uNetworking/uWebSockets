@@ -224,6 +224,33 @@ public:
                 /* Todo: remove these mid string copies */
                 std::string offer = extensionsNegotiator.generateOffer();
                 if (offer.length()) {
+
+                    /* Todo: this is a quick fix that should be properly moved to ExtensionsNegotiator */
+                    if (webSocketContextData->compression & DEDICATED_COMPRESSOR &&
+                        webSocketContextData->compression != DEDICATED_COMPRESSOR_256KB) {
+                            /* 3kb, 4kb is 9, 256 is 15 (default) */
+                            int maxServerWindowBits = 9;
+                            switch (webSocketContextData->compression) {
+                                case DEDICATED_COMPRESSOR_8KB:
+                                maxServerWindowBits = 10;
+                                break;
+                                case DEDICATED_COMPRESSOR_16KB:
+                                maxServerWindowBits = 11;
+                                break;
+                                case DEDICATED_COMPRESSOR_32KB:
+                                maxServerWindowBits = 12;
+                                break;
+                                case DEDICATED_COMPRESSOR_64KB:
+                                maxServerWindowBits = 13;
+                                break;
+                                case DEDICATED_COMPRESSOR_128KB:
+                                maxServerWindowBits = 14;
+                                break;
+                            }
+                            offer += "; server_max_window_bits=";
+                            offer += std::to_string(maxServerWindowBits);
+                    }
+
                     writeHeader("Sec-WebSocket-Extensions", offer);
                 }
 
