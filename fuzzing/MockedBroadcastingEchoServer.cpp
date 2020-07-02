@@ -18,7 +18,7 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
     /* Very simple WebSocket echo server */
     app = new uWS::TemplatedApp<false>(uWS::App().ws<PerSocketData>("/*", {
         /* Settings */
-        .compression = uWS::DEDICATED_COMPRESSOR_3KB,
+        .compression = uWS::DEDICATED_COMPRESSOR_8KB,
         /* We want this to be low so that we can hit it, yet bigger than 256 */
         .maxPayloadLength = 300,
         .idleTimeout = 10,
