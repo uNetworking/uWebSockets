@@ -17,9 +17,7 @@ Furthermore, we partake in Google's OSS-Fuzz with a ~90% daily fuzzing coverage 
 
 
 ### :arrow_forward: Rapid scripting
-µWebSockets is written entirely in C & C++ but has seamless integrations for both <a href="https://github.com/uNetworking/uWebSockets.py">Python3</a> and <a href="https://github.com/uNetworking/uWebSockets.js">Node.js</a> backends. This allows for rapid scripting of powerful apps, in your favorite environment.
-
-<img src="misc/nodejs.png" height="48"/>&nbsp;&nbsp;<img src="misc/python3.png" height="48"/>
+µWebSockets is written entirely in C & C++ but has a seamless integration for Node.js backends called <a href="https://github.com/uNetworking/uWebSockets.js">µWebSockets.js</a>. This allows for rapid scripting of powerful apps, using widespread competence.
 
 ### :battery: Batteries included
 Designed around a convenient URL router with wildcard & parameter support - paired with efficient pub/sub features inspired by MQTT. µWebSockets should be the obvious, complete starting point for any real-time web project with high demands.
