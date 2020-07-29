@@ -429,7 +429,7 @@ public:
     }
 
     /* Get the current byte write offset for this Http response */
-    int getWriteOffset() {
+    size_t getWriteOffset() {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         return httpResponseData->offset;
