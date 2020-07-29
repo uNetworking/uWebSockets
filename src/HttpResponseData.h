@@ -43,11 +43,11 @@ private:
     };
 
     /* Per socket event handlers */
-    fu2::unique_function<bool(int)> onWritable;
+    fu2::unique_function<bool(size_t)> onWritable;
     fu2::unique_function<void()> onAborted;
     fu2::unique_function<void(std::string_view, bool)> inStream; // onData
     /* Outgoing offset */
-    int offset = 0;
+    size_t offset = 0;
 
     /* Current state (content-length sent, status sent, write called, etc */
     int state = 0;

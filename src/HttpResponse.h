@@ -61,6 +61,15 @@ private:
         Super::write(buf, length);
     }
 
+    /* Write an unsigned 64-bit integer */
+    void writeUnsigned64(uint64_t value) {
+        char buf[20];
+        int length = utils::u64toa(value, buf);
+
+        /* For now we do this copy */
+        Super::write(buf, length);
+    }
+
     /* Write an unsigned 32-bit integer */
     void writeUnsigned(unsigned int value) {
         char buf[10];
@@ -90,13 +99,13 @@ private:
 
     /* Returns true on success, indicating that it might be feasible to write more data.
      * Will start timeout if stream reaches totalSize or write failure. */
-    bool internalEnd(std::string_view data, int totalSize, bool optional, bool allowContentLength = true) {
+    bool internalEnd(std::string_view data, size_t totalSize, bool optional, bool allowContentLength = true) {
         /* Write status if not already done */
         writeStatus(HTTP_200_OK);
 
         /* If no total size given then assume this chunk is everything */
         if (!totalSize) {
-            totalSize = (int) data.length();
+            totalSize = data.length();
         }
 
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
@@ -132,7 +141,7 @@ private:
                 if (allowContentLength) {
                     /* Even zero is a valid content-length */
                     Super::write("Content-Length: ", 16);
-                    writeUnsigned(totalSize);
+                    writeUnsigned64(totalSize);
                     Super::write("\r\n\r\n", 4);
                 } else {
                     Super::write("\r\n", 2);
@@ -146,11 +155,20 @@ private:
              * if it failed to drain any prior failed header writes */
 
             /* Write as much as possible without causing backpressure */
-            auto [written, failed] = Super::write(data.data(), (int) data.length(), optional);
+            size_t written = 0;
+            bool failed = false;
+            while (written < data.length() && !failed) {
+                /* uSockets only deals with int sizes, so pass chunks of max signed int size */
+                auto writtenFailed = Super::write(data.data() + written, (int) std::min<size_t>(data.length() - written, INT_MAX), optional);
+
+                written += writtenFailed.first;
+                failed = writtenFailed.second;
+            }
+
             httpResponseData->offset += written;
 
             /* Success is when we wrote the entire thing without any failures */
-            bool success = (unsigned int) written == data.length() && !failed;
+            bool success = written == data.length() && !failed;
 
             /* If we are now at the end, start a timeout. Also start a timeout if we failed. */
             if (!success || httpResponseData->offset == totalSize) {
@@ -368,12 +386,12 @@ public:
 
     /* End the response with an optional data chunk. Always starts a timeout. */
     void end(std::string_view data = {}) {
-        internalEnd(data, (int) data.length(), false);
+        internalEnd(data, data.length(), false);
     }
 
     /* Try and end the response. Returns [true, true] on success.
      * Starts a timeout in some cases. Returns [ok, hasResponded] */
-    std::pair<bool, bool> tryEnd(std::string_view data, int totalSize = 0) {
+    std::pair<bool, bool> tryEnd(std::string_view data, size_t totalSize = 0) {
         return {internalEnd(data, totalSize, true), hasResponded()};
     }
 
@@ -446,7 +464,7 @@ public:
     }
 
     /* Attach handler for writable HTTP response */
-    HttpResponse *onWritable(fu2::unique_function<bool(int)> &&handler) {
+    HttpResponse *onWritable(fu2::unique_function<bool(size_t)> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         httpResponseData->onWritable = std::move(handler);

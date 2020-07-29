@@ -60,6 +60,23 @@ inline int u32toa(uint32_t value, char *dst) {
     return ret;
 }
 
+inline int u64toa(uint64_t value, char *dst) {
+    char temp[20];
+    char *p = temp;
+    do {
+        *p++ = (char) ((value % 10) + '0');
+        value /= 10;
+    } while (value > 0);
+
+    int ret = (int) (p - temp);
+
+    do {
+        *dst++ = *--p;
+    } while (p != temp);
+
+    return ret;
+}
+
 }
 }
 
