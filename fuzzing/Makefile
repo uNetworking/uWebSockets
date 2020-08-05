@@ -5,7 +5,16 @@ CXXFLAGS ?= -DLIBUS_NO_SSL -fsanitize=$(SANITIZER),fuzzer
 CFLAGS ?= -DLIBUS_NO_SSL
 OUT ?= .
 
+# These are fetched from libEpollFuzzer
+WRAPPED_SYSCALLS = -Wl,--wrap=recv,--wrap=read,--wrap=listen,--wrap=getaddrinfo,--wrap=freeaddrinfo,--wrap=setsockopt,--wrap=fcntl,--wrap=bind,--wrap=socket,--wrap=epoll_wait,--wrap=epoll_create1,--wrap=timerfd_settime,--wrap=close,--wrap=accept4,--wrap=eventfd,--wrap=timerfd_create,--wrap=epoll_ctl,--wrap=shutdown
+
 oss-fuzz:
+# libEpollFuzzer cases
+	# Compile uSockets without -flto
+	rm -rf *.o
+	$(CC) -DLIBUS_NO_SSL -std=c11 -I../uSockets/src -O3 -c ../uSockets/src/*.c ../uSockets/src/eventing/*.c ../uSockets/src/crypto/*.c
+	# Link against object files
+	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O2 -DUWS_NO_ZLIB -I../src -I../uSockets/src EpollHelloWorld.cpp -o $(OUT)/EpollHelloWorld $(LIB_FUZZING_ENGINE) *.o
 # "Unit tests"
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 WebSocket.cpp -o $(OUT)/WebSocket $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Http.cpp -o $(OUT)/Http $(LIB_FUZZING_ENGINE)
