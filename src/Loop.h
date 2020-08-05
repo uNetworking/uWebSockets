@@ -81,24 +81,28 @@ private:
         bool cleanMe = false;
     };
 
+    static LoopCleaner &getLazyLoop() {
+        static thread_local LoopCleaner lazyLoop;
+        return lazyLoop;
+    }
+
 public:
     /* Lazily initializes a per-thread loop and returns it.
      * Will automatically free all initialized loops at exit. */
     static Loop *get(void *existingNativeLoop = nullptr) {
-        static thread_local LoopCleaner lazyLoop;
-        if (!lazyLoop.loop) {
+        if (!getLazyLoop().loop) {
             /* If we are given a native loop pointer we pass that to uSockets and let it deal with it */
             if (existingNativeLoop) {
                 /* Todo: here we want to pass the pointer, not a boolean */
-                lazyLoop.loop = create(existingNativeLoop);
+                getLazyLoop().loop = create(existingNativeLoop);
                 /* We cannot register automatic free here, must be manually done */
             } else {
-                lazyLoop.loop = create(nullptr);
-                lazyLoop.cleanMe = true;
+                getLazyLoop().loop = create(nullptr);
+                getLazyLoop().cleanMe = true;
             }
         }
 
-        return lazyLoop.loop;
+        return getLazyLoop().loop;
     }
 
     /* Freeing the default loop should be done once */
@@ -107,6 +111,9 @@ public:
         loopData->~LoopData();
         /* uSockets will track whether this loop is owned by us or a borrowed alien loop */
         us_loop_free((us_loop_t *) this);
+
+        /* Reset lazyLoop */
+        getLazyLoop().loop = nullptr;
     }
 
     void addPostHandler(void *key, fu2::unique_function<void(Loop *)> &&handler) {
