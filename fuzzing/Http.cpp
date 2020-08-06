@@ -97,11 +97,16 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         }
 
         /* Parse it */
-        httpParser.consumePostPadded((char *) data, size, user, reserved, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
+        httpParser.consumePostPadded((char *) data, size, user, reserved, [reserved](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
             readBytes(httpRequest->getHeader(httpRequest->getUrl()));
             readBytes(httpRequest->getMethod());
             readBytes(httpRequest->getQuery());
+
+#ifdef UWS_WITH_PROXY
+            auto *pp = (uWS::ProxyParser *) reserved;
+            readBytes(pp->getSourceAddress());
+#endif
 
             /* Route the method and URL in two passes */
             staticData.router.getUserData() = {};

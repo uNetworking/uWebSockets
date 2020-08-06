@@ -70,15 +70,6 @@ private:
         Super::write(buf, length);
     }
 
-    /* Write an unsigned 32-bit integer */
-    void writeUnsigned(unsigned int value) {
-        char buf[10];
-        int length = utils::u32toa(value, buf);
-
-        /* For now we do this copy */
-        Super::write(buf, length);
-    }
-
     /* When we are done with a response we mark it like so */
     void markDone(HttpResponseData<SSL> *httpResponseData) {
         httpResponseData->onAborted = nullptr;
@@ -376,10 +367,10 @@ public:
     }
 
     /* Write an HTTP header with unsigned int value */
-    HttpResponse *writeHeader(std::string_view key, unsigned int value) {
+    HttpResponse *writeHeader(std::string_view key, uint64_t value) {
         Super::write(key.data(), (int) key.length());
         Super::write(": ", 2);
-        writeUnsigned(value);
+        writeUnsigned64(value);
         Super::write("\r\n", 2);
         return this;
     }
