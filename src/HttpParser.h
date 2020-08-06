@@ -211,6 +211,7 @@ private:
             req->headers->value = std::string_view(req->headers->value.data(), std::max<int>(0, (int) req->headers->value.length() - 9));
 
             /* Add all headers to bloom filter */
+            req->bf.reset();
             for (HttpRequest::Header *h = req->headers; (++h)->key.length(); ) {
                 req->bf.add(h->key);
             }
