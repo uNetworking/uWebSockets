@@ -14,10 +14,32 @@ struct PerSocketData {
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
+    /* First byte determines what compressor to use */
+    if (size < 1) {
+        return 0;
+    }
+
+    uWS::CompressOptions compressors[] = {
+        uWS::DISABLED,
+        uWS::SHARED_COMPRESSOR,
+        uWS::DEDICATED_COMPRESSOR_3KB,
+        uWS::DEDICATED_COMPRESSOR_4KB,
+        uWS::DEDICATED_COMPRESSOR_8KB,
+        uWS::DEDICATED_COMPRESSOR_16KB,
+        uWS::DEDICATED_COMPRESSOR_32KB,
+        uWS::DEDICATED_COMPRESSOR_64KB,
+        uWS::DEDICATED_COMPRESSOR_128KB,
+        uWS::DEDICATED_COMPRESSOR_256KB
+    };
+
+    uWS::CompressOptions compressor = compressors[data[0] % 10];
+    data++;
+    size--;
+
     /* Very simple WebSocket echo server */
     auto app = uWS::TemplatedApp<false>(uWS::App().ws<PerSocketData>("/*", {
         /* Settings */
-        .compression = uWS::SHARED_COMPRESSOR,
+        .compression = compressor,
         /* We want this to be low so that we can hit it, yet bigger than 256 */
         .maxPayloadLength = 300,
         .idleTimeout = 10,

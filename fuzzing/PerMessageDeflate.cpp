@@ -28,7 +28,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         uWS::DEDICATED_COMPRESSOR_256KB
     };
 
-    auto compressor = compressors[data[0] & 8];
+    auto compressor = compressors[data[0] % 8];
     data++;
     size--;
 
