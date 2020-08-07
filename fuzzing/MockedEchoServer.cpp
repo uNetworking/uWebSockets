@@ -5,18 +5,17 @@
 /* This function pushes data to the uSockets mock */
 extern "C" void us_loop_read_mocked_data(struct us_loop *loop, char *data, unsigned int size);
 
-uWS::TemplatedApp<false> *app;
 us_listen_socket_t *listenSocket;
 
-extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
+/* ws->getUserData returns one of these */
+struct PerSocketData {
+    int nothing;
+};
 
-    /* ws->getUserData returns one of these */
-    struct PerSocketData {
-        int nothing;
-    };
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
     /* Very simple WebSocket echo server */
-    app = new uWS::TemplatedApp<false>(uWS::App().ws<PerSocketData>("/*", {
+    auto app = uWS::TemplatedApp<false>(uWS::App().ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::SHARED_COMPRESSOR,
         /* We want this to be low so that we can hit it, yet bigger than 256 */
@@ -58,18 +57,13 @@ extern "C" int LLVMFuzzerInitialize(int *argc, char ***argv) {
 
         }
     }).listen(9001, [](us_listen_socket_t *listenSocket) {
-        if (listenSocket) {
-            std::cout << "Listening on port " << 9001 << std::endl;
             ::listenSocket = listenSocket;
-        }
-    }));
-
-    return 0;
-}
-
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+    })).run();
 
     us_loop_read_mocked_data((struct us_loop *) uWS::Loop::get(), (char *) makePadded(data, size), size);
+
+    us_listen_socket_close(0, listenSocket);
+    uWS::Loop::get()->free();
 
     return 0;
 }
