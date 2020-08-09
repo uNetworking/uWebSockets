@@ -6,7 +6,7 @@ CFLAGS ?= -DLIBUS_NO_SSL
 OUT ?= .
 
 # These are fetched from libEpollFuzzer
-WRAPPED_SYSCALLS = -Wl,--wrap=send,--wrap=recv,--wrap=read,--wrap=listen,--wrap=getaddrinfo,--wrap=freeaddrinfo,--wrap=setsockopt,--wrap=fcntl,--wrap=bind,--wrap=socket,--wrap=epoll_wait,--wrap=epoll_create1,--wrap=timerfd_settime,--wrap=close,--wrap=accept4,--wrap=eventfd,--wrap=timerfd_create,--wrap=epoll_ctl,--wrap=shutdown
+WRAPPED_SYSCALLS = -Wl,--wrap=sendto,--wrap=send,--wrap=recv,--wrap=read,--wrap=listen,--wrap=getaddrinfo,--wrap=freeaddrinfo,--wrap=setsockopt,--wrap=fcntl,--wrap=bind,--wrap=socket,--wrap=epoll_wait,--wrap=epoll_create1,--wrap=timerfd_settime,--wrap=close,--wrap=accept4,--wrap=eventfd,--wrap=timerfd_create,--wrap=epoll_ctl,--wrap=shutdown
 
 oss-fuzz:
 # libEpollFuzzer cases
