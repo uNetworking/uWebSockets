@@ -9,6 +9,10 @@ OUT ?= .
 WRAPPED_SYSCALLS = -Wl,--wrap=sendto,--wrap=send,--wrap=recv,--wrap=read,--wrap=listen,--wrap=getaddrinfo,--wrap=freeaddrinfo,--wrap=setsockopt,--wrap=fcntl,--wrap=bind,--wrap=socket,--wrap=epoll_wait,--wrap=epoll_create1,--wrap=timerfd_settime,--wrap=close,--wrap=accept4,--wrap=eventfd,--wrap=timerfd_create,--wrap=epoll_ctl,--wrap=shutdown
 
 oss-fuzz:
+# Build zlib (it listens to CFLAGS, CC and CXX)
+	rm -rf zlib
+	git clone https://github.com/madler/zlib
+	cd zlib && ./configure && make
 # Copy dictionaries
 	cp *.dict $(OUT)
 # libEpollFuzzer cases
@@ -21,14 +25,14 @@ oss-fuzz:
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 WebSocket.cpp -o $(OUT)/WebSocket $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Http.cpp -o $(OUT)/Http $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -DUWS_WITH_PROXY -std=c++17 -O3 Http.cpp -o $(OUT)/HttpWithProxy $(LIB_FUZZING_ENGINE)
-	$(CXX) $(CXXFLAGS) -std=c++17 -O3 PerMessageDeflate.cpp -o $(OUT)/PerMessageDeflate $(LIB_FUZZING_ENGINE) -lz
+	$(CXX) $(CXXFLAGS) -Izlib -std=c++17 -O3 PerMessageDeflate.cpp -o $(OUT)/PerMessageDeflate $(LIB_FUZZING_ENGINE) zlib/libz.a
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 TopicTree.cpp -o $(OUT)/TopicTree $(LIB_FUZZING_ENGINE)
 # "Integration tests"
 	$(CC) $(CFLAGS) -DLIBUS_NO_SSL -c -O3 uSocketsMock.c
-	$(CXX) $(CXXFLAGS) -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedHelloWorld.cpp uSocketsMock.o -lz -o $(OUT)/MockedHelloWorld $(LIB_FUZZING_ENGINE)
-	$(CXX) $(CXXFLAGS) -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedEchoServer.cpp uSocketsMock.o -lz -o $(OUT)/MockedEchoServer $(LIB_FUZZING_ENGINE)
-	$(CXX) $(CXXFLAGS) -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedBroadcastingEchoServer.cpp uSocketsMock.o -lz -o $(OUT)/MockedBroadcastingEchoServer $(LIB_FUZZING_ENGINE)
-	$(CXX) $(CXXFLAGS) -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedEmptyHandlersServer.cpp uSocketsMock.o -lz -o $(OUT)/MockedEmptyHandlersServer $(LIB_FUZZING_ENGINE)
+	$(CXX) $(CXXFLAGS) -Izlib -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedHelloWorld.cpp uSocketsMock.o zlib/libz.a -o $(OUT)/MockedHelloWorld $(LIB_FUZZING_ENGINE)
+	$(CXX) $(CXXFLAGS) -Izlib -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedEchoServer.cpp uSocketsMock.o zlib/libz.a -o $(OUT)/MockedEchoServer $(LIB_FUZZING_ENGINE)
+	$(CXX) $(CXXFLAGS) -Izlib -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedBroadcastingEchoServer.cpp uSocketsMock.o zlib/libz.a -o $(OUT)/MockedBroadcastingEchoServer $(LIB_FUZZING_ENGINE)
+	$(CXX) $(CXXFLAGS) -Izlib -std=c++17 -O3 -DLIBUS_NO_SSL -I../src -I../uSockets/src MockedEmptyHandlersServer.cpp uSocketsMock.o zlib/libz.a -o $(OUT)/MockedEmptyHandlersServer $(LIB_FUZZING_ENGINE)
 
 broken:
 # Too small tests, failing coverage test
