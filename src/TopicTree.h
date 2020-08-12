@@ -129,9 +129,21 @@ private:
             drain();
         }
 
+        /* Iterate over all segments in given topic */
         for (; stop != std::string::npos; start = stop + 1) {
             stop = topic.find('/', start);
             std::string_view segment = topic.substr(start, stop - start);
+
+            /* It is very important to disallow wildcards when publishing.
+             * We will not catch EVERY misuse this lazy way, but enough to hinder
+             * explosive recursion.
+             * Terminating wildcards MAY still get triggered along the way, if for
+             * instace the error is found late while iterating the topic segments. */
+            if (segment.length() == 1) {
+                if (segment[0] == '+' || segment[0] == '#') {
+                    return;
+                }
+            }
 
             /* Do we have a terminating wildcard child? */
             if (iterator->terminatingWildcardChild) {
