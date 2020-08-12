@@ -22,7 +22,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     uWS::CompressOptions compressors[] = {
         uWS::DISABLED,
         uWS::SHARED_COMPRESSOR,
-        //uWS::DEDICATED_COMPRESSOR_3KB, -- skip this one as it triggers bugs in zlib
+        uWS::DEDICATED_COMPRESSOR_3KB,
         uWS::DEDICATED_COMPRESSOR_4KB,
         uWS::DEDICATED_COMPRESSOR_8KB,
         uWS::DEDICATED_COMPRESSOR_16KB,
@@ -32,7 +32,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         uWS::DEDICATED_COMPRESSOR_256KB
     };
 
-    uWS::CompressOptions compressor = compressors[data[0] % 9];
+    uWS::CompressOptions compressor = compressors[data[0] % 10];
     data++;
     size--;
 

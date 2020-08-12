@@ -18,7 +18,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     }
 
     int compressors[] = {
-        //uWS::DEDICATED_COMPRESSOR_3KB, -- 3kb has msan issues on OSS-Fuzz (bug in zlib)
+        uWS::DEDICATED_COMPRESSOR_3KB,
         uWS::DEDICATED_COMPRESSOR_4KB,
         uWS::DEDICATED_COMPRESSOR_8KB,
         uWS::DEDICATED_COMPRESSOR_16KB,
@@ -28,7 +28,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         uWS::DEDICATED_COMPRESSOR_256KB
     };
 
-    auto compressor = compressors[data[0] % 7];
+    auto compressor = compressors[data[0] % 8];
     data++;
     size--;
 
