@@ -2,6 +2,8 @@
 
 #include "helpers.h"
 
+#include <memory>
+
 /* This function pushes data to the uSockets mock */
 extern "C" void us_loop_read_mocked_data(struct us_loop *loop, char *data, unsigned int size);
 
@@ -10,6 +12,7 @@ us_listen_socket_t *listenSocket;
 /* ws->getUserData returns one of these */
 struct PerSocketData {
     int nothing;
+    std::shared_ptr<bool> valid;
 };
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -45,6 +48,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         .idleTimeout = 10,
         /* Handlers */
         .open = [](auto *ws) {
+
+            PerSocketData *psd = (PerSocketData *) ws->getUserData();
+            psd->valid.reset(new bool{true});
+
             //if (req->getHeader("close_me").length()) {
             //    ws->close();
             //} else if (req->getHeader("end_me").length()) {
@@ -70,7 +77,16 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
             /* Check getBufferedAmount here */
         },
         .ping = [](auto *ws) {
+            /* Here we test send and end while uncorked, by having them send from deferred */
+            PerSocketData *psd = (PerSocketData *) ws->getUserData();
 
+            uWS::Loop::get()->defer([ws, valid = psd->valid]() {
+                if (valid.get()) {
+                    /* We haven't been closed */
+                    ws->send("Hello!", uWS::TEXT, false);
+                    ws->end(1000);
+                }
+            });
         },
         .pong = [](auto *ws) {
 
