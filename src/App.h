@@ -51,6 +51,19 @@ public:
         return std::move(*this);
     }
 
+    TemplatedApp &&missingServerName(fu2::unique_function<void(const char *hostname)> handler) {
+
+        httpContext->getSocketContextData()->missingServerNameHandler = std::move(handler);
+
+        us_socket_context_on_server_name(SSL, (struct us_socket_context_t *) httpContext, [](struct us_socket_context_t *context, const char *hostname) {
+
+            /* This is the only requirements of being friends with HttpContextData */
+            HttpContext<SSL> *httpContext = (HttpContext<SSL> *) context;
+            httpContext->getSocketContextData()->missingServerNameHandler(hostname);
+        });
+        return std::move(*this);
+    }
+
     /* Returns the SSL_CTX of this app, or nullptr. */
     void *getNativeHandle() {
         return us_socket_context_get_native_handle(SSL, (struct us_socket_context_t *) httpContext);

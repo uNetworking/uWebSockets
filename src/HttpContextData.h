@@ -31,8 +31,11 @@ template <bool SSL>
 struct alignas(16) HttpContextData {
     template <bool> friend struct HttpContext;
     template <bool> friend struct HttpResponse;
+    template <bool> friend struct TemplatedApp;
 private:
     std::vector<fu2::unique_function<void(HttpResponse<SSL> *, int)>> filterHandlers;
+
+    fu2::unique_function<void(const char *hostname)> missingServerNameHandler;
 
     struct RouterData {
         HttpResponse<SSL> *httpResponse;
