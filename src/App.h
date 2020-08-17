@@ -38,6 +38,13 @@ private:
 
 public:
 
+    /* Server name */
+    TemplatedApp &&addServerName(std::string hostname_pattern, us_socket_context_options_t options = {}) {
+
+        us_socket_context_add_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str(), options);
+        return std::move(*this);
+    }
+
     /* Returns the SSL_CTX of this app, or nullptr. */
     void *getNativeHandle() {
         return us_socket_context_get_native_handle(SSL, (struct us_socket_context_t *) httpContext);
