@@ -29,8 +29,8 @@ void test() {
         /* Handlers */
         .open = [](auto *ws) {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
-	    ws->getUserData();
-	    ws->getRemoteAddressAsText();
+            ws->getNativeHandle();
+            ws->getRemoteAddressAsText();
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode, true);
