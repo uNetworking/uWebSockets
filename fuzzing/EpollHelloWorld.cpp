@@ -5,6 +5,7 @@
 
 /* We keep this one for teardown later on */
 struct us_listen_socket_t *listen_socket;
+struct us_socket_t *client;
 
 /* This test is run by libEpollFuzzer */
 void test() {
@@ -52,6 +53,32 @@ void test() {
             listen_socket = listenSocket;
         });
 
+        /* Here we want to stress the connect feature, since nothing else stresses it */
+        struct us_loop_t *loop = (struct us_loop_t *) uWS::Loop::get();
+        struct us_socket_context_t *client_context = us_create_socket_context(0, loop, 0, {});
+        client = us_socket_context_connect(0, client_context, "hostname", 5000, NULL, 0, 0);
+
+        us_socket_context_on_open(0, client_context, [](struct us_socket_t *s, int is_client, char *ip, int ip_length) {
+            return s;
+        });
+
+        us_socket_context_on_end(0, client_context, [](struct us_socket_t *s) {
+            return s;
+        });
+
+        us_socket_context_on_data(0, client_context, [](struct us_socket_t *s, char *data, int length) {
+            return s;
+        });
+
+        us_socket_context_on_writable(0, client_context, [](struct us_socket_t *s) {
+            return s;
+        });
+
+        us_socket_context_on_close(0, client_context, [](struct us_socket_t *s, int code, void *reason) {
+            client = NULL;
+            return s;
+        });
+
         /* Trigger some context functions */
         app.addServerName("", {});
         app.removeServerName("");
@@ -59,6 +86,9 @@ void test() {
         app.getNativeHandle();
 
         app.run();
+
+        /* After done we also free the client context */
+        us_socket_context_free(0, client_context);
     }
     uWS::Loop::get()->free();
 }
@@ -71,6 +101,11 @@ void teardown() {
 	if (!listen_socket) {
 		exit(-1);
 	}
+
+    if (client) {
+        us_socket_close(0, client, 0, 0);
+        client = NULL;
+    }
 
 	/* We might have open sockets still, and these will be error-closed by epoll_wait */
 	// us_socket_context_close - close all open sockets created with this socket context
