@@ -99,7 +99,7 @@ void teardown() {
 	/* If we are called twice there's a bug (it potentially could if
 	 * all open sockets cannot be error-closed in one epoll_wait call).
 	 * But we only allow 1k FDs and we have a buffer of 1024 from epoll_wait */
-	if (!listen_socket) {
+	if (!listen_socket && !client) {
 		exit(-1);
 	}
 
@@ -110,7 +110,8 @@ void teardown() {
 
 	/* We might have open sockets still, and these will be error-closed by epoll_wait */
 	// us_socket_context_close - close all open sockets created with this socket context
-
-	us_listen_socket_close(0, listen_socket);
-	listen_socket = NULL;
+    if (listen_socket) {
+        us_listen_socket_close(0, listen_socket);
+        listen_socket = NULL;
+    }
 }
