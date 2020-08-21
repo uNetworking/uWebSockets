@@ -56,9 +56,10 @@ void test() {
         /* Here we want to stress the connect feature, since nothing else stresses it */
         struct us_loop_t *loop = (struct us_loop_t *) uWS::Loop::get();
         struct us_socket_context_t *client_context = us_create_socket_context(0, loop, 0, {});
-        client = us_socket_context_connect(0, client_context, "hostname", 5000, NULL, 0, 0);
+        client = us_socket_context_connect(0, client_context, "hostname", 5000, "localhost", 0, 0);
 
         us_socket_context_on_open(0, client_context, [](struct us_socket_t *s, int is_client, char *ip, int ip_length) {
+            us_socket_flush(0, s);
             return s;
         });
 
