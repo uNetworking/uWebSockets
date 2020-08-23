@@ -9,9 +9,9 @@ OUT ?= .
 WRAPPED_SYSCALLS = -Wl,--wrap=getpeername,--wrap=sendto,--wrap=send,--wrap=recv,--wrap=read,--wrap=listen,--wrap=getaddrinfo,--wrap=freeaddrinfo,--wrap=setsockopt,--wrap=fcntl,--wrap=bind,--wrap=socket,--wrap=epoll_wait,--wrap=epoll_create1,--wrap=timerfd_settime,--wrap=close,--wrap=accept4,--wrap=eventfd,--wrap=timerfd_create,--wrap=epoll_ctl,--wrap=shutdown
 
 oss-fuzz:
-# Build zlib (it listens to CFLAGS, CC and CXX)
+# Build zlib (it listens to CFLAGS, CC and CXX) - we need our fork to pass MemorySanitizer
 	rm -rf zlib
-	git clone https://github.com/madler/zlib
+	git clone https://github.com/alexhultman/zlib
 	cd zlib && ./configure && make
 # Copy dictionaries
 	cp *.dict $(OUT)
