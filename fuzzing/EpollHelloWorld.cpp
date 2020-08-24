@@ -33,6 +33,7 @@ void test() {
                 /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
                 ws->getNativeHandle();
                 ws->getRemoteAddressAsText();
+                us_poll_ext((struct us_poll_t *) ws);
             },
             .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
                 ws->send(message, opCode, true);
@@ -41,7 +42,10 @@ void test() {
                 /* Check ws->getBufferedAmount() here */
             },
             .ping = [](auto *ws) {
-                /* Not implemented yet */
+                /* We use this to trigger the async/wakeup feature */
+		uWS::Loop::get()->defer([]() {
+		    /* Do nothing */
+                });
             },
             .pong = [](auto *ws) {
                 /* Not implemented yet */
@@ -55,6 +59,8 @@ void test() {
 
         /* Here we want to stress the connect feature, since nothing else stresses it */
         struct us_loop_t *loop = (struct us_loop_t *) uWS::Loop::get();
+        /* This function is stupid */
+        us_loop_iteration_number(loop);
         struct us_socket_context_t *client_context = us_create_socket_context(0, loop, 0, {});
         client = us_socket_context_connect(0, client_context, "hostname", 5000, "localhost", 0, 0);
 
