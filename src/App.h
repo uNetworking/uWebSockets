@@ -53,14 +53,17 @@ public:
 
     TemplatedApp &&missingServerName(fu2::unique_function<void(const char *hostname)> handler) {
 
-        httpContext->getSocketContextData()->missingServerNameHandler = std::move(handler);
+        if (!constructorFailed()) {
+            httpContext->getSocketContextData()->missingServerNameHandler = std::move(handler);
 
-        us_socket_context_on_server_name(SSL, (struct us_socket_context_t *) httpContext, [](struct us_socket_context_t *context, const char *hostname) {
+            us_socket_context_on_server_name(SSL, (struct us_socket_context_t *) httpContext, [](struct us_socket_context_t *context, const char *hostname) {
 
-            /* This is the only requirements of being friends with HttpContextData */
-            HttpContext<SSL> *httpContext = (HttpContext<SSL> *) context;
-            httpContext->getSocketContextData()->missingServerNameHandler(hostname);
-        });
+                /* This is the only requirements of being friends with HttpContextData */
+                HttpContext<SSL> *httpContext = (HttpContext<SSL> *) context;
+                httpContext->getSocketContextData()->missingServerNameHandler(hostname);
+            });
+        }
+
         return std::move(*this);
     }
 
