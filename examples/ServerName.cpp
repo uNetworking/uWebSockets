@@ -2,7 +2,7 @@
 
 /* Note that uWS::SSLApp({options}) is the same as uWS::App() when compiled without SSL support */
 
-struct us_listen_socket_t *listenSocket;
+struct us_listen_socket_t *globalListenSocket;
 
 int main() {
 	/* Overly simple hello world app (SNI) */
@@ -26,11 +26,11 @@ int main() {
 	}).get("/exit", [](auto *res, auto *req) {
              res->end("Shutting down!");
             /* We use this to check graceful closedown */
-            us_listen_socket_close(1, listenSocket);
+            us_listen_socket_close(1, globalListenSocket);
 	}).listen(3000, [](auto *listenSocket) {
 	    if (listenSocket) {
 			std::cout << "Listening on port " << 3000 << std::endl;
-			::listenSocket = listenSocket;
+			globalListenSocket = listenSocket;
 	    } else {
 			std::cout << "Failed to listen on port 3000" << std::endl;
 		}
