@@ -124,10 +124,6 @@ private:
 
     /* Should be getData and commit? */
     void publish(Topic *iterator, size_t start, size_t stop, std::string_view topic, std::pair<std::string_view, std::string_view> message) {
-        /* If we already have 64 triggered topics make sure to drain it here */
-        if (numTriggeredTopics == 64) {
-            drain();
-        }
 
         /* Iterate over all segments in given topic */
         for (; stop != std::string::npos; start = stop + 1) {
@@ -151,6 +147,11 @@ private:
 
                 /* Add this topic to triggered */
                 if (!iterator->terminatingWildcardChild->triggered) {
+                    /* If we already have 64 triggered topics make sure to drain it here */
+                    if (numTriggeredTopics == 64) {
+                        drain();
+                    }
+
                     triggeredTopics[numTriggeredTopics++] = iterator->terminatingWildcardChild;
                     iterator->terminatingWildcardChild->triggered = true;
                 }
@@ -175,6 +176,11 @@ private:
 
         /* Add this topic to triggered */
         if (!iterator->triggered) {
+            /* If we already have 64 triggered topics make sure to drain it here */
+            if (numTriggeredTopics == 64) {
+                drain();
+            }
+
             triggeredTopics[numTriggeredTopics++] = iterator;
             iterator->triggered = true;
         }
