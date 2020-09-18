@@ -164,6 +164,11 @@ public:
     void integrate() {
         us_loop_integrate((us_loop_t *) this);
     }
+
+    /* Dynamically change this */
+    void setSilent(bool silent) {
+        ((LoopData *) us_loop_ext((us_loop_t *) this))->noMark = silent;
+    }
 };
 
 /* Can be called from any thread to run the thread local loop */

@@ -53,6 +53,9 @@ public:
         delete [] corkBuffer;
     }
 
+    /* Be silent */
+    bool noMark = false;
+
     /* Good 16k for SSL perf. */
     static const int CORK_BUFFER_SIZE = 16 * 1024;
 
