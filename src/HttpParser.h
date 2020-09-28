@@ -29,6 +29,7 @@
 
 #include "BloomFilter.h"
 #include "ProxyParser.h"
+#include "QueryParser.h"
 
 namespace uWS {
 
@@ -108,6 +109,7 @@ public:
         return std::string_view(headers->key.data(), headers->key.length());
     }
 
+    /* Returns the raw querystring as a whole, still encoded */
     std::string_view getQuery() {
         if (querySeparator < (int) headers->value.length()) {
             /* Strip the initial ? */
@@ -115,6 +117,14 @@ public:
         } else {
             return std::string_view(nullptr, 0);
         }
+    }
+
+    /* Finds and decodes the URI component. */
+    std::string_view getQuery(std::string_view key) {
+        /* Raw querystring including initial '?' sign */
+        std::string_view queryString = std::string_view(headers->value.data() + querySeparator, headers->value.length() - querySeparator);
+
+        return getDecodedQueryValue(key, queryString);
     }
 
     void setParameters(std::pair<int, std::string_view *> parameters) {
