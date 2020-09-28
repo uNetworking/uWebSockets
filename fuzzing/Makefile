@@ -22,6 +22,7 @@ oss-fuzz:
 	# Link against object files
 	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O2 -DUWS_NO_ZLIB -I../src -I../uSockets/src EpollHelloWorld.cpp -o $(OUT)/EpollHelloWorld $(LIB_FUZZING_ENGINE) *.o
 # "Unit tests"
+	$(CXX) $(CXXFLAGS) -std=c++17 -O3 QueryParser.cpp -o $(OUT)/QueryParser $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 WebSocket.cpp -o $(OUT)/WebSocket $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Http.cpp -o $(OUT)/Http $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -DUWS_WITH_PROXY -std=c++17 -O3 Http.cpp -o $(OUT)/HttpWithProxy $(LIB_FUZZING_ENGINE)
