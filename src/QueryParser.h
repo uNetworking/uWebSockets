@@ -17,6 +17,9 @@
 
 /* This module implements URI query parsing and retrieval of value given key */
 
+#ifndef UWS_QUERYPARSER_H
+#define UWS_QUERYPARSER_H
+
 #include <string_view>
 
 namespace uWS {
@@ -65,17 +68,19 @@ namespace uWS {
                                     }
 
                                     /* Two bytes hex */
-                                    char hex1 = in[i + 1] - '0';
+                                    int hex1 = in[i + 1] - '0';
                                     if (hex1 > 9) {
+                                        hex1 &= 223;
                                         hex1 -= 7;
                                     }
 
-                                    char hex2 = in[i + 2] - '0';
+                                    int hex2 = in[i + 2] - '0';
                                     if (hex2 > 9) {
+                                        hex2 &= 223;
                                         hex2 -= 7;
                                     }
 
-                                    in[out] = hex1 * 16 + hex2;
+                                    *((unsigned char *) &in[out]) = (unsigned char) (hex1 * 16 + hex2);
                                     i += 2;
                                 } else {
                                     /* Is this even a rule? */
@@ -111,3 +116,5 @@ namespace uWS {
     }
 
 }
+
+#endif
