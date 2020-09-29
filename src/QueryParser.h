@@ -25,7 +25,7 @@
 namespace uWS {
 
     /* Takes raw query including initial '?' sign. Will inplace decode, so input will mutate */
-    std::string_view getDecodedQueryValue(std::string_view key, std::string_view rawQuery) {
+    static inline std::string_view getDecodedQueryValue(std::string_view key, std::string_view rawQuery) {
 
         /* Can't have a value without a key */
         if (!key.length()) {
