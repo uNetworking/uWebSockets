@@ -44,7 +44,7 @@ namespace uWS {
         MultipartParser(std::string_view contentType) {
 
             /* We expect the form "multipart/something;somethingboundary=something" */
-            if (!contentType.starts_with("multipart/")) {
+            if (contentType.length() < 10 || contentType.substr(0, 10) != "multipart/") {
                 return;
             }
 
@@ -108,6 +108,14 @@ namespace uWS {
             std::string_view part = remainingBody.substr(0, nextEndBoundary);
             remainingBody.remove_prefix(nextEndBoundary + prependedBoundary.length());
 
+            /* Also strip rn before and rn after the part */
+            if (part.length() < 4) {
+                /* Cannot strip */
+                return {};
+            }
+            part.remove_prefix(2);
+            part.remove_suffix(2);
+
             /* We are allowed to post pad like this because we know the boundary is at least 2 bytes */
             /* This makes parsing a second pass invalid, so you can only iterate over parts once */
             memset((char *) part.data() + part.length(), '\r', 1);
@@ -119,15 +127,6 @@ namespace uWS {
                 /* This is an invalid part */
                 return {};
             }
-
-            /* This is to be done by the user, not the parser */
-            /*for (int i = 0; i < MAX_HEADERS; i++) {
-                if (headers[i].first.length()) {
-                    std::cout << "<" << headers[i].first << "> = <" << headers[i].second << ">" << std::endl;
-                } else {
-                    break;
-                }
-            }*/
 
             /* Strip away the headers from the part body data */
             part.remove_prefix(consumed);
