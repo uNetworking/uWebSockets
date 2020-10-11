@@ -64,7 +64,10 @@ namespace uWS {
             }
 
             if (op[0] != ';') {
-                return {key, getToken()};
+                auto value = getToken();
+                /* Strip ; or if at end, nothing */
+                getToken();
+                return {key, value};
             }
 
             return {key, ""};
@@ -91,18 +94,33 @@ namespace uWS {
                     remainingLine.remove_prefix(1);
                     return op;
                 } else {
-                    /* This part is not entirely correct */
-
-                    /* Read the whole alpha word */
-                    std::string_view token = remainingLine;
-
-                    int tokenLength = 0;
-                    while (remainingLine.length() && remainingLine[0] != ';' && remainingLine[0] != '=' && !isspace(remainingLine[0])) {
+                    /* Are we at a quoted string? */
+                    if (remainingLine[0] == '\"') {
+                        /* Remove first quote and start counting */
                         remainingLine.remove_prefix(1);
-                        tokenLength++;
-                    }
+                        auto quote = remainingLine;
+                        int quoteLength = 0;
 
-                    return token.substr(0, tokenLength);
+                        /* Read anything until other double quote appears */
+                        while (remainingLine.length() && remainingLine[0] != '\"') {
+                            remainingLine.remove_prefix(1);
+                            quoteLength++;
+                        }
+
+                        remainingLine.remove_prefix(1);
+                        return quote.substr(0, quoteLength);
+                    } else {
+                        /* Read anything until ; = space or end */
+                        std::string_view token = remainingLine;
+
+                        int tokenLength = 0;
+                        while (remainingLine.length() && remainingLine[0] != ';' && remainingLine[0] != '=' && !isspace(remainingLine[0])) {
+                            remainingLine.remove_prefix(1);
+                            tokenLength++;
+                        }
+
+                        return token.substr(0, tokenLength);
+                    }
                 }
             }
 
