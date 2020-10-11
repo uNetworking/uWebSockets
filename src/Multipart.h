@@ -26,8 +26,90 @@
 #include <string_view>
 #include <cstring>
 #include <utility>
+#include <cctype>
 
 namespace uWS {
+
+    /* This one could possibly be shared with ExtensionsParser to some degree */
+    struct ParameterParser {
+
+        /* Takes the line, commonly given as content-disposition header in the multipart */
+        ParameterParser(std::string_view line) {
+            remainingLine = line;
+        }
+
+        /* Common parameter */
+        std::string_view getName() {
+            return name;
+        }
+
+        /* Common parameter */
+        std::string_view getFilename() {
+            return filename;
+        }
+
+        /* Parses common values */
+        void parseCommonValues() {
+
+        }
+
+        /* Returns next key/value where value can simply be empty.
+         * If key (first) is empty then we are at the end */
+        std::pair<std::string_view, std::string_view> getKeyValue() {
+            auto key = getToken();
+            auto op = getToken();
+
+            if (!op.length()) {
+                return {key, ""};
+            }
+
+            if (op[0] != ';') {
+                return {key, getToken()};
+            }
+
+            return {key, ""};
+        }
+
+    private:
+        std::string_view remainingLine;
+        std::string_view filename, name;
+
+        /* Consumes a token from the line. Will "unquote" strings */
+        std::string_view getToken() {
+            /* Strip whitespace */
+            while (remainingLine.length() && isspace(remainingLine[0])) {
+                remainingLine.remove_prefix(1);
+            }
+
+            if (!remainingLine.length()) {
+                /* All we had was space */
+                return {};
+            } else {
+                /* Are we at an operator? */
+                if (remainingLine[0] == ';' || remainingLine[0] == '=') {
+                    auto op = remainingLine.substr(0, 1);
+                    remainingLine.remove_prefix(1);
+                    return op;
+                } else {
+                    /* This part is not entirely correct */
+
+                    /* Read the whole alpha word */
+                    std::string_view token = remainingLine;
+
+                    int tokenLength = 0;
+                    while (remainingLine.length() && remainingLine[0] != ';' && remainingLine[0] != '=' && !isspace(remainingLine[0])) {
+                        remainingLine.remove_prefix(1);
+                        tokenLength++;
+                    }
+
+                    return token.substr(0, tokenLength);
+                }
+            }
+
+            /* Nothing */
+            return "";
+        }
+    };
 
     struct MultipartParser {
 
