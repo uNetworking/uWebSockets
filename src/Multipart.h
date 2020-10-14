@@ -24,6 +24,7 @@
 #include "MessageParser.h"
 
 #include <string_view>
+#include <optional>
 #include <cstring>
 #include <utility>
 #include <cctype>
@@ -178,20 +179,20 @@ namespace uWS {
             remainingBody = body;
         }
 
-        /* Parse out the next part's data, filling the headers. Returns empty part on end or error */
-        std::string_view getNextPart(std::pair<std::string_view, std::string_view> *headers) {
+        /* Parse out the next part's data, filling the headers. Returns nullopt on end or error. */
+        std::optional<std::string_view> getNextPart(std::pair<std::string_view, std::string_view> *headers) {
 
             /* The remaining two hyphens should be shorter than the boundary */
             if (remainingBody.length() < prependedBoundary.length()) {
                 /* We are done now */
-                return {};
+                return std::nullopt;
             }
 
             if (first) {
                 auto nextBoundary = remainingBody.find(prependedBoundary);
                 if (nextBoundary == std::string_view::npos) {
                     /* Cannot parse */
-                    return {};
+                    return std::nullopt;
                 }
 
                 /* Toss away boundary and anything before it */
@@ -202,7 +203,7 @@ namespace uWS {
             auto nextEndBoundary = remainingBody.find(prependedBoundary);
             if (nextEndBoundary == std::string_view::npos) {
                 /* Cannot parse (or simply done) */
-                return {};
+                return std::nullopt;
             }
 
             std::string_view part = remainingBody.substr(0, nextEndBoundary);
@@ -211,7 +212,7 @@ namespace uWS {
             /* Also strip rn before and rn after the part */
             if (part.length() < 4) {
                 /* Cannot strip */
-                return {};
+                return std::nullopt;
             }
             part.remove_prefix(2);
             part.remove_suffix(2);
@@ -225,7 +226,7 @@ namespace uWS {
 
             if (!consumed) {
                 /* This is an invalid part */
-                return {};
+                return std::nullopt;
             }
 
             /* Strip away the headers from the part body data */
