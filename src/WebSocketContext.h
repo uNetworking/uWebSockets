@@ -72,13 +72,13 @@ private:
                         webSocketData->compressionStatus = WebSocketData::CompressionStatus::ENABLED;
 
                         LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(SSL, us_socket_context(SSL, (us_socket_t *) s)));
-                        auto [inflatedFrame, valid] = loopData->inflationStream->inflate(loopData->zlibContext, {data, length}, webSocketContextData->maxPayloadLength);
-                        if (!valid) {
+                        auto inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {data, length}, webSocketContextData->maxPayloadLength);
+                        if (!inflatedFrame.has_value()) {
                             forceClose(webSocketState, s, ERR_TOO_BIG_MESSAGE_INFLATION);
                             return true;
                         } else {
-                            data = (char *) inflatedFrame.data();
-                            length = inflatedFrame.length();
+                            data = (char *) inflatedFrame->data();
+                            length = inflatedFrame->length();
                         }
                 }
 
@@ -124,13 +124,13 @@ private:
                                 )
                             );
 
-                            auto [inflatedFrame, valid] = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4}, webSocketContextData->maxPayloadLength);
-                            if (!valid) {
+                            auto inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4}, webSocketContextData->maxPayloadLength);
+                            if (!inflatedFrame.has_value()) {
                                 forceClose(webSocketState, s, ERR_TOO_BIG_MESSAGE_INFLATION);
                                 return true;
                             } else {
-                                data = (char *) inflatedFrame.data();
-                                length = inflatedFrame.length();
+                                data = (char *) inflatedFrame->data();
+                                length = inflatedFrame->length();
                             }
 
 
