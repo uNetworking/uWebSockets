@@ -79,4 +79,4 @@ See µSockets for an up-to-date list of flags and a more detailed explanation.
 ### :handshake: Permissively licensed
 Intellectual property, all rights reserved.
 
-Apache License 2.0 is a permissive license with few limitations. Make sure you properly understand the concept of licenses and how they relate to copyright & trademark laws. If you're uncertain about your permissions, please ask before assuming.
+Apache License 2.0 is a permissive license with few limitations. Make sure you properly understand the concept of licenses and how they relate to copyright & trademark laws. If you're uncertain about your permissions, please ask before assuming. Source code tagged as per Appendix is licensed as such, remainder remains unlicensed. You're always free to create identical copies.
