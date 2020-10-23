@@ -1,21 +1,30 @@
-# µWebSockets v0.17 user manual
+# µWebSockets v18 user manual
 
 For a list of frequently asked questions you may filter the GitHub issue tracker by label FAQ. Please don't misuse the issue tracker as your personal Q&A.
 
 ## Motivation and goals
-µWebSockets is a simple to use yet thoroughly optimized implementation of HTTP and WebSockets.
-It comes with built-in pub/sub support, HTTP routing, TLS 1.3, IPv6, permessage-deflate and is battle tested as one of the most popular implementations, reaching many end-users daily.
-Unlike other "pub/sub brokers", µWS does not assume or push any particular protocol but only operates over standard WebSockets.
 
-The implementation is header-only C++17, cross-platform and compiles down to a tiny binary of a handful kilobytes.
+µWebSockets is a simple to use yet thoroughly optimized, standards compliant and secure implementation of WebSockets (and HTTP).
+It comes with built-in pub/sub support, URL routing, TLS 1.3, SNI, IPv6, permessage-deflate and is battle tested as one of the most popular implementations, reaching many millions of end-users daily. It's currently juggling billions of USD in many popular Bitcoin exchanges, every day with outstanding real-world performance.
+
+### Standards compliant
+
+Unlike other "pub/sub brokers", µWS does not assume or push any particular application protocol but only operates over raw, standard WebSockets. You need nothing but a standards compliant web browser and a handful of standards compliant JavaScript to communicate with it. No particular client library is needed or enforced - this unlike inadequate solutions like Socket.IO where you end up locked to a set of proprietary non-standard protocols with horrible performance.
+
+### Performant
+The implementation is header-only C++17 (but examples use C++20 features for brevity and elegance!), cross-platform and compiles down to a tiny binary of a handful kilobytes.
 It depends on µSockets, which is a standard C project for Linux, macOS & Windows.
 
-Performance wise you can expect to outperform, or equal, just about anything similar out there, that's the fundamental goal of the project.
-I can show certain cases where µWS with SSL significantly outperforms Golang servers running non-SSL. You get the SSL for free in a sense, well, in this particular case at least.
+Performance wise you can expect to outperform, or equal, just about anything similar out there, that's the fundamental goal of the project. I can show small-message cases where µWS **with SSL** significantly outperforms the fastest Golang servers running **non-SSL**. You get the SSL for free in a sense (shown to be true for messaging with up to 4 kB per message).
 
+We've [openly presented](https://medium.com/swlh/100k-secure-websockets-with-raspberry-pi-4-1ba5d2127a23) detailed cases where a single Raspberry Pi 4 can serve more than 100k very active TLS 1.3 WebSockets, simultaneously, with excellent stability. This is entirely impossible with the vast majority of alternative solutions. Most solutions cramp up and become unreliable at a tiny fraction of this load, on such a limited hardware.
+
+### Simple to use
 Another goal of the project is minimalism, simplicity and elegance.
 Design wise it follows an ExpressJS-like interface where you attach callbacks to different URL routes.
 This way you can easily build complete REST/WebSocket services in a few lines of code.
+
+Boilerplate logic like heartbeat timeouts, backpressure handling, ping/pong and other annoyances are handled efficiently and easily. You write business logic, the library handles the protocol(s).
 
 The project is async only and runs local to one thread. You scale it as individual threads much like Node.js scales as individual processes. That is, the implementation only sees a single thread and is not thread-safe. There are simple ways to do threading via async delegates though, if you really need to.
 
@@ -150,11 +159,11 @@ Similarly to for Http, methods such as ws.send(...) can cause backpressure. Make
 Inside of .drain event you should check ws.getBufferedAmount(), it might have drained, or even increased. Most likely drained but don't assume that it has, .drain event is only a hint that it has changed.
 
 #### Settings
-Compression (permessage-deflate) has three options, uWS::DISABLED, uWS::SHARED_COMPRESSOR and uWS::DEDICATED_COMPRESSOR. Disabled and shared options require no memory, while dedicated compressor requires somewhere close to 300kb per socket, a very significant cost.
+Compression (permessage-deflate) has three main modes; uWS::DISABLED, uWS::SHARED_COMPRESSOR and any of the uWS::DEDICATED_COMPRESSOR_xKB. Disabled and shared options require no memory, while dedicated compressor requires the amount of memory you selected. For instance, uWS::DEDICATED_COMPRESSOR_4KB adds an overhead of 4KB per WebSocket while uWS::DEDICATED_COMPRESSOR_256KB adds - you guessed it - 256KB!
 
-Compressing using shared means that every WebSocket message is an isolated compression stream, it does not have a sliding compression window, kept between multiple send calls.
+Compressing using shared means that every WebSocket message is an isolated compression stream, it does not have a sliding compression window, kept between multiple send calls like the dedicated variants do.
 
-Shared compression is my personal favorite, since it doesn't change memory usage while still provide decent compression, especially for larger messages.
+You probably want shared compressor if dealing with larger JSON messages, or 4kb dedicated compressor if dealing with smaller JSON messages and if doing binary messaging you probably want to disable it completely.
 
 * idleTimeout is roughly the amount of seconds that may pass between messages. Being idle for more than this, and the connection is severed. This means you should make your clients send small ping messages every now and then, to keep the connection alive. You can also make the server send ping messages but I would definitely put that labor on the client side.
 
