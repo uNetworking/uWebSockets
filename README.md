@@ -79,4 +79,4 @@ See µSockets for an up-to-date list of flags and a more detailed explanation.
 ### :handshake: Permissively licensed
 Intellectual property, all rights reserved.
 
-Where such explicit notice is given, source code is licensed Apache License 2.0 which is a permissive OSI-approved license with very few limitations. If you're uncertain about your permissions, please ask before assuming.
+Where such explicit notice is given, source code is licensed Apache License 2.0 which is a permissive OSI-approved license with very few limitations. Modified "forks" should be of nothing but licensed source code, and be made available under another product name. If you're uncertain about any of this, please ask before assuming.
