@@ -119,8 +119,12 @@ uWS::App().ws<PerSocketData>("/*", {
     .maxPayloadLength = 16 * 1024,
     .idleTimeout = 10,
     /* Handlers */
-    .open = [](auto *ws, auto *req) {
-        /* Here you can use req just like as for Http */
+    .upgrade = [](auto *res, auto *req, auto *context) {
+        /* You may read from req only here, and COPY whatever you need into your PerSocketData.
+         * See UpgradeSync and UpgradeAsync examples. */
+    },
+    .open = [](auto *ws) {
+
     },
     .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
         ws->send(message, opCode);

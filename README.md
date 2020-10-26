@@ -41,7 +41,7 @@ uWS::SSLApp({
 }).ws<UserData>("/*", {
 
     /* Just a few of the available handlers */
-    .open = [](auto *ws, auto *req) {
+    .open = [](auto *ws) {
         /* MQTT syntax */
         ws->subscribe("sensors/+/house");
     },
