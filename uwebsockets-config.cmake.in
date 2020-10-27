@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+# -- Edit here if you need any transitive packages (PUBLIC) existing
+# find_package(Threads REQUIRED)
+
+if (NOT TARGET "@PROJECT_NAME@")
+  include ( "${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@-targets.cmake" )
+endif()

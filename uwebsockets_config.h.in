@@ -1,0 +1,5 @@
+#define UWEBSOCKETS_VERSION_SHORT @uwebsockets_normalized_version@
+#define UWEBSOCKETS_NORMALIZED_VERSION @uwebsockets_normalized_version@
+
+#define UWEBSOCKETS_VERSION @uwebsockets_detailed_version@
+#define UWEBSOCKETS_DETAILED_VERSION @uwebsockets_detailed_version@
