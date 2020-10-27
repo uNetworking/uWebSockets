@@ -62,6 +62,14 @@ cmake --build .
 cmake --install .
 ```
 
+*Hint:*
+The generic cmake `--build` and `--install` calls may need a CMake version 3.15 or higher.
+Older versions (3.11+) can be used the usual way using the generated Makefile targets:
+```sh
+make
+make install
+```
+
 ## User manual
 
 ### uWS::App & uWS::SSLApp

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.11)
 
 project(uwebsockets)
 
@@ -20,11 +20,6 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules")
 # -- Set c/cxx standard
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
-
-# -- Threading
-set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads REQUIRED)
 
 # -- Compression
 find_package(ZLIB REQUIRED)
@@ -84,7 +79,7 @@ target_include_directories(${PROJECT_NAME}
     $<INSTALL_INTERFACE:include/uwebsockets>)
 
 target_link_libraries(${PROJECT_NAME}
-  PUBLIC
+  PRIVATE
     ${OPENSSL_LIBRARIES}
     ${LIBUV_LIBRARIES})
 
@@ -129,6 +124,12 @@ install(
 
 # -- Optional examples
 if(BUILD_EXAMPLES)
+  # -- Threading
+  set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+  set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+  find_package(Threads REQUIRED)
+
+  # -- Common definitions
   set(EXAMPLES_LIBS
     ${ZLIB_LIBRARIES} ${OPENSSL_LIBRARIES} ${LIBUV_LIBRARIES} uwebsockets)
 
@@ -143,7 +144,7 @@ if(BUILD_EXAMPLES)
     PRIVATE ${EXAMPLES_INCLUDES})
 
   target_link_libraries(uwebsockets-echoserver
-    PUBLIC ${EXAMPLES_LIBS})
+    PRIVATE ${EXAMPLES_LIBS})
 
   install(TARGETS uwebsockets-echoserver
     RUNTIME DESTINATION bin)
@@ -156,7 +157,7 @@ if(BUILD_EXAMPLES)
     PRIVATE ${EXAMPLES_INCLUDES})
 
   target_link_libraries(uwebsockets-echoserverthreaded
-    PUBLIC ${EXAMPLES_LIBS} Threads::Threads)
+    PRIVATE ${EXAMPLES_LIBS} Threads::Threads)
 
   install(TARGETS uwebsockets-echoserverthreaded
     RUNTIME DESTINATION bin)
@@ -169,7 +170,7 @@ if(BUILD_EXAMPLES)
     PRIVATE ${EXAMPLES_INCLUDES})
 
   target_link_libraries(uwebsockets-broadcastingechoserver
-    PUBLIC ${EXAMPLES_LIBS})
+    PRIVATE ${EXAMPLES_LIBS})
 
   install(TARGETS uwebsockets-broadcastingechoserver
     RUNTIME DESTINATION bin)
@@ -182,7 +183,7 @@ if(BUILD_EXAMPLES)
     PRIVATE ${EXAMPLES_INCLUDES})
 
   target_link_libraries(uwebsockets-helloworld
-    PUBLIC ${EXAMPLES_LIBS})
+    PRIVATE ${EXAMPLES_LIBS})
 
   install(TARGETS uwebsockets-helloworld
     RUNTIME DESTINATION bin)
@@ -195,7 +196,7 @@ if(BUILD_EXAMPLES)
     PRIVATE ${EXAMPLES_INCLUDES})
 
   target_link_libraries(uwebsockets-helloworldthreaded
-    PUBLIC ${EXAMPLES_LIBS} Threads::Threads)
+    PRIVATE ${EXAMPLES_LIBS} Threads::Threads)
 
   install(TARGETS uwebsockets-helloworldthreaded
     RUNTIME DESTINATION bin)
@@ -209,7 +210,7 @@ if(BUILD_EXAMPLES)
       PRIVATE ${EXAMPLES_INCLUDES})
 
     target_link_libraries(uwebsockets-httpserver
-      PUBLIC ${EXAMPLES_LIBS} Threads::Threads)
+      PRIVATE ${EXAMPLES_LIBS} Threads::Threads)
 
     install(TARGETS uwebsockets-httpserver
       RUNTIME DESTINATION bin)
@@ -223,7 +224,7 @@ if(BUILD_EXAMPLES)
     PRIVATE ${EXAMPLES_INCLUDES})
 
   target_link_libraries(uwebsockets-servername
-    PUBLIC ${EXAMPLES_LIBS})
+    PRIVATE ${EXAMPLES_LIBS})
 
   install(TARGETS uwebsockets-servername
     RUNTIME DESTINATION bin)
@@ -236,7 +237,7 @@ if(BUILD_EXAMPLES)
     PRIVATE ${EXAMPLES_INCLUDES})
 
   target_link_libraries(uwebsockets-upgradeasync
-    PUBLIC ${EXAMPLES_LIBS})
+    PRIVATE ${EXAMPLES_LIBS})
 
   install(TARGETS uwebsockets-upgradeasync
     RUNTIME DESTINATION bin)
@@ -249,7 +250,7 @@ if(BUILD_EXAMPLES)
     PRIVATE ${EXAMPLES_INCLUDES})
 
   target_link_libraries(uwebsockets-upgradesync
-    PUBLIC ${EXAMPLES_LIBS})
+    PRIVATE ${EXAMPLES_LIBS})
 
   install(TARGETS uwebsockets-upgradesync
     RUNTIME DESTINATION bin)
