@@ -57,7 +57,7 @@ public:
     using Super::close;
 
     /* Send or buffer a WebSocket frame, compressed or not. Returns false on increased user space backpressure. */
-    bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
+    bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compressed = false) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
@@ -67,6 +67,8 @@ public:
             return true;
         }
 
+        // TR_MOD: Don't compress inside this function. We will do it ourselves and pass in compressed data.
+#if 0
         /* Transform the message to compressed domain if requested */
         if (compress) {
             WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
@@ -84,6 +86,7 @@ public:
                 compress = false;
             }
         }
+#endif
 
         /* Check to see if we can cork for the user */
         bool automaticallyCorked = false;
@@ -95,7 +98,7 @@ public:
         /* Get size, alloate size, write if needed */
         size_t messageFrameSize = protocol::messageFrameSize(message.length());
         auto [sendBuffer, requiresWrite] = Super::getSendBuffer(messageFrameSize);
-        protocol::formatMessage<isServer>(sendBuffer, message.data(), message.length(), opCode, message.length(), compress);
+        protocol::formatMessage<isServer>(sendBuffer, message.data(), message.length(), opCode, message.length(), compressed);
         /* This is the slow path, when we couldn't cork for the user */
         if (requiresWrite) {
             auto[written, failed] = Super::write(sendBuffer, (int) messageFrameSize);
@@ -226,6 +229,12 @@ public:
         );
         /* Is the same as publishing per websocket context */
         webSocketContextData->publish(topic, message, opCode, compress);
+    }
+
+    /* TR_MOD: Allows us to do our own deflation if negotiated. */
+    bool isCompressionEnabled() {
+      WebSocketData *webSocketData = (WebSocketData *)Super::getAsyncSocketData();
+      return webSocketData->compressionStatus == WebSocketData::ENABLED;
     }
 };
 
