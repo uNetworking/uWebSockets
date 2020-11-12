@@ -153,9 +153,9 @@ static bool isValidUtf8(unsigned char *s, size_t length)
 }
 
 struct CloseFrame {
-    uint16_t code;
-    char *message;
-    size_t length;
+    uint16_t code = 0;
+    char *message = nullptr;
+    size_t length = 0;
 };
 
 static inline CloseFrame parseClosePayload(char *src, size_t length) {

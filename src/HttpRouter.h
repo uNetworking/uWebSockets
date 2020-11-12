@@ -58,9 +58,9 @@ private:
     /* The matching tree */
     struct Node {
         std::string name;
-        std::vector<std::unique_ptr<Node>> children;
-        std::vector<uint32_t> handlers;
-        bool isHighPriority;
+        std::vector<std::unique_ptr<Node>> children = {};
+        std::vector<uint32_t> handlers = {};
+        bool isHighPriority = 0;
     } root = {"rootNode"};
 
     /* Advance from parent to child, adding child if necessary */

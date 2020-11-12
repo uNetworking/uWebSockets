@@ -59,7 +59,7 @@ namespace uWS {
                         int out = 0;
 
                         /* Walk over all chars until end or null char, decoding in place */
-                        for (int i = 0; in[i] && i < statementValue.length(); i++) {
+                        for (size_t i = 0; in[i] && i < statementValue.length(); i++) {
                                 /* Only bother with '%' */
                                 if (in[i] == '%') {
                                     /* Do we have enough data for two bytes hex? */
@@ -96,7 +96,7 @@ namespace uWS {
                         }
 
                         /* If decoded string is shorter than original, put null char to stop next read */
-                        if (out < statementValue.length()) {
+                        if ((size_t)out < statementValue.length()) {
                             in[out] = 0;
                         }
 
