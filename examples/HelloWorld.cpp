@@ -1,8 +1,14 @@
 #include "App.h"
 
+/* Note that uWS::SSLApp({options}) is the same as uWS::App() when compiled without SSL support */
+
 int main() {
 	/* Overly simple hello world app */
-	uWS::App().get("/*", [](auto *res, auto *req) {
+	uWS::SSLApp({
+	  .key_file_name = "../misc/key.pem",
+	  .cert_file_name = "../misc/cert.pem",
+	  .passphrase = "1234"
+	}).get("/*", [](auto *res, auto *req) {
 	    res->end("Hello world!");
 	}).listen(3000, [](auto *token) {
 	    if (token) {

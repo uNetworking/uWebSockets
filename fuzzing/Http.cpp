@@ -10,6 +10,9 @@
 /* And the router */
 #include "../src/HttpRouter.h"
 
+/* Also ProxyParser */
+#include "../src/ProxyParser.h"
+
 struct StaticData {
 
     struct RouterData {
@@ -20,25 +23,49 @@ struct StaticData {
 
     StaticData() {
 
-        router.add("get", "/:hello/:hi", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+        router.add({"get"}, "/:hello/:hi", [](auto *h) mutable {
+            auto [paramsTop, params] = h->getParameters();
+
+            /* Something is horribly wrong */
+            if (paramsTop != 1 || !params[0].length() || !params[1].length()) {
+                exit(-1);
+            }
 
             /* This route did handle it */
             return true;
         });
 
-        router.add("post", "/:hello/:hi/*", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+        router.add({"post"}, "/:hello/:hi/*", [](auto *h) mutable {
+            auto [paramsTop, params] = h->getParameters();
+
+            /* Something is horribly wrong */
+            if (paramsTop != 1 || !params[0].length() || !params[1].length()) {
+                exit(-1);
+            }
 
             /* This route did handle it */
             return true;
         });
 
-        router.add("get", "/*", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+        router.add({"get"}, "/*", [](auto *h) mutable {
+            auto [paramsTop, params] = h->getParameters();
+
+            /* Something is horribly wrong */
+            if (paramsTop != -1) {
+                exit(-1);
+            }
 
             /* This route did not handle it */
             return false;
         });
 
-        router.add("get", "/hi", [](RouterData &user, std::pair<int, std::string_view *> params) mutable {
+        router.add({"get"}, "/hi", [](auto *h) mutable {
+            auto [paramsTop, params] = h->getParameters();
+
+            /* Something is horribly wrong */
+            if (paramsTop != -1) {
+                exit(-1);
+            }
 
             /* This route did handle it */
             return true;
@@ -52,8 +79,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     /* User data */
     void *user = (void *) 13;
 
+    /* If we are built with WITH_PROXY, pass a ProxyParser as reserved */
+    void *reserved = nullptr;
+#ifdef UWS_WITH_PROXY
+    uWS::ProxyParser pp;
+    reserved = (void *) &pp;
+#endif
+
     /* Iterate the padded fuzz as chunks */
-    makeChunked(makePadded(data, size), size, [&httpParser, user](const uint8_t *data, size_t size) {
+    makeChunked(makePadded(data, size), size, [&httpParser, user, reserved](const uint8_t *data, size_t size) {
         /* We need at least 1 byte post padding */
         if (size) {
             size--;
@@ -61,17 +95,22 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
             /* We might be given zero length chunks */
             return;
         }
-        
+
         /* Parse it */
-        httpParser.consumePostPadded((char *) data, size, user, [](void *s, uWS::HttpRequest *httpRequest) -> void * {
+        httpParser.consumePostPadded((char *) data, size, user, reserved, [reserved](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
             readBytes(httpRequest->getHeader(httpRequest->getUrl()));
             readBytes(httpRequest->getMethod());
             readBytes(httpRequest->getQuery());
 
+#ifdef UWS_WITH_PROXY
+            auto *pp = (uWS::ProxyParser *) reserved;
+            readBytes(pp->getSourceAddress());
+#endif
+
             /* Route the method and URL in two passes */
-            StaticData::RouterData routerData = {};
-            if (!staticData.router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData)) {
+            staticData.router.getUserData() = {};
+            if (!staticData.router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
                 /* It was not handled */
                 return nullptr;
             }

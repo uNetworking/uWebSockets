@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2020.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,8 +24,10 @@
 #include "HttpContextData.h"
 #include "HttpResponseData.h"
 #include "AsyncSocket.h"
+#include "WebSocketData.h"
 
 #include <string_view>
+#include <iostream>
 #include "f2/function2.hpp"
 
 namespace uWS {
@@ -34,6 +36,7 @@ template<bool> struct HttpResponse;
 template <bool SSL>
 struct HttpContext {
     template<bool> friend struct TemplatedApp;
+    template<bool> friend struct HttpResponse;
 private:
     HttpContext() = delete;
 
@@ -76,7 +79,7 @@ private:
         });
 
         /* Handle socket disconnections */
-        us_socket_context_on_close(SSL, getSocketContext(), [](us_socket_t *s) {
+        us_socket_context_on_close(SSL, getSocketContext(), [](us_socket_t *s, int code, void *reason) {
             /* Get socket ext */
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_socket_ext(SSL, s);
 
@@ -118,11 +121,19 @@ private:
             /* Cork this socket */
             ((AsyncSocket<SSL> *) s)->cork();
 
+            /* Mark that we are inside the parser now */
+            httpContextData->isParsingHttp = true;
+
             // clients need to know the cursor after http parse, not servers!
             // how far did we read then? we need to know to continue with websocket parsing data? or?
 
+            void *proxyParser = nullptr;
+#ifdef UWS_WITH_PROXY
+            proxyParser = &httpResponseData->proxyParser;
+#endif
+
             /* The return value is entirely up to us to interpret. The HttpParser only care for whether the returned value is DIFFERENT or not from passed user */
-            void *returnedSocket = httpResponseData->consumePostPadded(data, length, s, [httpContextData](void *s, uWS::HttpRequest *httpRequest) -> void * {
+            void *returnedSocket = httpResponseData->consumePostPadded(data, length, s, proxyParser, [httpContextData](void *s, uWS::HttpRequest *httpRequest) -> void * {
                 /* For every request we reset the timeout and hang until user makes action */
                 /* Warning: if we are in shutdown state, resetting the timer is a security issue! */
                 us_socket_timeout(SSL, (us_socket_t *) s, 0);
@@ -133,22 +144,19 @@ private:
 
                 /* Are we not ready for another request yet? Terminate the connection. */
                 if (httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) {
-                    us_socket_close(SSL, (us_socket_t *) s);
+                    us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
                 }
 
                 /* Mark pending request and emit it */
                 httpResponseData->state = HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
 
-                /* Route the method and URL in two passes */
-                typename HttpContextData<SSL>::RouterData routerData = {(HttpResponse<SSL> *) s, httpRequest};
-                if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl(), routerData)) {
-                    /* If first pass failed, we try and match by "any" method */
-                    if (!httpContextData->router.route("*", httpRequest->getUrl(), routerData)) {
-                        /* If second pass fail, we have to force close this socket as we have no handler for it */
-                        us_socket_close(SSL, (us_socket_t *) s);
-                        return nullptr;
-                    }
+                /* Route the method and URL */
+                httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
+                if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
+                    /* We have to force close this socket as we have no handler for it */
+                    us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
+                    return nullptr;
                 }
 
                 /* First of all we need to check if this socket was deleted due to upgrade */
@@ -186,9 +194,14 @@ private:
                 /* We always get an empty chunk even if there is no data */
                 if (httpResponseData->inStream) {
 
-                    /* Getting a chunk of data while having a data handler should reset timeout (todo: if last, short timeout, if not last, bigger timeout) */
-                    /* Really, we only need to reset timeout to the larger delay if we are not fin */
-                    us_socket_timeout(SSL, (struct us_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
+                    /* Todo: can this handle timeout for non-post as well? */
+                    if (fin) {
+                        /* If we just got the last chunk (or empty chunk), disable timeout */
+                        us_socket_timeout(SSL, (struct us_socket_t *) user, 0);
+                    } else {
+                        /* We still have some more data coming in later, so reset timeout */
+                        us_socket_timeout(SSL, (struct us_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
+                    }
 
                     /* We might respond in the handler, so do not change timeout after this */
                     httpResponseData->inStream(data, fin);
@@ -202,20 +215,30 @@ private:
                     if (us_socket_is_shut_down(SSL, (us_socket_t *) user)) {
                         return nullptr;
                     }
+
+                    /* If we were given the last data chunk, reset data handler to ensure following
+                     * requests on the same socket won't trigger any previously registered behavior */
+                    if (fin) {
+                        httpResponseData->inStream = nullptr;
+                    }
                 }
                 return user;
             }, [](void *user) {
                  /* Close any socket on HTTP errors */
-                us_socket_close(SSL, (us_socket_t *) user);
+                us_socket_close(SSL, (us_socket_t *) user, 0, nullptr);
                 return nullptr;
             });
 
-            // basically we need to uncork in all cases, except for nullptr
+            /* Mark that we are no longer parsing Http */
+            httpContextData->isParsingHttp = false;
+
+            /* We need to uncork in all cases, except for nullptr (closed socket, or upgraded socket) */
             if (returnedSocket != nullptr) {
                 /* Timeout on uncork failure */
                 auto [written, failed] = ((AsyncSocket<SSL> *) returnedSocket)->uncork();
                 if (failed) {
-                    // do we have the same timeout for websockets?
+                    /* All Http sockets timeout by this, and this behavior match the one in HttpResponse::cork */
+                    /* Warning: both HTTP_IDLE_TIMEOUT_S and HTTP_TIMEOUT_S are 10 seconds and both are used the same */
                     ((AsyncSocket<SSL> *) s)->timeout(HTTP_IDLE_TIMEOUT_S);
                 }
 
@@ -230,12 +253,24 @@ private:
                 /* Uncork here as well (note: what if we failed to uncork and we then pub/sub before we even upgraded?) */
                 auto [written, failed] = asyncSocket->uncork();
 
+                /* If we succeeded in uncorking, check if we have sent WebSocket FIN */
+                if (!failed) {
+                    WebSocketData *webSocketData = (WebSocketData *) asyncSocket->getAsyncSocketData();
+                    if (webSocketData->isShuttingDown) {
+                        /* In that case, also send TCP FIN (this is similar to what we have in ws drain handler) */
+                        asyncSocket->shutdown();
+                    }
+                }
+
                 /* Reset upgradedWebSocket before we return */
                 httpContextData->upgradedWebSocket = nullptr;
 
                 /* Return the new upgraded websocket */
                 return (us_socket_t *) asyncSocket;
             }
+
+            /* It is okay to uncork a closed socket and we need to */
+            ((AsyncSocket<SSL> *) s)->uncork();
 
             /* We cannot return nullptr to the underlying stack in any case */
             return s;
@@ -268,7 +303,7 @@ private:
             }
 
             /* Drain any socket buffer, this might empty our backpressure and thus finish the request */
-            auto [written, failed] = asyncSocket->write(nullptr, 0, true, 0);
+            /*auto [written, failed] = */asyncSocket->write(nullptr, 0, true, 0);
 
             /* Expect another writable event, or another request within the timeout */
             asyncSocket->timeout(HTTP_IDLE_TIMEOUT_S);
@@ -295,13 +330,6 @@ private:
         });
 
         return this;
-    }
-
-    /* Used by App in its WebSocket handler */
-    void upgradeToWebSocket(void *newSocket) {
-        HttpContextData<SSL> *httpContextData = getSocketContextData();
-
-        httpContextData->upgradedWebSocket = newSocket;
     }
 
 public:
@@ -335,12 +363,28 @@ public:
     }
 
     /* Register an HTTP route handler acording to URL pattern */
-    void onHttp(std::string method, std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    void onHttp(std::string method, std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler, bool upgrade = false) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
-        httpContextData->router.add(method, pattern, [handler = std::move(handler)](typename HttpContextData<SSL>::RouterData &user, std::pair<int, std::string_view *> params) mutable {
+        /* Todo: This is ugly, fix */
+        std::vector<std::string> methods;
+        if (method == "*") {
+            methods = httpContextData->router.methods;
+        } else {
+            methods = {method};
+        }
+
+        httpContextData->router.add(methods, pattern, [handler = std::move(handler)](auto *r) mutable {
+            auto user = r->getUserData();
             user.httpRequest->setYield(false);
-            user.httpRequest->setParameters(params);
+            user.httpRequest->setParameters(r->getParameters());
+
+            /* Middleware? Automatically respond to expectations */
+            std::string_view expect = user.httpRequest->getHeader("expect");
+            if (expect.length() && expect == "100-continue") {
+                user.httpResponse->writeContinue();
+            }
+
             handler(user.httpResponse, user.httpRequest);
 
             /* If any handler yielded, the router will keep looking for a suitable handler. */
@@ -348,7 +392,7 @@ public:
                 return false;
             }
             return true;
-        });
+        }, method == "*" ? httpContextData->router.LOW_PRIORITY : (upgrade ? httpContextData->router.HIGH_PRIORITY : httpContextData->router.MEDIUM_PRIORITY));
     }
 
     /* Listen to port using this HttpContext */

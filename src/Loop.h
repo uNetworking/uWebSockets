@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2020.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,26 +45,16 @@ private:
     static void preCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
-        if (loopData->preHandler) {
-            loopData->preHandler((Loop *) loop);
-        }
-
-        /* trying this one here */
-        for (auto &f : loopData->postHandlers) {
-            f((Loop *) loop);
+        for (auto &p : loopData->preHandlers) {
+            p.second((Loop *) loop);
         }
     }
 
     static void postCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
-        /* We should move over to using only these */
-        for (auto &f : loopData->postHandlers) {
-            f((Loop *) loop);
-        }
-
-        if (loopData->postHandler) {
-            loopData->postHandler((Loop *) loop);
+        for (auto &p : loopData->postHandlers) {
+            p.second((Loop *) loop);
         }
     }
 
@@ -90,25 +80,29 @@ private:
         Loop *loop = nullptr;
         bool cleanMe = false;
     };
-    
+
+    static LoopCleaner &getLazyLoop() {
+        static thread_local LoopCleaner lazyLoop;
+        return lazyLoop;
+    }
+
 public:
     /* Lazily initializes a per-thread loop and returns it.
      * Will automatically free all initialized loops at exit. */
     static Loop *get(void *existingNativeLoop = nullptr) {
-        static thread_local LoopCleaner lazyLoop;
-        if (!lazyLoop.loop) {
+        if (!getLazyLoop().loop) {
             /* If we are given a native loop pointer we pass that to uSockets and let it deal with it */
             if (existingNativeLoop) {
                 /* Todo: here we want to pass the pointer, not a boolean */
-                lazyLoop.loop = create(existingNativeLoop);
+                getLazyLoop().loop = create(existingNativeLoop);
                 /* We cannot register automatic free here, must be manually done */
             } else {
-                lazyLoop.loop = create(nullptr);
-                lazyLoop.cleanMe = true;
+                getLazyLoop().loop = create(nullptr);
+                getLazyLoop().cleanMe = true;
             }
         }
 
-        return lazyLoop.loop;
+        return getLazyLoop().loop;
     }
 
     /* Freeing the default loop should be done once */
@@ -117,26 +111,35 @@ public:
         loopData->~LoopData();
         /* uSockets will track whether this loop is owned by us or a borrowed alien loop */
         us_loop_free((us_loop_t *) this);
+
+        /* Reset lazyLoop */
+        getLazyLoop().loop = nullptr;
     }
 
-    /* We want to have multiple of these */
-    void addPostHandler(fu2::unique_function<void(Loop *)> &&handler) {
+    void addPostHandler(void *key, fu2::unique_function<void(Loop *)> &&handler) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
-        loopData->postHandlers.emplace_back(std::move(handler));
+        loopData->postHandlers.emplace(key, std::move(handler));
     }
 
-    /* Set postCb callback */
-    void setPostHandler(fu2::unique_function<void(Loop *)> &&handler) {
+    /* Bug: what if you remove a handler while iterating them? */
+    void removePostHandler(void *key) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
-        loopData->postHandler = std::move(handler);
+        loopData->postHandlers.erase(key);
     }
 
-    void setPreHandler(fu2::unique_function<void(Loop *)> &&handler) {
+    void addPreHandler(void *key, fu2::unique_function<void(Loop *)> &&handler) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
-        loopData->preHandler = std::move(handler);
+        loopData->preHandlers.emplace(key, std::move(handler));
+    }
+
+    /* Bug: what if you remove a handler while iterating them? */
+    void removePreHandler(void *key) {
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
+
+        loopData->preHandlers.erase(key);
     }
 
     /* Defer this callback on Loop's thread of execution */
@@ -160,6 +163,11 @@ public:
     /* Used to seamlessly integrate with third parties such as Node.js */
     void integrate() {
         us_loop_integrate((us_loop_t *) this);
+    }
+
+    /* Dynamically change this */
+    void setSilent(bool silent) {
+        ((LoopData *) us_loop_ext((us_loop_t *) this))->noMark = silent;
     }
 };
 

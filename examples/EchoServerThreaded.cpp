@@ -20,8 +20,9 @@ int main() {
                 .compression = uWS::SHARED_COMPRESSOR,
                 .maxPayloadLength = 16 * 1024,
                 .idleTimeout = 10,
+                .maxBackpressure = 1 * 1024 * 1024,
                 /* Handlers */
-                .open = [](auto *ws, auto *req) {
+                .open = [](auto *ws) {
 
                 },
                 .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {

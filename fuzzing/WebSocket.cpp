@@ -24,7 +24,7 @@ struct Impl {
         return true;
     }
 
-    static void forceClose(uWS::WebSocketState<true> *wState, void *s) {
+    static void forceClose(uWS::WebSocketState<true> *wState, void *s, std::string_view reason = {}) {
 
     }
 

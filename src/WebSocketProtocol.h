@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2020.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +21,16 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
+#include <string_view>
 
 namespace uWS {
+
+/* We should not overcomplicate these */
+const std::string_view ERR_TOO_BIG_MESSAGE("Received too big message");
+const std::string_view ERR_WEBSOCKET_TIMEOUT("WebSocket timed out from inactivity");
+const std::string_view ERR_INVALID_TEXT("Received invalid UTF-8");
+const std::string_view ERR_TOO_BIG_MESSAGE_INFLATION("Received too big message, or other inflation error");
+const std::string_view ERR_INVALID_CLOSE_PAYLOAD("Received invalid close payload");
 
 enum OpCode : unsigned char {
     TEXT = 1,
@@ -49,7 +57,7 @@ public:
     struct State {
         unsigned int wantsHead : 1;
         unsigned int spillLength : 4;
-        int opStack : 2; // -1, 0, 1
+        signed int opStack : 2; // -1, 0, 1
         unsigned int lastFin : 1;
 
         // 15 bytes
@@ -105,35 +113,40 @@ T cond_byte_swap(T value) {
 static bool isValidUtf8(unsigned char *s, size_t length)
 {
     for (unsigned char *e = s + length; s != e; ) {
-        if (s + 4 <= e && ((*(uint32_t *) s) & 0x80808080) == 0) {
-            s += 4;
-        } else {
-            while (!(*s & 0x80)) {
-                if (++s == e) {
-                    return true;
-                }
-            }
-
-            if ((s[0] & 0x60) == 0x40) {
-                if (s + 1 >= e || (s[1] & 0xc0) != 0x80 || (s[0] & 0xfe) == 0xc0) {
-                    return false;
-                }
-                s += 2;
-            } else if ((s[0] & 0xf0) == 0xe0) {
-                if (s + 2 >= e || (s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 ||
-                        (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || (s[0] == 0xed && (s[1] & 0xe0) == 0xa0)) {
-                    return false;
-                }
-                s += 3;
-            } else if ((s[0] & 0xf8) == 0xf0) {
-                if (s + 3 >= e || (s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 || (s[3] & 0xc0) != 0x80 ||
-                        (s[0] == 0xf0 && (s[1] & 0xf0) == 0x80) || (s[0] == 0xf4 && s[1] > 0x8f) || s[0] > 0xf4) {
-                    return false;
-                }
+        if (s + 4 <= e) {
+            uint32_t tmp;
+            memcpy(&tmp, s, 4);
+            if ((tmp & 0x80808080) == 0) {
                 s += 4;
-            } else {
+                continue;
+            }
+        }
+
+        while (!(*s & 0x80)) {
+            if (++s == e) {
+                return true;
+            }
+        }
+
+        if ((s[0] & 0x60) == 0x40) {
+            if (s + 1 >= e || (s[1] & 0xc0) != 0x80 || (s[0] & 0xfe) == 0xc0) {
                 return false;
             }
+            s += 2;
+        } else if ((s[0] & 0xf0) == 0xe0) {
+            if (s + 2 >= e || (s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 ||
+                    (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || (s[0] == 0xed && (s[1] & 0xe0) == 0xa0)) {
+                return false;
+            }
+            s += 3;
+        } else if ((s[0] & 0xf8) == 0xf0) {
+            if (s + 3 >= e || (s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 || (s[3] & 0xc0) != 0x80 ||
+                    (s[0] == 0xf0 && (s[1] & 0xf0) == 0x80) || (s[0] == 0xf4 && s[1] > 0x8f) || s[0] > 0xf4) {
+                return false;
+            }
+            s += 4;
+        } else {
+            return false;
         }
     }
     return true;
@@ -146,23 +159,29 @@ struct CloseFrame {
 };
 
 static inline CloseFrame parseClosePayload(char *src, size_t length) {
-    CloseFrame cf = {};
+    /* If we get no code or message, default to reporting 1005 no status code present */
+    CloseFrame cf = {1005};
     if (length >= 2) {
         memcpy(&cf.code, src, 2);
         cf = {cond_byte_swap<uint16_t>(cf.code), src + 2, length - 2};
         if (cf.code < 1000 || cf.code > 4999 || (cf.code > 1011 && cf.code < 4000) ||
             (cf.code >= 1004 && cf.code <= 1006) || !isValidUtf8((unsigned char *) cf.message, cf.length)) {
-            return {};
+            /* Even though we got a WebSocket close frame, it in itself is abnormal */
+            return {1006};
         }
     }
     return cf;
 }
 
 static inline size_t formatClosePayload(char *dst, uint16_t code, const char *message, size_t length) {
-    if (code) {
+    /* We could have more strict checks here, but never append code 0 or 1005 or 1006 */
+    if (code && code != 1005 && code != 1006) {
         code = cond_byte_swap<uint16_t>(code);
         memcpy(dst, &code, 2);
-        memcpy(dst + 2, message, length);
+        /* It is invalid to pass nullptr to memcpy, even though length is 0 */
+        if (message) {
+            memcpy(dst + 2, message, length);
+        }
         return length + 2;
     }
     return 0;
@@ -189,23 +208,23 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
     size_t headerLength;
     if (reportedLength < 126) {
         headerLength = 2;
-        dst[1] = reportedLength;
+        dst[1] = (char) reportedLength;
     } else if (reportedLength <= UINT16_MAX) {
         headerLength = 4;
         dst[1] = 126;
-        uint16_t tmp = cond_byte_swap<uint16_t>(reportedLength);
+        uint16_t tmp = cond_byte_swap<uint16_t>((uint16_t) reportedLength);
         memcpy(&dst[2], &tmp, sizeof(uint16_t));
     } else {
         headerLength = 10;
         dst[1] = 127;
-        uint64_t tmp = cond_byte_swap<uint64_t>(reportedLength);
+        uint64_t tmp = cond_byte_swap<uint64_t>((uint64_t) reportedLength);
         memcpy(&dst[2], &tmp, sizeof(uint64_t));
     }
 
     int flags = 0;
-    dst[0] = (flags & SND_NO_FIN ? 0 : 128) | (compressed ? SND_COMPRESSED : 0);
+    dst[0] = (char) ((flags & SND_NO_FIN ? 0 : 128) | (compressed ? SND_COMPRESSED : 0));
     if (!(flags & SND_CONTINUATION)) {
-        dst[0] |= opCode;
+        dst[0] |= (char) opCode;
     }
 
     char mask[4];
@@ -299,7 +318,7 @@ protected:
         wState->state.lastFin = isFin(src);
 
         if (Impl::refusePayloadLength(payLength, wState, user)) {
-            Impl::forceClose(wState, user);
+            Impl::forceClose(wState, user, ERR_TOO_BIG_MESSAGE);
             return true;
         }
 
@@ -320,7 +339,7 @@ protected:
             }
 
             src += payLength + MESSAGE_HEADER;
-            length -= payLength + MESSAGE_HEADER;
+            length -= (unsigned int) (payLength + MESSAGE_HEADER);
             wState->state.spillLength = 0;
             return false;
         } else {
@@ -419,7 +438,7 @@ public:
             }
             if (length) {
                 memcpy(wState->state.spill, src, length);
-                wState->state.spillLength = length;
+                wState->state.spillLength = length & 0xf;
             }
         } else if (consumeContinuation(src, length, wState, user)) {
             goto parseNext;

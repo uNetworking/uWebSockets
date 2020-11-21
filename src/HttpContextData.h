@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2020.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,8 +31,11 @@ template <bool SSL>
 struct alignas(16) HttpContextData {
     template <bool> friend struct HttpContext;
     template <bool> friend struct HttpResponse;
+    template <bool> friend struct TemplatedApp;
 private:
     std::vector<fu2::unique_function<void(HttpResponse<SSL> *, int)>> filterHandlers;
+
+    fu2::unique_function<void(const char *hostname)> missingServerNameHandler;
 
     struct RouterData {
         HttpResponse<SSL> *httpResponse;
@@ -41,6 +44,7 @@ private:
 
     HttpRouter<RouterData> router;
     void *upgradedWebSocket = nullptr;
+    bool isParsingHttp = false;
 };
 
 }

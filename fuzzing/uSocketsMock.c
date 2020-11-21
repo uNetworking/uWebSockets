@@ -13,6 +13,12 @@ struct us_loop_t {
 
     /* The list of closed sockets */
     struct us_socket_t *close_list;
+
+    /* Post and pre callbacks */
+    void (*pre_cb)(struct us_loop_t *loop);
+    void (*post_cb)(struct us_loop_t *loop);
+
+    void (*wakeup_cb)(struct us_loop_t *loop);
 };
 
 struct us_loop_t *us_create_loop(void *hint, void (*wakeup_cb)(struct us_loop_t *loop), void (*pre_cb)(struct us_loop_t *loop), void (*post_cb)(struct us_loop_t *loop), unsigned int ext_size) {
@@ -21,7 +27,16 @@ struct us_loop_t *us_create_loop(void *hint, void (*wakeup_cb)(struct us_loop_t 
     loop->listen_socket = 0;
     loop->close_list = 0;
 
+    loop->pre_cb = pre_cb;
+    loop->post_cb = post_cb;
+    loop->wakeup_cb = wakeup_cb;
+
     return loop;
+}
+
+void us_wakeup_loop(struct us_loop_t *loop) {
+    /* We do this immediately as of now, could be delayed to next iteration */
+    loop->wakeup_cb(loop);
 }
 
 void us_loop_free(struct us_loop_t *loop) {
@@ -40,7 +55,7 @@ struct us_socket_context_t {
     alignas(16) struct us_loop_t *loop;
 
     struct us_socket_t *(*on_open)(struct us_socket_t *s, int is_client, char *ip, int ip_length);
-    struct us_socket_t *(*on_close)(struct us_socket_t *s);
+    struct us_socket_t *(*on_close)(struct us_socket_t *s, int code, void *reason);
     struct us_socket_t *(*on_data)(struct us_socket_t *s, char *data, int length);
     struct us_socket_t *(*on_writable)(struct us_socket_t *s);
     struct us_socket_t *(*on_timeout)(struct us_socket_t *s);
@@ -66,7 +81,7 @@ void us_socket_context_on_open(int ssl, struct us_socket_context_t *context, str
     context->on_open = on_open;
 }
 
-void us_socket_context_on_close(int ssl, struct us_socket_context_t *context, struct us_socket_t *(*on_close)(struct us_socket_t *s)) {
+void us_socket_context_on_close(int ssl, struct us_socket_context_t *context, struct us_socket_t *(*on_close)(struct us_socket_t *s, int code, void *reason)) {
     context->on_close = on_close;
 }
 
@@ -120,7 +135,7 @@ struct us_socket_t {
     //struct us_socket_t *next;
 };
 
-struct us_socket_t *us_socket_context_connect(int ssl, struct us_socket_context_t *context, const char *host, int port, int options, int socket_ext_size) {
+struct us_socket_t *us_socket_context_connect(int ssl, struct us_socket_context_t *context, const char *host, int port, const char *interface, int options, int socket_ext_size) {
     //printf("us_socket_context_connect\n");
 
     return 0;
@@ -190,11 +205,11 @@ int us_socket_is_closed(int ssl, struct us_socket_t *s) {
     return s->closed;
 }
 
-struct us_socket_t *us_socket_close(int ssl, struct us_socket_t *s) {
+struct us_socket_t *us_socket_close(int ssl, struct us_socket_t *s, int code, void *reason) {
 
     if (!us_socket_is_closed(0, s)) {
         /* Emit close event */
-        s = s->context->on_close(s);
+        s = s->context->on_close(s, code, reason);
     }
 
     /* We are now closed */
@@ -214,7 +229,6 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
 
     /* We are unwound so let's free all closed polls here */
 
-
     /* We have one listen socket */
     int socket_ext_size = loop->listen_socket->socket_ext_size;
 
@@ -226,13 +240,18 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
     s->wants_writable = 0;
 
     /* Emit open event */
+    loop->pre_cb(loop);
     s = s->context->on_open(s, 0, 0, 0);
+    loop->post_cb(loop);
+
     if (!us_socket_is_closed(0, s) && !us_socket_is_shut_down(0, s)) {
 
         /* Trigger writable event if we want it */
         if (s->wants_writable) {
             s->wants_writable = 0;
+            loop->pre_cb(loop);
             s = s->context->on_writable(s);
+            loop->post_cb(loop);
             /* Check if we closed inside of writable */
             if (us_socket_is_closed(0, s) || us_socket_is_shut_down(0, s)) {
                 goto done;
@@ -249,13 +268,15 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
             /* Copy the data chunk to a properly padded buffer */
             static char *paddedBuffer;
             if (!paddedBuffer) {
-                paddedBuffer = malloc(128 + 255 + 128);
+                paddedBuffer = (char *) malloc(128 + 255 + 128);
                 memset(paddedBuffer, 0, 128 + 255 + 128);
             }
             memcpy(paddedBuffer + 128, data + i, chunkLength);
 
             /* Emit a bunch of data events here */
+            loop->pre_cb(loop);
             s = s->context->on_data(s, paddedBuffer + 128, chunkLength);
+            loop->post_cb(loop);
             if (us_socket_is_closed(0, s) || us_socket_is_shut_down(0, s)) {
                 break;
             }
@@ -263,7 +284,9 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
             /* Also trigger it here */
             if (s->wants_writable) {
                 s->wants_writable = 0;
+                loop->pre_cb(loop);
                 s = s->context->on_writable(s);
+                loop->post_cb(loop);
                 /* Check if we closed inside of writable */
                 if (us_socket_is_closed(0, s) || us_socket_is_shut_down(0, s)) {
                     goto done;
@@ -277,7 +300,9 @@ void us_loop_read_mocked_data(struct us_loop_t *loop, char *data, unsigned int s
 done:
     if (!us_socket_is_closed(0, s)) {
         /* Emit close event */
-        s = s->context->on_close(s);
+        loop->pre_cb(loop);
+        s = s->context->on_close(s, 0, NULL);
+        loop->post_cb(loop);
     }
 
     /* Free the socket */

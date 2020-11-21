@@ -63,7 +63,7 @@ void next_connection(struct us_socket_t *s) {
         char buf[16];
         sprintf(buf, "127.0.0.%d", address);
 
-        us_socket_context_connect(SSL, us_socket_context(SSL, s), buf, port, 0, sizeof(struct http_socket));
+        us_socket_context_connect(SSL, us_socket_context(SSL, s), buf, port, NULL, 0, sizeof(struct http_socket));
     }
 }
 
@@ -93,7 +93,7 @@ struct us_socket_t *on_http_socket_writable(struct us_socket_t *s) {
     return s;
 }
 
-struct us_socket_t *on_http_socket_close(struct us_socket_t *s) {
+struct us_socket_t *on_http_socket_close(struct us_socket_t *s, int code, void *reason) {
 
     closed_connections++;
     if (closed_connections % 1000 == 0) {
@@ -104,7 +104,7 @@ struct us_socket_t *on_http_socket_close(struct us_socket_t *s) {
 }
 
 struct us_socket_t *on_http_socket_end(struct us_socket_t *s) {
-    return us_socket_close(SSL, s);
+    return us_socket_close(SSL, s, 0, NULL);
 }
 
 // should never get a response!
@@ -178,7 +178,7 @@ int main(int argc, char **argv) {
 
     /* Start making HTTP connections */
     for (int i = 0; i < BATCH_CONNECT; i++) {
-        us_socket_context_connect(SSL, http_context, host, port, 0, sizeof(struct http_socket));
+        us_socket_context_connect(SSL, http_context, host, port, NULL, 0, sizeof(struct http_socket));
     }
 
     us_loop_run(loop);

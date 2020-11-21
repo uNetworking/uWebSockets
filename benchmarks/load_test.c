@@ -48,7 +48,7 @@ void on_post(struct us_loop_t *loop) {
 void next_connection(struct us_socket_t *s) {
     /* We could wait with this until properly upgraded */
     if (--connections) {
-        us_socket_context_connect(SSL, us_socket_context(SSL, s), host, port, 0, sizeof(struct http_socket));
+        us_socket_context_connect(SSL, us_socket_context(SSL, s), host, port, NULL, 0, sizeof(struct http_socket));
     } else {
         printf("Running benchmark now...\n");
 
@@ -75,7 +75,7 @@ struct us_socket_t *on_http_socket_writable(struct us_socket_t *s) {
     return s;
 }
 
-struct us_socket_t *on_http_socket_close(struct us_socket_t *s) {
+struct us_socket_t *on_http_socket_close(struct us_socket_t *s, int code, void *reason) {
 
     printf("Closed!\n");
 
@@ -83,7 +83,7 @@ struct us_socket_t *on_http_socket_close(struct us_socket_t *s) {
 }
 
 struct us_socket_t *on_http_socket_end(struct us_socket_t *s) {
-    return us_socket_close(SSL, s);
+    return us_socket_close(SSL, s, 0, NULL);
 }
 
 struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int length) {
@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
     us_socket_context_on_end(SSL, http_context, on_http_socket_end);
 
     /* Start making HTTP connections */
-    us_socket_context_connect(SSL, http_context, host, port, 0, sizeof(struct http_socket));
+    us_socket_context_connect(SSL, http_context, host, port, NULL, 0, sizeof(struct http_socket));
 
     us_loop_run(loop);
 }

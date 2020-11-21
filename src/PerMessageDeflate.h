@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2020.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,8 +20,34 @@
 #ifndef UWS_PERMESSAGEDEFLATE_H
 #define UWS_PERMESSAGEDEFLATE_H
 
+/* We always define these options no matter if ZLIB is enabled or not */
+namespace uWS {
+    /* Compress options (really more like PerMessageDeflateOptions) */
+    enum CompressOptions : int {
+        /* Compression disabled */
+        DISABLED = 0,
+        /* We compress using a shared non-sliding window. No added memory usage, worse compression. */
+        SHARED_COMPRESSOR = 1,
+        /* We compress using a dedicated sliding window. Major memory usage added, better compression of similarly repeated messages. */
+        DEDICATED_COMPRESSOR = 2,
+        /* Flags for limiting memory usage of dedicated compressor */
+        DEDICATED_COMPRESSOR_3KB = 2 | 4,
+        DEDICATED_COMPRESSOR_4KB = 2 | 8,
+        DEDICATED_COMPRESSOR_8KB = 2 | 16,
+        DEDICATED_COMPRESSOR_16KB = 2 | 32,
+        DEDICATED_COMPRESSOR_32KB = 2 | 64,
+        DEDICATED_COMPRESSOR_64KB = 2 | 128,
+        DEDICATED_COMPRESSOR_128KB = 2 | 256,
+        DEDICATED_COMPRESSOR_256KB = 2 | 512
+    };
+}
+
+#ifndef UWS_NO_ZLIB
 #include <zlib.h>
+#endif
+
 #include <string>
+#include <optional>
 
 namespace uWS {
 
@@ -29,13 +55,16 @@ namespace uWS {
 #ifdef UWS_NO_ZLIB
 struct ZlibContext {};
 struct InflationStream {
-    std::string_view inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
-        return compressed;
+    std::optional<std::string_view> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
+        /* Anything here goes, it is never going to be called */
+        return std::nullopt;
     }
 };
 struct DeflationStream {
     std::string_view deflate(ZlibContext *zlibContext, std::string_view raw, bool reset) {
         return raw;
+    }
+    DeflationStream(int compressOptions) {
     }
 };
 #else
@@ -65,11 +94,45 @@ struct ZlibContext {
 struct DeflationStream {
     z_stream deflationStream = {};
 
-    DeflationStream() {
-        deflateInit2(&deflationStream, 1, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY);
+    DeflationStream(int compressOptions) {
+
+        /* Sliding inflator should be about 44kb by default, less than compressor */
+
+        /* Memory usage is given by 2 ^ (windowBits + 2) + 2 ^ (memLevel + 9) */
+        int windowBits = -15, memLevel = 8;
+
+        if (compressOptions == DEDICATED_COMPRESSOR_3KB) {
+            windowBits = -9;
+            memLevel = 1;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_4KB) {
+            windowBits = -9;
+            memLevel = 2;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_8KB) {
+            windowBits = -10;
+            memLevel = 3;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_16KB) {
+            windowBits = -11;
+            memLevel = 4;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_32KB) {
+            windowBits = -12;
+            memLevel = 5;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_64KB) {
+            windowBits = -13;
+            memLevel = 6;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_128KB) {
+            windowBits = -14;
+            memLevel = 7;
+        } else if (compressOptions == DEDICATED_COMPRESSOR_256KB) {
+            windowBits = -15;
+            memLevel = 8;
+        }
+
+        /* DEDICATED_COMPRESSOR_256KB is the same as DEDICATED_COMPRESSOR */
+
+        deflateInit2(&deflationStream, 1, Z_DEFLATED, windowBits, memLevel, Z_DEFAULT_STRATEGY);
     }
 
-    /* Deflate and optionally reset */
+    /* Deflate and optionally reset. You must not deflate an empty string. */
     std::string_view deflate(ZlibContext *zlibContext, std::string_view raw, bool reset) {
         /* Odd place to clear this one, fix */
         zlibContext->dynamicDeflationBuffer.clear();
@@ -102,9 +165,11 @@ struct DeflationStream {
         if (zlibContext->dynamicDeflationBuffer.length()) {
             zlibContext->dynamicDeflationBuffer.append(zlibContext->deflationBuffer, DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out);
 
-            return {(char *) zlibContext->dynamicDeflationBuffer.data(), zlibContext->dynamicDeflationBuffer.length() - 4};
+            return std::string_view((char *) zlibContext->dynamicDeflationBuffer.data(), zlibContext->dynamicDeflationBuffer.length() - 4);
         }
 
+        /* Note: We will get an interger overflow resulting in heap buffer overflow if Z_BUF_ERROR is returned
+         * from passing 0 as avail_in. Therefore we must not deflate an empty string */
         return {
             zlibContext->deflationBuffer,
             DEFLATE_OUTPUT_CHUNK - deflationStream.avail_out - 4
@@ -127,7 +192,8 @@ struct InflationStream {
         inflateEnd(&inflationStream);
     }
 
-    std::string_view inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
+    /* Zero length inflates are possible and valid */
+    std::optional<std::string_view> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
 
         /* We clear this one here, could be done better */
         zlibContext->dynamicInflationBuffer.clear();
@@ -153,15 +219,26 @@ struct InflationStream {
         inflateReset(&inflationStream);
 
         if ((err != Z_BUF_ERROR && err != Z_OK) || zlibContext->dynamicInflationBuffer.length() > maxPayloadLength) {
-            return {nullptr, 0};
+            return std::nullopt;
         }
 
         if (zlibContext->dynamicInflationBuffer.length()) {
             zlibContext->dynamicInflationBuffer.append(zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
-            return {zlibContext->dynamicInflationBuffer.data(), zlibContext->dynamicInflationBuffer.length()};
+
+            /* Let's be strict about the max size */
+            if (zlibContext->dynamicInflationBuffer.length() > maxPayloadLength) {
+                return std::nullopt;
+            }
+
+            return std::string_view(zlibContext->dynamicInflationBuffer.data(), zlibContext->dynamicInflationBuffer.length());
         }
 
-        return {zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out};
+        /* Let's be strict about the max size */
+        if ((LARGE_BUFFER_SIZE - inflationStream.avail_out) > maxPayloadLength) {
+            return std::nullopt;
+        }
+
+        return std::string_view(zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
     }
 
 };

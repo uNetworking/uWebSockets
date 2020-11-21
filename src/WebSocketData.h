@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2020.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,14 +21,18 @@
 #include "WebSocketProtocol.h"
 #include "AsyncSocketData.h"
 #include "PerMessageDeflate.h"
+#include "TopicTree.h"
 
 #include <string>
 
 namespace uWS {
 
 struct WebSocketData : AsyncSocketData<false>, WebSocketState<true> {
+    /* This guy has a lot of friends - why? */
     template <bool, bool> friend struct WebSocketContext;
+    template <bool> friend struct WebSocketContextData;
     template <bool, bool> friend struct WebSocket;
+    template <bool> friend struct HttpContext;
 private:
     std::string fragmentBuffer;
     int controlTipLength = 0;
@@ -41,19 +45,26 @@ private:
 
     /* We might have a dedicated compressor */
     DeflationStream *deflationStream = nullptr;
+
+    /* We could be a subscriber */
+    Subscriber *subscriber = nullptr;
 public:
-    WebSocketData(bool perMessageDeflate, bool slidingCompression, std::string &&backpressure) : AsyncSocketData<false>(std::move(backpressure)), WebSocketState<true>() {
+    WebSocketData(bool perMessageDeflate, int compressOptions, std::string &&backpressure) : AsyncSocketData<false>(std::move(backpressure)), WebSocketState<true>() {
         compressionStatus = perMessageDeflate ? ENABLED : DISABLED;
 
         /* Initialize the dedicated sliding window */
-        if (perMessageDeflate && slidingCompression) {
-            deflationStream = new DeflationStream;
+        if (perMessageDeflate && (compressOptions & CompressOptions::DEDICATED_COMPRESSOR)) {
+            deflationStream = new DeflationStream(compressOptions);
         }
     }
 
     ~WebSocketData() {
         if (deflationStream) {
             delete deflationStream;
+        }
+
+        if (subscriber) {
+            delete subscriber;
         }
     }
 };
