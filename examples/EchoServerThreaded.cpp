@@ -22,6 +22,7 @@ int main() {
                 .idleTimeout = 10,
                 .maxBackpressure = 1 * 1024 * 1024,
                 /* Handlers */
+                .upgrade = nullptr,
                 .open = [](auto *ws) {
 
                 },
