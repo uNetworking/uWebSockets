@@ -1,6 +1,6 @@
 EXAMPLE_FILES := HelloWorld ServerName EchoServer BroadcastingEchoServer UpgradeSync UpgradeAsync
 THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
-override CXXFLAGS += -lpthread -Wconversion -std=c++17 -Isrc -IuSockets/src
+override CXXFLAGS += -lpthread -Wall -std=c++17 -Isrc -IuSockets/src
 override LDFLAGS += uSockets/*.o -lz
 
 DESTDIR ?=

@@ -59,7 +59,7 @@ namespace uWS {
                         unsigned int out = 0;
 
                         /* Walk over all chars until end or null char, decoding in place */
-                        for (int i = 0; i < statementValue.length() && in[i]; i++) {
+                        for (unsigned int i = 0; i < statementValue.length() && in[i]; i++) {
                                 /* Only bother with '%' */
                                 if (in[i] == '%') {
                                     /* Do we have enough data for two bytes hex? */
