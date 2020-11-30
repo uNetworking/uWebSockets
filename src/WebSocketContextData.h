@@ -39,6 +39,10 @@ private:
         unsigned int length;
         OpCode opCode;
         bool compress;
+        /* Undefined init of all members */
+        MessageMetadata() {}
+        MessageMetadata(unsigned int length, OpCode opCode, bool compress)
+        : length(length), opCode(opCode), compress(compress) {}
     };
 
 public:
@@ -187,11 +191,11 @@ public:
                     /* Dedicated compression mode publishes metadata + unframed uncompressed data */
                     char *dst_compressed = (char *) malloc(message.length() + sizeof(MessageMetadata));
 
-                    MessageMetadata mm = {
+                    MessageMetadata mm(
                         (unsigned int) message.length(),
                         opCode,
                         compress
-                    };
+                    );
 
                     memcpy(dst_compressed, (char *) &mm, sizeof(MessageMetadata));
                     memcpy(dst_compressed + sizeof(MessageMetadata), message.data(), message.length());
