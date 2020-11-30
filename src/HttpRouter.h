@@ -61,6 +61,8 @@ private:
         std::vector<std::unique_ptr<Node>> children;
         std::vector<uint32_t> handlers;
         bool isHighPriority;
+
+        Node(std::string name) : name(name) {}
     } root = {"rootNode"};
 
     /* Advance from parent to child, adding child if necessary */
@@ -72,7 +74,7 @@ private:
         }
 
         /* Insert sorted, but keep order if parent is root (we sort methods by priority elsewhere) */
-        std::unique_ptr<Node> newNode(new Node({child}));
+        std::unique_ptr<Node> newNode(new Node(child));
         newNode->isHighPriority = isHighPriority;
         return parent->children.emplace(std::upper_bound(parent->children.begin(), parent->children.end(), newNode, [parent, this](auto &a, auto &b) {
 
