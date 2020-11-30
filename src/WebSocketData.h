@@ -35,7 +35,7 @@ struct WebSocketData : AsyncSocketData<false>, WebSocketState<true> {
     template <bool> friend struct HttpContext;
 private:
     std::string fragmentBuffer;
-    int controlTipLength = 0;
+    unsigned int controlTipLength = 0;
     bool isShuttingDown = 0;
     enum CompressionStatus : char {
         DISABLED,

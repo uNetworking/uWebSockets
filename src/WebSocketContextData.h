@@ -53,7 +53,7 @@ public:
 
     /* Settings for this context */
     size_t maxPayloadLength = 0;
-    int idleTimeout = 0;
+    unsigned int idleTimeout = 0;
 
     /* We do need these for async upgrade */
     int compression;

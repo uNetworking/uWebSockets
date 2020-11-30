@@ -158,7 +158,7 @@ private:
         /* If we are on STOP, return where we may stand */
         if (isStop) {
             /* We have reached accross the entire URL with no stoppage, execute */
-            for (int handler : parent->handlers) {
+            for (uint32_t handler : parent->handlers) {
                 if (handlers[handler & HANDLER_MASK](this)) {
                     return true;
                 }
@@ -170,7 +170,7 @@ private:
         for (auto &p : parent->children) {
             if (p->name.length() && p->name[0] == '*') {
                 /* Wildcard match (can be seen as a shortcut) */
-                for (int handler : p->handlers) {
+                for (uint32_t handler : p->handlers) {
                     if (handlers[handler & HANDLER_MASK](this)) {
                         return true;
                     }

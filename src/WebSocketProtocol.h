@@ -230,7 +230,7 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
     char mask[4];
     if (!isServer) {
         dst[1] |= 0x80;
-        uint32_t random = rand();
+        uint32_t random = (uint32_t) rand();
         memcpy(mask, &random, 4);
         memcpy(dst + headerLength, &random, 4);
         headerLength += 4;

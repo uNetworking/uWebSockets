@@ -155,7 +155,7 @@ private:
                 /* uSockets only deals with int sizes, so pass chunks of max signed int size */
                 auto writtenFailed = Super::write(data.data() + written, (int) std::min<size_t>(data.length() - written, INT_MAX), optional);
 
-                written += writtenFailed.first;
+                written += (size_t) writtenFailed.first;
                 failed = writtenFailed.second;
             }
 
@@ -221,7 +221,7 @@ public:
         if (webSocketContextData->compression != DISABLED) {
             if (secWebSocketExtensions.length()) {
                 /* We never support client context takeover (the client cannot compress with a sliding window). */
-                int wantedOptions = PERMESSAGE_DEFLATE | CLIENT_NO_CONTEXT_TAKEOVER;
+                unsigned int wantedOptions = PERMESSAGE_DEFLATE | CLIENT_NO_CONTEXT_TAKEOVER;
 
                 /* Shared compressor is the default */
                 if (webSocketContextData->compression == SHARED_COMPRESSOR) {

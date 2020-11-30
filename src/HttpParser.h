@@ -45,7 +45,7 @@ private:
     struct Header {
         std::string_view key, value;
     } headers[MAX_HEADERS];
-    int querySeparator;
+    unsigned int querySeparator;
     bool didYield;
     BloomFilter bf;
     std::pair<int, std::string_view *> currentParameters;
@@ -111,7 +111,7 @@ public:
 
     /* Returns the raw querystring as a whole, still encoded */
     std::string_view getQuery() {
-        if (querySeparator < (int) headers->value.length()) {
+        if (querySeparator < headers->value.length()) {
             /* Strip the initial ? */
             return std::string_view(headers->value.data() + querySeparator + 1, headers->value.length() - querySeparator - 1);
         } else {
@@ -151,8 +151,8 @@ private:
 
     static unsigned int toUnsignedInteger(std::string_view str) {
         unsigned int unsignedIntegerValue = 0;
-        for (unsigned char c : str) {
-            unsignedIntegerValue = unsignedIntegerValue * 10 + (c - '0');
+        for (char c : str) {
+            unsignedIntegerValue = unsignedIntegerValue * 10 + ((unsigned char) c - '0');
         }
         return unsignedIntegerValue;
     }
@@ -173,7 +173,7 @@ private:
                 headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
                 for (postPaddedBuffer++; (*postPaddedBuffer == ':' || *postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
                 preliminaryValue = postPaddedBuffer;
-                postPaddedBuffer = (char *) memchr(postPaddedBuffer, '\r', end - postPaddedBuffer);
+                postPaddedBuffer = (char *) memchr(postPaddedBuffer, '\r', (size_t) (end - postPaddedBuffer));
                 if (postPaddedBuffer && postPaddedBuffer[1] == '\n') {
                     headers->value = std::string_view(preliminaryValue, (size_t) (postPaddedBuffer - preliminaryValue));
                     postPaddedBuffer += 2;
@@ -188,17 +188,17 @@ private:
 
     // the only caller of getHeaders
     template <int CONSUME_MINIMALLY>
-    std::pair<int, void *> fenceAndConsumePostPadded(char *data, int length, void *user, void *reserved, HttpRequest *req, fu2::unique_function<void *(void *, HttpRequest *)> &requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &dataHandler) {
+    std::pair<int, void *> fenceAndConsumePostPadded(char *data, unsigned int length, void *user, void *reserved, HttpRequest *req, fu2::unique_function<void *(void *, HttpRequest *)> &requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &dataHandler) {
 
         /* How much data we CONSUMED (to throw away) */
-        int consumedTotal = 0;
+        unsigned int consumedTotal = 0;
 
 #ifdef UWS_WITH_PROXY
         /* ProxyParser is passed as reserved parameter */
         ProxyParser *pp = (ProxyParser *) reserved;
 
         /* Parse PROXY protocol */
-        auto [done, offset] = pp->parse({data, (unsigned int) length});
+        auto [done, offset] = pp->parse({data, /*(unsigned int)*/ length});
         if (!done) {
             return {0, user};
         } else {
@@ -212,13 +212,13 @@ private:
         /* Fence one byte past end of our buffer (buffer has post padded margins) */
         data[length] = '\r';
 
-        for (int consumed; length && (consumed = getHeaders(data, data + length, req->headers, &req->bf)); ) {
+        for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers, &req->bf)); ) {
             data += consumed;
             length -= consumed;
             consumedTotal += consumed;
 
             /* Strip away tail of first "header value" aka URL */
-            req->headers->value = std::string_view(req->headers->value.data(), std::max<int>(0, (int) req->headers->value.length() - 9));
+            req->headers->value = std::string_view(req->headers->value.data(), std::max<size_t>(0, req->headers->value.length() - 9));
 
             /* Add all headers to bloom filter */
             req->bf.reset();
@@ -228,7 +228,7 @@ private:
 
             /* Parse query */
             const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());
-            req->querySeparator = (int) ((querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data());
+            req->querySeparator = (unsigned int) ((querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data());
 
             /* If returned socket is not what we put in we need
              * to break here as we either have upgraded to
@@ -267,7 +267,7 @@ private:
     }
 
 public:
-    void *consumePostPadded(char *data, int length, void *user, void *reserved, fu2::unique_function<void *(void *, HttpRequest *)> &&requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &&dataHandler, fu2::unique_function<void *(void *)> &&errorHandler) {
+    void *consumePostPadded(char *data, unsigned int length, void *user, void *reserved, fu2::unique_function<void *(void *, HttpRequest *)> &&requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &&dataHandler, fu2::unique_function<void *(void *)> &&errorHandler) {
 
         /* This resets BloomFilter by construction, but later we also reset it again.
          * Optimize this to skip resetting twice (req could be made global) */
@@ -277,7 +277,7 @@ public:
 
             // this is exactly the same as below!
             // todo: refactor this
-            if (remainingStreamingBytes >= (unsigned int) length) {
+            if (remainingStreamingBytes >= length) {
                 void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == (unsigned int) length);
                 remainingStreamingBytes -= length;
                 return returnedUser;
@@ -297,14 +297,14 @@ public:
         } else if (fallback.length()) {
             int had = (int) fallback.length();
 
-            int maxCopyDistance = (int) std::min(MAX_FALLBACK_SIZE - fallback.length(), (size_t) length);
+            size_t maxCopyDistance = std::min(MAX_FALLBACK_SIZE - fallback.length(), (size_t) length);
 
             /* We don't want fallback to be short string optimized, since we want to move it */
             fallback.reserve(fallback.length() + maxCopyDistance + std::max<int>(MINIMUM_HTTP_POST_PADDING, sizeof(std::string)));
             fallback.append(data, maxCopyDistance);
 
             // break here on break
-            std::pair<int, void *> consumed = fenceAndConsumePostPadded<true>(fallback.data(), (int) fallback.length(), user, reserved, &req, requestHandler, dataHandler);
+            std::pair<int, void *> consumed = fenceAndConsumePostPadded<true>(fallback.data(), (unsigned int) fallback.length(), user, reserved, &req, requestHandler, dataHandler);
             if (consumed.second != user) {
                 return consumed.second;
             }
@@ -313,8 +313,8 @@ public:
 
                 fallback.clear();
 
-                data += consumed.first - had;
-                length -= consumed.first - had;
+                data += (unsigned int) (consumed.first - had);
+                length -= (unsigned int) (consumed.first - had);
 
                 if (remainingStreamingBytes) {
                     // this is exactly the same as above!
@@ -351,8 +351,8 @@ public:
             return consumed.second;
         }
 
-        data += consumed.first;
-        length -= consumed.first;
+        data += (unsigned int) consumed.first;
+        length -= (unsigned int) consumed.first;
 
         if (length) {
             if ((unsigned int) length < MAX_FALLBACK_SIZE) {

@@ -112,10 +112,10 @@ public:
 template <bool isServer>
 struct ExtensionsNegotiator {
 protected:
-    int options;
+    unsigned int options;
 
 public:
-    ExtensionsNegotiator(int wantedOptions) {
+    ExtensionsNegotiator(unsigned int wantedOptions) {
         options = wantedOptions;
     }
 
@@ -159,7 +159,7 @@ public:
         }
     }
 
-    int getNegotiatedOptions() {
+    unsigned int getNegotiatedOptions() {
         return options;
     }
 };

@@ -188,7 +188,7 @@ private:
             } else {
                 /* Here we never mind any size optimizations as we are in the worst possible path */
                 webSocketData->fragmentBuffer.append(data, length);
-                webSocketData->controlTipLength += (int) length;
+                webSocketData->controlTipLength += (unsigned int) length;
 
                 if (!remainingBytes && fin) {
                     char *controlBuffer = (char *) webSocketData->fragmentBuffer.data() + webSocketData->fragmentBuffer.length() - webSocketData->controlTipLength;
@@ -282,7 +282,7 @@ private:
             asyncSocket->cork();
 
             /* This parser has virtually no overhead */
-            uWS::WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::consume(data, length, (WebSocketState<isServer> *) webSocketData, s);
+            uWS::WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::consume(data, (unsigned int) length, (WebSocketState<isServer> *) webSocketData, s);
 
             /* Uncorking a closed socekt is fine, in fact it is needed */
             asyncSocket->uncork();
