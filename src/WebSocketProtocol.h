@@ -362,9 +362,9 @@ protected:
     static inline bool consumeContinuation(char *&src, unsigned int &length, WebSocketState<isServer> *wState, void *user) {
         if (wState->remainingBytes <= length) {
             if (isServer) {
-                int n = wState->remainingBytes >> 2;
+                unsigned int n = wState->remainingBytes >> 2;
                 unmaskInplace(src, src + n * 4, wState->mask);
-                for (int i = 0, s = wState->remainingBytes % 4; i < s; i++) {
+                for (unsigned int i = 0, s = wState->remainingBytes % 4; i < s; i++) {
                     src[n * 4 + i] ^= wState->mask[i];
                 }
             }

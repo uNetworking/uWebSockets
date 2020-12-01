@@ -152,7 +152,7 @@ private:
     static unsigned int toUnsignedInteger(std::string_view str) {
         unsigned int unsignedIntegerValue = 0;
         for (char c : str) {
-            unsignedIntegerValue = unsignedIntegerValue * 10 + ((unsigned char) c - '0');
+            unsignedIntegerValue = unsignedIntegerValue * 10u + ((unsigned int) c - (unsigned int) '0');
         }
         return unsignedIntegerValue;
     }

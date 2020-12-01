@@ -29,6 +29,23 @@
 
 namespace uWS {
 
+    /* This one matches us_socket_context_options_t but has default values */
+    struct SocketContextOptions {
+        const char *key_file_name = nullptr;
+        const char *cert_file_name = nullptr;
+        const char *passphrase = nullptr;
+        const char *dh_params_file_name = nullptr;
+        const char *ca_file_name = nullptr;
+        int ssl_prefer_low_memory_usage = 0;
+
+        /* Conversion operator used internally */
+        operator struct us_socket_context_options_t() const {
+            struct us_socket_context_options_t socket_context_options;
+            memcpy(&socket_context_options, this, sizeof(SocketContextOptions));
+            return socket_context_options;
+        }
+    };
+
 template <bool SSL>
 struct TemplatedApp {
 private:
@@ -39,7 +56,7 @@ private:
 public:
 
     /* Server name */
-    TemplatedApp &&addServerName(std::string hostname_pattern, us_socket_context_options_t options = {}) {
+    TemplatedApp &&addServerName(std::string hostname_pattern, SocketContextOptions options = {}) {
 
         us_socket_context_add_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str(), options);
         return std::move(*this);
@@ -107,7 +124,7 @@ public:
         webSocketContexts = std::move(other.webSocketContexts);
     }
 
-    TemplatedApp(us_socket_context_options_t options = {}) {
+    TemplatedApp(SocketContextOptions options = {}) {
         httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::get(), options);
     }
 
