@@ -147,12 +147,12 @@ public:
         return 0;
     }) {
         /* We empty for both pre and post just to make sure */
-        Loop::get()->addPostHandler(this, [this](Loop *loop) {
+        Loop::get()->addPostHandler(this, [this](Loop */*loop*/) {
             /* Commit pub/sub batches every loop iteration */
             topicTree.drain();
         });
 
-        Loop::get()->addPreHandler(this, [this](Loop *loop) {
+        Loop::get()->addPreHandler(this, [this](Loop */*loop*/) {
             /* Commit pub/sub batches every loop iteration */
             topicTree.drain();
         });

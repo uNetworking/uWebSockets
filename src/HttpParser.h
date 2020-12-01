@@ -157,7 +157,7 @@ private:
         return unsignedIntegerValue;
     }
 
-    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, BloomFilter *bf) {
+    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
 
         for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS; i++) {
@@ -207,12 +207,15 @@ private:
             length -= offset;
             consumedTotal += offset;
         }
+#else
+        /* This one is unused */
+        (void) reserved;
 #endif
 
         /* Fence one byte past end of our buffer (buffer has post padded margins) */
         data[length] = '\r';
 
-        for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers, &req->bf)); ) {
+        for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers)); ) {
             data += consumed;
             length -= consumed;
             consumedTotal += consumed;

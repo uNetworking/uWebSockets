@@ -11,7 +11,7 @@ int main() {
     /* Simple echo websocket server, using multiple threads */
     std::vector<std::thread *> threads(std::thread::hardware_concurrency());
 
-    std::transform(threads.begin(), threads.end(), threads.begin(), [](std::thread *t) {
+    std::transform(threads.begin(), threads.end(), threads.begin(), [](std::thread */*t*/) {
         return new std::thread([]() {
 
             /* Very simple WebSocket echo server */
@@ -23,26 +23,26 @@ int main() {
                 .maxBackpressure = 1 * 1024 * 1024,
                 /* Handlers */
                 .upgrade = nullptr,
-                .open = [](auto *ws) {
+                .open = [](auto */*ws*/) {
 
                 },
                 .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
                     ws->send(message, opCode);
                 },
-                .drain = [](auto *ws) {
+                .drain = [](auto */*ws*/) {
                     /* Check getBufferedAmount here */
                 },
-                .ping = [](auto *ws) {
+                .ping = [](auto */*ws*/) {
 
                 },
-                .pong = [](auto *ws) {
+                .pong = [](auto */*ws*/) {
 
                 },
-                .close = [](auto *ws, int code, std::string_view message) {
+                .close = [](auto */*ws*/, int /*code*/, std::string_view /*message*/) {
 
                 }
-            }).listen(9001, [](auto *token) {
-                if (token) {
+            }).listen(9001, [](auto *listen_socket) {
+                if (listen_socket) {
                     std::cout << "Thread " << std::this_thread::get_id() << " listening on port " << 9001 << std::endl;
                 } else {
                     std::cout << "Thread " << std::this_thread::get_id() << " failed to listen on port 9001" << std::endl;

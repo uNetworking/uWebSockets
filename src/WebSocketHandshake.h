@@ -34,7 +34,7 @@ struct WebSocketHandshake {
 
     template <typename T>
     struct static_for<0, T> {
-        void operator()(uint32_t *a, uint32_t *hash) {}
+        void operator()(uint32_t */*a*/, uint32_t */*hash*/) {}
     };
 
     static inline uint32_t rol(uint32_t value, size_t bits) {return (value << bits) | (value >> (32 - bits));}
