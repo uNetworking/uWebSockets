@@ -46,6 +46,8 @@ namespace uWS {
         }
     };
 
+    static_assert(sizeof(struct us_socket_context_options_t) == sizeof(SocketContextOptions), "Mismatching uSockets/uWebSockets ABI");
+
 template <bool SSL>
 struct TemplatedApp {
 private:
