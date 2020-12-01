@@ -12,7 +12,7 @@
 ### :closed_lock_with_key: Optimized security
 Being meticulously optimized for speed and memory footprint, µWebSockets is fast enough to do encrypted TLS 1.3 messaging quicker than most alternative servers can do even unencrypted, cleartext messaging<sup><a href="https://github.com/uNetworking/uWebSockets/tree/master/benchmarks#benchmark-driven-development">[3]</a></sup>.
 
-Furthermore, we partake in Google's OSS-Fuzz with a ~95% daily fuzzing coverage with no sanitizer issues. LGTM scores us flawless A+ from having zero CodeQL alerts and we compile on -Wextra without any warnings.
+Furthermore, we partake in Google's OSS-Fuzz with a ~95% daily fuzzing coverage with no sanitizer issues. LGTM scores us flawless A+ from having zero CodeQL alerts and we compile with pedantic warning levels.
 
 
 ### :arrow_forward: Rapid scripting
