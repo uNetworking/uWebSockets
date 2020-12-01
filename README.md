@@ -19,7 +19,7 @@ Furthermore, we partake in Google's OSS-Fuzz with a ~95% daily fuzzing coverage 
 µWebSockets is written entirely in C & C++ but has a seamless integration for Node.js backends. This allows for rapid scripting of powerful apps, using widespread competence. See <a href="https://github.com/uNetworking/uWebSockets.js">µWebSockets.js</a>.
 
 ### :crossed_swords: Battle proven
-Runs the trading APIs of [Bitfinex.com](https://bitfinex.com), handling volumes of ~170 million USD every day. Also runs [Trello](https://trello.com), serving their 50 million users with real-time board updates.
+We've been fully standards compliant with a perfect Autobahn|Testsuite score since 2016<sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">[2]</a></sup>. Companies with everything to lose rely on µWebSockets on a daily basis - we power the trading APIs of [Bitfinex.com](https://bitfinex.com), handling volumes of **about a billion USD every day**. Other companies include [Trello](https://trello.com), where µWebSockets is serving their 50 million users with real-time board updates.
 
 ### :battery: Batteries included
 Designed around a convenient URL router with wildcard & parameter support - paired with efficient pub/sub features inspired by MQTT. µWebSockets should be the obvious, complete starting point for any real-time web project with high demands.
