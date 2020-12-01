@@ -221,7 +221,7 @@ private:
             consumedTotal += consumed;
 
             /* Strip away tail of first "header value" aka URL */
-            req->headers->value = std::string_view(req->headers->value.data(), std::max<size_t>(0, req->headers->value.length() - 9));
+            req->headers->value = std::string_view(req->headers->value.data(), (size_t) std::max<int>(0, (int) req->headers->value.length() - 9));
 
             /* Add all headers to bloom filter */
             req->bf.reset();
