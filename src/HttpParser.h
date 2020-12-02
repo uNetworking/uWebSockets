@@ -157,8 +157,33 @@ private:
         return unsignedIntegerValue;
     }
 
-    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers) {
+    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
+
+        #ifdef UWS_WITH_PROXY
+            /* ProxyParser is passed as reserved parameter */
+            ProxyParser *pp = (ProxyParser *) reserved;
+
+            /* Parse PROXY protocol */
+            auto [done, offset] = pp->parse({start, (size_t) (end - postPaddedBuffer)});
+            if (!done) {
+                /* We do not reset the ProxyParser (on filure) since it is tied to this
+                * connection, which is really only supposed to ever get one PROXY frame
+                * anyways. We do however allow multiple PROXY frames to be sent (overwrites former). */
+                return 0;
+            } else {
+                /* We have consumed this data so skip it */
+                start += offset;
+            }
+        #else
+            /* This one is unused */
+            (void) reserved;
+        #endif
+
+        /* It is critical for fallback buffering logic that we only return with success
+         * if we managed to parse a complete HTTP request (minus data). Returning success
+         * for PROXY means we can end up succeeding, yet leaving bytes in the fallback buffer
+         * which is then removed, and our counters to flip due to overflow and we end up with a crash */
 
         for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS; i++) {
             for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') & (*postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
@@ -193,35 +218,10 @@ private:
         /* How much data we CONSUMED (to throw away) */
         unsigned int consumedTotal = 0;
 
-#ifdef UWS_WITH_PROXY
-        /* ProxyParser is passed as reserved parameter */
-        ProxyParser *pp = (ProxyParser *) reserved;
-
-        /* Parse PROXY protocol */
-        auto [done, offset] = pp->parse({data, length});
-        if (!done) {
-            /* We do not reset the ProxyParser (on filure) since it is tied to this
-             * connection, which is really only supposed to ever get one PROXY frame
-             * anyways. We do however allow multiple PROXY frames to be sent (overwrites former). */
-            return {0, user};
-        } else {
-            /* We have consumed this data so skip it */
-            data += offset;
-            length -= offset;
-            consumedTotal += offset;
-        }
-#else
-        /* This one is unused */
-        (void) reserved;
-#endif
-
-        /* For tracking whether we managed to parse more than just PROXY */
-        unsigned int consumedProxyParser = consumedTotal;
-
         /* Fence one byte past end of our buffer (buffer has post padded margins) */
         data[length] = '\r';
 
-        for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers)); ) {
+        for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers, reserved)); ) {
             data += consumed;
             length -= consumed;
             consumedTotal += consumed;
@@ -272,15 +272,6 @@ private:
                 break;
             }
         }
-
-        /* It is critical for fallback buffering logic that we only return with success
-         * if we managed to parse a complete HTTP request. Returning success for PROXY means
-         * we can end up succeeding, yet leaving bytes in the fallback buffer which is then
-         * removed, and our counters to flip due to overflow and we end up with a crash */
-        if (consumedProxyParser == consumedTotal) {
-            return {0, user};
-        }
-
         return {consumedTotal, user};
     }
 
