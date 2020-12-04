@@ -148,7 +148,7 @@ public:
 
         //if (std::thread::get_id() == ) // todo: add fast path for same thread id
         loopData->deferMutex.lock();
-        loopData->deferQueues[loopData->currentDeferQueue].emplace_back(std::move(cb));
+        //loopData->deferQueues[loopData->currentDeferQueue].emplace_back(std::move(cb));
         loopData->deferMutex.unlock();
 
         us_wakeup_loop((us_loop_t *) this);
