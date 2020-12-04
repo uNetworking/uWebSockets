@@ -243,7 +243,7 @@ public:
         }
 
         /* Alloate this handler */
-        handlers.emplace_back(std::move(handler));
+        //handlers.emplace_back(std::move(handler));
     }
 };
 
