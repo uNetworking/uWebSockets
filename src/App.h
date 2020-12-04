@@ -70,7 +70,7 @@ public:
         return std::move(*this);
     }
 
-    TemplatedApp &&missingServerName(fu2::unique_function<void(const char *hostname)> handler) {
+    TemplatedApp &&missingServerName(ofats::any_invocable<void(const char *hostname)> handler) {
 
         if (!constructorFailed()) {
             httpContext->getSocketContextData()->missingServerNameHandler = std::move(handler);
@@ -92,7 +92,7 @@ public:
     }
 
     /* Attaches a "filter" function to track socket connections/disconnections */
-    void filter(fu2::unique_function<void(HttpResponse<SSL> *, int)> &&filterHandler) {
+    void filter(ofats::any_invocable<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         httpContext->filter(std::move(filterHandler));
     }
 
@@ -139,13 +139,13 @@ public:
         unsigned int maxPayloadLength = 16 * 1024;
         unsigned int idleTimeout = 120;
         unsigned int maxBackpressure = 1 * 1024 * 1024;
-        fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
-        fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> open = nullptr;
-        fu2::unique_function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
-        fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
-        fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> ping = nullptr;
-        fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> pong = nullptr;
-        fu2::unique_function<void(uWS::WebSocket<SSL, true> *, int, std::string_view)> close = nullptr;
+        ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
+        ofats::any_invocable<void(uWS::WebSocket<SSL, true> *)> open = nullptr;
+        ofats::any_invocable<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
+        ofats::any_invocable<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
+        ofats::any_invocable<void(uWS::WebSocket<SSL, true> *)> ping = nullptr;
+        ofats::any_invocable<void(uWS::WebSocket<SSL, true> *)> pong = nullptr;
+        ofats::any_invocable<void(uWS::WebSocket<SSL, true> *, int, std::string_view)> close = nullptr;
     };
 
     template <typename UserData>
@@ -231,63 +231,63 @@ public:
         return std::move(*this);
     }
 
-    TemplatedApp &&get(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    TemplatedApp &&get(std::string pattern, ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("get", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
-    TemplatedApp &&post(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    TemplatedApp &&post(std::string pattern, ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("post", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
-    TemplatedApp &&options(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    TemplatedApp &&options(std::string pattern, ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("options", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
-    TemplatedApp &&del(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    TemplatedApp &&del(std::string pattern, ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("delete", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
-    TemplatedApp &&patch(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    TemplatedApp &&patch(std::string pattern, ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("patch", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
-    TemplatedApp &&put(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    TemplatedApp &&put(std::string pattern, ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("put", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
-    TemplatedApp &&head(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    TemplatedApp &&head(std::string pattern, ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("head", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
-    TemplatedApp &&connect(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    TemplatedApp &&connect(std::string pattern, ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("connect", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
-    TemplatedApp &&trace(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    TemplatedApp &&trace(std::string pattern, ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("trace", pattern, std::move(handler));
         }
@@ -295,7 +295,7 @@ public:
     }
 
     /* This one catches any method */
-    TemplatedApp &&any(std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    TemplatedApp &&any(std::string pattern, ofats::any_invocable<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("*", pattern, std::move(handler));
         }
@@ -303,7 +303,7 @@ public:
     }
 
     /* Host, port, callback */
-    TemplatedApp &&listen(std::string host, int port, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
+    TemplatedApp &&listen(std::string host, int port, ofats::any_invocable<void(us_listen_socket_t *)> &&handler) {
         if (!host.length()) {
             return listen(port, std::move(handler));
         }
@@ -312,7 +312,7 @@ public:
     }
 
     /* Host, port, options, callback */
-    TemplatedApp &&listen(std::string host, int port, int options, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
+    TemplatedApp &&listen(std::string host, int port, int options, ofats::any_invocable<void(us_listen_socket_t *)> &&handler) {
         if (!host.length()) {
             return listen(port, options, std::move(handler));
         }
@@ -321,13 +321,13 @@ public:
     }
 
     /* Port, callback */
-    TemplatedApp &&listen(int port, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
+    TemplatedApp &&listen(int port, ofats::any_invocable<void(us_listen_socket_t *)> &&handler) {
         handler(httpContext ? httpContext->listen(nullptr, port, 0) : nullptr);
         return std::move(*this);
     }
 
     /* Port, options, callback */
-    TemplatedApp &&listen(int port, int options, fu2::unique_function<void(us_listen_socket_t *)> &&handler) {
+    TemplatedApp &&listen(int port, int options, ofats::any_invocable<void(us_listen_socket_t *)> &&handler) {
         handler(httpContext ? httpContext->listen(nullptr, port, options) : nullptr);
         return std::move(*this);
     }

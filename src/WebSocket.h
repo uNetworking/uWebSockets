@@ -168,7 +168,7 @@ public:
     }
 
     /* Corks the response if possible. Leaves already corked socket be. */
-    void cork(fu2::unique_function<void()> &&handler) {
+    void cork(ofats::any_invocable<void()> &&handler) {
         if (!Super::isCorked() && Super::canCork()) {
             Super::cork();
             handler();
