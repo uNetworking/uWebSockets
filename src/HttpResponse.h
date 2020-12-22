@@ -371,6 +371,8 @@ public:
 
     /* Write an HTTP header with unsigned int value */
     HttpResponse *writeHeader(std::string_view key, uint64_t value) {
+        writeStatus(HTTP_200_OK);
+    
         Super::write(key.data(), (int) key.length());
         Super::write(": ", 2);
         writeUnsigned64(value);
