@@ -80,8 +80,7 @@ private:
 
     /* Cull or trim unused Topic nodes from leaf to root */
     void trimTree(Topic *topic) {
-        repeat:
-        if (!topic->subs.size() && !topic->children.size() && !topic->terminatingWildcardChild && !topic->wildcardChild) {
+        while (!topic->subs.size() && !topic->children.size() && !topic->terminatingWildcardChild && !topic->wildcardChild) {
             Topic *parent = topic->parent;
 
             if (topic->length == 1) {
@@ -114,11 +113,11 @@ private:
             delete [] topic->name;
             delete topic;
 
-            if (parent != root) {
-                topic = parent;
-                goto repeat;
-                //trimTree(parent);
+            if (parent == root) {
+              break;
             }
+
+            topic = parent;
         }
     }
 
