@@ -23,4 +23,5 @@ jobs:
       run: git clone --recursive https://github.com/uNetworking/uWebSockets.git
     - name: Build source
       run: make -C uWebSockets
-      
+    - name: List binaries
+      run: ls
