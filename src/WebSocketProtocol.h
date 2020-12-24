@@ -160,14 +160,14 @@ struct CloseFrame {
 
 static inline CloseFrame parseClosePayload(char *src, size_t length) {
     /* If we get no code or message, default to reporting 1005 no status code present */
-    CloseFrame cf = {1005};
+    CloseFrame cf = {1005, nullptr, 0};
     if (length >= 2) {
         memcpy(&cf.code, src, 2);
         cf = {cond_byte_swap<uint16_t>(cf.code), src + 2, length - 2};
         if (cf.code < 1000 || cf.code > 4999 || (cf.code > 1011 && cf.code < 4000) ||
             (cf.code >= 1004 && cf.code <= 1006) || !isValidUtf8((unsigned char *) cf.message, cf.length)) {
             /* Even though we got a WebSocket close frame, it in itself is abnormal */
-            return {1006};
+            return {1006, nullptr, 0};
         }
     }
     return cf;
@@ -230,7 +230,7 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
     char mask[4];
     if (!isServer) {
         dst[1] |= 0x80;
-        uint32_t random = rand();
+        uint32_t random = (uint32_t) rand();
         memcpy(mask, &random, 4);
         memcpy(dst + headerLength, &random, 4);
         headerLength += 4;
@@ -362,9 +362,9 @@ protected:
     static inline bool consumeContinuation(char *&src, unsigned int &length, WebSocketState<isServer> *wState, void *user) {
         if (wState->remainingBytes <= length) {
             if (isServer) {
-                int n = wState->remainingBytes >> 2;
+                unsigned int n = wState->remainingBytes >> 2;
                 unmaskInplace(src, src + n * 4, wState->mask);
-                for (int i = 0, s = wState->remainingBytes % 4; i < s; i++) {
+                for (unsigned int i = 0, s = wState->remainingBytes % 4; i < s; i++) {
                     src[n * 4 + i] ^= wState->mask[i];
                 }
             }

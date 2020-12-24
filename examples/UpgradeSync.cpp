@@ -56,21 +56,21 @@ int main() {
             /* We simply echo whatever data we get */
             ws->send(message, opCode);
         },
-        .drain = [](auto *ws) {
+        .drain = [](auto */*ws*/) {
             /* Check ws->getBufferedAmount() here */
         },
-        .ping = [](auto *ws) {
+        .ping = [](auto */*ws*/) {
             /* You don't need to handle this one, we automatically respond to pings as per standard */
         },
-        .pong = [](auto *ws) {
+        .pong = [](auto */*ws*/) {
             /* You don't need to handle this one either */
         },
-        .close = [](auto *ws, int code, std::string_view message) {
+        .close = [](auto */*ws*/, int /*code*/, std::string_view /*message*/) {
             /* You may access ws->getUserData() here, but sending or
              * doing any kind of I/O with the socket is not valid. */
         }
-    }).listen(9001, [](auto *token) {
-        if (token) {
+    }).listen(9001, [](auto *listen_socket) {
+        if (listen_socket) {
             std::cout << "Listening on port " << 9001 << std::endl;
         }
     }).run();

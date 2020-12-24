@@ -61,6 +61,8 @@ private:
         std::vector<std::unique_ptr<Node>> children;
         std::vector<uint32_t> handlers;
         bool isHighPriority;
+
+        Node(std::string name) : name(name) {}
     } root = {"rootNode"};
 
     /* Advance from parent to child, adding child if necessary */
@@ -72,7 +74,7 @@ private:
         }
 
         /* Insert sorted, but keep order if parent is root (we sort methods by priority elsewhere) */
-        std::unique_ptr<Node> newNode(new Node({child}));
+        std::unique_ptr<Node> newNode(new Node(child));
         newNode->isHighPriority = isHighPriority;
         return parent->children.emplace(std::upper_bound(parent->children.begin(), parent->children.end(), newNode, [parent, this](auto &a, auto &b) {
 
@@ -158,7 +160,7 @@ private:
         /* If we are on STOP, return where we may stand */
         if (isStop) {
             /* We have reached accross the entire URL with no stoppage, execute */
-            for (int handler : parent->handlers) {
+            for (uint32_t handler : parent->handlers) {
                 if (handlers[handler & HANDLER_MASK](this)) {
                     return true;
                 }
@@ -170,7 +172,7 @@ private:
         for (auto &p : parent->children) {
             if (p->name.length() && p->name[0] == '*') {
                 /* Wildcard match (can be seen as a shortcut) */
-                for (int handler : p->handlers) {
+                for (uint32_t handler : p->handlers) {
                     if (handlers[handler & HANDLER_MASK](this)) {
                         return true;
                     }

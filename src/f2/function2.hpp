@@ -1,5 +1,5 @@
 
-//  Copyright 2015-2019 Denis Blank <denis.blank at outlook dot com>
+//  Copyright 2015-2020 Denis Blank <denis.blank at outlook dot com>
 //     Distributed under the Boost Software License, Version 1.0
 //       (See accompanying file LICENSE_1_0.txt or copy at
 //             http://www.boost.org/LICENSE_1_0.txt)
@@ -990,13 +990,13 @@ public:
 
   /// Invoke the function at the given index
   template <std::size_t Index, typename... Args>
-  constexpr auto invoke(Args&&... args) const {
+  constexpr decltype(auto) invoke(Args&&... args) const {
     auto thunk = invoke_table_t::template fetch<Index>(vtable_);
     return thunk(std::forward<Args>(args)...);
   }
   /// Invoke the function at the given index
   template <std::size_t Index, typename... Args>
-  constexpr auto invoke(Args&&... args) const volatile {
+  constexpr decltype(auto) invoke(Args&&... args) const volatile {
     auto thunk = invoke_table_t::template fetch<Index>(vtable_);
     return thunk(std::forward<Args>(args)...);
   }
@@ -1208,7 +1208,7 @@ public:
   /// We define this out of class to be able to forward the qualified
   /// erasure correctly.
   template <std::size_t Index, typename Erasure, typename... Args>
-  static constexpr auto invoke(Erasure&& erasure, Args&&... args) {
+  static constexpr decltype(auto) invoke(Erasure&& erasure, Args&&... args) {
     auto const capacity = erasure.capacity();
     return erasure.vtable_.template invoke<Index>(
         std::forward<Erasure>(erasure).opaque_ptr(), capacity,
@@ -1324,7 +1324,7 @@ public:
   }
 
   template <std::size_t Index, typename Erasure, typename... T>
-  static constexpr auto invoke(Erasure&& erasure, T&&... args) {
+  static constexpr decltype(auto) invoke(Erasure&& erasure, T&&... args) {
     auto thunk = invoke_table_t::template fetch<Index>(erasure.invoke_table_);
     return thunk(&(erasure.view_), 0UL, std::forward<T>(args)...);
   }
@@ -1761,4 +1761,3 @@ constexpr auto overload(T&&... callables) {
 #undef FU2_DETAIL_TRAP
 
 #endif // FU2_INCLUDED_FUNCTION2_HPP_
-

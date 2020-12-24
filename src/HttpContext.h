@@ -62,7 +62,7 @@ private:
     /* Init the HttpContext by registering libusockets event handlers */
     HttpContext<SSL> *init() {
         /* Handle socket connections */
-        us_socket_context_on_open(SSL, getSocketContext(), [](us_socket_t *s, int is_client, char *ip, int ip_length) {
+        us_socket_context_on_open(SSL, getSocketContext(), [](us_socket_t *s, int /*is_client*/, char */*ip*/, int /*ip_length*/) {
             /* Any connected socket should timeout until it has a request */
             us_socket_timeout(SSL, s, HTTP_IDLE_TIMEOUT_S);
 
@@ -79,7 +79,7 @@ private:
         });
 
         /* Handle socket disconnections */
-        us_socket_context_on_close(SSL, getSocketContext(), [](us_socket_t *s, int code, void *reason) {
+        us_socket_context_on_close(SSL, getSocketContext(), [](us_socket_t *s, int /*code*/, void */*reason*/) {
             /* Get socket ext */
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_socket_ext(SSL, s);
 
@@ -133,7 +133,7 @@ private:
 #endif
 
             /* The return value is entirely up to us to interpret. The HttpParser only care for whether the returned value is DIFFERENT or not from passed user */
-            void *returnedSocket = httpResponseData->consumePostPadded(data, length, s, proxyParser, [httpContextData](void *s, uWS::HttpRequest *httpRequest) -> void * {
+            void *returnedSocket = httpResponseData->consumePostPadded(data, (unsigned int) length, s, proxyParser, [httpContextData](void *s, uWS::HttpRequest *httpRequest) -> void * {
                 /* For every request we reset the timeout and hang until user makes action */
                 /* Warning: if we are in shutdown state, resetting the timer is a security issue! */
                 us_socket_timeout(SSL, (us_socket_t *) s, 0);

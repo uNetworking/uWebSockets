@@ -34,7 +34,7 @@ struct WebSocketHandshake {
 
     template <typename T>
     struct static_for<0, T> {
-        void operator()(uint32_t *a, uint32_t *hash) {}
+        void operator()(uint32_t */*a*/, uint32_t */*hash*/) {}
     };
 
     static inline uint32_t rol(uint32_t value, size_t bits) {return (value << bits) | (value >> (32 - bits));}
@@ -123,7 +123,7 @@ public:
         };
 
         for (int i = 0; i < 6; i++) {
-            b_input[i] = (input[4 * i + 3] & 0xff) | (input[4 * i + 2] & 0xff) << 8 | (input[4 * i + 1] & 0xff) << 16 | (input[4 * i + 0] & 0xff) << 24;
+            b_input[i] = (uint32_t) ((input[4 * i + 3] & 0xff) | (input[4 * i + 2] & 0xff) << 8 | (input[4 * i + 1] & 0xff) << 16 | (input[4 * i + 0] & 0xff) << 24);
         }
         sha1(b_output, b_input);
         uint32_t last_b[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 480};

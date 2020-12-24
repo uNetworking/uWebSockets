@@ -25,26 +25,26 @@ int main() {
         .maxBackpressure = 1 * 1024 * 1024,
         /* Handlers */
         .upgrade = nullptr,
-        .open = [](auto *ws) {
+        .open = [](auto */*ws*/) {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode, true);
         },
-        .drain = [](auto *ws) {
+        .drain = [](auto */*ws*/) {
             /* Check ws->getBufferedAmount() here */
         },
-        .ping = [](auto *ws) {
+        .ping = [](auto */*ws*/) {
             /* Not implemented yet */
         },
-        .pong = [](auto *ws) {
+        .pong = [](auto */*ws*/) {
             /* Not implemented yet */
         },
-        .close = [](auto *ws, int code, std::string_view message) {
+        .close = [](auto */*ws*/, int /*code*/, std::string_view /*message*/) {
             /* You may access ws->getUserData() here */
         }
-    }).listen(9001, [](auto *token) {
-        if (token) {
+    }).listen(9001, [](auto *listen_socket) {
+        if (listen_socket) {
             std::cout << "Listening on port " << 9001 << std::endl;
         }
     }).run();
