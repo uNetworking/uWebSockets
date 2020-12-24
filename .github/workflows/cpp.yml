@@ -24,4 +24,4 @@ jobs:
     - name: Build source
       run: make -C uWebSockets
     - name: List binaries
-      run: ls
+      run: ls uWebSockets
