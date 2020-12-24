@@ -1,5 +1,6 @@
 /* We simply call the root header file "App.h", giving you uWS::App and uWS::SSLApp */
 #include "App.h"
+#include <thread>
 
 /* This is a simple WebSocket "async" upgrade example.
  * You may compile it with "WITH_OPENSSL=1 make" or with "make" */
@@ -15,10 +16,10 @@ int main() {
      * You may swap to using uWS:App() if you don't need SSL */
     uWS::SSLApp({
         /* There are example certificates in uWebSockets.js repo */
-	    .key_file_name = "../misc/key.pem",
-	    .cert_file_name = "../misc/cert.pem",
-	    .passphrase = "1234"
-	}).ws<PerSocketData>("/*", {
+        .key_file_name = "../misc/key.pem",
+        .cert_file_name = "../misc/cert.pem",
+        .passphrase = "1234"
+    }).ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::SHARED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024,
@@ -55,43 +56,42 @@ int main() {
                 std::cout << "HTTP socket was closed before we upgraded it!" << std::endl;
             });
 
-            /* Simulate checking auth for 5 seconds. This looks like crap, never write
-             * code that utilize us_timer_t like this; they are high-cost and should
-             * not be created and destroyed more than rarely!
-             *
-             * Also note that the code would be a lot simpler with capturing lambdas, maybe your
-             * database client has such a nice interface? Either way, here we go!*/
-            struct us_loop_t *loop = (struct us_loop_t *) uWS::Loop::get();
-            struct us_timer_t *delayTimer = us_create_timer(loop, 0, sizeof(UpgradeData *));
-            memcpy(us_timer_ext(delayTimer), &upgradeData, sizeof(UpgradeData *));
-            us_timer_set(delayTimer, [](struct us_timer_t *t) {
-                /* We wrote the upgradeData pointer to the timer's extension */
-                UpgradeData *upgradeData;
-                memcpy(&upgradeData, us_timer_ext(t), sizeof(UpgradeData *));
+            /* Simulate some work for 5 seconds. Don't do this in production, use a thread pool.
+             * Making a new thread per request and then destroying it is inefficient. */
+            auto loop = uWS::Loop::get();
+            std::thread thread([=]() {
+                std::cout << "Thread " << std::this_thread::get_id() << " handling upgrade" << std::endl;
 
-                /* Were'nt we aborted before our async task finished? Okay, upgrade then! */
+                /* We could check for early abortions before running
+                 * our async task if the task is very expensive */
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+
+                /* Did the client abort before our async task finished? If not, upgrade them! */
                 if (!upgradeData->aborted) {
                     std::cout << "Async task done, upgrading to WebSocket now!" << std::endl;
 
-                    /* If you don't want to upgrade you can instead respond with custom HTTP here,
-                    * such as res->writeStatus(...)->writeHeader(...)->end(...); or similar.*/
+                    /* uWS::Loop::defer() is the only thread-safe function!
+                     * We must wrap any calls inside this lambda and post execution to the loop thread */
+                    loop->defer([=]() {
+                        /* If you don't want to upgrade you can instead respond with custom HTTP here,
+                        * such as res->writeStatus(...)->writeHeader(...)->end(...); or similar.*/
 
-                    /* This call will immediately emit .open event */
-                    upgradeData->httpRes->template upgrade<PerSocketData>({
-                        /* We initialize PerSocketData struct here */
-                        .something = 13
-                    }, upgradeData->secWebSocketKey,
-                        upgradeData->secWebSocketProtocol,
-                        upgradeData->secWebSocketExtensions,
-                        upgradeData->context);
+                        /* This call will immediately emit .open event */
+                        upgradeData->httpRes->template upgrade<PerSocketData>({
+                            /* We initialize PerSocketData struct here */
+                            .something = 13
+                        }, upgradeData->secWebSocketKey,
+                            upgradeData->secWebSocketProtocol,
+                            upgradeData->secWebSocketExtensions,
+                            upgradeData->context);
+                    });
                 } else {
                     std::cout << "Async task done, but the HTTP socket was closed. Skipping upgrade to WebSocket!" << std::endl;
                 }
 
                 delete upgradeData;
-
-                us_timer_close(t);
-            }, 5000, 0);
+            });
+            thread.detach();
 
         },
         .open = [](auto *ws) {
