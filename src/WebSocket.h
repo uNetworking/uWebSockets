@@ -100,10 +100,8 @@ public:
         if (requiresWrite) {
             auto[written, failed] = Super::write(sendBuffer, (int) messageFrameSize);
 
-            /* For now, we are slow here */
-            free(sendBuffer);
-
             if (failed) {
+                free(sendBuffer);
                 /* Return false for failure, skipping to reset the timeout below */
                 return false;
             }
@@ -113,9 +111,12 @@ public:
         if (automaticallyCorked) {
             auto [written, failed] = Super::uncork();
             if (failed) {
+                free(sendBuffer);
                 return false;
             }
         }
+
+        free(sendBuffer);
 
         /* Every successful send resets the timeout */
         Super::timeout(webSocketContextData->idleTimeout);
