@@ -25,9 +25,9 @@
 #include "HttpResponseData.h"
 #include "AsyncSocket.h"
 #include "WebSocketData.h"
+#include "Log.h"
 
 #include <string_view>
-#include <iostream>
 #include "f2/function2.hpp"
 
 namespace uWS {
@@ -155,8 +155,12 @@ private:
                 httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
                 if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
                     /* We have to force close this socket as we have no handler for it */
+                    log("No handler for route " + std::string(httpRequest->getMethod()) + " " + std::string(httpRequest->getUrl()), 1);
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
+                }
+                else {
+                    log("Successfully handled route " + std::string(httpRequest->getMethod()) + " " + std::string(httpRequest->getUrl()), 3);
                 }
 
                 /* First of all we need to check if this socket was deleted due to upgrade */
@@ -177,8 +181,7 @@ private:
 
                 /* Returning from a request handler without responding or attaching an onAborted handler is ill-use */
                 if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted) {
-                    /* Throw exception here? */
-                    std::cerr << "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!" << std::endl;
+                    log("Error: Returning from a request handler without responding or attaching an abort handler is forbidden!", 0);
                     std::terminate();
                 }
 
