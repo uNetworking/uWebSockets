@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 
+#define UWS_LOG_LEVEL 0  // override this to get more verbose logging
+
 namespace uWS {
 
 /*!

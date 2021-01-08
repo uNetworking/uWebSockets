@@ -155,13 +155,17 @@ private:
                 httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
                 if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
                     /* We have to force close this socket as we have no handler for it */
+                    #if UWS_LOG_LEVEL <= 1
                     log("No handler for route " + std::string(httpRequest->getMethod()) + " " + std::string(httpRequest->getUrl()), 1);
+                    #endif
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
                 }
+                #if UWS_LOG_LEVEL <= 3
                 else {
                     log("Successfully handled route " + std::string(httpRequest->getMethod()) + " " + std::string(httpRequest->getUrl()), 3);
                 }
+                #endif
 
                 /* First of all we need to check if this socket was deleted due to upgrade */
                 if (httpContextData->upgradedWebSocket) {
