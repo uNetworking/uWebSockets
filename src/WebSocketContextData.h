@@ -169,7 +169,8 @@ public:
             /* Leave second field empty as nobody will ever read it */
             topicTree.publish(topic, {std::string_view(dst, dst_length), {}});
         } else {
-            if (compress) {
+            /* DEDICATED_COMPRESSOR always takes the same path as must always have MessageMetadata as head */
+            if (compress || compression != SHARED_COMPRESSOR) {
                 /* Shared compression mode publishes compressed, framed data */
                 if (compression == SHARED_COMPRESSOR) {
                     /* Loop data holds shared compressor */
@@ -209,7 +210,8 @@ public:
                     ::free(dst_compressed);
                 }
             } else {
-                /* If not compressing, put same message on both tracks */
+                /* If not compressing, put same message on both tracks (only valid for SHARED_COMPRESSOR).
+                 * DEDICATED_COMPRESSOR_xKB must never end up here as we don't put a proper head here. */
                 topicTree.publish(topic, {std::string_view(dst, dst_length), std::string_view(dst, dst_length)});
             }
         }
