@@ -39,7 +39,7 @@ private:
         HTTP_WRITE_CALLED = 2, // used
         HTTP_END_CALLED = 4, // used
         HTTP_RESPONSE_PENDING = 8, // used
-        HTTP_ENDED_STREAM_OUT = 16 // not used
+        HTTP_CONNECTION_CLOSE = 16 // used
     };
 
     /* Per socket event handlers */

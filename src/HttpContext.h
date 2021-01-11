@@ -151,6 +151,11 @@ private:
                 /* Mark pending request and emit it */
                 httpResponseData->state = HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
 
+                /* Mark this response as connectionClose if ancient or connection: close */
+                if (httpRequest->isAncient() || httpRequest->getHeader("connection").length() == 5) {
+                    httpResponseData->state |= HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE;
+                }
+
                 /* Route the method and URL */
                 httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
                 if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
@@ -242,6 +247,15 @@ private:
                     ((AsyncSocket<SSL> *) s)->timeout(HTTP_IDLE_TIMEOUT_S);
                 }
 
+                /* We need to check if we should close this socket here now */
+                if (httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) {
+                    if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
+                        if (((AsyncSocket<SSL> *) s)->getBufferedAmount() == 0) {
+                            ((AsyncSocket<SSL> *) s)->shutdown();
+                        }
+                    }
+                }
+
                 return (us_socket_t *) returnedSocket;
             }
 
@@ -304,6 +318,15 @@ private:
 
             /* Drain any socket buffer, this might empty our backpressure and thus finish the request */
             /*auto [written, failed] = */asyncSocket->write(nullptr, 0, true, 0);
+
+            /* Should we close this connection after a response - and is this response really done? */
+            if (httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) {
+                if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
+                    if (asyncSocket->getBufferedAmount() == 0) {
+                        asyncSocket->shutdown();
+                    }
+                }
+            }
 
             /* Expect another writable event, or another request within the timeout */
             asyncSocket->timeout(HTTP_IDLE_TIMEOUT_S);

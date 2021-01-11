@@ -45,12 +45,17 @@ private:
     struct Header {
         std::string_view key, value;
     } headers[MAX_HEADERS];
+    bool ancientHttp;
     unsigned int querySeparator;
     bool didYield;
     BloomFilter bf;
     std::pair<int, std::string_view *> currentParameters;
 
 public:
+    bool isAncient() {
+        return ancientHttp;
+    }
+
     bool getYield() {
         return didYield;
     }
@@ -225,6 +230,9 @@ private:
             data += consumed;
             length -= consumed;
             consumedTotal += consumed;
+
+            /* Store HTTP version (ancient 1.0 or 1.1) */
+            req->ancientHttp = req->headers->value.length() && (req->headers->value[req->headers->value.length() - 1] == '0');
 
             /* Strip away tail of first "header value" aka URL */
             req->headers->value = std::string_view(req->headers->value.data(), (size_t) std::max<int>(0, (int) req->headers->value.length() - 9));
