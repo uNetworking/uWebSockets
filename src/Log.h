@@ -1,8 +1,9 @@
 #ifndef UWS_LOG_H
 #define UWS_LOG_H
+#include <array>
 #include <functional>
 #include <iostream>
-#include <string>
+#include <string_view>
 
 #define UWS_LOG_LEVEL 0  // override this to get more verbose logging
 
