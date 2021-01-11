@@ -24,6 +24,12 @@ inline LogFunction log = [](const std::string& message, int logLevel) -> void {
     }
 };
 
+#define UWS_LOG_REQUEST(msg, loglevel) { \
+    if constexpr(loglevel <= UWS_LOG_LEVEL) { \
+        log(msg, loglevel); \
+    } \
+}
+
 }  // namespace uWS
 
 #endif  // UWS_LOG_H
