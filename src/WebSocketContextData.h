@@ -60,7 +60,7 @@ public:
     unsigned int idleTimeout = 0;
 
     /* We do need these for async upgrade */
-    int compression;
+    CompressOptions compression;
 
     /* There needs to be a maxBackpressure which will force close everything over that limit */
     size_t maxBackpressure = 0;

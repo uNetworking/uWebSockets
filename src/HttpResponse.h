@@ -214,67 +214,39 @@ public:
             writeHeader("Sec-WebSocket-Protocol", secWebSocketProtocol.substr(0, secWebSocketProtocol.find(',')));
         }
 
-        /* Negotiate compression, we may use a smaller compression window than we negotiate */
+        /* Negotiate compression */
         bool perMessageDeflate = false;
-        /* We are always allowed to share compressor, if perMessageDeflate */
-        int compressOptions = webSocketContextData->compression & SHARED_COMPRESSOR;
-        if (webSocketContextData->compression != DISABLED) {
-            if (secWebSocketExtensions.length()) {
-                /* We never support client context takeover (the client cannot compress with a sliding window). */
-                unsigned int wantedOptions = PERMESSAGE_DEFLATE | CLIENT_NO_CONTEXT_TAKEOVER;
+        CompressOptions compressOptions = CompressOptions::DISABLED;
+        if (secWebSocketExtensions.length() && webSocketContextData->compression != DISABLED) {
 
-                /* Shared compressor is the default */
-                if (webSocketContextData->compression == SHARED_COMPRESSOR) {
-                    /* Disable per-socket compressor */
-                    wantedOptions |= SERVER_NO_CONTEXT_TAKEOVER;
-                }
+            /* We always want shared inflation */
+            int wantedInflationWindow = 0;
 
-                /* isServer = true */
-                ExtensionsNegotiator<true> extensionsNegotiator(wantedOptions);
-                extensionsNegotiator.readOffer(secWebSocketExtensions);
+            /* Map from selected compressor */
+            int wantedCompressionWindow = (webSocketContextData->compression & 0xFF00) >> 8;
 
-                /* Todo: remove these mid string copies */
-                std::string offer = extensionsNegotiator.generateOffer();
-                if (offer.length()) {
+            auto [negCompression, negCompressionWindow, negInflationWindow, negResponse] =
+            uWS::negotiateCompression(true, wantedCompressionWindow, wantedInflationWindow,
+                                        secWebSocketExtensions);
 
-                    /* Todo: this is a quick fix that should be properly moved to ExtensionsNegotiator */
-                    if (webSocketContextData->compression & DEDICATED_COMPRESSOR &&
-                        webSocketContextData->compression != DEDICATED_COMPRESSOR_256KB) {
-                            /* 3kb, 4kb is 9, 256 is 15 (default) */
-                            int maxServerWindowBits = 9;
-                            switch (webSocketContextData->compression) {
-                                case DEDICATED_COMPRESSOR_8KB:
-                                maxServerWindowBits = 10;
-                                break;
-                                case DEDICATED_COMPRESSOR_16KB:
-                                maxServerWindowBits = 11;
-                                break;
-                                case DEDICATED_COMPRESSOR_32KB:
-                                maxServerWindowBits = 12;
-                                break;
-                                case DEDICATED_COMPRESSOR_64KB:
-                                maxServerWindowBits = 13;
-                                break;
-                                case DEDICATED_COMPRESSOR_128KB:
-                                maxServerWindowBits = 14;
-                                break;
-                            }
-                            offer += "; server_max_window_bits=";
-                            offer += std::to_string(maxServerWindowBits);
+            if (negCompression) {
+                perMessageDeflate = true;
+
+                /* Map from windowBits to compressor */
+                if (negCompressionWindow == 0) {
+                    compressOptions = CompressOptions::SHARED_COMPRESSOR;
+                } else {
+                    compressOptions = (CompressOptions) ((uint32_t) (negCompressionWindow << 8)
+                                                        | (uint32_t) (negCompressionWindow - 7));
+
+                    /* If we are dedicated and have the 3kb then correct any 4kb to 3kb,
+                     * (they both share the windowBits = 9) */
+                    if (webSocketContextData->compression == DEDICATED_COMPRESSOR_3KB) {
+                        compressOptions = DEDICATED_COMPRESSOR_3KB;
                     }
-
-                    writeHeader("Sec-WebSocket-Extensions", offer);
                 }
 
-                /* Did we negotiate permessage-deflate? */
-                if (extensionsNegotiator.getNegotiatedOptions() & PERMESSAGE_DEFLATE) {
-                    perMessageDeflate = true;
-                }
-
-                /* Is the server allowed to compress with a sliding window? */
-                if (!(extensionsNegotiator.getNegotiatedOptions() & SERVER_NO_CONTEXT_TAKEOVER)) {
-                    compressOptions = webSocketContextData->compression;
-                }
+                writeHeader("Sec-WebSocket-Extensions", negResponse);
             }
         }
 
@@ -372,7 +344,7 @@ public:
     /* Write an HTTP header with unsigned int value */
     HttpResponse *writeHeader(std::string_view key, uint64_t value) {
         writeStatus(HTTP_200_OK);
-    
+
         Super::write(key.data(), (int) key.length());
         Super::write(": ", 2);
         writeUnsigned64(value);

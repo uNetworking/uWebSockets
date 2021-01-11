@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2020.
+ * Authored by Alex Hultman, 2018-2021.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,23 +22,20 @@
 
 /* We always define these options no matter if ZLIB is enabled or not */
 namespace uWS {
-    /* Compress options (really more like PerMessageDeflateOptions) */
-    enum CompressOptions : int {
-        /* Compression disabled */
+    /* Compressor mode is HIGH8(windowBits), LOW8(memLevel) */
+    enum CompressOptions : uint32_t {
         DISABLED = 0,
-        /* We compress using a shared non-sliding window. No added memory usage, worse compression. */
         SHARED_COMPRESSOR = 1,
-        /* We compress using a dedicated sliding window. Major memory usage added, better compression of similarly repeated messages. */
-        DEDICATED_COMPRESSOR = 2,
-        /* Flags for limiting memory usage of dedicated compressor */
-        DEDICATED_COMPRESSOR_3KB = 2 | 4,
-        DEDICATED_COMPRESSOR_4KB = 2 | 8,
-        DEDICATED_COMPRESSOR_8KB = 2 | 16,
-        DEDICATED_COMPRESSOR_16KB = 2 | 32,
-        DEDICATED_COMPRESSOR_32KB = 2 | 64,
-        DEDICATED_COMPRESSOR_64KB = 2 | 128,
-        DEDICATED_COMPRESSOR_128KB = 2 | 256,
-        DEDICATED_COMPRESSOR_256KB = 2 | 512
+        DEDICATED_COMPRESSOR_3KB = 9 << 8 | 1,
+        DEDICATED_COMPRESSOR_4KB = 9 << 8 | 2,
+        DEDICATED_COMPRESSOR_8KB = 10 << 8 | 3,
+        DEDICATED_COMPRESSOR_16KB = 11 << 8 | 4,
+        DEDICATED_COMPRESSOR_32KB = 12 << 8 | 5,
+        DEDICATED_COMPRESSOR_64KB = 13 << 8 | 6,
+        DEDICATED_COMPRESSOR_128KB = 14 << 8 | 7,
+        DEDICATED_COMPRESSOR_256KB = 15 << 8 | 8,
+        /* Same as 256kb */
+        DEDICATED_COMPRESSOR = 15 << 8 | 8
     };
 }
 
@@ -94,40 +91,14 @@ struct ZlibContext {
 struct DeflationStream {
     z_stream deflationStream = {};
 
-    DeflationStream(int compressOptions) {
+    DeflationStream(CompressOptions compressOptions) {
 
         /* Sliding inflator should be about 44kb by default, less than compressor */
 
         /* Memory usage is given by 2 ^ (windowBits + 2) + 2 ^ (memLevel + 9) */
-        int windowBits = -15, memLevel = 8;
+        int windowBits = -(int) ((compressOptions & 0xFF00) >> 8), memLevel = compressOptions & 0x00FF;
 
-        if (compressOptions == DEDICATED_COMPRESSOR_3KB) {
-            windowBits = -9;
-            memLevel = 1;
-        } else if (compressOptions == DEDICATED_COMPRESSOR_4KB) {
-            windowBits = -9;
-            memLevel = 2;
-        } else if (compressOptions == DEDICATED_COMPRESSOR_8KB) {
-            windowBits = -10;
-            memLevel = 3;
-        } else if (compressOptions == DEDICATED_COMPRESSOR_16KB) {
-            windowBits = -11;
-            memLevel = 4;
-        } else if (compressOptions == DEDICATED_COMPRESSOR_32KB) {
-            windowBits = -12;
-            memLevel = 5;
-        } else if (compressOptions == DEDICATED_COMPRESSOR_64KB) {
-            windowBits = -13;
-            memLevel = 6;
-        } else if (compressOptions == DEDICATED_COMPRESSOR_128KB) {
-            windowBits = -14;
-            memLevel = 7;
-        } else if (compressOptions == DEDICATED_COMPRESSOR_256KB) {
-            windowBits = -15;
-            memLevel = 8;
-        }
-
-        /* DEDICATED_COMPRESSOR_256KB is the same as DEDICATED_COMPRESSOR */
+        //printf("windowBits: %d, memLevel: %d\n", windowBits, memLevel);
 
         deflateInit2(&deflationStream, 1, Z_DEFLATED, windowBits, memLevel, Z_DEFAULT_STRATEGY);
     }

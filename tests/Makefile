@@ -5,3 +5,5 @@ default:
 	./HttpRouter
 	$(CXX) -std=c++17 -fsanitize=address BloomFilter.cpp -o BloomFilter
 	./BloomFilter
+	$(CXX) -std=c++17 -fsanitize=address ExtensionsNegotiator.cpp -o ExtensionsNegotiator
+	./ExtensionsNegotiator
