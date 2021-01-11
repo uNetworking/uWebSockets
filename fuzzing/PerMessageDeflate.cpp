@@ -16,7 +16,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     /* First byte determines what compressor to use */
     if (size >= 1) {
 
-        int compressors[] = {
+        uWS::CompressOptions compressors[] = {
             uWS::DEDICATED_COMPRESSOR_3KB,
             uWS::DEDICATED_COMPRESSOR_4KB,
             uWS::DEDICATED_COMPRESSOR_8KB,
