@@ -155,12 +155,12 @@ private:
                 httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
                 if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
                     /* We have to force close this socket as we have no handler for it */
-                    UWS_LOG_REQUEST("No handler for route " + std::string(httpRequest->getMethod()) + " " + std::string(httpRequest->getUrl()), 1);
+                    UWS_LOG_REQUEST(1, "No handler for route ", httpRequest->getMethod(), " ", httpRequest->getUrl());
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
                 }
                 else {
-                    UWS_LOG_REQUEST("Successfully handled route " + std::string(httpRequest->getMethod()) + " " + std::string(httpRequest->getUrl()), 3);
+                    UWS_LOG_REQUEST(3, "Successfully handled route ", httpRequest->getMethod(), " ", httpRequest->getUrl());
                 }
 
                 /* First of all we need to check if this socket was deleted due to upgrade */
@@ -181,7 +181,7 @@ private:
 
                 /* Returning from a request handler without responding or attaching an onAborted handler is ill-use */
                 if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted) {
-                    UWS_LOG_REQUEST("Error: Returning from a request handler without responding or attaching an abort handler is forbidden!", 0);
+                    UWS_LOG_REQUEST(0, "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!");
                     std::terminate();
                 }
 
