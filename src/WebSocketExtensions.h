@@ -24,6 +24,9 @@
  * demand a downgrade to SHARED_COMPRESSOR (yet) until we fix that scenario in pub/sub */
 // #define UWS_ALLOW_SHARED_AND_DEDICATED_COMPRESSOR_MIX
 
+/* We forbid negotiating 8 windowBits since Zlib has a bug with this */
+// #define UWS_ALLOW_8_WINDOW_BITS
+
 #include <climits>
 #include <cctype>
 #include <string>
@@ -176,6 +179,12 @@ std::tuple<bool, int, int, std::string_view> negotiateCompression(bool wantCompr
          * we have to limit out compression sliding window */
         if (ep.maxWindowBits && ep.maxWindowBits < compressionWindow) {
             compressionWindow = ep.maxWindowBits;
+#ifndef UWS_ALLOW_8_WINDOW_BITS
+            /* We cannot really deny this, so we have to disable compression in this case */
+            if (compressionWindow == 8) {
+                return {false, 0, 0, ""};
+            }
+#endif
         }
 
         /* We decide our own inflation sliding window (and their compression sliding window) */
@@ -216,6 +225,12 @@ std::tuple<bool, int, int, std::string_view> negotiateCompression(bool wantCompr
 #endif
         } else if (ep.serverMaxWindowBits) {
             compressionWindow = std::min<int>(ep.serverMaxWindowBits, compressionWindow);
+#ifndef UWS_ALLOW_8_WINDOW_BITS
+            /* Zlib cannot do windowBits=8, memLevel=1 so we raise it up to 9 minimum */
+            if (compressionWindow == 8) {
+                compressionWindow = 9;
+            }
+#endif
         }
 
         /* Whatever we have now, write */

@@ -1,6 +1,9 @@
 /* This is a temporary fix since we do not support this mode with pub/sub yet */
 #define UWS_ALLOW_SHARED_AND_DEDICATED_COMPRESSOR_MIX
 
+/* Zlib bug should not affect testing */
+#define UWS_ALLOW_8_WINDOW_BITS
+
 #include "../src/WebSocketExtensions.h"
 
 #include <iostream>
