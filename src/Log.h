@@ -34,7 +34,7 @@ class LogBuffer
         LogBuffer& operator<< (std::string_view sv) {
             const size_t bytesFree = buf.size() - cursor;
             if(sv.size() > bytesFree)
-                throw std::length_error("log message too long");
+                return *this;
             memcpy(&buf[cursor], sv.data(), sv.size());
             cursor += sv.size();
             return *this;
