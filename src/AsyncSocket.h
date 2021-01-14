@@ -65,7 +65,7 @@ protected:
     }
 
     /* Immediately close socket */
-    us_socket_t *close() {
+    struct us_socket_t *close() {
         return us_socket_close(SSL, (us_socket_t *) this, 0, nullptr);
     }
 
