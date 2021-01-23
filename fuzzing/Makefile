@@ -22,6 +22,7 @@ oss-fuzz:
 	# Link against object files
 	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O2 -DUWS_NO_ZLIB -I../src -I../uSockets/src EpollHelloWorld.cpp -o $(OUT)/EpollHelloWorld $(LIB_FUZZING_ENGINE) *.o
 # "Unit tests"
+	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Extensions.cpp -o $(OUT)/Extensions $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 QueryParser.cpp -o $(OUT)/QueryParser $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 WebSocket.cpp -o $(OUT)/WebSocket $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Http.cpp -o $(OUT)/Http $(LIB_FUZZING_ENGINE)
@@ -37,5 +38,4 @@ oss-fuzz:
 
 broken:
 # Too small tests, failing coverage test
-	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Extensions.cpp -o $(OUT)/Extensions $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Handshake.cpp -o $(OUT)/Handshake $(LIB_FUZZING_ENGINE)
