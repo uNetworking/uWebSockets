@@ -141,7 +141,7 @@ public:
 };
 
 /* Takes what we (the server) wants, returns what we got */
-std::tuple<bool, int, int, std::string_view> negotiateCompression(bool wantCompression, int wantedCompressionWindow, int wantedInflationWindow, std::string_view offer) {
+static inline std::tuple<bool, int, int, std::string_view> negotiateCompression(bool wantCompression, int wantedCompressionWindow, int wantedInflationWindow, std::string_view offer) {
 
     /* If we don't want compression then we are done here */
     if (!wantCompression) {
