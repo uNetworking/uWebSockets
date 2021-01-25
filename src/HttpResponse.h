@@ -106,6 +106,16 @@ private:
 
         /* In some cases, such as when refusing huge data we want to close the connection when drained */
         if (closeConnection) {
+
+            /* HTTP 1.1 must send this back unless the client already sent it to us.
+             * It is a connection close when either of the two parties say so but the
+             * one party must tell the other one so.
+             *
+             * This check also serves to limit writing the header only once. */
+            if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) == 0) {
+                writeHeader("Connection", "close");
+            }
+
             httpResponseData->state |= HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE;
         }
 
