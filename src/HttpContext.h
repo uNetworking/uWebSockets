@@ -252,6 +252,9 @@ private:
                     if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
                         if (((AsyncSocket<SSL> *) s)->getBufferedAmount() == 0) {
                             ((AsyncSocket<SSL> *) s)->shutdown();
+                            /* We need to force close after sending FIN since we want to hinder
+                             * clients from keeping to send their huge data */
+                            ((AsyncSocket<SSL> *) s)->close();
                         }
                     }
                 }
@@ -324,6 +327,9 @@ private:
                 if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
                     if (asyncSocket->getBufferedAmount() == 0) {
                         asyncSocket->shutdown();
+                        /* We need to force close after sending FIN since we want to hinder
+                         * clients from keeping to send their huge data */
+                        asyncSocket->close();
                     }
                 }
             }

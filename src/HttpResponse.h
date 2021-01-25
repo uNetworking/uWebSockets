@@ -93,7 +93,7 @@ private:
 
     /* Returns true on success, indicating that it might be feasible to write more data.
      * Will start timeout if stream reaches totalSize or write failure. */
-    bool internalEnd(std::string_view data, size_t totalSize, bool optional, bool allowContentLength = true) {
+    bool internalEnd(std::string_view data, size_t totalSize, bool optional, bool allowContentLength = true, bool closeConnection = false) {
         /* Write status if not already done */
         writeStatus(HTTP_200_OK);
 
@@ -103,6 +103,12 @@ private:
         }
 
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        /* In some cases, such as when refusing huge data we want to close the connection when drained */
+        if (closeConnection) {
+            httpResponseData->state |= HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE;
+        }
+
         if (httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED) {
 
             /* We do not have tryWrite-like functionalities, so ignore optional in this path */
@@ -353,8 +359,8 @@ public:
     }
 
     /* End the response with an optional data chunk. Always starts a timeout. */
-    void end(std::string_view data = {}) {
-        internalEnd(data, data.length(), false);
+    void end(std::string_view data = {}, bool closeConnection = false) {
+        internalEnd(data, data.length(), false, true, closeConnection);
     }
 
     /* Try and end the response. Returns [true, true] on success.
