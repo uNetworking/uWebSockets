@@ -144,6 +144,7 @@ private:
 
                 /* Are we not ready for another request yet? Terminate the connection. */
                 if (httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) {
+                    UWS_LOG_REQUEST(3, "terminating connection (HTTP_RESPONSE_PENDING)");
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
                 }
@@ -166,16 +167,19 @@ private:
                 /* First of all we need to check if this socket was deleted due to upgrade */
                 if (httpContextData->upgradedWebSocket) {
                     /* We differ between closed and upgraded below */
+                    UWS_LOG_REQUEST(3, "socket was deleted due to upgrade");
                     return nullptr;
                 }
 
                 /* Was the socket closed? */
                 if (us_socket_is_closed(SSL, (struct us_socket_t *) s)) {
+                    UWS_LOG_REQUEST(3, "socket was closed");
                     return nullptr;
                 }
 
                 /* We absolutely have to terminate parsing if shutdown */
                 if (us_socket_is_shut_down(SSL, (us_socket_t *) s)) {
+                    UWS_LOG_REQUEST(3, "socket was shutdown");
                     return nullptr;
                 }
 
@@ -211,11 +215,13 @@ private:
 
                     /* Was the socket closed? */
                     if (us_socket_is_closed(SSL, (struct us_socket_t *) user)) {
+                        UWS_LOG_REQUEST(3, "socket was closed");
                         return nullptr;
                     }
 
                     /* We absolutely have to terminate parsing if shutdown */
                     if (us_socket_is_shut_down(SSL, (us_socket_t *) user)) {
+                        UWS_LOG_REQUEST(3, "socket was shutdown");
                         return nullptr;
                     }
 
@@ -343,6 +349,7 @@ public:
         httpContext = (HttpContext *) us_create_socket_context(SSL, (us_loop_t *) loop, sizeof(HttpContextData<SSL>), options);
 
         if (!httpContext) {
+            UWS_LOG_REQUEST(0, "Error: Failed to create a httpContext");
             return nullptr;
         }
 
