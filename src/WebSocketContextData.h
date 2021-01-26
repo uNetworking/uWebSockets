@@ -64,6 +64,7 @@ public:
 
     /* There needs to be a maxBackpressure which will force close everything over that limit */
     size_t maxBackpressure = 0;
+    bool closeOnBackpressureLimit;
 
     /* Each websocket context has a topic tree for pub/sub */
     TopicTree topicTree;
@@ -142,6 +143,11 @@ public:
         }
 
         /* If we have too much backpressure, simply skip sending from here */
+
+        /* Also (defer) a close if we have too much backpressure if that is what we want */
+        if (maxBackpressure && closeOnBackpressureLimit && asyncSocket->getBufferedAmount() > maxBackpressure) {
+            us_socket_shutdown_read(SSL, (us_socket_t *) asyncSocket);
+        }
 
         /* Reserved, unused */
         return 0;

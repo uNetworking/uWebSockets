@@ -64,6 +64,10 @@ public:
 
         /* Skip sending and report success if we are over the limit of maxBackpressure */
         if (webSocketContextData->maxBackpressure && webSocketContextData->maxBackpressure < getBufferedAmount()) {
+            /* Also defer a close if we should */
+            if (webSocketContextData->closeOnBackpressureLimit) {
+                us_socket_shutdown_read(SSL, (us_socket_t *) this);
+            }
             return true;
         }
 
