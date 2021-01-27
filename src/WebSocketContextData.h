@@ -65,6 +65,7 @@ public:
     /* There needs to be a maxBackpressure which will force close everything over that limit */
     size_t maxBackpressure = 0;
     bool closeOnBackpressureLimit;
+    bool resetIdleTimeoutOnSend;
 
     /* Each websocket context has a topic tree for pub/sub */
     TopicTree topicTree;
@@ -134,7 +135,9 @@ public:
             /* Note: this assumes we are not corked, as corking will swallow things and fail later on */
             auto [written, failed] = asyncSocket->write(selectedData.data(), (int) selectedData.length());
             if (!failed) {
-                asyncSocket->timeout(this->idleTimeout);
+                if (this->resetIdleTimeoutOnSend) {
+                    asyncSocket->timeout(this->idleTimeout);
+                }
             }
 
             /* Failing here must not immediately close the socket, as that could result in stack overflow,
