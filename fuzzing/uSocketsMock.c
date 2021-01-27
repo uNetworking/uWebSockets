@@ -193,6 +193,10 @@ void us_socket_flush(int ssl, struct us_socket_t *s) {
 
 }
 
+void us_socket_shutdown_read(int ssl, struct us_socket_t *s) {
+
+}
+
 void us_socket_shutdown(int ssl, struct us_socket_t *s) {
     s->shutdown = 1;
 }
