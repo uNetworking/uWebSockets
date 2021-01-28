@@ -28,15 +28,7 @@
 #include <list>
 #include <cstring>
 
-struct Hole {
-    std::pair<size_t, size_t> lengths;
-    unsigned int messageId;
-};
-
-struct Intersection {
-    std::pair<std::string, std::string> dataChannels;
-    std::vector<Hole> holes;
-};
+#include <functional>
 
 namespace uWS {
 
@@ -72,6 +64,74 @@ struct Topic {
     std::map<unsigned int, std::pair<std::string, std::string>> messages;
 
     std::set<Subscriber *> subs;
+};
+
+struct Hole {
+    std::pair<size_t, size_t> lengths;
+    unsigned int messageId;
+};
+
+struct Intersection {
+    std::pair<std::string, std::string> dataChannels;
+    std::vector<Hole> holes;
+
+    void forSubscriber(Subscriber *s, std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>)> cb) {
+               /* How far we already emitted of the two dataChannels */
+        std::pair<size_t, size_t> emitted = {};
+
+        //std::cout << "Subscriber: " << s << std::endl;
+
+        /* Holes are global to the entire topic tree, so we are not guaranteed to find
+         * holes in this intersection - they are sorted, though */
+        int examinedHoles = 0;
+
+        /* This is a slow path of sorts, most subscribers will be observers, not active senders */
+        for (unsigned int id : senderForMessages) {
+            //std::cout << "We are sender for id: " << id << std::endl;
+
+            std::pair<size_t, size_t> toEmit = {};
+            std::pair<size_t, size_t> toIgnore = {};
+
+            /* This linear search is most probably very small - it could be made log2 if every hole
+             * knows about its previous accumulated length, which is easy to set up. However this
+             * log2 search will most likely never be a warranted perf. gain */
+            for (; examinedHoles < holes.size(); examinedHoles++) {
+                if (holes[examinedHoles].messageId == id) {
+                    toIgnore.first += holes[examinedHoles].lengths.first;
+                    toIgnore.second += holes[examinedHoles].lengths.second;
+                    examinedHoles++;
+                    break;
+                }
+                /* We are not the sender of this message so we should emit it in this segment */
+                toEmit.first += holes[examinedHoles].lengths.first;
+                toEmit.second += holes[examinedHoles].lengths.second;
+            }
+
+            /* Emit this segment */
+            if (toEmit.first || toEmit.second) {
+                std::pair<std::string_view, std::string_view> cutDataChannels = {
+                    std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
+                    std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
+                };
+
+                cb(cutDataChannels);
+            }
+
+            emitted.first += toEmit.first + toIgnore.first;
+            emitted.second += toEmit.second + toIgnore.second;
+        }
+
+        if (emitted.first == dataChannels.first.length() && emitted.second == dataChannels.second.length()) {
+            return;
+        }
+
+        std::pair<std::string_view, std::string_view> cutDataChannels = {
+            std::string_view(dataChannels.first.data() + emitted.first, dataChannels.first.length() - emitted.first),
+            std::string_view(dataChannels.second.data() + emitted.second, dataChannels.second.length() - emitted.second),
+        };
+
+        cb(cutDataChannels);
+    }
 };
 
 struct TopicTree {
@@ -439,7 +499,7 @@ public:
 
 
                     for (auto &p : complete) {
-                        printf("messageId = %d\n", p.first);
+                        //printf("messageId = %d\n", p.first);
 
 
                         res.dataChannels.first.append(p.second.first);

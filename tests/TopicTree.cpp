@@ -3,23 +3,26 @@
 #include <cassert>
 #include <iostream>
 
-void testUnsubscribeInside() {
-    std::cout << "TestUnsubscribeInside" << std::endl;
+/* Modifying the topicTree inside callback is not allowed, we had
+ * tests for this before but we never need this to work anyways.
+ * Closing a socket when reaching too much backpressure is done
+ * deferred to next event loop iteration so we never need to modify
+ * topicTree inside callback - removed this test */
+
+/* This tests pretty much all features for obvious incorrectness */
+void testCorrectness() {
+    std::cout << "TestCorrectness" << std::endl;
 
     uWS::TopicTree *topicTree;
     std::map<void *, std::pair<std::string, std::string>> expectedResult;
+    std::map<void *, std::pair<std::string, std::string>> actualResult;
 
-    topicTree = new uWS::TopicTree([&topicTree, &expectedResult](uWS::Subscriber *s, Intersection &intersection) {
-        std::string_view data = intersection.dataChannels.second;
+    topicTree = new uWS::TopicTree([&topicTree, &actualResult](uWS::Subscriber *s, uWS::Intersection &intersection) {
 
-        /* Check for unexpected subscribers */
-        assert(expectedResult.find(s) != expectedResult.end());
-
-        /* Check for unexpected data */
-        assert(expectedResult[s].first == intersection.dataChannels.first && expectedResult[s].second == intersection.dataChannels.second);
-
-        /* This one causes mess-up */
-        topicTree->unsubscribeAll(s);
+        intersection.forSubscriber(s, topicTree->senderHoles[s], [s, &actualResult](std::pair<std::string_view, std::string_view> dataChannels) {
+            actualResult[s].first += dataChannels.first;
+            actualResult[s].second += dataChannels.second;
+        });
 
         /* We actually don't use this one */
         return 0;
@@ -28,110 +31,60 @@ void testUnsubscribeInside() {
     uWS::Subscriber *s1 = new uWS::Subscriber(nullptr);
     uWS::Subscriber *s2 = new uWS::Subscriber(nullptr);
 
-    /* Fill out expectedResult */
-    expectedResult = {
-        {s1, {"Ett!", "Ett!"}},
-        {s2, {"Två!", "Två!"}}
-    };
-
-    /* Make sure s1 < s2 */
+    /* Make sure s1 < s2 (for debugging) */
     if (s2 < s1) {
         uWS::Subscriber *tmp = s1;
         s1 = s2;
         s2 = tmp;
     }
 
-    /* This order does not matter as it fills a tree */
-    topicTree->subscribe("2", s2);
-    topicTree->subscribe("1", s1);
+    /* Publish to topic3 - nobody should see this */
+    topicTree->publish("topic3", {std::string_view("Nobody"), std::string_view("should see")}, nullptr);
 
-    /* This order matters, as it fills triggeredTopics array in order */
-    topicTree->publish("1", {std::string_view("Ett!"), std::string_view("Ett!")});
-    topicTree->publish("2", {std::string_view("Två!"), std::string_view("Ett!")});
+    /* Subscribe s1 to topic3 - s1 should not see above message */
+    topicTree->subscribe("topic3", s1);
 
-    topicTree->drain();
+    /* Publish to topic3 with s1 as sender - s1 should not get its own messages */
+    topicTree->publish("topic3", {std::string_view("Nobody"), std::string_view("should see")}, s1);
 
-    /* Release resources */
-    topicTree->unsubscribeAll(s1);
-    topicTree->unsubscribeAll(s2);
+    /* Subscribe s2 to topic3 - should not get any message */
+    topicTree->subscribe("topic3", s2);
 
-    delete s1;
-    delete s2;
+    /* Publish to topic3 without sender - both should see */
+    topicTree->publish("topic3", {std::string_view("Both"), std::string_view("should see")}, nullptr);
 
-    delete topicTree;
-}
+    /* Publish to topic3 with s2 as sender - s1 should see */
+    topicTree->publish("topic3", {std::string_view("s1"), std::string_view("should see, not s2")}, s2);
 
-void testPublisherHoles() {
-    std::cout << "TestPublisherHoles" << std::endl;
+    /* Publish to topic3 with s1 as sender - s2 should see */
+    topicTree->publish("topic3", {std::string_view("s2"), std::string_view("should see, not s1")}, s1);
 
-    uWS::TopicTree *topicTree;
-    std::map<void *, std::pair<std::string, std::string>> expectedResult;
+    /* Publish to topic3 without sender - both should see */
+    topicTree->publish("topic3", {std::string_view("Again, both"), std::string_view("should see this as well")}, nullptr);
 
-    topicTree = new uWS::TopicTree([&topicTree, &expectedResult](uWS::Subscriber *s, /*std::pair<std::string, std::string> &dataChannels*/ Intersection &intersection) {
-
-
-        std::cout << "Subscriber: " << s << std::endl;
-
-        std::vector<unsigned int> &senderForMessages = topicTree->senderHoles[s];
-
-        for (unsigned int id : senderForMessages) {
-            std::cout << "We are sender for id: " << id << std::endl;
-        }
-
-        // iterate holes
-        for (Hole h : intersection.holes) {
-            std::cout << h.messageId << std::endl;
-
-
-
-            // todo: this linear search is not needed as ids are ordered!
-            if (std::find(senderForMessages.begin(), senderForMessages.end(), h.messageId) != senderForMessages.end()) {
-                std::cout << "WE ARE SENDER FOR THIS MESSAGE!" << std::endl;
-            }
-
-
-
-        }
-
-
-
-
-        /* Check for unexpected subscribers */
-        assert(expectedResult.find(s) != expectedResult.end());
-
-        /* Check for unexpected data */
-        assert(expectedResult[s].first == intersection.dataChannels.first && expectedResult[s].second == intersection.dataChannels.second);
-
-        /* We actually don't use this one */
-        return 0;
-    });
-
-    uWS::Subscriber *s1 = new uWS::Subscriber(nullptr);
-    uWS::Subscriber *s2 = new uWS::Subscriber(nullptr);
+    // todo: add more cases involving more topics and duplicates, etc
 
     /* Fill out expectedResult */
     expectedResult = {
-        {s1, {"Två!Två!", "Två!Två!"}}, // todo: this one should not receive what he sent himself
-        {s2, {"Två!Två!", "Två!Två!"}}
+        {s1, {"Boths1Again, both", "should seeshould see, not s2should see this as well"}},
+        {s2, {"Boths2Again, both", "should seeshould see, not s1should see this as well"}}
     };
 
-    /* Make sure s1 < s2 */
-    if (s2 < s1) {
-        uWS::Subscriber *tmp = s1;
-        s1 = s2;
-        s2 = tmp;
-    }
-
-    /* This order does not matter as it fills a tree */
-    topicTree->subscribe("1", s2);
-    topicTree->subscribe("1", s1);
-
-    /* This order matters, as it fills triggeredTopics array in order */
-    //topicTree->publish("1", {std::string_view("Ett!"), std::string_view("Ett!")});
-    topicTree->publish("1", {std::string_view("Två!"), std::string_view("Två!")}, s1);
-    topicTree->publish("1", {std::string_view("Två!"), std::string_view("Två!")}, s1);
-
+    /* Compare result with expected result for every subscriber */
     topicTree->drain();
+    for (auto &p : expectedResult) {
+        std::cout << "Subscriber: " << p.first << std::endl;
+
+        if (p.second.first != actualResult[p.first].first) {
+            std::cout << "ERROR: <" << actualResult[p.first].first << "> should be <" << p.second.first << ">" << std::endl;
+            exit(1);
+        }
+
+        if (p.second.second != actualResult[p.first].second) {
+            std::cout << "ERROR: <" << actualResult[p.first].second << "> should be <" << p.second.second << ">" << std::endl;
+            exit(1);
+        }
+    }
 
     /* Release resources */
     topicTree->unsubscribeAll(s1);
@@ -144,7 +97,5 @@ void testPublisherHoles() {
 }
 
 int main() {
-    //testUnsubscribeInside();
-
-    testPublisherHoles();
+    testCorrectness();
 }
