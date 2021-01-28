@@ -76,7 +76,13 @@ public:
         Loop::get()->removePreHandler(this);
     }
 
-    WebSocketContextData() : topicTree([this](Subscriber *s, std::pair<std::string_view, std::string_view> data) -> int {
+    WebSocketContextData() : topicTree([this](Subscriber *s, Intersection &intersection) -> int {
+
+
+        std::pair<std::string_view, std::string_view> data = intersection.dataChannels;
+
+
+
         /* We rely on writing to regular asyncSockets */
         auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
 

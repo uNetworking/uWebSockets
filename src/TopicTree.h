@@ -76,13 +76,13 @@ struct Intersection {
     std::pair<std::string, std::string> dataChannels;
     std::vector<Hole> holes;
 
-    void forSubscriber(Subscriber *s, std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>)> cb) {
+    void forSubscriber(std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>)> cb) {
         /* How far we already emitted of the two dataChannels */
         std::pair<size_t, size_t> emitted = {};
 
         /* Holes are global to the entire topic tree, so we are not guaranteed to find
          * holes in this intersection - they are sorted, though */
-        int examinedHoles = 0;
+        unsigned int examinedHoles = 0;
 
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
         for (unsigned int id : senderForMessages) {

@@ -19,7 +19,7 @@ void testCorrectness() {
 
     topicTree = new uWS::TopicTree([&topicTree, &actualResult](uWS::Subscriber *s, uWS::Intersection &intersection) {
 
-        intersection.forSubscriber(s, topicTree->getSenderFor(s), [s, &actualResult](std::pair<std::string_view, std::string_view> dataChannels) {
+        intersection.forSubscriber(topicTree->getSenderFor(s), [s, &actualResult](std::pair<std::string_view, std::string_view> dataChannels) {
             actualResult[s].first += dataChannels.first;
             actualResult[s].second += dataChannels.second;
         });
