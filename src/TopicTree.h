@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2020.
+ * Authored by Alex Hultman, 2018-2021.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,6 +28,7 @@
 #include <list>
 #include <cstring>
 
+/* We use std::function here, not fu2::unique_function */
 #include <functional>
 
 namespace uWS {
@@ -76,10 +77,8 @@ struct Intersection {
     std::vector<Hole> holes;
 
     void forSubscriber(Subscriber *s, std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>)> cb) {
-               /* How far we already emitted of the two dataChannels */
+        /* How far we already emitted of the two dataChannels */
         std::pair<size_t, size_t> emitted = {};
-
-        //std::cout << "Subscriber: " << s << std::endl;
 
         /* Holes are global to the entire topic tree, so we are not guaranteed to find
          * holes in this intersection - they are sorted, though */
@@ -87,8 +86,6 @@ struct Intersection {
 
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
         for (unsigned int id : senderForMessages) {
-            //std::cout << "We are sender for id: " << id << std::endl;
-
             std::pair<size_t, size_t> toEmit = {};
             std::pair<size_t, size_t> toIgnore = {};
 
@@ -135,10 +132,6 @@ struct Intersection {
 };
 
 struct TopicTree {
-
-    /* Sender holes */
-    std::map<Subscriber *, std::vector<unsigned int>> senderHoles;
-
 private:
     std::function<int(Subscriber *, Intersection &)> cb;
 
@@ -146,6 +139,9 @@ private:
 
     /* Global messageId for deduplication of overlapping topics and ordering between topics */
     unsigned int messageId = 0;
+
+    /* Sender holes */
+    std::map<Subscriber *, std::vector<unsigned int>> senderHoles;
 
     /* The triggered topics */
     Topic *triggeredTopics[64];
@@ -269,6 +265,18 @@ public:
         delete root;
     }
 
+    /* This is part of the fast path, so should be optimal */
+    std::vector<unsigned int> &getSenderFor(Subscriber *s) {
+        static thread_local std::vector<unsigned int> emptyVector;
+
+        auto it = senderHoles.find(s);
+        if (it != senderHoles.end()) {
+            return it->second;
+        }
+
+        return emptyVector;
+    }
+
     void subscribe(std::string_view topic, Subscriber *subscriber) {
         /* Start iterating from the root */
         Topic *iterator = root;
@@ -326,13 +334,13 @@ public:
     }
 
     void publish(std::string_view topic, std::pair<std::string_view, std::string_view> message, Subscriber *sender = nullptr) {
-
         /* Add a hole for the sender if one */
         if (sender) {
             senderHoles[sender].push_back(messageId);
         }
 
         publish(root, 0, 0, topic, message);
+        /* MessageIDs are reset on drain - this should be fine since messages itself are cleared on drain */
         messageId++;
     }
 
@@ -421,6 +429,7 @@ public:
 
         if (!numTriggeredTopics) {
             senderHoles.clear();
+            messageId = 0;
             return;
         }
 
@@ -436,7 +445,7 @@ public:
         if (min != (Subscriber *)UINTPTR_MAX) {
 
             /* Up to 64 triggered Topics per batch */
-            std::map<uint64_t, /*std::pair<std::string, std::string>*/ Intersection> intersectionCache;
+            std::map<uint64_t, Intersection> intersectionCache;
 
             /* Loop over these here */
             std::set<Subscriber *>::iterator it[64];
@@ -492,20 +501,14 @@ public:
                     }
 
                     /* Create the linear cache, {inflated, deflated} */
-                    /*std::pair<std::string, std::string>*/ Intersection res;
-                    //std::string messageIds; // sorterade id:n för meddelanden
-
-                    //std::vector<
-
-
+                    Intersection res;
                     for (auto &p : complete) {
-                        //printf("messageId = %d\n", p.first);
-
-
                         res.dataChannels.first.append(p.second.first);
                         res.dataChannels.second.append(p.second.second);
 
-                        // appenda {id, längd, längd}
+                        /* Appends {id, length, length}
+                         * We could possibly append byte offset also,
+                         * if we want to use log2 search later. */
                         Hole h;
                         h.lengths.first = p.second.first.length();
                         h.lengths.second = p.second.second.length();
@@ -513,24 +516,14 @@ public:
                         res.holes.push_back(h);
                     }
 
-                    //can we know the messageId here and lookup if "min" is the sender?
-
                     cb(min, intersectionCache[intersection] = std::move(res));
                 }
                 else {
-
-                    // vi kan göra en cache som håller inflated, deflated, messageIds
-
-                    // sen, för varje subscriber, kollar vi upp en vektor av messageIds - senderHoles
-
-                    // sen måste vi loopa över
-
                     cb(min, intersectionCache[intersection]);
                 }
 
                 min = nextMin;
             }
-
         }
 
         /* Clear messages of triggered Topics */
@@ -540,6 +533,7 @@ public:
         }
         numTriggeredTopics = 0;
         senderHoles.clear();
+        messageId = 0;
     }
 };
 
