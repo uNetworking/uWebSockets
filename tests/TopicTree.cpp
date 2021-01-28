@@ -9,14 +9,14 @@ void testUnsubscribeInside() {
     uWS::TopicTree *topicTree;
     std::map<void *, std::pair<std::string, std::string>> expectedResult;
 
-    topicTree = new uWS::TopicTree([&topicTree, &expectedResult](uWS::Subscriber *s, std::pair<std::string_view, std::string_view> dataChannels) {
-        std::string_view data = dataChannels.second;
+    topicTree = new uWS::TopicTree([&topicTree, &expectedResult](uWS::Subscriber *s, Intersection &intersection) {
+        std::string_view data = intersection.dataChannels.second;
 
         /* Check for unexpected subscribers */
         assert(expectedResult.find(s) != expectedResult.end());
 
         /* Check for unexpected data */
-        assert(expectedResult[s].first == dataChannels.first && expectedResult[s].second == dataChannels.second);
+        assert(expectedResult[s].first == intersection.dataChannels.first && expectedResult[s].second == intersection.dataChannels.second);
 
         /* This one causes mess-up */
         topicTree->unsubscribeAll(s);
@@ -67,13 +67,40 @@ void testPublisherHoles() {
     uWS::TopicTree *topicTree;
     std::map<void *, std::pair<std::string, std::string>> expectedResult;
 
-    topicTree = new uWS::TopicTree([&topicTree, &expectedResult](uWS::Subscriber *s, std::pair<std::string_view, std::string_view> dataChannels) {
+    topicTree = new uWS::TopicTree([&topicTree, &expectedResult](uWS::Subscriber *s, /*std::pair<std::string, std::string> &dataChannels*/ Intersection &intersection) {
+
+
+        std::cout << "Subscriber: " << s << std::endl;
+
+        std::vector<unsigned int> &senderForMessages = topicTree->senderHoles[s];
+
+        for (unsigned int id : senderForMessages) {
+            std::cout << "We are sender for id: " << id << std::endl;
+        }
+
+        // iterate holes
+        for (Hole h : intersection.holes) {
+            std::cout << h.messageId << std::endl;
+
+
+
+            // todo: this linear search is not needed as ids are ordered!
+            if (std::find(senderForMessages.begin(), senderForMessages.end(), h.messageId) != senderForMessages.end()) {
+                std::cout << "WE ARE SENDER FOR THIS MESSAGE!" << std::endl;
+            }
+
+
+
+        }
+
+
+
 
         /* Check for unexpected subscribers */
         assert(expectedResult.find(s) != expectedResult.end());
 
         /* Check for unexpected data */
-        assert(expectedResult[s].first == dataChannels.first && expectedResult[s].second == dataChannels.second);
+        assert(expectedResult[s].first == intersection.dataChannels.first && expectedResult[s].second == intersection.dataChannels.second);
 
         /* We actually don't use this one */
         return 0;
@@ -84,8 +111,8 @@ void testPublisherHoles() {
 
     /* Fill out expectedResult */
     expectedResult = {
-        {s1, {"Två!", "Två!"}}, // todo: this one should not receive what he sent himself
-        {s2, {"Två!", "Två!"}}
+        {s1, {"Två!Två!", "Två!Två!"}}, // todo: this one should not receive what he sent himself
+        {s2, {"Två!Två!", "Två!Två!"}}
     };
 
     /* Make sure s1 < s2 */
@@ -101,7 +128,8 @@ void testPublisherHoles() {
 
     /* This order matters, as it fills triggeredTopics array in order */
     //topicTree->publish("1", {std::string_view("Ett!"), std::string_view("Ett!")});
-    topicTree->publish("1", {std::string_view("Två!"), std::string_view("Två!")});
+    topicTree->publish("1", {std::string_view("Två!"), std::string_view("Två!")}, s1);
+    topicTree->publish("1", {std::string_view("Två!"), std::string_view("Två!")}, s1);
 
     topicTree->drain();
 

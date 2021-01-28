@@ -28,6 +28,16 @@
 #include <list>
 #include <cstring>
 
+struct Hole {
+    std::pair<size_t, size_t> lengths;
+    unsigned int messageId;
+};
+
+struct Intersection {
+    std::pair<std::string, std::string> dataChannels;
+    std::vector<Hole> holes;
+};
+
 namespace uWS {
 
 /* A Subscriber is an extension of a socket */
@@ -65,8 +75,12 @@ struct Topic {
 };
 
 struct TopicTree {
+
+    /* Sender holes */
+    std::map<Subscriber *, std::vector<unsigned int>> senderHoles;
+
 private:
-    std::function<int(Subscriber *, std::pair<std::string_view, std::string_view>)> cb;
+    std::function<int(Subscriber *, Intersection &)> cb;
 
     Topic *root = new Topic;
 
@@ -187,7 +201,7 @@ private:
 
 public:
 
-    TopicTree(std::function<int(Subscriber *, std::pair<std::string_view, std::string_view>)> cb) {
+    TopicTree(std::function<int(Subscriber *, Intersection &)> cb) {
         this->cb = cb;
     }
 
@@ -251,7 +265,13 @@ public:
         }
     }
 
-    void publish(std::string_view topic, std::pair<std::string_view, std::string_view> message) {
+    void publish(std::string_view topic, std::pair<std::string_view, std::string_view> message, Subscriber *sender = nullptr) {
+
+        /* Add a hole for the sender if one */
+        if (sender) {
+            senderHoles[sender].push_back(messageId);
+        }
+
         publish(root, 0, 0, topic, message);
         messageId++;
     }
@@ -340,6 +360,7 @@ public:
         numTriggeredTopics = numFilteredTriggeredTopics;
 
         if (!numTriggeredTopics) {
+            senderHoles.clear();
             return;
         }
 
@@ -355,7 +376,7 @@ public:
         if (min != (Subscriber *)UINTPTR_MAX) {
 
             /* Up to 64 triggered Topics per batch */
-            std::map<uint64_t, std::pair<std::string, std::string>> intersectionCache;
+            std::map<uint64_t, /*std::pair<std::string, std::string>*/ Intersection> intersectionCache;
 
             /* Loop over these here */
             std::set<Subscriber *>::iterator it[64];
@@ -402,7 +423,7 @@ public:
                 }
 
                 /* Generate cache for intersection */
-                if (intersectionCache[intersection].first.length() == 0) {
+                if (intersectionCache[intersection].dataChannels.first.length() == 0) {
 
                     /* Build the union in order without duplicates */
                     std::map<unsigned int, std::pair<std::string, std::string>> complete;
@@ -411,15 +432,39 @@ public:
                     }
 
                     /* Create the linear cache, {inflated, deflated} */
-                    std::pair<std::string, std::string> res;
+                    /*std::pair<std::string, std::string>*/ Intersection res;
+                    //std::string messageIds; // sorterade id:n för meddelanden
+
+                    //std::vector<
+
+
                     for (auto &p : complete) {
-                        res.first.append(p.second.first);
-                        res.second.append(p.second.second);
+                        printf("messageId = %d\n", p.first);
+
+
+                        res.dataChannels.first.append(p.second.first);
+                        res.dataChannels.second.append(p.second.second);
+
+                        // appenda {id, längd, längd}
+                        Hole h;
+                        h.lengths.first = p.second.first.length();
+                        h.lengths.second = p.second.second.length();
+                        h.messageId = p.first;
+                        res.holes.push_back(h);
                     }
+
+                    //can we know the messageId here and lookup if "min" is the sender?
 
                     cb(min, intersectionCache[intersection] = std::move(res));
                 }
                 else {
+
+                    // vi kan göra en cache som håller inflated, deflated, messageIds
+
+                    // sen, för varje subscriber, kollar vi upp en vektor av messageIds - senderHoles
+
+                    // sen måste vi loopa över
+
                     cb(min, intersectionCache[intersection]);
                 }
 
@@ -434,6 +479,7 @@ public:
             triggeredTopics[i]->triggered = false;
         }
         numTriggeredTopics = 0;
+        senderHoles.clear();
     }
 };
 
