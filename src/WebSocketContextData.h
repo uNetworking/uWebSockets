@@ -76,79 +76,111 @@ public:
         Loop::get()->removePreHandler(this);
     }
 
-    WebSocketContextData() : topicTree([this](Subscriber *s, std::pair<std::string_view, std::string_view> data) -> int {
+    WebSocketContextData() : topicTree([this](Subscriber *s, Intersection &intersection) -> int {
+
+        /* We could potentially be called here even if we have nothing to send, since we can
+         * be the sender of every single message in this intersection. Also "fin" of a segment is not
+         * guaranteed to be set, in case remaining segments are all from us.
+         * Essentially, we cannot make strict assumptions here. Also, we can even come here corked,
+         * since publish can call drain! */
+
         /* We rely on writing to regular asyncSockets */
         auto *asyncSocket = (AsyncSocket<SSL> *) s->user;
 
-        /* Check if we now have too much backpressure (todo: don't buffer up before check) */
-        if (!maxBackpressure || (unsigned int) asyncSocket->getBufferedAmount() < maxBackpressure) {
-            /* Pick uncompressed data track */
-            std::string_view selectedData = data.first;
+        /* If we are corked, do not uncork - otherwise if we cork in here, uncork before leaving */
+        bool wasCorked = asyncSocket->isCorked();
 
-            /* Are we using compression? Fine, pick the compressed data track */
-            WebSocketData *webSocketData = (WebSocketData *) asyncSocket->getAsyncSocketData();
-            if (webSocketData->compressionStatus != WebSocketData::CompressionStatus::DISABLED) {
+        /* Do we even have room for potential data? */
+        if (!maxBackpressure || asyncSocket->getBufferedAmount() < maxBackpressure) {
 
-                /* This is used for both shared and dedicated paths */
-                selectedData = data.second;
+            /* Roll over all our segments */
+            intersection.forSubscriber(topicTree.getSenderFor(s), [asyncSocket, this](std::pair<std::string_view, std::string_view> data, bool fin) {
 
-                /* However, dedicated compression has its own path */
-                if (compression != SHARED_COMPRESSOR) {
+                /* We have a segment that is not marked as last ("fin").
+                 * Cork if not already so (purely for performance reasons). Does not touch "wasCorked". */
+                if (!fin && !asyncSocket->isCorked() && asyncSocket->canCork()) {
+                    asyncSocket->cork();
+                }
 
-                    WebSocket<SSL, true> *ws = (WebSocket<SSL, true> *) asyncSocket;
+                /* Pick uncompressed data track */
+                std::string_view selectedData = data.first;
 
-                    /* We need to handle being corked, and corking here */
-                    bool needsUncorking = false;
-                    if (!ws->isCorked() && ws->canCork()) {
-                        asyncSocket->cork();
-                        needsUncorking = true;
-                    }
+                /* Are we using compression? Fine, pick the compressed data track */
+                WebSocketData *webSocketData = (WebSocketData *) asyncSocket->getAsyncSocketData();
+                if (webSocketData->compressionStatus != WebSocketData::CompressionStatus::DISABLED) {
 
-                    while (selectedData.length()) {
-                        /* Interpret the data like so, because this is how we shoved it in */
-                        MessageMetadata mm;
-                        memcpy((char *) &mm, selectedData.data(), sizeof(MessageMetadata));
-                        std::string_view unframedMessage(selectedData.data() + sizeof(MessageMetadata), mm.length);
+                    /* This is used for both shared and dedicated paths */
+                    selectedData = data.second;
 
-                        /* Skip this message if our backpressure is too high */
-                        if (maxBackpressure && ws->getBufferedAmount() > maxBackpressure) {
-                            break;
+                    /* However, dedicated compression has its own path */
+                    if (compression != SHARED_COMPRESSOR) {
+
+                        WebSocket<SSL, true> *ws = (WebSocket<SSL, true> *) asyncSocket;
+
+                        /* For performance reasons we always cork when in dedicated mode.
+                         * Is this really the best? We already kind of cork things in Zlib?
+                         * Right, formatting needs a cork buffer, right. Never mind. */
+                        if (!ws->isCorked() && ws->canCork()) {
+                            asyncSocket->cork();
                         }
 
-                        /* Here we perform the actual compression and framing */
-                        ws->send(unframedMessage, mm.opCode, mm.compress);
+                        while (selectedData.length()) {
+                            /* Interpret the data like so, because this is how we shoved it in */
+                            MessageMetadata mm;
+                            memcpy((char *) &mm, selectedData.data(), sizeof(MessageMetadata));
+                            std::string_view unframedMessage(selectedData.data() + sizeof(MessageMetadata), mm.length);
 
-                        /* Advance until empty */
-                        selectedData.remove_prefix(sizeof(MessageMetadata) + mm.length);
+                            /* Skip this message if our backpressure is too high */
+                            if (maxBackpressure && ws->getBufferedAmount() > maxBackpressure) {
+                                break;
+                            }
+
+                            /* Here we perform the actual compression and framing */
+                            ws->send(unframedMessage, mm.opCode, mm.compress);
+
+                            /* Advance until empty */
+                            selectedData.remove_prefix(sizeof(MessageMetadata) + mm.length);
+                        }
+
+                        /* Continue to next segment without executing below path */
+                        return;
                     }
-
-                    /* Here we need to uncork or keep it as was */
-                    if (needsUncorking) {
-                        asyncSocket->uncork();
-                    }
-
-                    /* See below */
-                    return 0;
                 }
-            }
 
-            /* Note: this assumes we are not corked, as corking will swallow things and fail later on */
-            auto [written, failed] = asyncSocket->write(selectedData.data(), (int) selectedData.length());
+                /* Common path for SHARED and DISABLED. It is an invalid assumption that we always are
+                 * uncorked here, however the following (invalid) assumption is not critically wrong either way */
+
+                /* Note: this assumes we are not corked, as corking will swallow things and fail later on */
+                auto [written, failed] = asyncSocket->write(selectedData.data(), (int) selectedData.length());
+                /* If we want strict check for success, we can ignore this check if corked and repeat below
+                 * when uncorking - however this is too strict as we really care about PROGRESS rather than
+                 * ENTIRE SUCCESS - we need minor API changes to support correct checks */
+                if (!failed) {
+                    if (this->resetIdleTimeoutOnSend) {
+                        asyncSocket->timeout(this->idleTimeout);
+                    }
+                }
+            });
+        }
+
+        /* We are done sending, for whatever reasons we ended up corked while not starting with "wasCorked",
+         * we here need to uncork to restore the state we were called in */
+        if (!wasCorked && asyncSocket->isCorked()) {
+            /* Regarding timeout for writes; */
+            auto [written, failed] = asyncSocket->uncork();
+            /* Again, this check should be more like DID WE PROGRESS rather than DID WE SUCCEED ENTIRELY */
             if (!failed) {
                 if (this->resetIdleTimeoutOnSend) {
                     asyncSocket->timeout(this->idleTimeout);
                 }
             }
-
-            /* Failing here must not immediately close the socket, as that could result in stack overflow,
-             * iterator invalidation and other TopicTree::drain bugs. We may shutdown the reading side of the socket,
-             * causing next iteration to error-close the socket from that context instead, if we want to */
         }
 
-        /* If we have too much backpressure, simply skip sending from here */
-
-        /* Also (defer) a close if we have too much backpressure if that is what we want */
+        /* Defer a close if we now have (or already had) too much backpressure, or simply skip */
         if (maxBackpressure && closeOnBackpressureLimit && asyncSocket->getBufferedAmount() > maxBackpressure) {
+            /* We must not immediately close the socket, as that could result in stack overflow,
+            * iterator invalidation and other TopicTree::drain bugs. We may shutdown the reading side of the socket,
+            * causing next iteration to error-close the socket from that context instead, if we want to */
             us_socket_shutdown_read(SSL, (us_socket_t *) asyncSocket);
         }
 
@@ -168,7 +200,7 @@ public:
     }
 
     /* Helper for topictree publish, common path from app and ws */
-    void publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress) {
+    void publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress, Subscriber *sender = nullptr) {
         /* We frame the message right here and only pass raw bytes to the pub/subber */
         char *dst = (char *) malloc(protocol::messageFrameSize(message.size()));
         size_t dst_length = protocol::formatMessage<true>(dst, message.data(), message.length(), opCode, message.length(), false);
@@ -176,7 +208,7 @@ public:
         /* If compression is disabled */
         if (compression == DISABLED) {
             /* Leave second field empty as nobody will ever read it */
-            topicTree.publish(topic, {std::string_view(dst, dst_length), {}});
+            topicTree.publish(topic, {std::string_view(dst, dst_length), {}}, sender);
         } else {
             /* DEDICATED_COMPRESSOR always takes the same path as must always have MessageMetadata as head */
             if (compress || compression != SHARED_COMPRESSOR) {
@@ -193,7 +225,7 @@ public:
                     size_t dst_compressed_length = protocol::formatMessage<true>(dst_compressed, compressedMessage.data(), compressedMessage.length(), opCode, compressedMessage.length(), true);
 
                     /* Always publish the shortest one in any case */
-                    topicTree.publish(topic, {std::string_view(dst, dst_length), dst_compressed_length >= dst_length ? std::string_view(dst, dst_length) : std::string_view(dst_compressed, dst_compressed_length)});
+                    topicTree.publish(topic, {std::string_view(dst, dst_length), dst_compressed_length >= dst_length ? std::string_view(dst, dst_length) : std::string_view(dst_compressed, dst_compressed_length)}, sender);
 
                     /* We don't care for allocation here */
                     ::free(dst_compressed);
@@ -214,14 +246,14 @@ public:
                     topicTree.publish(topic, {
                         std::string_view(dst, dst_length),
                         std::string_view(dst_compressed, message.length() + sizeof(MessageMetadata))
-                    });
+                    }, sender);
 
                     ::free(dst_compressed);
                 }
             } else {
                 /* If not compressing, put same message on both tracks (only valid for SHARED_COMPRESSOR).
                  * DEDICATED_COMPRESSOR_xKB must never end up here as we don't put a proper head here. */
-                topicTree.publish(topic, {std::string_view(dst, dst_length), std::string_view(dst, dst_length)});
+                topicTree.publish(topic, {std::string_view(dst, dst_length), std::string_view(dst, dst_length)}, sender);
             }
         }
 

@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2020.
+ * Authored by Alex Hultman, 2018-2021.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,6 +27,9 @@
 #include <chrono>
 #include <list>
 #include <cstring>
+
+/* We use std::function here, not fu2::unique_function */
+#include <functional>
 
 namespace uWS {
 
@@ -64,14 +67,82 @@ struct Topic {
     std::set<Subscriber *> subs;
 };
 
+struct Hole {
+    std::pair<size_t, size_t> lengths;
+    unsigned int messageId;
+};
+
+struct Intersection {
+    std::pair<std::string, std::string> dataChannels;
+    std::vector<Hole> holes;
+
+    void forSubscriber(std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>, bool)> cb) {
+        /* How far we already emitted of the two dataChannels */
+        std::pair<size_t, size_t> emitted = {};
+
+        /* Holes are global to the entire topic tree, so we are not guaranteed to find
+         * holes in this intersection - they are sorted, though */
+        unsigned int examinedHoles = 0;
+
+        /* This is a slow path of sorts, most subscribers will be observers, not active senders */
+        for (unsigned int id : senderForMessages) {
+            std::pair<size_t, size_t> toEmit = {};
+            std::pair<size_t, size_t> toIgnore = {};
+
+            /* This linear search is most probably very small - it could be made log2 if every hole
+             * knows about its previous accumulated length, which is easy to set up. However this
+             * log2 search will most likely never be a warranted perf. gain */
+            for (; examinedHoles < holes.size(); examinedHoles++) {
+                if (holes[examinedHoles].messageId == id) {
+                    toIgnore.first += holes[examinedHoles].lengths.first;
+                    toIgnore.second += holes[examinedHoles].lengths.second;
+                    examinedHoles++;
+                    break;
+                }
+                /* We are not the sender of this message so we should emit it in this segment */
+                toEmit.first += holes[examinedHoles].lengths.first;
+                toEmit.second += holes[examinedHoles].lengths.second;
+            }
+
+            /* Emit this segment */
+            if (toEmit.first || toEmit.second) {
+                std::pair<std::string_view, std::string_view> cutDataChannels = {
+                    std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
+                    std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
+                };
+
+                /* We only need to test the first data channel for "FIN" */
+                cb(cutDataChannels, emitted.first + toEmit.first + toIgnore.first == dataChannels.first.length());
+            }
+
+            emitted.first += toEmit.first + toIgnore.first;
+            emitted.second += toEmit.second + toIgnore.second;
+        }
+
+        if (emitted.first == dataChannels.first.length() && emitted.second == dataChannels.second.length()) {
+            return;
+        }
+
+        std::pair<std::string_view, std::string_view> cutDataChannels = {
+            std::string_view(dataChannels.first.data() + emitted.first, dataChannels.first.length() - emitted.first),
+            std::string_view(dataChannels.second.data() + emitted.second, dataChannels.second.length() - emitted.second),
+        };
+
+        cb(cutDataChannels, true);
+    }
+};
+
 struct TopicTree {
 private:
-    std::function<int(Subscriber *, std::pair<std::string_view, std::string_view>)> cb;
+    std::function<int(Subscriber *, Intersection &)> cb;
 
     Topic *root = new Topic;
 
     /* Global messageId for deduplication of overlapping topics and ordering between topics */
     unsigned int messageId = 0;
+
+    /* Sender holes */
+    std::map<Subscriber *, std::vector<unsigned int>> senderHoles;
 
     /* The triggered topics */
     Topic *triggeredTopics[64];
@@ -187,12 +258,24 @@ private:
 
 public:
 
-    TopicTree(std::function<int(Subscriber *, std::pair<std::string_view, std::string_view>)> cb) {
+    TopicTree(std::function<int(Subscriber *, Intersection &)> cb) {
         this->cb = cb;
     }
 
     ~TopicTree() {
         delete root;
+    }
+
+    /* This is part of the fast path, so should be optimal */
+    std::vector<unsigned int> &getSenderFor(Subscriber *s) {
+        static thread_local std::vector<unsigned int> emptyVector;
+
+        auto it = senderHoles.find(s);
+        if (it != senderHoles.end()) {
+            return it->second;
+        }
+
+        return emptyVector;
     }
 
     void subscribe(std::string_view topic, Subscriber *subscriber) {
@@ -251,8 +334,14 @@ public:
         }
     }
 
-    void publish(std::string_view topic, std::pair<std::string_view, std::string_view> message) {
+    void publish(std::string_view topic, std::pair<std::string_view, std::string_view> message, Subscriber *sender = nullptr) {
+        /* Add a hole for the sender if one */
+        if (sender) {
+            senderHoles[sender].push_back(messageId);
+        }
+
         publish(root, 0, 0, topic, message);
+        /* MessageIDs are reset on drain - this should be fine since messages itself are cleared on drain */
         messageId++;
     }
 
@@ -340,6 +429,8 @@ public:
         numTriggeredTopics = numFilteredTriggeredTopics;
 
         if (!numTriggeredTopics) {
+            senderHoles.clear();
+            messageId = 0;
             return;
         }
 
@@ -355,7 +446,7 @@ public:
         if (min != (Subscriber *)UINTPTR_MAX) {
 
             /* Up to 64 triggered Topics per batch */
-            std::map<uint64_t, std::pair<std::string, std::string>> intersectionCache;
+            std::map<uint64_t, Intersection> intersectionCache;
 
             /* Loop over these here */
             std::set<Subscriber *>::iterator it[64];
@@ -402,7 +493,7 @@ public:
                 }
 
                 /* Generate cache for intersection */
-                if (intersectionCache[intersection].first.length() == 0) {
+                if (intersectionCache[intersection].dataChannels.first.length() == 0) {
 
                     /* Build the union in order without duplicates */
                     std::map<unsigned int, std::pair<std::string, std::string>> complete;
@@ -411,10 +502,19 @@ public:
                     }
 
                     /* Create the linear cache, {inflated, deflated} */
-                    std::pair<std::string, std::string> res;
+                    Intersection res;
                     for (auto &p : complete) {
-                        res.first.append(p.second.first);
-                        res.second.append(p.second.second);
+                        res.dataChannels.first.append(p.second.first);
+                        res.dataChannels.second.append(p.second.second);
+
+                        /* Appends {id, length, length}
+                         * We could possibly append byte offset also,
+                         * if we want to use log2 search later. */
+                        Hole h;
+                        h.lengths.first = p.second.first.length();
+                        h.lengths.second = p.second.second.length();
+                        h.messageId = p.first;
+                        res.holes.push_back(h);
                     }
 
                     cb(min, intersectionCache[intersection] = std::move(res));
@@ -425,7 +525,6 @@ public:
 
                 min = nextMin;
             }
-
         }
 
         /* Clear messages of triggered Topics */
@@ -434,6 +533,8 @@ public:
             triggeredTopics[i]->triggered = false;
         }
         numTriggeredTopics = 0;
+        senderHoles.clear();
+        messageId = 0;
     }
 };
 
