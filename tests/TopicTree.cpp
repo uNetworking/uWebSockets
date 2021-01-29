@@ -19,10 +19,24 @@ void testCorrectness() {
 
     topicTree = new uWS::TopicTree([&topicTree, &actualResult](uWS::Subscriber *s, uWS::Intersection &intersection) {
 
-        intersection.forSubscriber(topicTree->getSenderFor(s), [s, &actualResult](std::pair<std::string_view, std::string_view> dataChannels) {
+        /* How many bytes we have in first data channel at time we get fin = true */
+        unsigned int finAt = 0;
+
+        intersection.forSubscriber(topicTree->getSenderFor(s), [s, &finAt, &actualResult](std::pair<std::string_view, std::string_view> dataChannels, bool fin) {
             actualResult[s].first += dataChannels.first;
             actualResult[s].second += dataChannels.second;
+
+            /* Check that getting fin = true really is the last segment */
+            if (!finAt && fin) {
+                finAt = actualResult[s].first.length();
+            }
         });
+
+        /* Assume finAt == actualResult[s].first.length() */
+        if (actualResult[s].first.length() != finAt) {
+            std::cout << "ERROR! FinAt mismatching!" << std::endl;
+            exit(1);
+        }
 
         /* We actually don't use this one */
         return 0;

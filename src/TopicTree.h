@@ -76,7 +76,7 @@ struct Intersection {
     std::pair<std::string, std::string> dataChannels;
     std::vector<Hole> holes;
 
-    void forSubscriber(std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>)> cb) {
+    void forSubscriber(std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>, bool)> cb) {
         /* How far we already emitted of the two dataChannels */
         std::pair<size_t, size_t> emitted = {};
 
@@ -111,7 +111,8 @@ struct Intersection {
                     std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
                 };
 
-                cb(cutDataChannels);
+                /* We only need to test the first data channel for "FIN" */
+                cb(cutDataChannels, emitted.first + toEmit.first + toIgnore.first == dataChannels.first.length());
             }
 
             emitted.first += toEmit.first + toIgnore.first;
@@ -127,7 +128,7 @@ struct Intersection {
             std::string_view(dataChannels.second.data() + emitted.second, dataChannels.second.length() - emitted.second),
         };
 
-        cb(cutDataChannels);
+        cb(cutDataChannels, true);
     }
 };
 
