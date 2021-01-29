@@ -9,7 +9,10 @@
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     /* Create topic tree */
-    uWS::TopicTree topicTree([](uWS::Subscriber *s, std::pair<std::string_view, std::string_view> message) {
+    uWS::TopicTree topicTree([](uWS::Subscriber *s, uWS::Intersection &intersection) {
+
+        /* For now we do not care about iterating over holes! TODO! */
+        std::pair<std::string_view, std::string_view> message = intersection.dataChannels;
 
         /* Subscriber must not be null, and at this point we have to have subscriptions.
          * This assumption seems to hold true. */
