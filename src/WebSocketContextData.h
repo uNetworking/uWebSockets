@@ -200,7 +200,7 @@ public:
     }
 
     /* Helper for topictree publish, common path from app and ws */
-    void publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress) {
+    void publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress, Subscriber *sender = nullptr) {
         /* We frame the message right here and only pass raw bytes to the pub/subber */
         char *dst = (char *) malloc(protocol::messageFrameSize(message.size()));
         size_t dst_length = protocol::formatMessage<true>(dst, message.data(), message.length(), opCode, message.length(), false);
@@ -208,7 +208,7 @@ public:
         /* If compression is disabled */
         if (compression == DISABLED) {
             /* Leave second field empty as nobody will ever read it */
-            topicTree.publish(topic, {std::string_view(dst, dst_length), {}});
+            topicTree.publish(topic, {std::string_view(dst, dst_length), {}}, sender);
         } else {
             /* DEDICATED_COMPRESSOR always takes the same path as must always have MessageMetadata as head */
             if (compress || compression != SHARED_COMPRESSOR) {
@@ -225,7 +225,7 @@ public:
                     size_t dst_compressed_length = protocol::formatMessage<true>(dst_compressed, compressedMessage.data(), compressedMessage.length(), opCode, compressedMessage.length(), true);
 
                     /* Always publish the shortest one in any case */
-                    topicTree.publish(topic, {std::string_view(dst, dst_length), dst_compressed_length >= dst_length ? std::string_view(dst, dst_length) : std::string_view(dst_compressed, dst_compressed_length)});
+                    topicTree.publish(topic, {std::string_view(dst, dst_length), dst_compressed_length >= dst_length ? std::string_view(dst, dst_length) : std::string_view(dst_compressed, dst_compressed_length)}, sender);
 
                     /* We don't care for allocation here */
                     ::free(dst_compressed);
@@ -246,14 +246,14 @@ public:
                     topicTree.publish(topic, {
                         std::string_view(dst, dst_length),
                         std::string_view(dst_compressed, message.length() + sizeof(MessageMetadata))
-                    });
+                    }, sender);
 
                     ::free(dst_compressed);
                 }
             } else {
                 /* If not compressing, put same message on both tracks (only valid for SHARED_COMPRESSOR).
                  * DEDICATED_COMPRESSOR_xKB must never end up here as we don't put a proper head here. */
-                topicTree.publish(topic, {std::string_view(dst, dst_length), std::string_view(dst, dst_length)});
+                topicTree.publish(topic, {std::string_view(dst, dst_length), std::string_view(dst, dst_length)}, sender);
             }
         }
 

@@ -230,8 +230,15 @@ public:
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
-        /* Is the same as publishing per websocket context */
-        webSocketContextData->publish(topic, message, opCode, compress);
+
+        /* Make us a subscriber if we aren't yet (important for allocating a sender address) */
+        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
+        if (!webSocketData->subscriber) {
+            webSocketData->subscriber = new Subscriber(this);
+        }
+
+        /* Publish as sender, does not receive its own messages even if subscribed to relevant topics */
+        webSocketContextData->publish(topic, message, opCode, compress, webSocketData->subscriber);
     }
 };
 
