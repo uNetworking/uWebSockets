@@ -21,8 +21,11 @@ int main() {
         /* Settings */
         .compression = uWS::SHARED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024,
-        .idleTimeout = 10,
+        .idleTimeout = 16,
         .maxBackpressure = 1 * 1024 * 1024,
+        .closeOnBackpressureLimit = false,
+        .resetIdleTimeoutOnSend = false,
+        .sendPingsAutomatically = true,
         /* Handlers */
         .upgrade = nullptr,
         .open = [](auto */*ws*/) {

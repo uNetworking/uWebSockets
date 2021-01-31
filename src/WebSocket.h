@@ -123,7 +123,9 @@ public:
 
         /* Every successful send resets the timeout */
         if (webSocketContextData->resetIdleTimeoutOnSend) {
-            Super::timeout(webSocketContextData->idleTimeout);
+            Super::timeout(webSocketContextData->idleTimeoutComponents.first);
+            WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
+            webSocketData->hasTimedOut = false;
         }
 
         /* Return success */

@@ -66,9 +66,30 @@ public:
     size_t maxBackpressure = 0;
     bool closeOnBackpressureLimit;
     bool resetIdleTimeoutOnSend;
+    bool sendPingsAutomatically;
+
+    /* These are calculated on creation */
+    std::pair<unsigned short, unsigned short> idleTimeoutComponents;
 
     /* Each websocket context has a topic tree for pub/sub */
     TopicTree topicTree;
+
+    /* This is run once on start-up */
+    void calculateIdleTimeoutCompnents() {
+        unsigned short margin = 4;
+        /* 4, 8 or 16 seconds margin based on idleTimeout */
+        while ((int) idleTimeout - margin * 2 >= margin * 2 && margin < 16) {
+            margin *= 2;
+        }
+        /* We should have no margin if not using sendPingsAutomatically */
+        if (!sendPingsAutomatically) {
+            margin = 0;
+        }
+        idleTimeoutComponents = {
+            idleTimeout - margin,
+            margin
+        };
+    }
 
     ~WebSocketContextData() {
         /* We must unregister any loop post handler here */
@@ -157,7 +178,9 @@ public:
                  * ENTIRE SUCCESS - we need minor API changes to support correct checks */
                 if (!failed) {
                     if (this->resetIdleTimeoutOnSend) {
-                        asyncSocket->timeout(this->idleTimeout);
+                        auto *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) asyncSocket);
+                        webSocketData->hasTimedOut = false;
+                        asyncSocket->timeout(this->idleTimeoutComponents.first);
                     }
                 }
             });
@@ -171,7 +194,9 @@ public:
             /* Again, this check should be more like DID WE PROGRESS rather than DID WE SUCCEED ENTIRELY */
             if (!failed) {
                 if (this->resetIdleTimeoutOnSend) {
-                    asyncSocket->timeout(this->idleTimeout);
+                    auto *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) asyncSocket);
+                    webSocketData->hasTimedOut = false;
+                    asyncSocket->timeout(this->idleTimeoutComponents.first);
                 }
             }
         }

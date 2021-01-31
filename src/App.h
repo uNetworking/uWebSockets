@@ -139,8 +139,10 @@ public:
         unsigned int maxPayloadLength = 16 * 1024;
         unsigned int idleTimeout = 120;
         unsigned int maxBackpressure = 1 * 1024 * 1024;
+        // change these before release
         bool closeOnBackpressureLimit = false;
         bool resetIdleTimeoutOnSend = true;
+        bool sendPingsAutomatically = false;
         fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> open = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
@@ -204,7 +206,11 @@ public:
         webSocketContext->getExt()->maxBackpressure = behavior.maxBackpressure;
         webSocketContext->getExt()->closeOnBackpressureLimit = behavior.closeOnBackpressureLimit;
         webSocketContext->getExt()->resetIdleTimeoutOnSend = behavior.resetIdleTimeoutOnSend;
+        webSocketContext->getExt()->sendPingsAutomatically = behavior.sendPingsAutomatically;
         webSocketContext->getExt()->compression = behavior.compression;
+
+        /* Calculate idleTimeoutCompnents */
+        webSocketContext->getExt()->calculateIdleTimeoutCompnents();
 
         httpContext->onHttp("get", pattern, [webSocketContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
 

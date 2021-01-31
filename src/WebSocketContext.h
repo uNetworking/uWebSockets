@@ -276,7 +276,8 @@ private:
             auto *asyncSocket = (AsyncSocket<SSL> *) s;
 
             /* Every time we get data and not in shutdown state we simply reset the timeout */
-            asyncSocket->timeout(webSocketContextData->idleTimeout);
+            asyncSocket->timeout(webSocketContextData->idleTimeoutComponents.first);
+            webSocketData->hasTimedOut = false;
 
             /* We always cork on data */
             asyncSocket->cork();
@@ -325,7 +326,8 @@ private:
             /* Also reset timeout if we came here with 0 backpressure */
             if (!backpressure || backpressure > asyncSocket->getBufferedAmount()) {
                 auto *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL, us_socket_context(SSL, (us_socket_t *) s));
-                asyncSocket->timeout(webSocketContextData->idleTimeout);
+                asyncSocket->timeout(webSocketContextData->idleTimeoutComponents.first);
+                webSocketData->hasTimedOut = false;
             }
 
             /* Are we in (WebSocket) shutdown mode? */
@@ -358,6 +360,17 @@ private:
 
         /* Handle socket timeouts, simply close them so to not confuse client with FIN */
         us_socket_context_on_timeout(SSL, getSocketContext(), [](auto *s) {
+
+            auto *webSocketData = (WebSocketData *)(us_socket_ext(SSL, s));
+            auto *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL, us_socket_context(SSL, (us_socket_t *) s));
+
+            if (webSocketContextData->sendPingsAutomatically && !webSocketData->hasTimedOut) {
+                webSocketData->hasTimedOut = true;
+                us_socket_timeout(SSL, s, webSocketContextData->idleTimeoutComponents.second);
+                /* Send ping without being corked */
+                ((AsyncSocket<SSL> *) s)->write("\x89\x00", 2);
+                return s;
+            }
 
             /* Timeout is very simple; we just close it */
             /* Warning: we happen to know forceClose will not use first parameter so pass nullptr here */
