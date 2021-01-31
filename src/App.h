@@ -135,14 +135,19 @@ public:
     }
 
     struct WebSocketBehavior {
+        /* Disabled compression by default - probably a bad default */
         CompressOptions compression = DISABLED;
+        /* Maximum message size we can receive */
         unsigned int maxPayloadLength = 16 * 1024;
+        /* 2 minutes timeout is good */
         unsigned int idleTimeout = 120;
-        unsigned int maxBackpressure = 1 * 1024 * 1024;
-        // change these before release
+        /* 64kb backpressure is probably good */
+        unsigned int maxBackpressure = 64 * 1024;
         bool closeOnBackpressureLimit = false;
-        bool resetIdleTimeoutOnSend = true;
-        bool sendPingsAutomatically = false;
+        /* This one depends on kernel timeouts and is a bad default */
+        bool resetIdleTimeoutOnSend = false;
+        /* A good default, esp. for newcomers */
+        bool sendPingsAutomatically = true;
         fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> open = nullptr;
         fu2::unique_function<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
