@@ -140,7 +140,7 @@ public:
         /* Maximum message size we can receive */
         unsigned int maxPayloadLength = 16 * 1024;
         /* 2 minutes timeout is good */
-        unsigned int idleTimeout = 120;
+        unsigned short idleTimeout = 120;
         /* 64kb backpressure is probably good */
         unsigned int maxBackpressure = 64 * 1024;
         bool closeOnBackpressureLimit = false;
@@ -165,6 +165,16 @@ public:
 
         if (!httpContext) {
             return std::move(*this);
+        }
+
+        /* Terminate on misleading idleTimeout values */
+        if (behavior.idleTimeout && behavior.idleTimeout < 8) {
+            std::cerr << "Error: idleTimeout must be either 0 or greater than 8!" << std::endl;
+            std::terminate();
+        }
+
+        if (behavior.idleTimeout % 4) {
+            std::cerr << "Warning: idleTimeout should be a multiple of 4!" << std::endl;
         }
 
         /* Every route has its own websocket context with its own behavior and user data type */
@@ -207,7 +217,6 @@ public:
 
         /* Copy settings */
         webSocketContext->getExt()->maxPayloadLength = behavior.maxPayloadLength;
-        webSocketContext->getExt()->idleTimeout = behavior.idleTimeout;
         webSocketContext->getExt()->maxBackpressure = behavior.maxBackpressure;
         webSocketContext->getExt()->closeOnBackpressureLimit = behavior.closeOnBackpressureLimit;
         webSocketContext->getExt()->resetIdleTimeoutOnSend = behavior.resetIdleTimeoutOnSend;
@@ -215,7 +224,7 @@ public:
         webSocketContext->getExt()->compression = behavior.compression;
 
         /* Calculate idleTimeoutCompnents */
-        webSocketContext->getExt()->calculateIdleTimeoutCompnents();
+        webSocketContext->getExt()->calculateIdleTimeoutCompnents(behavior.idleTimeout);
 
         httpContext->onHttp("get", pattern, [webSocketContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
 

@@ -300,7 +300,7 @@ public:
         }
 
         /* Arm idleTimeout */
-        us_socket_timeout(SSL, (us_socket_t *) webSocket, webSocketContextData->idleTimeout);
+        us_socket_timeout(SSL, (us_socket_t *) webSocket, webSocketContextData->idleTimeoutComponents.first);
 
         /* Move construct the UserData right before calling open handler */
         new (webSocket->getUserData()) UserData(std::move(userData));

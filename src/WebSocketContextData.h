@@ -57,7 +57,6 @@ public:
 
     /* Settings for this context */
     size_t maxPayloadLength = 0;
-    unsigned int idleTimeout = 0;
 
     /* We do need these for async upgrade */
     CompressOptions compression;
@@ -75,11 +74,11 @@ public:
     TopicTree topicTree;
 
     /* This is run once on start-up */
-    void calculateIdleTimeoutCompnents() {
+    void calculateIdleTimeoutCompnents(unsigned short idleTimeout) {
         unsigned short margin = 4;
         /* 4, 8 or 16 seconds margin based on idleTimeout */
         while ((int) idleTimeout - margin * 2 >= margin * 2 && margin < 16) {
-            margin *= 2;
+            margin = (unsigned short) (margin << 2);
         }
         /* We should have no margin if not using sendPingsAutomatically */
         if (!sendPingsAutomatically) {
