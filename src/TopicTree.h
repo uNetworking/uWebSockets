@@ -278,7 +278,7 @@ public:
         return emptyVector;
     }
 
-    void subscribe(std::string_view topic, Subscriber *subscriber) {
+    void subscribe(std::string_view topic, Subscriber *subscriber, bool nonStrict = false) {
         /* Start iterating from the root */
         Topic *iterator = root;
 
@@ -322,7 +322,9 @@ public:
 
         /* If this topic is triggered, drain the tree before we join */
         if (iterator->triggered) {
-            drain();
+            if (!nonStrict) {
+                drain();
+            }
         }
 
         /* Add socket to Topic's Set */
@@ -346,7 +348,7 @@ public:
     }
 
     /* Returns whether we were subscribed prior */
-    bool unsubscribe(std::string_view topic, Subscriber *subscriber) {
+    bool unsubscribe(std::string_view topic, Subscriber *subscriber, bool nonStrict = false) {
         /* Subscribers are likely to have very few subscriptions (20 or fewer) */
         if (subscriber) {
             /* Lookup exact Topic ptr from string */
@@ -369,7 +371,9 @@ public:
                 if (*it == iterator) {
                     /* If this topic is triggered, drain the tree before we leave */
                     if (iterator->triggered) {
-                        drain();
+                        if (!nonStrict) {
+                            drain();
+                        }
                     }
 
                     /* Remove topic ptr from our list */
@@ -394,6 +398,7 @@ public:
 
                 /* If this topic is triggered, drain the tree before we leave */
                 if (mayFlush && topic->triggered) {
+                    /* Never mind nonStrict here (yet?) */
                     drain();
                 }
 
