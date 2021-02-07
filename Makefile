@@ -40,6 +40,12 @@ examples:
 	for FILE in $(THREADED_EXAMPLE_FILES); do $(CXX) -pthread -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
 	wait
 
+.PHONY: capi
+capi:
+	$(MAKE) -C uSockets
+	$(CXX) -shared -fPIC -flto -O3 $(CXXFLAGS) capi/App.cpp -o capi.so $(LDFLAGS)
+	$(CXX) capi/example.c -O3 capi.so -o example
+
 install:
 	mkdir -p "$(DESTDIR)$(prefix)/include/uWebSockets/f2"
 	cp -r src/* "$(DESTDIR)$(prefix)/include/uWebSockets"
