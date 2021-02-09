@@ -1,6 +1,9 @@
 #include "App.h"
 #include <thread>
 #include <algorithm>
+#include <mutex>
+
+std::mutex m;
 
 int main() {
     /* Overly simple hello world app, using multiple threads */
@@ -12,11 +15,13 @@ int main() {
             uWS::App().get("/*", [](auto *res, auto * /*req*/) {
                 res->end("Hello world!");
             }).listen(3000, [](auto *listen_socket) {
+		m.lock();
                 if (listen_socket) {
                     std::cout << "Thread " << std::this_thread::get_id() << " listening on port " << 3000 << std::endl;
                 } else {
                     std::cout << "Thread " << std::this_thread::get_id() << " failed to listen on port 3000" << std::endl;
                 }
+		m.unlock();
             }).run();
 
         });
