@@ -65,7 +65,7 @@ void test() {
         client = us_socket_context_connect(0, client_context, "hostname", 5000, "localhost", 0, 0);
 
         us_socket_context_on_connect_error(0, client_context, [](struct us_socket_t *s, int code) {
-	    client = nullptr;
+            client = nullptr;
             return s;
         });
 
