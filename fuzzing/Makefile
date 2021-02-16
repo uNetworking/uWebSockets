@@ -30,6 +30,3 @@ oss-fuzz:
 	$(CXX) $(CXXFLAGS) -Izlib -std=c++17 -O3 PerMessageDeflate.cpp -o $(OUT)/PerMessageDeflate $(LIB_FUZZING_ENGINE) zlib/libz.a
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 TopicTree.cpp -o $(OUT)/TopicTree $(LIB_FUZZING_ENGINE)
 
-broken:
-# Too small tests, failing coverage test
-	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Handshake.cpp -o $(OUT)/Handshake $(LIB_FUZZING_ENGINE)
