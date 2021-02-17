@@ -25,9 +25,9 @@
 #include "HttpResponseData.h"
 #include "AsyncSocket.h"
 #include "WebSocketData.h"
+#include "Log.h"
 
 #include <string_view>
-#include <iostream>
 #include "f2/function2.hpp"
 
 namespace uWS {
@@ -144,6 +144,7 @@ private:
 
                 /* Are we not ready for another request yet? Terminate the connection. */
                 if (httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) {
+                    UWS_LOG_REQUEST(3, "terminating connection (HTTP_RESPONSE_PENDING)");
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
                 }
@@ -160,30 +161,36 @@ private:
                 httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
                 if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
                     /* We have to force close this socket as we have no handler for it */
+                    UWS_LOG_REQUEST(1, "No handler for route ", httpRequest->getMethod(), " ", httpRequest->getUrl());
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
+                }
+                else {
+                    UWS_LOG_REQUEST(3, "Successfully handled route ", httpRequest->getMethod(), " ", httpRequest->getUrl());
                 }
 
                 /* First of all we need to check if this socket was deleted due to upgrade */
                 if (httpContextData->upgradedWebSocket) {
                     /* We differ between closed and upgraded below */
+                    UWS_LOG_REQUEST(3, "socket was deleted due to upgrade");
                     return nullptr;
                 }
 
                 /* Was the socket closed? */
                 if (us_socket_is_closed(SSL, (struct us_socket_t *) s)) {
+                    UWS_LOG_REQUEST(3, "socket was closed");
                     return nullptr;
                 }
 
                 /* We absolutely have to terminate parsing if shutdown */
                 if (us_socket_is_shut_down(SSL, (us_socket_t *) s)) {
+                    UWS_LOG_REQUEST(3, "socket was shutdown");
                     return nullptr;
                 }
 
                 /* Returning from a request handler without responding or attaching an onAborted handler is ill-use */
                 if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted) {
-                    /* Throw exception here? */
-                    std::cerr << "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!" << std::endl;
+                    UWS_LOG_REQUEST(0, "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!");
                     std::terminate();
                 }
 
@@ -213,11 +220,13 @@ private:
 
                     /* Was the socket closed? */
                     if (us_socket_is_closed(SSL, (struct us_socket_t *) user)) {
+                        UWS_LOG_REQUEST(3, "socket was closed");
                         return nullptr;
                     }
 
                     /* We absolutely have to terminate parsing if shutdown */
                     if (us_socket_is_shut_down(SSL, (us_socket_t *) user)) {
+                        UWS_LOG_REQUEST(3, "socket was shutdown");
                         return nullptr;
                     }
 
@@ -369,6 +378,7 @@ public:
         httpContext = (HttpContext *) us_create_socket_context(SSL, (us_loop_t *) loop, sizeof(HttpContextData<SSL>), options);
 
         if (!httpContext) {
+            UWS_LOG_REQUEST(0, "Error: Failed to create a httpContext");
             return nullptr;
         }
 
