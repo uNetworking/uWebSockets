@@ -22,6 +22,45 @@ void test() {
             .key_file_name = "../misc/key.pem",
             .cert_file_name = "../misc/cert.pem",
             .passphrase = "1234"
+        }).ws<PerSocketData>("/empty", {
+        /* Having no handlers here should not crash */
+        }).get("/*", [](auto *res, auto *req) {
+            if (req->getHeader("write").length()) {
+                res->writeStatus("200 OK")->writeHeader("write", "true")->write("Hello");
+                res->write(" world!");
+                res->end();
+            } else if (req->getQuery().length()) {
+                res->close();
+            } else {
+                res->end("Hello world!");
+            }
+        }).post("/*", [](auto *res, auto *req) {
+            res->onAborted([]() {
+                /* We might as well use this opportunity to stress the loop a bit */
+                uWS::Loop::get()->defer([]() {
+
+                });
+            });
+            res->onData([res](std::string_view chunk, bool isEnd) {
+                if (isEnd) {
+                    res->cork([res, chunk]() {
+                        res->write("something ahead");
+                        res->end(chunk);
+                    });
+                }
+            });
+        }).any("/:candy/*", [](auto *res, auto *req) {
+            if (req->getParameter(0).length() == 0) {
+                free((void *) -1);
+            }
+            /* Some invalid queries */
+            req->getParameter(30000);
+            req->getParameter(-34234);
+            req->getHeader("yhello");
+            req->getQuery();
+            req->getQuery("assd");
+
+            res->end("done");
         }).ws<PerSocketData>("/*", {
             /* Settings */
             .compression = uWS::SHARED_COMPRESSOR,
@@ -75,6 +114,8 @@ void test() {
         });
 
         us_socket_context_on_end(0, client_context, [](struct us_socket_t *s) {
+            /* Someone sent is a FIN, but we can still send data */
+            us_socket_write(0, s, "asdadasdasdasdaddfgdfhdfgdfg", 28, false);
             return s;
         });
 
@@ -83,6 +124,8 @@ void test() {
         });
 
         us_socket_context_on_writable(0, client_context, [](struct us_socket_t *s) {
+            /* Let's defer a close here */
+            us_socket_shutdown_read(0, s);
             return s;
         });
 
@@ -102,6 +145,7 @@ void test() {
         /* After done we also free the client context */
         us_socket_context_free(0, client_context);
     }
+    uWS::Loop::get()->setSilent(true);
     uWS::Loop::get()->free();
 }
 
