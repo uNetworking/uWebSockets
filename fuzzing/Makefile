@@ -21,6 +21,8 @@ oss-fuzz:
 	$(CC) $(CFLAGS) -DLIBUS_NO_SSL -std=c11 -I../uSockets/src -O3 -c ../uSockets/src/*.c ../uSockets/src/eventing/*.c ../uSockets/src/crypto/*.c
 	# Link against object files
 	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O2 -DUWS_NO_ZLIB -I../src -I../uSockets/src EpollHelloWorld.cpp -o $(OUT)/EpollHelloWorld $(LIB_FUZZING_ENGINE) *.o
+	rm -f EpollHelloWorld.o
+	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O2 -DUWS_NO_ZLIB -I../src -I../uSockets/src EpollEchoServer.cpp -o $(OUT)/EpollEchoServer $(LIB_FUZZING_ENGINE) *.o
 # "Unit tests"
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Extensions.cpp -o $(OUT)/Extensions $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 QueryParser.cpp -o $(OUT)/QueryParser $(LIB_FUZZING_ENGINE)

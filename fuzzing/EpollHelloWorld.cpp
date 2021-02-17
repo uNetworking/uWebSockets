@@ -82,8 +82,8 @@ void test() {
             },
             .ping = [](auto *ws) {
                 /* We use this to trigger the async/wakeup feature */
-		uWS::Loop::get()->defer([]() {
-		    /* Do nothing */
+                uWS::Loop::get()->defer([]() {
+                    /* Do nothing */
                 });
             },
             .pong = [](auto *ws) {
@@ -101,6 +101,7 @@ void test() {
         /* This function is stupid */
         us_loop_iteration_number(loop);
         struct us_socket_context_t *client_context = us_create_socket_context(0, loop, 0, {});
+        us_socket_context_timestamp(0, client_context);
         client = us_socket_context_connect(0, client_context, "hostname", 5000, "localhost", 0, 0);
 
         us_socket_context_on_connect_error(0, client_context, [](struct us_socket_t *s, int code) {
