@@ -103,7 +103,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
             readBytes(httpRequest->getMethod());
             readBytes(httpRequest->getQuery());
             readBytes(httpRequest->getQuery("hello"));
-            readBytes(httpRequest->getParameter(0));
+            //readBytes(httpRequest->getParameter(0));
 
 #ifdef UWS_WITH_PROXY
             auto *pp = (uWS::ProxyParser *) reserved;
