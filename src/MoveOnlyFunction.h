@@ -351,18 +351,18 @@ class any_invocable;
 // ref -> {`empty`, &, &&}
 // noex -> {true, false}
 // inv_quals -> (is_empty(ref) ? & : ref)
-__OFATS_ANY_INVOCABLE(, , false, &);               // 000
-__OFATS_ANY_INVOCABLE(, , true, &);                // 001
-__OFATS_ANY_INVOCABLE(, &, false, &);              // 010
-__OFATS_ANY_INVOCABLE(, &, true, &);               // 011
-__OFATS_ANY_INVOCABLE(, &&, false, &&);            // 020
-__OFATS_ANY_INVOCABLE(, &&, true, &&);             // 021
-__OFATS_ANY_INVOCABLE(const, , false, const&);     // 100
-__OFATS_ANY_INVOCABLE(const, , true, const&);      // 101
-__OFATS_ANY_INVOCABLE(const, &, false, const&);    // 110
-__OFATS_ANY_INVOCABLE(const, &, true, const&);     // 111
-__OFATS_ANY_INVOCABLE(const, &&, false, const&&);  // 120
-__OFATS_ANY_INVOCABLE(const, &&, true, const&&);   // 121
+__OFATS_ANY_INVOCABLE(, , false, &)               // 000
+__OFATS_ANY_INVOCABLE(, , true, &)                // 001
+__OFATS_ANY_INVOCABLE(, &, false, &)              // 010
+__OFATS_ANY_INVOCABLE(, &, true, &)               // 011
+__OFATS_ANY_INVOCABLE(, &&, false, &&)            // 020
+__OFATS_ANY_INVOCABLE(, &&, true, &&)             // 021
+__OFATS_ANY_INVOCABLE(const, , false, const&)     // 100
+__OFATS_ANY_INVOCABLE(const, , true, const&)      // 101
+__OFATS_ANY_INVOCABLE(const, &, false, const&)    // 110
+__OFATS_ANY_INVOCABLE(const, &, true, const&)     // 111
+__OFATS_ANY_INVOCABLE(const, &&, false, const&&)  // 120
+__OFATS_ANY_INVOCABLE(const, &&, true, const&&)   // 121
 
 #undef __OFATS_ANY_INVOCABLE
 
