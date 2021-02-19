@@ -26,7 +26,7 @@
 
 #include "PerMessageDeflate.h"
 
-#include "f2/function2.hpp"
+#include "MoveOnlyFunction.h"
 
 namespace uWS {
 
@@ -37,10 +37,10 @@ struct alignas(16) LoopData {
 private:
     std::mutex deferMutex;
     int currentDeferQueue = 0;
-    std::vector<fu2::unique_function<void()>> deferQueues[2];
+    std::vector<MoveOnlyFunction<void()>> deferQueues[2];
 
     /* Map from void ptr to handler */
-    std::map<void *, fu2::unique_function<void(Loop *)>> postHandlers, preHandlers;
+    std::map<void *, MoveOnlyFunction<void(Loop *)>> postHandlers, preHandlers;
 
 public:
     ~LoopData() {

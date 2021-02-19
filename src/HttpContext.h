@@ -28,7 +28,7 @@
 
 #include <string_view>
 #include <iostream>
-#include "f2/function2.hpp"
+#include "MoveOnlyFunction.h"
 
 namespace uWS {
 template<bool> struct HttpResponse;
@@ -387,12 +387,12 @@ public:
         us_socket_context_free(SSL, getSocketContext());
     }
 
-    void filter(fu2::unique_function<void(HttpResponse<SSL> *, int)> &&filterHandler) {
+    void filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         getSocketContextData()->filterHandlers.emplace_back(std::move(filterHandler));
     }
 
     /* Register an HTTP route handler acording to URL pattern */
-    void onHttp(std::string method, std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler, bool upgrade = false) {
+    void onHttp(std::string method, std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler, bool upgrade = false) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
         /* Todo: This is ugly, fix */

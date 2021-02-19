@@ -27,7 +27,7 @@
 #include <memory>
 #include <utility>
 
-#include "f2/function2.hpp"
+#include "MoveOnlyFunction.h"
 
 namespace uWS {
 
@@ -48,7 +48,7 @@ private:
     std::map<std::string, int> priority;
 
     /* List of handlers */
-    std::vector<fu2::unique_function<bool(HttpRouter *)>> handlers;
+    std::vector<MoveOnlyFunction<bool(HttpRouter *)>> handlers;
 
     /* Current URL cache */
     std::string_view currentUrl;
@@ -229,7 +229,7 @@ public:
     }
 
     /* Adds the corresponding entires in matching tree and handler list */
-    void add(std::vector<std::string> methods, std::string pattern, fu2::unique_function<bool(HttpRouter *)> &&handler, uint32_t priority = MEDIUM_PRIORITY) {
+    void add(std::vector<std::string> methods, std::string pattern, MoveOnlyFunction<bool(HttpRouter *)> &&handler, uint32_t priority = MEDIUM_PRIORITY) {
         for (std::string method : methods) {
             /* Lookup method */
             Node *node = getNode(&root, method, false);

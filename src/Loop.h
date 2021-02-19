@@ -116,7 +116,7 @@ public:
         getLazyLoop().loop = nullptr;
     }
 
-    void addPostHandler(void *key, fu2::unique_function<void(Loop *)> &&handler) {
+    void addPostHandler(void *key, MoveOnlyFunction<void(Loop *)> &&handler) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
         loopData->postHandlers.emplace(key, std::move(handler));
@@ -129,7 +129,7 @@ public:
         loopData->postHandlers.erase(key);
     }
 
-    void addPreHandler(void *key, fu2::unique_function<void(Loop *)> &&handler) {
+    void addPreHandler(void *key, MoveOnlyFunction<void(Loop *)> &&handler) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
         loopData->preHandlers.emplace(key, std::move(handler));
@@ -143,7 +143,7 @@ public:
     }
 
     /* Defer this callback on Loop's thread of execution */
-    void defer(fu2::unique_function<void()> &&cb) {
+    void defer(MoveOnlyFunction<void()> &&cb) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
         //if (std::thread::get_id() == ) // todo: add fast path for same thread id

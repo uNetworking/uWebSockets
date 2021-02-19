@@ -18,7 +18,7 @@
 #ifndef UWS_WEBSOCKETCONTEXTDATA_H
 #define UWS_WEBSOCKETCONTEXTDATA_H
 
-#include "f2/function2.hpp"
+#include "MoveOnlyFunction.h"
 #include <string_view>
 
 #include "WebSocketProtocol.h"
@@ -47,13 +47,13 @@ private:
 
 public:
     /* The callbacks for this context */
-    fu2::unique_function<void(uWS::WebSocket<SSL, true> *)> openHandler = nullptr;
-    fu2::unique_function<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler = nullptr;
-    fu2::unique_function<void(WebSocket<SSL, true> *)> drainHandler = nullptr;
-    fu2::unique_function<void(WebSocket<SSL, true> *, int, std::string_view)> closeHandler = nullptr;
+    MoveOnlyFunction<void(uWS::WebSocket<SSL, true> *)> openHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true> *)> drainHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true> *, int, std::string_view)> closeHandler = nullptr;
     /* Todo: these should take message also; breaking change for v0.18 */
-    fu2::unique_function<void(WebSocket<SSL, true> *)> pingHandler = nullptr;
-    fu2::unique_function<void(WebSocket<SSL, true> *)> pongHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true> *)> pingHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true> *)> pongHandler = nullptr;
 
     /* Settings for this context */
     size_t maxPayloadLength = 0;

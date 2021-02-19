@@ -30,7 +30,7 @@
 #include "WebSocket.h"
 #include "WebSocketContextData.h"
 
-#include "f2/function2.hpp"
+#include "MoveOnlyFunction.h"
 
 /* todo: tryWrite is missing currently, only send smaller segments with write */
 
@@ -427,7 +427,7 @@ public:
     }
 
     /* Corks the response if possible. Leaves already corked socket be. */
-    HttpResponse *cork(fu2::unique_function<void()> &&handler) {
+    HttpResponse *cork(MoveOnlyFunction<void()> &&handler) {
         if (!Super::isCorked() && Super::canCork()) {
             Super::cork();
             handler();
@@ -448,7 +448,7 @@ public:
     }
 
     /* Attach handler for writable HTTP response */
-    HttpResponse *onWritable(fu2::unique_function<bool(size_t)> &&handler) {
+    HttpResponse *onWritable(MoveOnlyFunction<bool(size_t)> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         httpResponseData->onWritable = std::move(handler);
@@ -456,7 +456,7 @@ public:
     }
 
     /* Attach handler for aborted HTTP request */
-    HttpResponse *onAborted(fu2::unique_function<void()> &&handler) {
+    HttpResponse *onAborted(MoveOnlyFunction<void()> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         httpResponseData->onAborted = std::move(handler);
@@ -464,7 +464,7 @@ public:
     }
 
     /* Attach a read handler for data sent. Will be called with FIN set true if last segment. */
-    void onData(fu2::unique_function<void(std::string_view, bool)> &&handler) {
+    void onData(MoveOnlyFunction<void(std::string_view, bool)> &&handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();
         data->inStream = std::move(handler);
     }

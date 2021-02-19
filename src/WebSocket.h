@@ -176,7 +176,7 @@ public:
     }
 
     /* Corks the response if possible. Leaves already corked socket be. */
-    void cork(fu2::unique_function<void()> &&handler) {
+    void cork(MoveOnlyFunction<void()> &&handler) {
         if (!Super::isCorked() && Super::canCork()) {
             Super::cork();
             handler();

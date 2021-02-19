@@ -28,7 +28,7 @@
 #include <list>
 #include <cstring>
 
-/* We use std::function here, not fu2::unique_function */
+/* We use std::function here, not MoveOnlyFunction */
 #include <functional>
 
 namespace uWS {
