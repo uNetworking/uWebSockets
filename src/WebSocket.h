@@ -197,8 +197,8 @@ public:
         }
     }
 
-    /* Subscribe to a topic according to MQTT rules and syntax */
-    void subscribe(std::string_view topic, bool nonStrict = false) {
+    /* Subscribe to a topic according to MQTT rules and syntax. Returns [numSubscribers, success]. */
+    std::pair<unsigned int, bool> subscribe(std::string_view topic, bool nonStrict = false) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
@@ -209,11 +209,11 @@ public:
             webSocketData->subscriber = new Subscriber(this);
         }
 
-        webSocketContextData->topicTree.subscribe(topic, webSocketData->subscriber, nonStrict);
+        return webSocketContextData->topicTree.subscribe(topic, webSocketData->subscriber, nonStrict);
     }
 
-    /* Unsubscribe from a topic, returns true if we were subscribed */
-    bool unsubscribe(std::string_view topic, bool nonStrict = false) {
+    /* Unsubscribe from a topic, returns true if we were subscribed. Returns [numSubscribers, success]. */
+    std::pair<unsigned int, bool> unsubscribe(std::string_view topic, bool nonStrict = false) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );

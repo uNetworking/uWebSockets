@@ -278,7 +278,8 @@ public:
         return emptyVector;
     }
 
-    void subscribe(std::string_view topic, Subscriber *subscriber, bool nonStrict = false) {
+    /* Returns number of subscribers after the call and whether or not we were successful in subscribing */
+    std::pair<unsigned int, bool> subscribe(std::string_view topic, Subscriber *subscriber, bool nonStrict = false) {
         /* Start iterating from the root */
         Topic *iterator = root;
 
@@ -333,7 +334,9 @@ public:
         /* Add Topic to list of subscriptions only if we weren't already subscribed */
         if (inserted) {
             subscriber->subscriptions.push_back(iterator);
+            return {(unsigned int) iterator->subs.size(), true};
         }
+        return {(unsigned int) iterator->subs.size(), false};
     }
 
     void publish(std::string_view topic, std::pair<std::string_view, std::string_view> message, Subscriber *sender = nullptr) {
@@ -347,8 +350,8 @@ public:
         messageId++;
     }
 
-    /* Returns whether we were subscribed prior */
-    bool unsubscribe(std::string_view topic, Subscriber *subscriber, bool nonStrict = false) {
+    /* Returns a pair of numSubscribers after operation, and whether we were subscribed prior */
+    std::pair<unsigned int, bool> unsubscribe(std::string_view topic, Subscriber *subscriber, bool nonStrict = false) {
         /* Subscribers are likely to have very few subscriptions (20 or fewer) */
         if (subscriber) {
             /* Lookup exact Topic ptr from string */
@@ -360,7 +363,7 @@ public:
                 std::map<std::string_view, Topic *>::iterator it = iterator->children.find(segment);
                 if (it == iterator->children.end()) {
                     /* This topic does not even exist */
-                    return false;
+                    return {0, false};
                 }
 
                 iterator = it->second;
@@ -381,12 +384,13 @@ public:
 
                     /* Remove us from Topic's subs */
                     iterator->subs.erase(subscriber);
+                    unsigned int numSubscribers = (unsigned int) iterator->subs.size();
                     trimTree(iterator);
-                    return true;
+                    return {numSubscribers, true};
                 }
             }
         }
-        return false;
+        return {0, false};
     }
 
     /* Can be called with nullptr, ignore it then */
