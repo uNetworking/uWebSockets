@@ -56,8 +56,15 @@ public:
     /* Simple, immediate close of the socket. Emits close event */
     using Super::close;
 
-    /* Send or buffer a WebSocket frame, compressed or not. Returns false on increased user space backpressure. */
-    bool send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
+    enum SendStatus : int {
+        BACKPRESSURE,
+        SUCCESS,
+        DROPPED
+    };
+
+    /* Send or buffer a WebSocket frame, compressed or not. Returns BACKPRESSURE on increased user space backpressure,
+     * DROPPED on dropped message (due to backpressure) or SUCCCESS if you are free to send even more now. */
+    SendStatus send(std::string_view message, uWS::OpCode opCode = uWS::OpCode::BINARY, bool compress = false) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
@@ -68,7 +75,7 @@ public:
             if (webSocketContextData->closeOnBackpressureLimit) {
                 us_socket_shutdown_read(SSL, (us_socket_t *) this);
             }
-            return true;
+            return DROPPED;
         }
 
         /* Transform the message to compressed domain if requested */
@@ -109,7 +116,7 @@ public:
 
             if (failed) {
                 /* Return false for failure, skipping to reset the timeout below */
-                return false;
+                return BACKPRESSURE;
             }
         }
 
@@ -117,7 +124,7 @@ public:
         if (automaticallyCorked) {
             auto [written, failed] = Super::uncork();
             if (failed) {
-                return false;
+                return BACKPRESSURE;
             }
         }
 
@@ -129,7 +136,7 @@ public:
         }
 
         /* Return success */
-        return true;
+        return SUCCESS;
     }
 
     /* Send websocket close frame, emit close event, send FIN if successful.
