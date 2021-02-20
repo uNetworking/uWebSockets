@@ -242,7 +242,7 @@ public:
             int wantedCompressionWindow = (webSocketContextData->compression & 0xFF00) >> 8;
 
             auto [negCompression, negCompressionWindow, negInflationWindow, negResponse] =
-            uWS::negotiateCompression(true, wantedCompressionWindow, wantedInflationWindow,
+            negotiateCompression(true, wantedCompressionWindow, wantedInflationWindow,
                                         secWebSocketExtensions);
 
             if (negCompression) {

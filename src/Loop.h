@@ -18,7 +18,7 @@
 #ifndef UWS_LOOP_H
 #define UWS_LOOP_H
 
-/* The loop is lazily created per-thread and run with uWS::run() */
+/* The loop is lazily created per-thread and run with run() */
 
 #include "LoopData.h"
 #include <libusockets.h>

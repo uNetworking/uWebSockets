@@ -41,7 +41,7 @@ private:
     }
 
     /* If we have negotiated compression, set this frame compressed */
-    static bool setCompressed(uWS::WebSocketState<isServer> */*wState*/, void *s) {
+    static bool setCompressed(WebSocketState<isServer> */*wState*/, void *s) {
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) s);
 
         if (webSocketData->compressionStatus == WebSocketData::CompressionStatus::ENABLED) {
@@ -52,12 +52,12 @@ private:
         }
     }
 
-    static void forceClose(uWS::WebSocketState<isServer> */*wState*/, void *s, std::string_view reason = {}) {
+    static void forceClose(WebSocketState<isServer> */*wState*/, void *s, std::string_view reason = {}) {
         us_socket_close(SSL, (us_socket_t *) s, (int) reason.length(), (void *) reason.data());
     }
 
     /* Returns true on breakage */
-    static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, uWS::WebSocketState<isServer> *webSocketState, void *s) {
+    static bool handleFragment(char *data, size_t length, unsigned int remainingBytes, int opCode, bool fin, WebSocketState<isServer> *webSocketState, void *s) {
         /* WebSocketData and WebSocketContextData */
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL, us_socket_context(SSL, (us_socket_t *) s));
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) s);
@@ -90,7 +90,7 @@ private:
 
                 /* Emit message event & break if we are closed or shut down when returning */
                 if (webSocketContextData->messageHandler) {
-                    webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
+                    webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (OpCode) opCode);
                     if (us_socket_is_closed(SSL, (us_socket_t *) s) || webSocketData->isShuttingDown) {
                         return true;
                     }
@@ -148,7 +148,7 @@ private:
 
                     /* Emit message and check for shutdown or close */
                     if (webSocketContextData->messageHandler) {
-                        webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (uWS::OpCode) opCode);
+                        webSocketContextData->messageHandler((WebSocket<SSL, isServer> *) s, std::string_view(data, length), (OpCode) opCode);
                         if (us_socket_is_closed(SSL, (us_socket_t *) s) || webSocketData->isShuttingDown) {
                             return true;
                         }
@@ -224,7 +224,7 @@ private:
         return false;
     }
 
-    static bool refusePayloadLength(uint64_t length, uWS::WebSocketState<isServer> */*wState*/, void *s) {
+    static bool refusePayloadLength(uint64_t length, WebSocketState<isServer> */*wState*/, void *s) {
         auto *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL, us_socket_context(SSL, (us_socket_t *) s));
 
         /* Return true for refuse, false for accept */
@@ -283,7 +283,7 @@ private:
             asyncSocket->cork();
 
             /* This parser has virtually no overhead */
-            uWS::WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::consume(data, (unsigned int) length, (WebSocketState<isServer> *) webSocketData, s);
+            WebSocketProtocol<isServer, WebSocketContext<SSL, isServer>>::consume(data, (unsigned int) length, (WebSocketState<isServer> *) webSocketData, s);
 
             /* Uncorking a closed socekt is fine, in fact it is needed */
             asyncSocket->uncork();

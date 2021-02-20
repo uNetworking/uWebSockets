@@ -47,8 +47,8 @@ private:
 
 public:
     /* The callbacks for this context */
-    MoveOnlyFunction<void(uWS::WebSocket<SSL, true> *)> openHandler = nullptr;
-    MoveOnlyFunction<void(WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> messageHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true> *)> openHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true> *, std::string_view, OpCode)> messageHandler = nullptr;
     MoveOnlyFunction<void(WebSocket<SSL, true> *)> drainHandler = nullptr;
     MoveOnlyFunction<void(WebSocket<SSL, true> *, int, std::string_view)> closeHandler = nullptr;
     /* Todo: these should take message also; breaking change for v0.18 */

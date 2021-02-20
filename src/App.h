@@ -127,7 +127,7 @@ public:
     }
 
     TemplatedApp(SocketContextOptions options = {}) {
-        httpContext = uWS::HttpContext<SSL>::create(uWS::Loop::get(), options);
+        httpContext = HttpContext<SSL>::create(Loop::get(), options);
     }
 
     bool constructorFailed() {
@@ -151,12 +151,12 @@ public:
         /* Maximum socket lifetime in seconds before forced closure (defaults to disabled) */
         unsigned short maxLifetime = 0;
         MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
-        MoveOnlyFunction<void(uWS::WebSocket<SSL, true> *)> open = nullptr;
-        MoveOnlyFunction<void(uWS::WebSocket<SSL, true> *, std::string_view, uWS::OpCode)> message = nullptr;
-        MoveOnlyFunction<void(uWS::WebSocket<SSL, true> *)> drain = nullptr;
-        MoveOnlyFunction<void(uWS::WebSocket<SSL, true> *)> ping = nullptr;
-        MoveOnlyFunction<void(uWS::WebSocket<SSL, true> *)> pong = nullptr;
-        MoveOnlyFunction<void(uWS::WebSocket<SSL, true> *, int, std::string_view)> close = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true> *)> open = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true> *, std::string_view, OpCode)> message = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true> *)> drain = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true> *)> ping = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true> *)> pong = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true> *, int, std::string_view)> close = nullptr;
     };
 
     template <typename UserData>
@@ -187,7 +187,7 @@ public:
 
         /* Quick fix to disable any compression if set */
 #ifdef UWS_NO_ZLIB
-        behavior.compression = uWS::DISABLED;
+        behavior.compression = DISABLED;
 #endif
 
         /* If we are the first one to use compression, initialize it */
