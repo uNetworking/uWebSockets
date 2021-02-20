@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2020.
+ * Authored by Alex Hultman, 2018-2021.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -223,31 +223,70 @@ public:
         return webSocketContextData->topicTree.unsubscribe(topic, webSocketData->subscriber, nonStrict);
     }
 
-    /* Unsubscribe from all topics you might be subscribed to */
-    void unsubscribeAll() {
+    /* Returns whether this socket is subscribed to the specified topic */
+    bool isSubscribed(std::string_view topic) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
 
-        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
+        Topic *t = webSocketContextData->lookupTopic(topic);
+        if (t) {
+            return t->subs.find(this) != t->subs.end();
+        }
 
-        webSocketContextData->topicTree.unsubscribeAll(webSocketData->subscriber);
+        return false;
     }
 
-    /* Publish a message to a topic according to MQTT rules and syntax */
-    void publish(std::string_view topic, std::string_view message, OpCode opCode = OpCode::TEXT, bool compress = false) {
+    /* Returns number of subscribers for this topic, or 0 for failure */
+    unsigned int numSubscribers(std::string_view topic) {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
 
-        /* Make us a subscriber if we aren't yet (important for allocating a sender address) */
+        Topic *t = webSocketContextData->lookupTopic(topic);
+        if (t) {
+            return t->subs.size();
+        }
+
+        return 0;
+    }
+
+    /* Iterates all topics of this WebSocket. Every topic is represented by [name, numSubscribers].
+     * Can be called in close handler. It is possible to modify the subscription list while
+     * inside the callback ONLY IF not modifying the topic passed to the callback.
+     * Topic names are valid only for the duration of the callback. */
+    void iterateTopics(MoveOnlyFunction<void(std::string_view, unsigned int)> cb) {
+        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
+
+        if (webSocketData->subscriber) {
+            for (Topic *t : webSocketData->subscriber->subscriptions) {
+                /* Lock this topic so that nobody may unsubscribe from it during this callback */
+                t->locked = true;
+
+                cb(t->fullName, (unsigned int) t->subs.size());
+
+                t->locked = false;
+            }
+        }
+    }
+
+    /* Publish a message to a topic according to MQTT rules and syntax. Returns [numSubscribers, success].
+     * We, the WebSocket, must be subscribed to the topic itself and if so - no message will be sent to ourselves.
+     * Use App::publish for an unconditional publish that simply publishes to whomever might be subscribed. */
+    bool publish(std::string_view topic, std::string_view message, OpCode opCode = OpCode::TEXT, bool compress = false) {
+        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,
+            (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
+        );
+
+        /* We cannot be a subscriber of this topic if we are not a subscriber of anything */
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
         if (!webSocketData->subscriber) {
-            webSocketData->subscriber = new Subscriber(this);
+            /* Failure, but still do return the number of subscribers */
+            return false;
         }
 
         /* Publish as sender, does not receive its own messages even if subscribed to relevant topics */
-        webSocketContextData->publish(topic, message, opCode, compress, webSocketData->subscriber);
+        return webSocketContextData->publish(topic, message, opCode, compress, webSocketData->subscriber);
     }
 };
 

@@ -65,6 +65,12 @@ struct Topic {
     std::map<unsigned int, std::pair<std::string, std::string>> messages;
 
     std::set<Subscriber *> subs;
+
+    /* Locked or not, used only when iterating over a Subscriber's topics */
+    bool locked = false;
+
+    /* Full name is used when iterating topcis */
+    std::string fullName;
 };
 
 struct Hole {
@@ -149,6 +155,26 @@ private:
     int numTriggeredTopics = 0;
     Subscriber *min = (Subscriber *) UINTPTR_MAX;
 
+    /* Returns Topic, or nullptr. Topic can be root if empty string given. */
+    Topic *lookupTopic(std::string_view topic) {
+        /* Lookup exact Topic ptr from string */
+        Topic *iterator = root;
+        for (size_t start = 0, stop = 0; stop != std::string::npos; start = stop + 1) {
+            stop = topic.find('/', start);
+            std::string_view segment = topic.substr(start, stop - start);
+
+            std::map<std::string_view, Topic *>::iterator it = iterator->children.find(segment);
+            if (it == iterator->children.end()) {
+                /* This topic does not even exist */
+                return nullptr;
+            }
+
+            iterator = it->second;
+        }
+
+        return iterator;
+    }
+
     /* Cull or trim unused Topic nodes from leaf to root */
     void trimTree(Topic *topic) {
         while (!topic->subs.size() && !topic->children.size() && !topic->terminatingWildcardChild && !topic->wildcardChild) {
@@ -192,8 +218,11 @@ private:
         }
     }
 
-    /* Should be getData and commit? */
-    void publish(Topic *iterator, size_t start, size_t stop, std::string_view topic, std::pair<std::string_view, std::string_view> message) {
+    /* Publishes to all matching topics and wildcards. Returns whether at least one topic was a match. */
+    bool publish(Topic *iterator, size_t start, size_t stop, std::string_view topic, std::pair<std::string_view, std::string_view> message) {
+
+        /* Whether we matched with at least one topic */
+        bool didMatch = false;
 
         /* Iterate over all segments in given topic */
         for (; stop != std::string::npos; start = stop + 1) {
@@ -207,7 +236,8 @@ private:
              * instace the error is found late while iterating the topic segments. */
             if (segment.length() == 1) {
                 if (segment[0] == '+' || segment[0] == '#') {
-                    return;
+                    /* "Fail" here, but not necessarily for the entire publish */
+                    return didMatch;
                 }
             }
 
@@ -225,17 +255,19 @@ private:
                     triggeredTopics[numTriggeredTopics++] = iterator->terminatingWildcardChild;
                     iterator->terminatingWildcardChild->triggered = true;
                 }
+
+                didMatch = true;
             }
 
             /* Do we have a wildcard child? */
             if (iterator->wildcardChild) {
-                publish(iterator->wildcardChild, stop + 1, stop, topic, message);
+                didMatch |= publish(iterator->wildcardChild, stop + 1, stop, topic, message);
             }
 
             std::map<std::string_view, Topic *>::iterator it = iterator->children.find(segment);
             if (it == iterator->children.end()) {
                 /* Stop trying to match by exact string */
-                return;
+                return didMatch;
             }
 
             iterator = it->second;
@@ -254,6 +286,9 @@ private:
             triggeredTopics[numTriggeredTopics++] = iterator;
             iterator->triggered = true;
         }
+
+        /* We obviously matches exactly here */
+        return true;
     }
 
 public:
@@ -302,6 +337,12 @@ public:
                 newTopic->wildcardChild = nullptr;
                 memcpy(newTopic->name, segment.data(), segment.length());
 
+                /* Set fullname as parent's name plus our name */
+                newTopic->fullName.reserve(newTopic->parent->fullName.length() + 1 + segment.length());
+                newTopic->fullName.append(newTopic->parent->fullName);
+                newTopic->fullName.append("/");
+                newTopic->fullName.append(segment);
+
                 /* For simplicity we do insert wildcards with text */
                 iterator->children.insert(lb, {std::string_view(newTopic->name, segment.length()), newTopic});
 
@@ -339,15 +380,16 @@ public:
         return {(unsigned int) iterator->subs.size(), false};
     }
 
-    void publish(std::string_view topic, std::pair<std::string_view, std::string_view> message, Subscriber *sender = nullptr) {
+    bool publish(std::string_view topic, std::pair<std::string_view, std::string_view> message, Subscriber *sender = nullptr) {
         /* Add a hole for the sender if one */
         if (sender) {
             senderHoles[sender].push_back(messageId);
         }
 
-        publish(root, 0, 0, topic, message);
+        auto ret = publish(root, 0, 0, topic, message);
         /* MessageIDs are reset on drain - this should be fine since messages itself are cleared on drain */
         messageId++;
+        return ret;
     }
 
     /* Returns a pair of numSubscribers after operation, and whether we were subscribed prior */
@@ -367,6 +409,11 @@ public:
                 }
 
                 iterator = it->second;
+            }
+
+            /* Is this topic locked? If so, we cannot unsubscribe from it */
+            if (iterator->locked) {
+                return {iterator->subs.size(), false};
             }
 
             /* Try and remove this topic from our list */
