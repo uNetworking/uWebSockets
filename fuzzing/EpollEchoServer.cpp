@@ -72,8 +72,7 @@ void test() {
 
             },
             .close = [](auto *ws, int code, std::string_view message) {
-                /* Not necessary but we'll call it for coverage */
-                ws->unsubscribeAll();
+
             }
         }).ws<PerSocketData>("/*", {
             /* Settings */
