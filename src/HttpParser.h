@@ -136,9 +136,7 @@ public:
         currentParameters = parameters;
     }
 
-    /* This one should take unsigned int, but really high numbers will
-     * overflow as int, so just accept int for now */
-    std::string_view getParameter(/*unsigned */int index) {
+    std::string_view getParameter(unsigned short index) {
         if (currentParameters.first < (int) index) {
             return {};
         } else {
