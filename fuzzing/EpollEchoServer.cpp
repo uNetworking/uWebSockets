@@ -45,8 +45,8 @@ void test() {
             .idleTimeout = 12,
             /* Handlers */
             .open = [](auto *ws) {
-                    /* Subscribe to anything */
-                    ws->subscribe(/*req->getHeader(*/"topic"/*)*/);
+                /* Subscribe to anything */
+                ws->subscribe(/*req->getHeader(*/"topic"/*)*/);
             },
             .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
                 if (message.length() && message[0] == 'C') {
@@ -58,7 +58,7 @@ void test() {
                     ws->publish(message, message, opCode, true);
 
                     if (message.length() && message[0] == 'U') {
-                    ws->unsubscribe(message);
+                        ws->unsubscribe(message);
                     }
                 }
             },
@@ -83,8 +83,7 @@ void test() {
             /* Handlers */
             .open = [](auto *ws) {
 
-                PerSocketData *psd = (PerSocketData *) ws->getUserData();
-                psd->valid.reset(new bool{true});
+                ws->getUserData()->valid.reset(new bool{true});
 
                 //if (req->getHeader("close_me").length()) {
                 //    ws->close();
@@ -115,7 +114,7 @@ void test() {
                 PerSocketData *psd = (PerSocketData *) ws->getUserData();
 
                 uWS::Loop::get()->defer([ws, valid = psd->valid]() {
-                    if (valid.get()) {
+                    if (*valid.get()) {
                         /* We haven't been closed */
                         ws->send("Hello!", uWS::TEXT, false);
                         ws->end(1000);
@@ -126,7 +125,7 @@ void test() {
 
             },
             .close = [](auto *ws, int code, std::string_view message) {
-
+                (*ws->getUserData()->valid.get()) = false;
             }
         }).listen(9001, [](us_listen_socket_t *listenSocket) {
             listen_socket = listenSocket;
