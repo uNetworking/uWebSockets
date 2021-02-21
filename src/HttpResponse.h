@@ -214,7 +214,7 @@ public:
             struct us_socket_context_t *webSocketContext) {
 
         /* Extract needed parameters from WebSocketContextData */
-        WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL, webSocketContext);
+        WebSocketContextData<SSL, UserData> *webSocketContextData = (WebSocketContextData<SSL, UserData> *) us_socket_context_ext(SSL, webSocketContext);
 
         /* Note: OpenSSL can be used here to speed this up somewhat */
         char secWebSocketAccept[29] = {};
@@ -281,7 +281,7 @@ public:
         bool wasCorked = Super::isCorked();
 
         /* Adopting a socket invalidates it, do not rely on it directly to carry any data */
-        WebSocket<SSL, true> *webSocket = (WebSocket<SSL, true> *) us_socket_context_adopt_socket(SSL,
+        WebSocket<SSL, true, UserData> *webSocket = (WebSocket<SSL, true, UserData> *) us_socket_context_adopt_socket(SSL,
                     (us_socket_context_t *) webSocketContext, (us_socket_t *) this, sizeof(WebSocketData) + sizeof(UserData));
 
         /* For whatever reason we were corked, update cork to the new socket */

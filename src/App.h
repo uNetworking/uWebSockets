@@ -53,7 +53,7 @@ struct TemplatedApp {
 private:
     /* The app always owns at least one http context, but creates websocket contexts on demand */
     HttpContext<SSL> *httpContext;
-    std::vector<WebSocketContext<SSL, true> *> webSocketContexts;
+    std::vector<WebSocketContext<SSL, true, int> *> webSocketContexts;
 
 public:
 
@@ -134,6 +134,7 @@ public:
         return !httpContext;
     }
 
+    template <typename UserData>
     struct WebSocketBehavior {
         /* Disabled compression by default - probably a bad default */
         CompressOptions compression = DISABLED;
@@ -151,16 +152,16 @@ public:
         /* Maximum socket lifetime in seconds before forced closure (defaults to disabled) */
         unsigned short maxLifetime = 0;
         MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
-        MoveOnlyFunction<void(WebSocket<SSL, true> *)> open = nullptr;
-        MoveOnlyFunction<void(WebSocket<SSL, true> *, std::string_view, OpCode)> message = nullptr;
-        MoveOnlyFunction<void(WebSocket<SSL, true> *)> drain = nullptr;
-        MoveOnlyFunction<void(WebSocket<SSL, true> *)> ping = nullptr;
-        MoveOnlyFunction<void(WebSocket<SSL, true> *)> pong = nullptr;
-        MoveOnlyFunction<void(WebSocket<SSL, true> *, int, std::string_view)> close = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> open = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view, OpCode)> message = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> drain = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> ping = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> pong = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, int, std::string_view)> close = nullptr;
     };
 
     template <typename UserData>
-    TemplatedApp &&ws(std::string pattern, WebSocketBehavior &&behavior) {
+    TemplatedApp &&ws(std::string pattern, WebSocketBehavior<UserData> &&behavior) {
         /* Don't compile if alignment rules cannot be satisfied */
         static_assert(alignof(UserData) <= LIBUS_EXT_ALIGNMENT,
         "µWebSockets cannot satisfy UserData alignment requirements. You need to recompile µSockets with LIBUS_EXT_ALIGNMENT adjusted accordingly.");
@@ -180,10 +181,10 @@ public:
         }
 
         /* Every route has its own websocket context with its own behavior and user data type */
-        auto *webSocketContext = WebSocketContext<SSL, true>::create(Loop::get(), (us_socket_context_t *) httpContext);
+        auto *webSocketContext = WebSocketContext<SSL, true, UserData>::create(Loop::get(), (us_socket_context_t *) httpContext);
 
         /* We need to clear this later on */
-        webSocketContexts.push_back(webSocketContext);
+        webSocketContexts.push_back((WebSocketContext<SSL, true, int> *) webSocketContext);
 
         /* Quick fix to disable any compression if set */
 #ifdef UWS_NO_ZLIB
@@ -206,7 +207,7 @@ public:
         webSocketContext->getExt()->openHandler = std::move(behavior.open);
         webSocketContext->getExt()->messageHandler = std::move(behavior.message);
         webSocketContext->getExt()->drainHandler = std::move(behavior.drain);
-        webSocketContext->getExt()->closeHandler = std::move([closeHandler = std::move(behavior.close)](WebSocket<SSL, true> *ws, int code, std::string_view message) mutable {
+        webSocketContext->getExt()->closeHandler = std::move([closeHandler = std::move(behavior.close)](WebSocket<SSL, true, UserData> *ws, int code, std::string_view message) mutable {
             if (closeHandler) {
                 closeHandler(ws, code, message);
             }

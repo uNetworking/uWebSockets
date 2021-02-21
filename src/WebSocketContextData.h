@@ -27,11 +27,11 @@
 
 namespace uWS {
 
-template <bool, bool> struct WebSocket;
+template <bool, bool, typename> struct WebSocket;
 
 /* todo: this looks identical to WebSocketBehavior, why not just std::move that entire thing in? */
 
-template <bool SSL>
+template <bool SSL, typename USERDATA>
 struct WebSocketContextData {
 private:
     /* Used for prepending unframed messages when using dedicated compressors */
@@ -47,13 +47,13 @@ private:
 
 public:
     /* The callbacks for this context */
-    MoveOnlyFunction<void(WebSocket<SSL, true> *)> openHandler = nullptr;
-    MoveOnlyFunction<void(WebSocket<SSL, true> *, std::string_view, OpCode)> messageHandler = nullptr;
-    MoveOnlyFunction<void(WebSocket<SSL, true> *)> drainHandler = nullptr;
-    MoveOnlyFunction<void(WebSocket<SSL, true> *, int, std::string_view)> closeHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *)> openHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *, std::string_view, OpCode)> messageHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *)> drainHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *, int, std::string_view)> closeHandler = nullptr;
     /* Todo: these should take message also; breaking change for v0.18 */
-    MoveOnlyFunction<void(WebSocket<SSL, true> *)> pingHandler = nullptr;
-    MoveOnlyFunction<void(WebSocket<SSL, true> *)> pongHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *)> pingHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *)> pongHandler = nullptr;
 
     /* Settings for this context */
     size_t maxPayloadLength = 0;
@@ -135,7 +135,7 @@ public:
                     /* However, dedicated compression has its own path */
                     if (compression != SHARED_COMPRESSOR) {
 
-                        WebSocket<SSL, true> *ws = (WebSocket<SSL, true> *) asyncSocket;
+                        WebSocket<SSL, true, int> *ws = (WebSocket<SSL, true, int> *) asyncSocket;
 
                         /* For performance reasons we always cork when in dedicated mode.
                          * Is this really the best? We already kind of cork things in Zlib?

@@ -29,13 +29,13 @@
 
 namespace uWS {
 
-    template <bool, bool> struct WebSocketContext;
+    template <bool, bool, typename> struct WebSocketContext;
 
 template <bool SSL>
 struct AsyncSocket {
     template <bool> friend struct HttpContext;
-    template <bool, bool> friend struct WebSocketContext;
-    template <bool> friend struct WebSocketContextData;
+    template <bool, bool, typename> friend struct WebSocketContext;
+    template <bool, typename> friend struct WebSocketContextData;
     friend struct TopicTree;
 
 protected:
