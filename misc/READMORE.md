@@ -1,6 +1,6 @@
-# µWebSockets v18 user manual
+# µWebSockets v19 user manual
 
-For a list of frequently asked questions you may filter the GitHub issue tracker by label FAQ. Please don't misuse the issue tracker as your personal Q&A.
+For a list of frequently asked questions you may ue the Discussions tab here on GitHub. Please don't misuse the issue tracker as your personal Q&A, we use it only for bug reporting. Discussions tab is less strict about content.
 
 ## Motivation and goals
 
@@ -17,14 +17,14 @@ It depends on µSockets, which is a standard C project for Linux, macOS & Window
 
 Performance wise you can expect to outperform, or equal, just about anything similar out there, that's the fundamental goal of the project. I can show small-message cases where µWS **with SSL** significantly outperforms the fastest Golang servers running **non-SSL**. You get the SSL for free in a sense (shown to be true for messaging with up to 4 kB per message).
 
-We've [openly presented](https://medium.com/swlh/100k-secure-websockets-with-raspberry-pi-4-1ba5d2127a23) detailed cases where a single Raspberry Pi 4 can serve more than 100k very active TLS 1.3 WebSockets, simultaneously, with excellent stability. This is entirely impossible with the vast majority of alternative solutions. Most solutions cramp up and become unreliable at a tiny fraction of this load, on such a limited hardware.
+We've [openly presented](https://medium.com/swlh/100k-secure-websockets-with-raspberry-pi-4-1ba5d2127a23) detailed cases where a single Raspberry Pi 4 can serve more than 100k very active TLS 1.3 WebSockets, simultaneously, with excellent stability. This is entirely impossible with the vast majority of alternative solutions. Most solutions cramp up and become unreliable at a tiny fraction of this load, on such a limited hardware. We also have measurements where we [serve 12x the HTTP requests per second](https://levelup.gitconnected.com/serving-100k-requests-second-from-a-fanless-raspberry-pi-4-over-ethernet-fdd2c2e05a1e) as compared to Node.js.
 
 ### Simple to use
 Another goal of the project is minimalism, simplicity and elegance.
 Design wise it follows an ExpressJS-like interface where you attach callbacks to different URL routes.
 This way you can easily build complete REST/WebSocket services in a few lines of code.
 
-Boilerplate logic like heartbeat timeouts, backpressure handling, ping/pong and other annoyances are handled efficiently and easily. You write business logic, the library handles the protocol(s).
+Boilerplate logic like heartbeat timeouts, backpressure handling, ping/pong and other annoyances are handled efficiently and easily by the library itself. You write business logic, the library handles the protocol(s).
 
 The project is async only and runs local to one thread. You scale it as individual threads much like Node.js scales as individual processes. That is, the implementation only sees a single thread and is not thread-safe. There are simple ways to do threading via async delegates though, if you really need to.
 
@@ -35,6 +35,8 @@ There are a few compilation flags for µSockets (see its documentation), but com
 
 * LIBUS_NO_SSL - disable OpenSSL dependency/functionality for uSockets and uWebSockets builds
 * UWS_NO_ZLIB - disable Zlib dependency/functionality for uWebSockets
+
+You can use the Makefile on Linux and macOS. It is simple to use and builds the examples for you. `WITH_OPENSSL=1 make` builds all examples with SSL enabled. Examples will fail to listen if cert and key cannot be found, so make sure to specify a path that works for you.
 
 ## User manual
 
@@ -162,6 +164,15 @@ Similarly to for Http, methods such as ws.send(...) can cause backpressure. Make
 
 Inside of .drain event you should check ws.getBufferedAmount(), it might have drained, or even increased. Most likely drained but don't assume that it has, .drain event is only a hint that it has changed.
 
+#### Ping/pongs "heartbeats"
+The library will autoamtically send pings to clients acording to the `idleTimeout` specified. If you set idleTimeout = 120 seconds a ping will go out a few seconds before this timeout unless the client has sent something to the server recently. If the client responds to the ping, the socket will stay open. When client fails to respond in time, the socket will be forcefully closed and the close event will trigger. On disconnect all resources are freed, including subscriptions to topics and any backpressure. You can easily let the browser reconnect using 3-lines-or-so of JavaScript if you want to.
+
+#### Backpressure
+Sending on a WebSocket can build backpressure. WebSocket::send returns an enum of BACKPRESSURE, SUCCESS or DROPPED. When send returns BACKPRESSURE it means you should stop sending data until the drain event fires and WebSocket::getBufferedAmount() returns a reasonable amount of bytes. But in case you specified a maxBackpressure when creating the WebSocketContext, this limit will automatically be enforced. That means an attempt at sending a message which would result in too much backpressure will be cancelled and send will return DROPPED. This means the message was dropped and will not be put in the queue. maxBackpressure is an essential setting when using pub/sub as a slow receiver otherwise could build up a lot of backpressure. By setting maxBackpressure the library will automatically manage an enforce a maximum allowed backpressure per socket for you.
+
+#### Threading
+The library is single threaded. You cannot, absolutely not, mix threads. A socket created from an App on thread 1 cannot be used in any way from thread 2. The only function in the whole entire library which is thread-safe and can be used from any thread is Loop:defer. Loop::defer takes a function (such as a lambda with data) and defers the execution of said function until the specified loop's thread is ready to execute the function in a single-threaded fashion on correct thread. So in case you want to publish a message under a topic, or send on some other thread's sockets you can, but it requires a bit of indirection. You should aim for having as isolated apps and threads as possible.
+
 #### Settings
 Compression (permessage-deflate) has three main modes; uWS::DISABLED, uWS::SHARED_COMPRESSOR and any of the uWS::DEDICATED_COMPRESSOR_xKB. Disabled and shared options require no memory, while dedicated compressor requires the amount of memory you selected. For instance, uWS::DEDICATED_COMPRESSOR_4KB adds an overhead of 4KB per WebSocket while uWS::DEDICATED_COMPRESSOR_256KB adds - you guessed it - 256KB!
 
@@ -169,7 +180,7 @@ Compressing using shared means that every WebSocket message is an isolated compr
 
 You probably want shared compressor if dealing with larger JSON messages, or 4kb dedicated compressor if dealing with smaller JSON messages and if doing binary messaging you probably want to disable it completely.
 
-* idleTimeout is roughly the amount of seconds that may pass between messages. Being idle for more than this, and the connection is severed. This means you should make your clients send small ping messages every now and then, to keep the connection alive. You can also make the server send ping messages but I would definitely put that labor on the client side.
+* idleTimeout is roughly the amount of seconds that may pass between messages. Being idle for more than this, and the connection is severed. This means you should make your clients send small ping messages every now and then, to keep the connection alive. You can also make the server send ping messages but I would definitely put that labor on the client side. (outdated text - this is not entirely true anymore. The server will automatically send pings in case it needs to).
 
 ### Listening on a port
 Once you have defined your routes and their behavior, it is time to start listening for new connections. You do this by calling
