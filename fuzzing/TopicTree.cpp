@@ -45,6 +45,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
             /* Then one byte action */
             if (data[4] == 'S') {
+
+                /* Some ridiculously long topics has to be cut short (OOM) */
+                if (lastString.length() > 512) {
+                    lastString = "too long!";
+                }
+
                 /* Subscribe */
                 if (subscribers.find(id) == subscribers.end()) {
 
