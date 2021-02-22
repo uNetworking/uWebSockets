@@ -77,6 +77,11 @@ In other words, the more specific a route is, the earlier it will match. This al
 
 "Any" routes, those who match any HTTP method, will match with lower priority than routes which specify their specific HTTP method (such as GET) if and only if the two routes otherwise are equally specific.
 
+#### Middlewares
+A very commonly asked question is how to achieve something like middlewares. We don't support middlewares as something built into the router itself. Partly because routes cannot pass data to other routes, partly because the HttpRequest object being stack-allocated and only valid in one single callback invocation, but most importantly - you can **easily** achieve the same function-chaining that is middlewares by instead using simple high-order functions and functional programming. There are tons of examples of this under Discussions (since it is a commonly asked question). A middleware isn't really something that has to be built-in to the server library itself, it really is just **a regular function**. By passing functions to other functions you can build chains of behaviors in very elegant and efficient ways.
+
+Whether this library should keep a set of commonly used functions is another question - we might do that in the future and we might add an example of its usage but right now there is nothing like this provided. We aim to provide an easy to use server implementation that you can build things on. Not complete business logic puzzle pieces.
+
 #### Streaming data
 You should never call res.end(huge buffer). res.end guarantees sending so backpressure will probably spike. Instead you should use res.tryEnd to stream huge data part by part. Use in combination with res.onWritable and res.onAborted callbacks.
 
