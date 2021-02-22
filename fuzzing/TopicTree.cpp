@@ -47,11 +47,21 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
             if (data[4] == 'S') {
                 /* Subscribe */
                 if (subscribers.find(id) == subscribers.end()) {
+
+                    /* Limit number of subscribers to 100 (OOM) */
+                    if (subscribers.size() > 100) {
+                        return;
+                    }
+
                     uWS::Subscriber *subscriber = new uWS::Subscriber(nullptr);
                     subscribers[id] = std::unique_ptr<uWS::Subscriber>(subscriber);
                     topicTree.subscribe(lastString, subscriber);
                 } else {
-                    topicTree.subscribe(lastString, subscribers[id].get());
+                    /* Limit per subscriber subscriptions (OOM) */
+                    uWS::Subscriber *subscriber = subscribers[id].get();
+                    if (subscriber->subscriptions.size() < 50) {
+                        topicTree.subscribe(lastString, subscriber);
+                    }
                 }
             } else if (data[4] == 'U') {
                 /* Unsubscribe */
@@ -73,8 +83,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                     /* We could use having more strings */
                     topicTree.publish("", {"anything", "something else"});
                 }
-            } else if (data[4] == 'D') {
-                /* Drain */
+            } else {
+                /* Drain for everything else (OOM) */
                 topicTree.drain();
             }
         }
