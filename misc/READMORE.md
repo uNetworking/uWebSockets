@@ -246,3 +246,6 @@ ProtoBuf and the like, where integral references can be used instead of textual 
 It is true that we can do more permessage-deflate messages/second than many other solutions can do uncompressed messages/second, and yes we are entirely stable while doing so - but still - JSON is terrible.
 
 So you might say - hey - that's too complex. Well build an SDK for your users then. Just wrap that "complex" protocol up in a JavaScript library that internally knows about this palette and exposes only simple-to-use functions for the end user. It's not that hard of a problem to solve.
+
+##### What about TLS/SSL then? I still have to encrypt!
+TLS is nothing like compression. With TLS 1.3 you're still looking at around 80% performance retention over non-TLS. This because TLS is block based and efficiently maps to modern CPUs. Modern CPUs also have hardware offloads for this. It's not that demanding to encrypt traffic using modern encryption standards. Compression is by far the most CPU-demanding thing you can do with your connection, and it requires TONS of per-socket memory.
