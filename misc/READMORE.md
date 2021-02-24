@@ -237,8 +237,12 @@ This is just an example of how we have regressed in our algorithmic thinking. To
 
 Compression should be seen as a last resort, a temporary duckt-tape solution for when you cannot sit down and consider something better. Designing clever, binary and minimally repetitive protocols are going to save enormous amounts of CPU-time oterhwise lost to compression.
 
-In essense, compression is really just dynamically scanning for repetitions and gradually building up a dynamic palette of commonly repetitive chunks. That takes a lot of CPU-time and in incredibly inefficient. Overall, you're looking at only 20-30% remaining I/O performance if you use compression. Instead of letting some generic dynamic algorithm scan your inefficient data representation, you could have taken the time to design something that didn't suck in the first place.
+In essence, compression is really just dynamically scanning for repetitions and gradually building up a dynamic palette of commonly repetitive chunks. That takes a lot of CPU-time and in incredibly inefficient. Overall, you're looking at only 20-30% remaining I/O performance if you use compression. Instead of letting some generic dynamic algorithm scan your inefficient data representation, you could have taken the time to design something that didn't suck in the first place.
+
+You could have defined a static palette and referenced that efficiently using binary integers, instead of letting every single individual socket try and dynamically figure out and build that palette, dynamically and inefficinetly, in its own memory consuming sliding window.
 
 ProtoBuf and the like, where integral references can be used instead of textual strings is key if you plan on making something efficient. If you plan on using JSON that has to be compressed you might as well just shove your computer down a shredder and go do something else. That's my optinion and I have many of those.
 
 It is true that we can do more permessage-deflate messages/second than many other solutions can do uncompressed messages/second, and yes we are entirely stable while doing so - but still - JSON is terrible.
+
+So you might say - hey - that's too complex. Well build an SDK for your users then. Just wrap that "complex" protocol up in a JavaScript library that internally knows about this palette and exposes only simple-to-use functions for the end user. It's not that hard of a problem to solve.
