@@ -229,3 +229,16 @@ One event-loop per thread, isolated and without shared data. That's the design h
 If you want to, you can simply take the previous example, put it inside of a few `std::thread` and listen to separate ports, or share the same port (works on Linux). More features like these will probably come, such as master/slave set-ups but it really isn't that hard to understand the concept - keep things isolated and spawn multiple instances of whatever code you have.
 
 Recent Node.js versions may scale using multiple threads, via the new Worker threads support. Scaling using that feature is identical to scaling using multiple threads in C++.
+
+### Compression
+In the 1970s, programming was an elite's task. Today programming is done by uneducated "farmers" and as a result, the care for smart algorithms, memory usage, CPU-time usage and the like has dwindled in comparison. Just look at, how many web developers represent time - it is not uncommon for web developers to send an entire textual representation of time as 30-something actual letters inside a JSON document with an actual textual key. This is just awful. We have had standardized, time-zone neutral representation of time in binary, efficient, 4-byte representation since the 1970s. It's called unix timestamp and is an elegant and efficient way of representing time-zone neutral time down to the seconds.
+
+This is just an example of how we have regressed in our algorithmic thinking. Today it is common to use textual representations such as bloated JSON to represent data, even though most of that bloat is obvious repetitions and inefficient in nature. But we don't care because we have compression. True, even the most bloated source format can be compressed down to a small payload with few repetitions - however - this comes at TREMENDOUS cost.
+
+Compression should be seen as a last resort, a temporary duckt-tape solution for when you cannot sit down and consider something better. Designing clever, binary and minimally repetitive protocols are going to save enormous amounts of CPU-time oterhwise lost to compression.
+
+In essense, compression is really just dynamically scanning for repetitions and gradually building up a dynamic palette of commonly repetitive chunks. That takes a lot of CPU-time and in incredibly inefficient. Overall, you're looking at only 20-30% remaining I/O performance if you use compression. Instead of letting some generic dynamic algorithm scan your inefficient data representation, you could have taken the time to design something that didn't suck in the first place.
+
+ProtoBuf and the like, where integral references can be used instead of textual strings is key if you plan on making something efficient. If you plan on using JSON that has to be compressed you might as well just shove your computer down a shredder and go do something else. That's my optinion and I have many of those.
+
+It is true that we can do more permessage-deflate messages/second than many other solutions can do uncompressed messages/second, and yes we are entirely stable while doing so - but still - JSON is terrible.
