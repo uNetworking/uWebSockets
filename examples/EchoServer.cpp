@@ -20,7 +20,7 @@ int main() {
 	}).ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::SHARED_COMPRESSOR,
-        .maxPayloadLength = 16 * 1024,
+        .maxPayloadLength = 16 * 1024 * 1024,
         .idleTimeout = 16,
         .maxBackpressure = 1 * 1024 * 1024,
         .closeOnBackpressureLimit = false,

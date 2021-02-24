@@ -115,8 +115,8 @@ private:
                     if (webSocketData->compressionStatus == WebSocketData::CompressionStatus::COMPRESSED_FRAME) {
                             webSocketData->compressionStatus = WebSocketData::CompressionStatus::ENABLED;
 
-                            // what's really the story here?
-                            webSocketData->fragmentBuffer.append("....");
+                            /* 9 bytes of padding for libdeflate */
+                            webSocketData->fragmentBuffer.append("123456789");
 
                             LoopData *loopData = (LoopData *) us_loop_ext(
                                 us_socket_context_loop(SSL,
@@ -124,7 +124,7 @@ private:
                                 )
                             );
 
-                            auto inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 4}, webSocketContextData->maxPayloadLength);
+                            auto inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 9}, webSocketContextData->maxPayloadLength);
                             if (!inflatedFrame.has_value()) {
                                 forceClose(webSocketState, s, ERR_TOO_BIG_MESSAGE_INFLATION);
                                 return true;

@@ -11,6 +11,12 @@ ifeq ($(WITH_PROXY),1)
 	override CXXFLAGS += -DUWS_WITH_PROXY
 endif
 
+# WITH_LIBDEFLATE=1 enables fast paths for SHARED_COMPRESSOR and inflation
+ifeq ($(WITH_LIBDEFLATE),1)
+	override CXXFLAGS += -I libdeflate -DUWS_USE_LIBDEFLATE
+	override LDFLAGS += libdeflate/libdeflate.a
+endif
+
 # WITH_OPENSSL=1 enables OpenSSL 1.1+ support
 ifeq ($(WITH_OPENSSL),1)
 	# With problems on macOS, make sure to pass needed LDFLAGS required to find these

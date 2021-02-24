@@ -46,6 +46,11 @@ namespace uWS {
 #include <string>
 #include <optional>
 
+#ifdef UWS_USE_LIBDEFLATE
+#include "libdeflate.h"
+#include <cstring>
+#endif
+
 namespace uWS {
 
 /* Do not compile this module if we don't want it */
@@ -77,14 +82,29 @@ struct ZlibContext {
     char *deflationBuffer;
     char *inflationBuffer;
 
+#ifdef UWS_USE_LIBDEFLATE
+    libdeflate_decompressor *decompressor;
+    libdeflate_compressor *compressor;
+#endif
+
     ZlibContext() {
         deflationBuffer = (char *) malloc(LARGE_BUFFER_SIZE);
         inflationBuffer = (char *) malloc(LARGE_BUFFER_SIZE);
+
+#ifdef UWS_USE_LIBDEFLATE
+        decompressor = libdeflate_alloc_decompressor();
+        compressor = libdeflate_alloc_compressor(7);
+#endif
     }
 
     ~ZlibContext() {
         free(deflationBuffer);
         free(inflationBuffer);
+
+#ifdef UWS_USE_LIBDEFLATE
+        libdeflate_free_decompressor(decompressor);
+        libdeflate_free_compressor(compressor);
+#endif
     }
 };
 
@@ -105,6 +125,22 @@ struct DeflationStream {
 
     /* Deflate and optionally reset. You must not deflate an empty string. */
     std::string_view deflate(ZlibContext *zlibContext, std::string_view raw, bool reset) {
+
+#ifdef UWS_USE_LIBDEFLATE
+        /* Run a fast path in case of shared_compressor */
+        if (reset) {
+            size_t written = 0;
+            static unsigned char buf[1024 + 1];
+
+            written = libdeflate_deflate_compress(zlibContext->compressor, raw.data(), raw.length(), buf, 1024);
+
+            if (written) {
+                memcpy(&buf[written], "\x00", 1);
+                return std::string_view((char *) buf, written + 1);
+            }
+        }
+#endif
+
         /* Odd place to clear this one, fix */
         zlibContext->dynamicDeflationBuffer.clear();
 
@@ -165,6 +201,24 @@ struct InflationStream {
 
     /* Zero length inflates are possible and valid */
     std::optional<std::string_view> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
+
+#ifdef UWS_USE_LIBDEFLATE
+        /* Try fast path first */
+        size_t written = 0;
+        static char buf[1024];
+
+        /* We have to pad 9 bytes and restore those bytes when done since 9 is more than 6 of next WebSocket message */
+        char tmp[9];
+        memcpy(tmp, (char *) compressed.data() + compressed.length(), 9);
+        memcpy((char *) compressed.data() + compressed.length(), "\x00\x00\xff\xff\x01\x00\x00\xff\xff", 9);
+        libdeflate_result res = libdeflate_deflate_decompress(zlibContext->decompressor, compressed.data(), compressed.length(), buf, 1024, &written);
+        memcpy((char *) compressed.data() + compressed.length(), tmp, 9);
+
+        if (res == 0) {
+            /* Fast path wins */
+            return std::string_view(buf, written);
+        }
+#endif
 
         /* We clear this one here, could be done better */
         zlibContext->dynamicInflationBuffer.clear();
