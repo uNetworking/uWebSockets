@@ -93,7 +93,7 @@ struct ZlibContext {
 
 #ifdef UWS_USE_LIBDEFLATE
         decompressor = libdeflate_alloc_decompressor();
-        compressor = libdeflate_alloc_compressor(7);
+        compressor = libdeflate_alloc_compressor(6);
 #endif
     }
 
@@ -120,7 +120,7 @@ struct DeflationStream {
 
         //printf("windowBits: %d, memLevel: %d\n", windowBits, memLevel);
 
-        deflateInit2(&deflationStream, 1, Z_DEFLATED, windowBits, memLevel, Z_DEFAULT_STRATEGY);
+        deflateInit2(&deflationStream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, windowBits, memLevel, Z_DEFAULT_STRATEGY);
     }
 
     /* Deflate and optionally reset. You must not deflate an empty string. */
