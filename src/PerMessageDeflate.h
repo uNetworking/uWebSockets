@@ -211,7 +211,7 @@ struct InflationStream {
         char tmp[9];
         memcpy(tmp, (char *) compressed.data() + compressed.length(), 9);
         memcpy((char *) compressed.data() + compressed.length(), "\x00\x00\xff\xff\x01\x00\x00\xff\xff", 9);
-        libdeflate_result res = libdeflate_deflate_decompress(zlibContext->decompressor, compressed.data(), compressed.length(), buf, 1024, &written);
+        libdeflate_result res = libdeflate_deflate_decompress(zlibContext->decompressor, compressed.data(), compressed.length() + 9, buf, 1024, &written);
         memcpy((char *) compressed.data() + compressed.length(), tmp, 9);
 
         if (res == 0) {
