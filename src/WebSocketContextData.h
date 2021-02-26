@@ -52,8 +52,8 @@ public:
     MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *)> drainHandler = nullptr;
     MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *, int, std::string_view)> closeHandler = nullptr;
     /* Todo: these should take message also; breaking change for v0.18 */
-    MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *)> pingHandler = nullptr;
-    MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *)> pongHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *, std::string_view)> pingHandler = nullptr;
+    MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *, std::string_view)> pongHandler = nullptr;
 
     /* Settings for this context */
     size_t maxPayloadLength = 0;

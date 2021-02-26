@@ -155,8 +155,8 @@ public:
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> open = nullptr;
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view, OpCode)> message = nullptr;
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> drain = nullptr;
-        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> ping = nullptr;
-        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> pong = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view)> ping = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view)> pong = nullptr;
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, int, std::string_view)> close = nullptr;
     };
 

@@ -59,10 +59,10 @@ int main() {
         .drain = [](auto */*ws*/) {
             /* Check ws->getBufferedAmount() here */
         },
-        .ping = [](auto */*ws*/) {
+        .ping = [](auto */*ws*/, std::string_view) {
             /* You don't need to handle this one, we automatically respond to pings as per standard */
         },
-        .pong = [](auto */*ws*/) {
+        .pong = [](auto */*ws*/, std::string_view) {
             /* You don't need to handle this one either */
         },
         .close = [](auto */*ws*/, int /*code*/, std::string_view /*message*/) {

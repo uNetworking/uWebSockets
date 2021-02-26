@@ -37,10 +37,10 @@ int main() {
         .drain = [](auto */*ws*/) {
             /* Check ws->getBufferedAmount() here */
         },
-        .ping = [](auto */*ws*/) {
+        .ping = [](auto */*ws*/, std::string_view) {
             /* Not implemented yet */
         },
-        .pong = [](auto */*ws*/) {
+        .pong = [](auto */*ws*/, std::string_view) {
             /* Not implemented yet */
         },
         .close = [](auto */*ws*/, int /*code*/, std::string_view /*message*/) {
