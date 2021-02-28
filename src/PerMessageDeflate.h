@@ -39,7 +39,7 @@ namespace uWS {
     };
 }
 
-#ifndef UWS_NO_ZLIB
+#if !defined(UWS_NO_ZLIB) && !defined(UWS_MOCK_ZLIB)
 #include <zlib.h>
 #endif
 
