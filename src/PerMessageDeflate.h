@@ -54,12 +54,11 @@ namespace uWS {
 namespace uWS {
 
 /* Do not compile this module if we don't want it */
-#ifdef UWS_NO_ZLIB
+#if defined(UWS_NO_ZLIB) || defined(UWS_MOCK_ZLIB)
 struct ZlibContext {};
 struct InflationStream {
     std::optional<std::string_view> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
-        /* Anything here goes, it is never going to be called */
-        return std::nullopt;
+        return compressed;
     }
 };
 struct DeflationStream {
