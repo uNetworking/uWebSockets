@@ -109,7 +109,7 @@ void test() {
             .drain = [](auto *ws) {
                 /* Check getBufferedAmount here */
             },
-            .ping = [](auto *ws) {
+            .ping = [](auto *ws, std::string_view) {
                 /* Here we test send and end while uncorked, by having them send from deferred */
                 PerSocketData *psd = (PerSocketData *) ws->getUserData();
 
@@ -121,7 +121,7 @@ void test() {
                     }
                 });
             },
-            .pong = [](auto *ws) {
+            .pong = [](auto *ws, std::string_view) {
 
             },
             .close = [](auto *ws, int code, std::string_view message) {
