@@ -58,7 +58,7 @@ namespace uWS {
 struct ZlibContext {};
 struct InflationStream {
     std::optional<std::string_view> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
-        return compressed;
+        return compressed.substr(0, std::min(maxPayloadLength, compressed.length()));
     }
 };
 struct DeflationStream {
