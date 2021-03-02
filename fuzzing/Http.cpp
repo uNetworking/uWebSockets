@@ -87,7 +87,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 #endif
 
     /* Iterate the padded fuzz as chunks */
-    makeChunked(makePadded(data, size), size, [&httpParser, user, reserved](const uint8_t *data, size_t size) {
+    makeChunked(makePadded(data, size), size, [&httpParser, &user, reserved](const uint8_t *data, size_t size) {
         /* We need at least 1 byte post padding */
         if (size) {
             size--;
@@ -96,8 +96,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
             return;
         }
 
+        /* If user is null then ignore this chunk */
+        if (!user) {
+            return;
+        }
+
         /* Parse it */
-        httpParser.consumePostPadded((char *) data, size, user, reserved, [reserved](void *s, uWS::HttpRequest *httpRequest) -> void * {
+        void *returnedUser = httpParser.consumePostPadded((char *) data, size, user, reserved, [reserved](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
             readBytes(httpRequest->getHeader(httpRequest->getUrl()));
             readBytes(httpRequest->getMethod());
@@ -129,11 +134,19 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
             /* Return ok */
             return user;
 
-        }, [](void *user) {
+        }, [](void *user) -> void * {
 
             /* Return break */
             return nullptr;
         });
+
+        if (!returnedUser) {
+            /* It is of uttermost importance that if and when we return nullptr from the httpParser we must not
+             * ever use the httpParser ever again. It is in a broken state as returning nullptr is only used
+             * for signalling early closure. You must absolutely must throw it away. Here we just mark user as 
+             * null so that we can ignore further chunks of data */
+            user = nullptr;
+        }
     });
 
     return 0;
