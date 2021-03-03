@@ -108,6 +108,11 @@ namespace uWS {
                             quoteLength++;
                         }
 
+                        /* We can't remove_prefix if we have nothing to remove */
+                        if (!remainingLine.length()) {
+                            return {};
+                        }
+
                         remainingLine.remove_prefix(1);
                         return quote.substr(0, quoteLength);
                     } else {
