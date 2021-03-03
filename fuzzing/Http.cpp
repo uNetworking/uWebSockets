@@ -108,6 +108,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
             readBytes(httpRequest->getMethod());
             readBytes(httpRequest->getQuery());
             readBytes(httpRequest->getQuery("hello"));
+            readBytes(httpRequest->getQuery(""));
             //readBytes(httpRequest->getParameter(0));
 
 #ifdef UWS_WITH_PROXY
@@ -143,7 +144,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (!returnedUser) {
             /* It is of uttermost importance that if and when we return nullptr from the httpParser we must not
              * ever use the httpParser ever again. It is in a broken state as returning nullptr is only used
-             * for signalling early closure. You must absolutely must throw it away. Here we just mark user as 
+             * for signalling early closure. You must absolutely must throw it away. Here we just mark user as
              * null so that we can ignore further chunks of data */
             user = nullptr;
         }

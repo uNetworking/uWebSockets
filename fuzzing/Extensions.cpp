@@ -17,21 +17,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         if (negCompression) {
             /* If we want dedicated compression, we must not end up here! */
-            if (negCompressionWindow == 0) {
-                free((void *) -1);
-            }
+            free((void *) (negCompressionWindow == 0));
 
-            if (negCompressionWindow > 13) {
-                free((void *) -1);
-            }
-
-            if (negInflationWindow != 0) {
-                free((void *) -1);
-            }
-
-            if (negInflationWindow < 0 || negInflationWindow > 15 || negCompressionWindow < 0 || negCompressionWindow > 15) {
-                free((void *) -1);
-            }
+            /* Some more checks (freeing 0 does nothing) */
+            free((void *) (negCompressionWindow > 13));
+            free((void *) (negInflationWindow != 0));
+            free((void *) (negInflationWindow < 0 || negInflationWindow > 15 || negCompressionWindow < 0 || negCompressionWindow > 15));
         }
     }
 
@@ -41,9 +32,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         if (negCompression) {
             /* If we want shared compression, we must not end up here! */
-            if (negCompressionWindow != 0) {
-                free((void *) -1);
-            }
+            free((void *) (negCompressionWindow != 0));
         }
     }
 
