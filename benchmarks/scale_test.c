@@ -19,6 +19,10 @@ char *host;
 int port;
 int connections;
 
+/* All the ips we as client can use */
+char **ips;
+int num_ips;
+
 /* Send ping every 16 seconds */
 int WEBSOCKET_PING_INTERVAL = 16;
 
@@ -59,11 +63,11 @@ void next_connection(struct us_socket_t *s) {
     /* We could wait with this until properly upgraded */
     if (--connections/* > BATCH_CONNECT*/) {
         /* Swap address */
-        int address = opened_connections / CONNECTIONS_PER_ADDRESS + 1;
-        char buf[16];
-        sprintf(buf, "127.0.0.%d", address);
+        int address = opened_connections / CONNECTIONS_PER_ADDRESS;
 
-        us_socket_context_connect(SSL, us_socket_context(SSL, s), buf, port, NULL, 0, sizeof(struct http_socket));
+        if (us_socket_context_connect(SSL, us_socket_context(SSL, s), host, port, ips[address], 0, sizeof(struct http_socket)) == 0) {
+            printf("Next connection failed immediately\n");
+        }
     }
 }
 
@@ -147,11 +151,18 @@ struct us_socket_t *on_http_socket_timeout(struct us_socket_t *s) {
     return s;
 }
 
+struct us_socket_t *on_http_socket_connect_error(struct us_socket_t *s, int code) {
+
+    printf("Connection failed\n");
+
+    return s;
+}
+
 int main(int argc, char **argv) {
 
     /* Parse host and port */
-    if (argc != 5) {
-        printf("Usage: connections host port ssl\n");
+    if (argc < 5) {
+        printf("Usage: connections host port ssl [ip ...]\n");
         return 0;
     }
 
@@ -160,6 +171,26 @@ int main(int argc, char **argv) {
     memcpy(host, argv[2], strlen(argv[2]) + 1);
     connections = atoi(argv[1]);
     SSL = atoi(argv[4]);
+
+    /* Do we have ip addresses? */
+    if (argc > 5) {
+        ips = &argv[5];
+        num_ips = argc - 5;
+
+        for (int i = 0; i < num_ips; i++) {
+            printf("%s\n", ips[i]);
+        }
+    } else {
+        static char *default_ips[] = {""};
+        ips = default_ips;
+        num_ips = 1;
+    }
+
+    /* Check so that we have enough ip addresses */
+    if (num_ips <= connections / CONNECTIONS_PER_ADDRESS) {
+        printf("You'll need more IP addresses for this run\n");
+        return 0;
+    }
 
     /* Create the event loop */
     struct us_loop_t *loop = us_create_loop(0, on_wakeup, on_pre, on_post, 0);
@@ -175,10 +206,14 @@ int main(int argc, char **argv) {
     us_socket_context_on_close(SSL, http_context, on_http_socket_close);
     us_socket_context_on_timeout(SSL, http_context, on_http_socket_timeout);
     us_socket_context_on_end(SSL, http_context, on_http_socket_end);
+    us_socket_context_on_connect_error(SSL, http_context, on_http_socket_connect_error);
 
     /* Start making HTTP connections */
     for (int i = 0; i < BATCH_CONNECT; i++) {
-        us_socket_context_connect(SSL, http_context, host, port, NULL, 0, sizeof(struct http_socket));
+        if (us_socket_context_connect(SSL, http_context, host, port, ips[0], 0, sizeof(struct http_socket)) == 0) {
+            printf("Connection failed immediately\n");
+            return 0;
+        }
     }
 
     us_loop_run(loop);
