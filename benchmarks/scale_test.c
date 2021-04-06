@@ -6,6 +6,8 @@ int SSL;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <stdint.h>
 
 unsigned char web_socket_request[26] = {130, 128 | 20, 1, 2, 3, 4};
 
@@ -113,6 +115,46 @@ struct us_socket_t *on_http_socket_end(struct us_socket_t *s) {
 
 // should never get a response!
 struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int length) {
+
+    // is this a broadcasted unix time in millis?
+    if (length % 10 == 0) {
+
+        // data sent first will come first, so it is oldest
+
+        struct timespec ts;
+        timespec_get(&ts, TIME_UTC);
+
+        int64_t millis = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+
+
+        int64_t received_millis;
+        memcpy(&received_millis, data + 2, 8);
+
+        static int counter;
+        static int max_latency;
+        static long average_latency;
+
+        int latency = millis - received_millis;
+
+        average_latency += latency;
+
+        if (max_latency < latency) {
+            max_latency = latency;
+        }
+
+        if (++counter % 10000 == 0) {
+            printf("Max latency: %d ms\n", max_latency);
+            printf("Average latency: %ld ms\n\n", average_latency / 10000);
+            max_latency = 0;
+            average_latency = 0;
+        }
+
+
+
+    }
+
+
+
     return s;
 }
 
