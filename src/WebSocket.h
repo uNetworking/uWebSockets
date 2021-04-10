@@ -196,8 +196,8 @@ public:
         }
     }
 
-    /* Subscribe to a topic according to MQTT rules and syntax. Returns [numSubscribers, success]. */
-    std::pair<unsigned int, bool> subscribe(std::string_view topic, bool nonStrict = false) {
+    /* Subscribe to a topic according to MQTT rules and syntax. Returns success */
+    /*std::pair<unsigned int, bool>*/ bool subscribe(std::string_view topic, bool nonStrict = false) {
         WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
@@ -208,18 +208,20 @@ public:
             webSocketData->subscriber = new Subscriber(this);
         }
 
-        return webSocketContextData->topicTree.subscribe(topic, webSocketData->subscriber, nonStrict);
+        /* Cannot return numSubscribers as this is only for this particular websocket context */
+        return webSocketContextData->topicTree.subscribe(topic, webSocketData->subscriber, nonStrict).second;
     }
 
-    /* Unsubscribe from a topic, returns true if we were subscribed. Returns [numSubscribers, success]. */
-    std::pair<unsigned int, bool> unsubscribe(std::string_view topic, bool nonStrict = false) {
+    /* Unsubscribe from a topic, returns true if we were subscribed. */
+    /*std::pair<unsigned int, bool>*/ bool unsubscribe(std::string_view topic, bool nonStrict = false) {
         WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
 
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
 
-        return webSocketContextData->topicTree.unsubscribe(topic, webSocketData->subscriber, nonStrict);
+        /* Cannot return numSubscribers as this is only for this particular websocket context */
+        return webSocketContextData->topicTree.unsubscribe(topic, webSocketData->subscriber, nonStrict).second;
     }
 
     /* Returns whether this socket is subscribed to the specified topic */
@@ -236,25 +238,11 @@ public:
         return false;
     }
 
-    /* Returns number of subscribers for this topic, or 0 for failure */
-    unsigned int numSubscribers(std::string_view topic) {
-        WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
-            (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
-        );
-
-        Topic *t = webSocketContextData->lookupTopic(topic);
-        if (t) {
-            return t->subs.size();
-        }
-
-        return 0;
-    }
-
-    /* Iterates all topics of this WebSocket. Every topic is represented by [name, numSubscribers].
+    /* Iterates all topics of this WebSocket. Every topic is represented by its full name.
      * Can be called in close handler. It is possible to modify the subscription list while
      * inside the callback ONLY IF not modifying the topic passed to the callback.
      * Topic names are valid only for the duration of the callback. */
-    void iterateTopics(MoveOnlyFunction<void(std::string_view, unsigned int)> cb) {
+    void iterateTopics(MoveOnlyFunction<void(std::string_view/*, unsigned int*/)> cb) {
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
 
         if (webSocketData->subscriber) {
@@ -262,14 +250,14 @@ public:
                 /* Lock this topic so that nobody may unsubscribe from it during this callback */
                 t->locked = true;
 
-                cb(t->fullName, (unsigned int) t->subs.size());
+                cb(t->fullName/*, (unsigned int) t->subs.size()*/);
 
                 t->locked = false;
             }
         }
     }
 
-    /* Publish a message to a topic according to MQTT rules and syntax. Returns [numSubscribers, success].
+    /* Publish a message to a topic according to MQTT rules and syntax. Returns success.
      * We, the WebSocket, must be subscribed to the topic itself and if so - no message will be sent to ourselves.
      * Use App::publish for an unconditional publish that simply publishes to whomever might be subscribed. */
     bool publish(std::string_view topic, std::string_view message, OpCode opCode = OpCode::TEXT, bool compress = false) {
@@ -285,7 +273,17 @@ public:
         }
 
         /* Publish as sender, does not receive its own messages even if subscribed to relevant topics */
-        return webSocketContextData->publish(topic, message, opCode, compress, webSocketData->subscriber);
+        bool success = webSocketContextData->publish(topic, message, opCode, compress, webSocketData->subscriber);
+
+        /* Loop over all websocket contexts for this App */
+        if (success) {
+            /* Success is really only determined by the first publish. We must be subscribed to the topic. */
+            for (auto *adjacentWebSocketContextData : webSocketContextData->adjacentWebSocketContextDatas) {
+                adjacentWebSocketContextData->publish(topic, message, opCode, compress);
+            }
+        }
+
+        return success;
     }
 };
 

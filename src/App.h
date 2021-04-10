@@ -96,11 +96,31 @@ public:
         httpContext->filter(std::move(filterHandler));
     }
 
-    /* Publishes a message to all websocket contexts */
+    /* Publishes a message to all websocket contexts - conceptually as if publishing to the one single
+     * TopicTree of this app (technically there are many TopicTrees, however the concept is that one
+     * app has one conceptual Topic tree) */
     void publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress = false) {
         for (auto *webSocketContext : webSocketContexts) {
             webSocketContext->getExt()->publish(topic, message, opCode, compress);
         }
+    }
+
+    /* Returns number of subscribers for this topic, or 0 for failure.
+     * This function should probably be optimized a lot in future releases,
+     * it could be O(1) with a hash map of fullnames and their counts. */
+    unsigned int numSubscribers(std::string_view topic) {
+        unsigned int subscribers = 0;
+
+        for (auto *webSocketContext : webSocketContexts) {
+            auto *webSocketContextData = webSocketContext->getExt();
+
+            Topic *t = webSocketContextData->lookupTopic(topic);
+            if (t) {
+                subscribers += t->subs.size();
+            }
+        }
+
+        return subscribers;
     }
 
     ~TemplatedApp() {
@@ -182,6 +202,16 @@ public:
 
         /* Every route has its own websocket context with its own behavior and user data type */
         auto *webSocketContext = WebSocketContext<SSL, true, UserData>::create(Loop::get(), (us_socket_context_t *) httpContext);
+
+        /* Add all other WebSocketContextData to this new WebSocketContextData */
+        for (WebSocketContext<SSL, true, int> *adjacentWebSocketContext : webSocketContexts) {
+            webSocketContext->getExt()->adjacentWebSocketContextDatas.push_back(adjacentWebSocketContext->getExt());
+        }
+
+        /* Add this WebSocketContextData to all other WebSocketContextData */
+        for (WebSocketContext<SSL, true, int> *adjacentWebSocketContext : webSocketContexts) {
+            adjacentWebSocketContext->getExt()->adjacentWebSocketContextDatas.push_back((WebSocketContextData<SSL, int> *) webSocketContext->getExt());
+        }
 
         /* We need to clear this later on */
         webSocketContexts.push_back((WebSocketContext<SSL, true, int> *) webSocketContext);

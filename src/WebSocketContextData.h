@@ -20,6 +20,7 @@
 
 #include "MoveOnlyFunction.h"
 #include <string_view>
+#include <vector>
 
 #include "WebSocketProtocol.h"
 #include "TopicTree.h"
@@ -46,6 +47,10 @@ private:
     };
 
 public:
+    /* All WebSocketContextData holds a list to all other WebSocketContextData in this app.
+     * We cannot type it USERDATA since different WebSocketContextData can have different USERDATA. */
+    std::vector<WebSocketContextData<SSL, int> *> adjacentWebSocketContextDatas;
+
     /* The callbacks for this context */
     MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *)> openHandler = nullptr;
     MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *, std::string_view, OpCode)> messageHandler = nullptr;
