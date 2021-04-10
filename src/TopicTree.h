@@ -139,22 +139,6 @@ struct Intersection {
 };
 
 struct TopicTree {
-private:
-    std::function<int(Subscriber *, Intersection &)> cb;
-
-    Topic *root = new Topic;
-
-    /* Global messageId for deduplication of overlapping topics and ordering between topics */
-    unsigned int messageId = 0;
-
-    /* Sender holes */
-    std::map<Subscriber *, std::vector<unsigned int>> senderHoles;
-
-    /* The triggered topics */
-    Topic *triggeredTopics[64];
-    int numTriggeredTopics = 0;
-    Subscriber *min = (Subscriber *) UINTPTR_MAX;
-
     /* Returns Topic, or nullptr. Topic can be root if empty string given. */
     Topic *lookupTopic(std::string_view topic) {
         /* Lookup exact Topic ptr from string */
@@ -174,6 +158,22 @@ private:
 
         return iterator;
     }
+
+private:
+    std::function<int(Subscriber *, Intersection &)> cb;
+
+    Topic *root = new Topic;
+
+    /* Global messageId for deduplication of overlapping topics and ordering between topics */
+    unsigned int messageId = 0;
+
+    /* Sender holes */
+    std::map<Subscriber *, std::vector<unsigned int>> senderHoles;
+
+    /* The triggered topics */
+    Topic *triggeredTopics[64];
+    int numTriggeredTopics = 0;
+    Subscriber *min = (Subscriber *) UINTPTR_MAX;
 
     /* Cull or trim unused Topic nodes from leaf to root */
     void trimTree(Topic *topic) {

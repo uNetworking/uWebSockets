@@ -230,9 +230,14 @@ public:
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
 
-        Topic *t = webSocketContextData->lookupTopic(topic);
+        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
+        if (!webSocketData->subscriber) {
+            return false;
+        }
+
+        Topic *t = webSocketContextData->topicTree.lookupTopic(topic);
         if (t) {
-            return t->subs.find(this) != t->subs.end();
+            return t->subs.find(webSocketData->subscriber) != t->subs.end();
         }
 
         return false;

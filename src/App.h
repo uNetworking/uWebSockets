@@ -114,7 +114,7 @@ public:
         for (auto *webSocketContext : webSocketContexts) {
             auto *webSocketContextData = webSocketContext->getExt();
 
-            Topic *t = webSocketContextData->lookupTopic(topic);
+            Topic *t = webSocketContextData->topicTree.lookupTopic(topic);
             if (t) {
                 subscribers += t->subs.size();
             }
