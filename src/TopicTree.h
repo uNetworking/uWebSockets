@@ -339,8 +339,13 @@ public:
 
                 /* Set fullname as parent's name plus our name */
                 newTopic->fullName.reserve(newTopic->parent->fullName.length() + 1 + segment.length());
-                newTopic->fullName.append(newTopic->parent->fullName);
-                newTopic->fullName.append("/");
+
+                /* Only append parent's name if parent is not root */
+                if (newTopic->parent != root) {
+                    newTopic->fullName.append(newTopic->parent->fullName);
+                    newTopic->fullName.append("/");
+                }
+
                 newTopic->fullName.append(segment);
 
                 /* For simplicity we do insert wildcards with text */
