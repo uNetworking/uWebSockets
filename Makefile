@@ -53,6 +53,7 @@ capi:
 	$(CXX) capi/example.c -O3 capi.so -o example
 
 install:
+	mkdir -p "$(DESTDIR)$(prefix)/include/uWebSockets"
 	cp -r src/* "$(DESTDIR)$(prefix)/include/uWebSockets"
 
 all:
