@@ -26,7 +26,7 @@ char **ips;
 int num_ips;
 
 /* Send ping every 16 seconds */
-int WEBSOCKET_PING_INTERVAL = 16;
+int WEBSOCKET_PING_INTERVAL = 8;
 
 /* We only establish 20k connections per address */
 int CONNECTIONS_PER_ADDRESS = 20000;
@@ -47,11 +47,9 @@ struct http_socket {
     int upgrade_offset;
 };
 
+struct us_socket_t *next_connection_failed = 0;
+
 /* We don't need any of these */
-void on_wakeup(struct us_loop_t *loop) {
-
-}
-
 void on_pre(struct us_loop_t *loop) {
 
 }
@@ -69,7 +67,20 @@ void next_connection(struct us_socket_t *s) {
 
         if (us_socket_context_connect(SSL, us_socket_context(SSL, s), host, port, ips[address], 0, sizeof(struct http_socket)) == 0) {
             printf("Next connection failed immediately\n");
+
+            /* Try agsin next event loop iteration */
+            next_connection_failed = s;
+            us_wakeup_loop(us_socket_context_loop(0, us_socket_context(0, s)));
+
         }
+    }
+}
+
+void on_wakeup(struct us_loop_t *loop) {
+    if (next_connection_failed) {
+        struct us_socket_t *s = next_connection_failed;
+        next_connection_failed = 0;
+        next_connection(s);
     }
 }
 
@@ -143,6 +154,7 @@ struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int l
         }
 
         if (++counter % 10000 == 0) {
+            printf("Alive: %d, dead: %d\n", opened_connections, closed_connections);
             printf("Max latency: %d ms\n", max_latency);
             printf("Average latency: %ld ms\n\n", average_latency / 10000);
             max_latency = 0;
@@ -196,6 +208,8 @@ struct us_socket_t *on_http_socket_timeout(struct us_socket_t *s) {
 struct us_socket_t *on_http_socket_connect_error(struct us_socket_t *s, int code) {
 
     printf("Connection failed\n");
+
+    next_connection(s);
 
     return s;
 }
