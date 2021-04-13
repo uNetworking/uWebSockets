@@ -83,7 +83,7 @@ public:
         unsigned short margin = 4;
         /* 4, 8 or 16 seconds margin based on idleTimeout */
         while ((int) idleTimeout - margin * 2 >= margin * 2 && margin < 16) {
-            margin = (unsigned short) (margin << 2);
+            margin = (unsigned short) (margin << 1);
         }
         /* We should have no margin if not using sendPingsAutomatically */
         if (!sendPingsAutomatically) {
