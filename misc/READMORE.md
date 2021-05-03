@@ -196,7 +196,7 @@ App.listen(port, [](auto *listenSocket) {
 })
 ```
 
-Cancelling listening is done with the uSockets function call `us_listen_socket_close`.
+Canceling listening is done with the uSockets function call `us_listen_socket_close`.
 
 ### App.run and fallthrough
 When you are done and want to enter the event loop, you call, once and only once, App.run.
@@ -206,7 +206,7 @@ Many users ask how they should stop the event loop. That's not how it is done, y
 
 Because the App itself is under RAII control, once the blocking .run call returns and the App goes out of scope, all memory will gracefully be deleted.
 
-### Putting it all toghether
+### Putting it all together
 
 ```c++
 int main() {
