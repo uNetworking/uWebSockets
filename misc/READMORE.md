@@ -237,7 +237,7 @@ This is just an example of how we have regressed in our algorithmic thinking. To
 
 Compression should be seen as a last resort, a temporary duck-tape solution for when you cannot sit down and consider something better. Designing clever, binary and minimally repetitive protocols are going to save enormous amounts of CPU-time otherwise lost to compression.
 
-In essence, compression is really just dynamically scanning for repetitions and gradually building up a dynamic palette of commonly repetitive chunks. That takes a lot of CPU-time and in incredibly inefficient. Overall, you're looking at only 20-30% remaining I/O performance if you use compression. Instead of letting some generic dynamic algorithm scan your inefficient data representation, you could have taken the time to design something that didn't suck in the first place.
+In essence, compression is really just dynamically scanning for repetitions and gradually building up a dynamic palette of commonly repetitive chunks. That takes a lot of CPU-time and is incredibly inefficient. Overall, you're looking at only 20-30% remaining I/O performance if you use compression. Instead of letting some generic dynamic algorithm scan your inefficient data representation, you could have taken the time to design something that didn't suck in the first place.
 
 You could have defined a static palette and referenced that efficiently using binary integers, instead of letting every single individual socket try and dynamically figure out and build that palette, dynamically and inefficiently, in its own memory consuming sliding window.
 
