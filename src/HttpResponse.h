@@ -93,7 +93,7 @@ private:
 
     /* Returns true on success, indicating that it might be feasible to write more data.
      * Will start timeout if stream reaches totalSize or write failure. */
-    bool internalEnd(std::string_view data, size_t totalSize, bool optional, bool allowContentLength = true, bool closeConnection = false) {
+    bool internalEnd(std::string_view data, uintmax_t totalSize, bool optional, bool allowContentLength = true, bool closeConnection = false) {
         /* Write status if not already done */
         writeStatus(HTTP_200_OK);
 
@@ -375,7 +375,7 @@ public:
 
     /* Try and end the response. Returns [true, true] on success.
      * Starts a timeout in some cases. Returns [ok, hasResponded] */
-    std::pair<bool, bool> tryEnd(std::string_view data, size_t totalSize = 0) {
+    std::pair<bool, bool> tryEnd(std::string_view data, uintmax_t totalSize = 0) {
         return {internalEnd(data, totalSize, true), hasResponded()};
     }
 
@@ -413,7 +413,7 @@ public:
     }
 
     /* Get the current byte write offset for this Http response */
-    size_t getWriteOffset() {
+    uintmax_t getWriteOffset() {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         return httpResponseData->offset;
@@ -448,7 +448,7 @@ public:
     }
 
     /* Attach handler for writable HTTP response */
-    HttpResponse *onWritable(MoveOnlyFunction<bool(size_t)> &&handler) {
+    HttpResponse *onWritable(MoveOnlyFunction<bool(uintmax_t)> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         httpResponseData->onWritable = std::move(handler);

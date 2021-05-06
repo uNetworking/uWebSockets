@@ -43,11 +43,11 @@ private:
     };
 
     /* Per socket event handlers */
-    MoveOnlyFunction<bool(size_t)> onWritable;
+    MoveOnlyFunction<bool(uintmax_t)> onWritable;
     MoveOnlyFunction<void()> onAborted;
     MoveOnlyFunction<void(std::string_view, bool)> inStream; // onData
     /* Outgoing offset */
-    size_t offset = 0;
+    uintmax_t offset = 0;
 
     /* Current state (content-length sent, status sent, write called, etc */
     int state = 0;
