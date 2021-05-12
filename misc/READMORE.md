@@ -235,7 +235,7 @@ In the 1970s, programming was an elite's task. Today programming is done by uned
 
 This is just an example of how we have regressed in our algorithmic thinking. Today it is common to use textual representations such as bloated JSON to represent data, even though most of that bloat is obvious repetitions and inefficient in nature. But we don't care because we have compression. True, even the most bloated source format can be compressed down to a small payload with few repetitions - however - this comes at TREMENDOUS cost.
 
-Compression should be seen as a last resort, a temporary duck-tape solution for when you cannot sit down and consider something better. Designing clever, binary and minimally repetitive protocols are going to save enormous amounts of CPU-time otherwise lost to compression.
+Compression should be seen as a last resort, a temporary duct-tape solution for when you cannot sit down and consider something better. Designing clever, binary and minimally repetitive protocols saves enormous amounts of CPU-time otherwise lost to compression.
 
 In essence, compression is really just dynamically scanning for repetitions and gradually building up a dynamic palette of commonly repetitive chunks. That takes a lot of CPU-time and is incredibly inefficient. Overall, you're looking at only 20-30% remaining I/O performance if you use compression. Instead of letting some generic dynamic algorithm scan your inefficient data representation, you could have taken the time to design something that didn't suck in the first place.
 
