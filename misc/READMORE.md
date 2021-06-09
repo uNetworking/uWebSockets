@@ -1,6 +1,6 @@
 # µWebSockets v19 user manual
 
-For a list of frequently asked questions you may ue the Discussions tab here on GitHub. Please don't misuse the issue tracker as your personal Q&A, we use it only for bug reporting. Discussions tab is less strict about content.
+For a list of frequently asked questions you may use the Discussions tab here on GitHub. Please don't misuse the issue tracker as your personal Q&A, we use it only for bug reporting. Discussions tab is less strict about content.
 
 ## Motivation and goals
 
@@ -170,10 +170,10 @@ Similarly to for Http, methods such as ws.send(...) can cause backpressure. Make
 Inside of .drain event you should check ws.getBufferedAmount(), it might have drained, or even increased. Most likely drained but don't assume that it has, .drain event is only a hint that it has changed.
 
 #### Ping/pongs "heartbeats"
-The library will autoamtically send pings to clients acording to the `idleTimeout` specified. If you set idleTimeout = 120 seconds a ping will go out a few seconds before this timeout unless the client has sent something to the server recently. If the client responds to the ping, the socket will stay open. When client fails to respond in time, the socket will be forcefully closed and the close event will trigger. On disconnect all resources are freed, including subscriptions to topics and any backpressure. You can easily let the browser reconnect using 3-lines-or-so of JavaScript if you want to.
+The library will automatically send pings to clients according to the `idleTimeout` specified. If you set idleTimeout = 120 seconds a ping will go out a few seconds before this timeout unless the client has sent something to the server recently. If the client responds to the ping, the socket will stay open. When client fails to respond in time, the socket will be forcefully closed and the close event will trigger. On disconnect all resources are freed, including subscriptions to topics and any backpressure. You can easily let the browser reconnect using 3-lines-or-so of JavaScript if you want to.
 
 #### Backpressure
-Sending on a WebSocket can build backpressure. WebSocket::send returns an enum of BACKPRESSURE, SUCCESS or DROPPED. When send returns BACKPRESSURE it means you should stop sending data until the drain event fires and WebSocket::getBufferedAmount() returns a reasonable amount of bytes. But in case you specified a maxBackpressure when creating the WebSocketContext, this limit will automatically be enforced. That means an attempt at sending a message which would result in too much backpressure will be cancelled and send will return DROPPED. This means the message was dropped and will not be put in the queue. maxBackpressure is an essential setting when using pub/sub as a slow receiver otherwise could build up a lot of backpressure. By setting maxBackpressure the library will automatically manage an enforce a maximum allowed backpressure per socket for you.
+Sending on a WebSocket can build backpressure. WebSocket::send returns an enum of BACKPRESSURE, SUCCESS or DROPPED. When send returns BACKPRESSURE it means you should stop sending data until the drain event fires and WebSocket::getBufferedAmount() returns a reasonable amount of bytes. But in case you specified a maxBackpressure when creating the WebSocketContext, this limit will automatically be enforced. That means an attempt at sending a message which would result in too much backpressure will be canceled and send will return DROPPED. This means the message was dropped and will not be put in the queue. maxBackpressure is an essential setting when using pub/sub as a slow receiver otherwise could build up a lot of backpressure. By setting maxBackpressure the library will automatically manage an enforce a maximum allowed backpressure per socket for you.
 
 #### Threading
 The library is single threaded. You cannot, absolutely not, mix threads. A socket created from an App on thread 1 cannot be used in any way from thread 2. The only function in the whole entire library which is thread-safe and can be used from any thread is Loop:defer. Loop::defer takes a function (such as a lambda with data) and defers the execution of said function until the specified loop's thread is ready to execute the function in a single-threaded fashion on correct thread. So in case you want to publish a message under a topic, or send on some other thread's sockets you can, but it requires a bit of indirection. You should aim for having as isolated apps and threads as possible.
@@ -196,7 +196,7 @@ App.listen(port, [](auto *listenSocket) {
 })
 ```
 
-Cancelling listenning is done with the uSockets function call `us_listen_socket_close`.
+Canceling listening is done with the uSockets function call `us_listen_socket_close`.
 
 ### App.run and fallthrough
 When you are done and want to enter the event loop, you call, once and only once, App.run.
@@ -206,7 +206,7 @@ Many users ask how they should stop the event loop. That's not how it is done, y
 
 Because the App itself is under RAII control, once the blocking .run call returns and the App goes out of scope, all memory will gracefully be deleted.
 
-### Putting it all toghether
+### Putting it all together
 
 ```c++
 int main() {
@@ -235,13 +235,13 @@ In the 1970s, programming was an elite's task. Today programming is done by uned
 
 This is just an example of how we have regressed in our algorithmic thinking. Today it is common to use textual representations such as bloated JSON to represent data, even though most of that bloat is obvious repetitions and inefficient in nature. But we don't care because we have compression. True, even the most bloated source format can be compressed down to a small payload with few repetitions - however - this comes at TREMENDOUS cost.
 
-Compression should be seen as a last resort, a temporary duckt-tape solution for when you cannot sit down and consider something better. Designing clever, binary and minimally repetitive protocols are going to save enormous amounts of CPU-time oterhwise lost to compression.
+Compression should be seen as a last resort, a temporary duct-tape solution for when you cannot sit down and consider something better. Designing clever, binary and minimally repetitive protocols saves enormous amounts of CPU-time otherwise lost to compression.
 
-In essence, compression is really just dynamically scanning for repetitions and gradually building up a dynamic palette of commonly repetitive chunks. That takes a lot of CPU-time and in incredibly inefficient. Overall, you're looking at only 20-30% remaining I/O performance if you use compression. Instead of letting some generic dynamic algorithm scan your inefficient data representation, you could have taken the time to design something that didn't suck in the first place.
+In essence, compression is really just dynamically scanning for repetitions and gradually building up a dynamic palette of commonly repetitive chunks. That takes a lot of CPU-time and is incredibly inefficient. Overall, you're looking at only 20-30% remaining I/O performance if you use compression. Instead of letting some generic dynamic algorithm scan your inefficient data representation, you could have taken the time to design something that didn't suck in the first place.
 
-You could have defined a static palette and referenced that efficiently using binary integers, instead of letting every single individual socket try and dynamically figure out and build that palette, dynamically and inefficinetly, in its own memory consuming sliding window.
+You could have defined a static palette and referenced that efficiently using binary integers, instead of letting every single individual socket try and dynamically figure out and build that palette, dynamically and inefficiently, in its own memory consuming sliding window.
 
-ProtoBuf and the like, where integral references can be used instead of textual strings is key if you plan on making something efficient. If you plan on using JSON that has to be compressed you might as well just shove your computer down a shredder and go do something else. That's my optinion and I have many of those.
+ProtoBuf and the like, where integral references can be used instead of textual strings is key if you plan on making something efficient. If you plan on using JSON that has to be compressed you might as well just shove your computer down a shredder and go do something else. That's my opinion and I have many of those.
 
 It is true that we can do more permessage-deflate messages/second than many other solutions can do uncompressed messages/second, and yes we are entirely stable while doing so - but still - JSON is terrible.
 
