@@ -93,37 +93,37 @@ struct Intersection {
 
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
         if (!senderForMessages.empty()) {
-        for (auto &message : holes) {
-            std::pair<size_t, size_t> toEmit = {};
-            std::pair<size_t, size_t> toIgnore = {};
+            for (auto &message : holes) {
+                std::pair<size_t, size_t> toEmit = {};
+                std::pair<size_t, size_t> toIgnore = {};
 
-            /* Skip messages sent by this subscriber */
-            for (unsigned int i = latestMatch; i < end; i++) {
-                if (message.messageId == senderForMessages[i]) {
-                    toIgnore.first += message.lengths.first;
-                    toIgnore.second += message.lengths.second;
-                    latestMatch = i;
-                    break;
+                /* Skip messages sent by this subscriber */
+                for (unsigned int i = latestMatch; i < end; i++) {
+                    if (message.messageId == senderForMessages[i]) {
+                        toIgnore.first += message.lengths.first;
+                        toIgnore.second += message.lengths.second;
+                        latestMatch = i;
+                        break;
+                    }
                 }
+
+                /* Emit this segment */
+                if (!toIgnore.first && !toIgnore.second) {
+                    toEmit.first += message.lengths.first;
+                    toEmit.second += message.lengths.second;
+
+                    std::pair<std::string_view, std::string_view> cutDataChannels = {
+                        std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
+                        std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
+                    };
+
+                    /* We only need to test the first data channel for "FIN" */
+                    cb(cutDataChannels, emitted.first + toEmit.first + toIgnore.first == dataChannels.first.length());
+                }
+
+                emitted.first += toEmit.first + toIgnore.first;
+                emitted.second += toEmit.second + toIgnore.second;
             }
-
-            /* Emit this segment */
-            if (!toIgnore.first && !toIgnore.second) {
-                toEmit.first += message.lengths.first;
-                toEmit.second += message.lengths.second;
-
-                std::pair<std::string_view, std::string_view> cutDataChannels = {
-                    std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
-                    std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
-                };
-
-                /* We only need to test the first data channel for "FIN" */
-                cb(cutDataChannels, emitted.first + toEmit.first + toIgnore.first == dataChannels.first.length());
-            }
-
-            emitted.first += toEmit.first + toIgnore.first;
-            emitted.second += toEmit.second + toIgnore.second;
-        }
         }
 
         if (emitted.first == dataChannels.first.length() && emitted.second == dataChannels.second.length()) {
