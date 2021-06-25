@@ -91,27 +91,26 @@ struct Intersection {
         unsigned int examinedHoles = 0;
 
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
-        for (unsigned int id : senderForMessages) {
+        for (; examinedHoles < holes.size(); examinedHoles++) {
             std::pair<size_t, size_t> toEmit = {};
             std::pair<size_t, size_t> toIgnore = {};
 
             /* This linear search is most probably very small - it could be made log2 if every hole
              * knows about its previous accumulated length, which is easy to set up. However this
              * log2 search will most likely never be a warranted perf. gain */
-            for (; examinedHoles < holes.size(); examinedHoles++) {
+            for (unsigned int id : senderForMessages) {
                 if (holes[examinedHoles].messageId == id) {
                     toIgnore.first += holes[examinedHoles].lengths.first;
                     toIgnore.second += holes[examinedHoles].lengths.second;
-                    examinedHoles++;
                     break;
                 }
-                /* We are not the sender of this message so we should emit it in this segment */
-                toEmit.first += holes[examinedHoles].lengths.first;
-                toEmit.second += holes[examinedHoles].lengths.second;
             }
 
             /* Emit this segment */
-            if (toEmit.first || toEmit.second) {
+            if (!toIgnore.first && !toIgnore.second) {
+                toEmit.first += holes[examinedHoles].lengths.first;
+                toEmit.second += holes
+
                 std::pair<std::string_view, std::string_view> cutDataChannels = {
                     std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
                     std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
