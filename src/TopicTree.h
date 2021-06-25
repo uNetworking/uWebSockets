@@ -86,13 +86,12 @@ struct Intersection {
         /* How far we already emitted of the two dataChannels */
         std::pair<size_t, size_t> emitted = {};
 
-        /* Holes are global to the entire topic tree, so we are not guaranteed to find
-         * holes in this intersection - they are sorted, though */
-        unsigned int latestMatch = 0;
-        unsigned int end = senderForMessages.size();
-
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
         if (!senderForMessages.empty()) {
+
+            unsigned int latestMatch = 0;
+            unsigned int end = senderForMessages.size();
+
             for (auto &message : holes) {
                 std::pair<size_t, size_t> toEmit = {};
                 std::pair<size_t, size_t> toIgnore = {};
