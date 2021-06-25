@@ -91,7 +91,7 @@ struct Intersection {
         unsigned int examinedHoles = 0;
 
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
-        if (senderForMessages.size()) {
+        if (!senderForMessages.empty()) {
         for (; examinedHoles < holes.size(); examinedHoles++) {
             std::pair<size_t, size_t> toEmit = {};
             std::pair<size_t, size_t> toIgnore = {};
