@@ -101,7 +101,7 @@ struct Intersection {
                     if (message.messageId == senderForMessages[i]) {
                         toIgnore.first += message.lengths.first;
                         toIgnore.second += message.lengths.second;
-                        latestMatch = i;
+                        latestMatch = ++i;
                         break;
                     }
                 }
