@@ -88,23 +88,20 @@ struct Intersection {
 
         /* Holes are global to the entire topic tree, so we are not guaranteed to find
          * holes in this intersection - they are sorted, though */
-        unsigned int examinedHoles = 0;
         unsigned int latestMatch = 0;
         unsigned int end = senderForMessages.size();
 
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
         if (!senderForMessages.empty()) {
-        for (; examinedHoles < holes.size(); examinedHoles++) {
+        for (auto &message : holes) {
             std::pair<size_t, size_t> toEmit = {};
             std::pair<size_t, size_t> toIgnore = {};
 
-            /* This linear search is most probably very small - it could be made log2 if every hole
-             * knows about its previous accumulated length, which is easy to set up. However this
-             * log2 search will most likely never be a warranted perf. gain */
+            /* Skip messages sent by this subscriber */
             for (unsigned int i = latestMatch; i < end; i++) {
-                if (holes[examinedHoles].messageId == senderForMessages[i]) {
-                    toIgnore.first += holes[examinedHoles].lengths.first;
-                    toIgnore.second += holes[examinedHoles].lengths.second;
+                if (message.messageId == senderForMessages[i]) {
+                    toIgnore.first += message.lengths.first;
+                    toIgnore.second += message.lengths.second;
                     latestMatch = i;
                     break;
                 }
@@ -112,8 +109,8 @@ struct Intersection {
 
             /* Emit this segment */
             if (!toIgnore.first && !toIgnore.second) {
-                toEmit.first += holes[examinedHoles].lengths.first;
-                toEmit.second += holes[examinedHoles].lengths.second;
+                toEmit.first += message.lengths.first;
+                toEmit.second += message.lengths.second;
 
                 std::pair<std::string_view, std::string_view> cutDataChannels = {
                     std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
