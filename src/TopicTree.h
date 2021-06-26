@@ -95,9 +95,8 @@ struct Intersection {
             /* Iterate each message looking for any to skip */
             for (auto &message : holes) {
 
-                bool skipMessage = false;
-
                 /* If this message was sent by this subscriber skip it */
+                bool skipMessage = false;
                 for (unsigned int i = lastMatch; i < senderForMessages.size(); i++) {
                     if (message.messageId == senderForMessages[i]) {
                         skipMessage = true;
