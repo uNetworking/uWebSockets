@@ -27,6 +27,7 @@
 #include <chrono>
 #include <list>
 #include <cstring>
+#include <algorithm>
 
 /* We use std::function here, not MoveOnlyFunction */
 #include <functional>
@@ -73,14 +74,10 @@ struct Topic {
     std::string fullName;
 };
 
-struct Hole {
-    std::pair<size_t, size_t> lengths;
-    unsigned int messageId;
-};
-
 struct Intersection {
     std::pair<std::string, std::string> dataChannels;
-    std::vector<Hole> holes;
+    std::vector<std::pair<size_t, size_t>> messageLengths;
+    std::vector<unsigned int> messageIDs;
 
     void forSubscriber(std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>, bool)> cb) {
         /* How far we already emitted of the two dataChannels */
@@ -88,14 +85,12 @@ struct Intersection {
 
         /* Holes are global to the entire topic tree, so we are not guaranteed to find
          * holes in this intersection - they are sorted, though */
-        unsigned int examinedHoles = 0;
+        unsigned int examinedMessages = 0;
 
-        /* Get the intersection of senderForMessages and Message ID's to filter out Message ID's that don't apply #1269 */
+        /* Get the intersection of senderForMessages and MessageID's to filter out skipMessageIDs's that don't apply #1269 */
         std::vector<unsigned int> skipMessageIDs;
         if (!senderForMessages.empty()) {
-            std::vector<unsigned int> messageIDs;
-            std::transform(holes.begin(), holes.end(), std::back_inserter(messageIDs), [](auto hole){ return hole.messageId; });
-            std::set_intersection(senderForMessages.begin(), senderForMessages.end(), messageIDs.begin(), messageIDs.end(), back_inserter(skipMessageIDs));
+            set_intersection(senderForMessages.begin(), senderForMessages.end(), messageIDs.begin(), messageIDs.end(), back_inserter(skipMessageIDs));
         }
 
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
@@ -106,16 +101,16 @@ struct Intersection {
             /* This linear search is most probably very small - it could be made log2 if every hole
              * knows about its previous accumulated length, which is easy to set up. However this
              * log2 search will most likely never be a warranted perf. gain */
-            for (; examinedHoles < holes.size(); examinedHoles++) {
-                if (holes[examinedHoles].messageId == id) {
-                    toIgnore.first += holes[examinedHoles].lengths.first;
-                    toIgnore.second += holes[examinedHoles].lengths.second;
-                    examinedHoles++;
+            for (; examinedMessages < messageIDs.size(); examinedMessages++) {
+                if (messageIDs[examinedMessages] == id) {
+                    toIgnore.first += messageLengths[examinedMessages].first;
+                    toIgnore.second += messageLengths[examinedMessages].second;
+                    examinedMessages++;
                     break;
                 }
                 /* We are not the sender of this message so we should emit it in this segment */
-                toEmit.first += holes[examinedHoles].lengths.first;
-                toEmit.second += holes[examinedHoles].lengths.second;
+                toEmit.first += messageLengths[examinedMessages].first;
+                toEmit.second += messageLengths[examinedMessages].second;
             }
 
             /* Emit this segment */
@@ -575,15 +570,8 @@ public:
                     for (auto &p : complete) {
                         res.dataChannels.first.append(p.second.first);
                         res.dataChannels.second.append(p.second.second);
-
-                        /* Appends {id, length, length}
-                         * We could possibly append byte offset also,
-                         * if we want to use log2 search later. */
-                        Hole h;
-                        h.lengths.first = p.second.first.length();
-                        h.lengths.second = p.second.second.length();
-                        h.messageId = p.first;
-                        res.holes.push_back(h);
+                        res.messageIDs.push_back(p.first);
+                        res.messageLengths.emplace_back(p.second.first.length(), p.second.second.length());
                     }
 
                     cb(min, intersectionCache[intersection] = std::move(res));
