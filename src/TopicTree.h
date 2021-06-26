@@ -79,7 +79,7 @@ struct Intersection {
     std::vector<std::pair<size_t, size_t>> messageLengths;
     std::vector<unsigned int> messageIDs;
 
-    void forSubscriber(std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>, bool)> cb) {
+    void forSubscriber(std::vector<unsigned int> &senderMessageIDs, std::function<void(std::pair<std::string_view, std::string_view>, bool)> cb) {
         /* How far we already emitted of the two dataChannels */
         std::pair<size_t, size_t> emitted = {};
 
@@ -87,10 +87,10 @@ struct Intersection {
          * holes in this intersection - they are sorted, though */
         unsigned int examinedMessages = 0;
 
-        /* Get the intersection of senderForMessages and MessageID's to filter out skipMessageIDs's that don't apply #1269 */
+        /* Get the intersection of senderMessageIDs and MessageID's to filter out skipMessageIDs's that don't apply #1269 */
         std::vector<unsigned int> skipMessageIDs;
-        if (!senderForMessages.empty()) {
-            set_intersection(senderForMessages.begin(), senderForMessages.end(), messageIDs.begin(), messageIDs.end(), back_inserter(skipMessageIDs));
+        if (!senderMessageIDs.empty()) {
+            set_intersection(senderMessageIDs.begin(), senderMessageIDs.end(), messageIDs.begin(), messageIDs.end(), back_inserter(skipMessageIDs));
         }
 
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
