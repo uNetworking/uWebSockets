@@ -90,17 +90,21 @@ struct Intersection {
         if (!senderForMessages.empty()) {
 
             std::pair<size_t, size_t> toEmit = {};
-            unsigned int lastMatch = 0;
+            unsigned int startAt = 0;
 
             /* Iterate each message looking for any to skip */
             for (auto &message : holes) {
 
                 /* If this message was sent by this subscriber skip it */
                 bool skipMessage = false;
-                for (unsigned int i = lastMatch; i < senderForMessages.size(); i++) {
+                for (unsigned int i = startAt; i < senderForMessages.size(); i++) {
+                    if (senderForMessages[i] > message.messageId) {
+                        startAt = i;
+                        break;
+                    }
                     if (message.messageId == senderForMessages[i]) {
                         skipMessage = true;
-                        lastMatch = ++i;
+                        startAt = ++i;
                         break;
                     }
                 }
