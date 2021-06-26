@@ -86,43 +86,50 @@ struct Intersection {
         /* How far we already emitted of the two dataChannels */
         std::pair<size_t, size_t> emitted = {};
 
-        /* Holes are global to the entire topic tree, so we are not guaranteed to find
-         * holes in this intersection - they are sorted, though */
-        unsigned int examinedHoles = 0;
-
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
-        for (unsigned int id : senderForMessages) {
+        if (!senderForMessages.empty()) {
+
             std::pair<size_t, size_t> toEmit = {};
-            std::pair<size_t, size_t> toIgnore = {};
+            unsigned int startAt = 0;
 
-            /* This linear search is most probably very small - it could be made log2 if every hole
-             * knows about its previous accumulated length, which is easy to set up. However this
-             * log2 search will most likely never be a warranted perf. gain */
-            for (; examinedHoles < holes.size(); examinedHoles++) {
-                if (holes[examinedHoles].messageId == id) {
-                    toIgnore.first += holes[examinedHoles].lengths.first;
-                    toIgnore.second += holes[examinedHoles].lengths.second;
-                    examinedHoles++;
-                    break;
+            /* Iterate each message looking for any to skip */
+            for (auto &message : holes) {
+
+                /* If this message was sent by this subscriber skip it */
+                bool skipMessage = false;
+                for (unsigned int i = startAt; i < senderForMessages.size(); i++) {
+                    if (senderForMessages[i] > message.messageId) {
+                        startAt = i;
+                        break;
+                    }
+                    if (message.messageId == senderForMessages[i]) {
+                        skipMessage = true;
+                        startAt = ++i;
+                        break;
+                    }
                 }
-                /* We are not the sender of this message so we should emit it in this segment */
-                toEmit.first += holes[examinedHoles].lengths.first;
-                toEmit.second += holes[examinedHoles].lengths.second;
+
+                /* Collect messages until a skip, then emit messages */
+                if (!skipMessage) {
+                    toEmit.first += message.lengths.first;
+                    toEmit.second += message.lengths.second;
+                } else {
+                    if (toEmit.first || toEmit.second) {
+                        std::pair<std::string_view, std::string_view> cutDataChannels = {
+                            std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
+                            std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
+                        };
+                        /* Only need to test the first data channel for "FIN" */
+                        cb(cutDataChannels, emitted.first + toEmit.first + message.lengths.first == dataChannels.first.length());
+                        emitted.first += toEmit.first;
+                        emitted.second += toEmit.second;
+                        toEmit = {};
+                    }
+                    /* This message is now accounted for, mark as emitted */
+                    emitted.first += message.lengths.first;
+                    emitted.second += message.lengths.second;
+                }
             }
-
-            /* Emit this segment */
-            if (toEmit.first || toEmit.second) {
-                std::pair<std::string_view, std::string_view> cutDataChannels = {
-                    std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
-                    std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
-                };
-
-                /* We only need to test the first data channel for "FIN" */
-                cb(cutDataChannels, emitted.first + toEmit.first + toIgnore.first == dataChannels.first.length());
-            }
-
-            emitted.first += toEmit.first + toIgnore.first;
-            emitted.second += toEmit.second + toIgnore.second;
         }
 
         if (emitted.first == dataChannels.first.length() && emitted.second == dataChannels.second.length()) {
