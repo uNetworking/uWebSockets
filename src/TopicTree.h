@@ -87,7 +87,7 @@ struct Intersection {
          * holes in this intersection - they are sorted, though */
         unsigned int examinedMessages = 0;
 
-        /* Get the intersection of senderMessageIDs and MessageID's to filter out skipMessageIDs's that don't apply #1269 */
+        /* Get the intersection of senderMessageIDs and messageIDs to filter out skipMessageIDs that don't apply #1269 */
         std::vector<unsigned int> skipMessageIDs;
         if (!senderMessageIDs.empty()) {
             set_intersection(senderMessageIDs.begin(), senderMessageIDs.end(), messageIDs.begin(), messageIDs.end(), back_inserter(skipMessageIDs));
