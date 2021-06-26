@@ -90,8 +90,16 @@ struct Intersection {
          * holes in this intersection - they are sorted, though */
         unsigned int examinedHoles = 0;
 
+        /* Get the intersection of senderForMessages and Message ID's to filter out Message ID's that don't apply #1269 */
+        std::vector<unsigned int> skipMessageIDs;
+        if (!senderForMessages.empty()) {
+            std::vector<unsigned int> messageIDs;
+            std::transform(holes.begin(), holes.end(), std::back_inserter(messageIDs), [](auto hole){ return hole.messageId; });
+            std::set_intersection(senderForMessages.begin(), senderForMessages.end(), messageIDs.begin(), messageIDs.end(), back_inserter(skipMessageIDs));
+        }
+
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
-        for (unsigned int id : senderForMessages) {
+        for (unsigned int id : skipMessageIDs) {
             std::pair<size_t, size_t> toEmit = {};
             std::pair<size_t, size_t> toIgnore = {};
 
