@@ -121,7 +121,7 @@ struct Intersection {
                         emitted.second += toEmit.second;
                         toEmit = {};
                     }
-                    /* This message is now accounted for, mark as emmited */
+                    /* This message is now accounted for, mark as emitted */
                     emitted.first += message.lengths.first;
                     emitted.second += message.lengths.second;
                 }
