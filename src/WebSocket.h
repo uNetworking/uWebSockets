@@ -278,7 +278,13 @@ public:
         }
 
         /* Publish as sender, does not receive its own messages even if subscribed to relevant topics */
-        bool success = webSocketContextData->publish(topic, message, opCode, compress, webSocketData->subscriber);
+        /* Don't pass subscriber argument if not subscribed to topic, not needed and interferes with Publish #1269 */
+        bool success;
+        if (isSubscribed(topic)) {
+            success = webSocketContextData->publish(topic, message, opCode, compress, webSocketData->subscriber);
+        } else {
+            success = webSocketContextData->publish(topic, message, opCode, compress);
+        }
 
         /* Loop over all websocket contexts for this App */
         if (success) {
