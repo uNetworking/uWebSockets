@@ -83,14 +83,14 @@ struct Intersection {
     std::vector<Hole> holes;
 
     void forSubscriber(std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>, bool)> cb) {
-        /* This is a slow path of sorts, most subscribers will be observers, not active senders */
-        if (!senderForMessages.empty()) {
-
+        if (senderForMessages.empty()) {
+            cb(dataChannels, true);
+        } else {
+            /* Filter out messages sent by this subscriber */
             std::pair<size_t, size_t> toEmit = {};
             std::pair<size_t, size_t> emitted = {};
             unsigned int startAt = 0;
 
-            /* Iterate each message looking for any to skip */
             for (auto &message : holes) {
 
                 /* If this message was sent by this subscriber skip it */
@@ -137,9 +137,6 @@ struct Intersection {
                 };
                 cb(cutDataChannels, true);
             }
-        } else {
-            /* This subscriber did not send any of these messages, emit all */
-            cb(dataChannels, true);
         }
     }
 };
