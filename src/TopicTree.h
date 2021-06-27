@@ -83,13 +83,11 @@ struct Intersection {
     std::vector<Hole> holes;
 
     void forSubscriber(std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>, bool)> cb) {
-        /* How far we already emitted of the two dataChannels */
-        std::pair<size_t, size_t> emitted = {};
-
         /* This is a slow path of sorts, most subscribers will be observers, not active senders */
         if (!senderForMessages.empty()) {
 
             std::pair<size_t, size_t> toEmit = {};
+            std::pair<size_t, size_t> emitted = {};
             unsigned int startAt = 0;
 
             /* Iterate each message looking for any to skip */
@@ -130,18 +128,19 @@ struct Intersection {
                     emitted.second += message.lengths.second;
                 }
             }
+
+            /* Emit any last segment */
+            if (toEmit.first || toEmit.second) {
+                std::pair<std::string_view, std::string_view> cutDataChannels = {
+                    std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
+                    std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
+                };
+                cb(cutDataChannels, true);
+            }
+        } else {
+            /* This subscriber did not send any of these messages, emit all */
+            cb(dataChannels, true);
         }
-
-        if (emitted.first == dataChannels.first.length() && emitted.second == dataChannels.second.length()) {
-            return;
-        }
-
-        std::pair<std::string_view, std::string_view> cutDataChannels = {
-            std::string_view(dataChannels.first.data() + emitted.first, dataChannels.first.length() - emitted.first),
-            std::string_view(dataChannels.second.data() + emitted.second, dataChannels.second.length() - emitted.second),
-        };
-
-        cb(cutDataChannels, true);
     }
 };
 
