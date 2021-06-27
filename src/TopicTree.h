@@ -83,15 +83,17 @@ struct Intersection {
     std::vector<Hole> holes;
 
     void forSubscriber(std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>, bool)> cb) {
+        /* The fast path is if subscriber did not publish any messages, then none to filter out */
         if (senderForMessages.empty()) {
             cb(dataChannels, true);
             return;
         }
-        /* Filter out messages sent by this subscriber */
+
         std::pair<size_t, size_t> toEmit = {};
         std::pair<size_t, size_t> emitted = {};
         unsigned int startAt = 0;
 
+        /* Iterate each message looking for any to skip */
         for (auto &message : holes) {
 
             /* If this message was sent by this subscriber skip it */
