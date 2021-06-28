@@ -91,21 +91,20 @@ struct Intersection {
 
         std::pair<size_t, size_t> toEmit = {};
         std::pair<size_t, size_t> emitted = {};
-        unsigned int startAt = 0;
+        unsigned int examinedHoles = 0;
 
         /* Iterate each message looking for any to skip */
         for (auto &message : holes) {
 
             /* If this message was sent by this subscriber skip it */
             bool skipMessage = false;
-            for (unsigned int i = startAt; i < senderForMessages.size(); i++) {
-                if (senderForMessages[i] > message.messageId) {
-                    startAt = i;
+            for (; examinedHoles < senderForMessages.size(); examinedHoles++) {
+                if (senderForMessages[examinedHoles] > message.messageId) {
                     break;
                 }
-                if (message.messageId == senderForMessages[i]) {
+                if (message.messageId == senderForMessages[examinedHoles]) {
                     skipMessage = true;
-                    startAt = ++i;
+                    examinedHoles++;
                     break;
                 }
             }
@@ -130,13 +129,18 @@ struct Intersection {
                 emitted.first += message.lengths.first;
                 emitted.second += message.lengths.second;
             }
+
+            /* All sender messageId's have been examined, emit remaining messages */
+            if (examinedHoles == senderForMessages.size()) {
+                break;
+            }
         }
 
         /* Emit any last segment */
-        if (toEmit.first || toEmit.second) {
+        if (emitted.first != dataChannels.first.length() || emitted.second != dataChannels.second.length()) {
             std::pair<std::string_view, std::string_view> cutDataChannels = {
-                std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
-                std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
+                std::string_view(dataChannels.first.data() + emitted.first, dataChannels.first.length() - emitted.first),
+                std::string_view(dataChannels.second.data() + emitted.second, dataChannels.second.length() - emitted.second),
             };
             cb(cutDataChannels, true);
         }
