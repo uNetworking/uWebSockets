@@ -92,13 +92,14 @@ struct Intersection {
         std::pair<size_t, size_t> toEmit = {};
         std::pair<size_t, size_t> emitted = {};
         unsigned int examinedHoles = 0;
+        unsigned int totalHoles = senderForMessages.size();
 
         /* Iterate each message looking for any to skip */
         for (auto &message : holes) {
 
             /* If this message was sent by this subscriber skip it */
             bool skipMessage = false;
-            for (; examinedHoles < senderForMessages.size(); examinedHoles++) {
+            for (; examinedHoles < totalHoles; examinedHoles++) {
                 if (senderForMessages[examinedHoles] > message.messageId) {
                     break;
                 }
@@ -130,8 +131,8 @@ struct Intersection {
                 emitted.second += message.lengths.second;
             }
 
-            /* All sender messageId's have been examined, emit remaining messages */
-            if (examinedHoles == senderForMessages.size()) {
+            /* If all sender messageId's have been examined emit remaining messages */
+            if (examinedHoles == totalHoles) {
                 break;
             }
         }
