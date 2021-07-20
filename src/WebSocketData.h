@@ -62,10 +62,12 @@ public:
     ~WebSocketData() {
         if (deflationStream) {
             delete deflationStream;
+            deflationStream = nullptr;
         }
 
         if (subscriber) {
             delete subscriber;
+            subscriber = nullptr;
         }
     }
 };

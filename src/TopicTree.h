@@ -214,8 +214,11 @@ private:
             }
 
             /* Free various memory for the node */
+            topic->fullName.clear();
             delete [] topic->name;
+            topic->name = nullptr;
             delete topic;
+            topic = nullptr;
 
             if (parent == root) {
               break;
