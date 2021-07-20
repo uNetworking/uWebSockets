@@ -183,7 +183,7 @@ private:
     Subscriber *min = (Subscriber *) UINTPTR_MAX;
 
     /* Cull or trim unused Topic nodes from leaf to root */
-    void trimTree(Topic *topic) {
+    void trimTree(Topic *&topic) {
         while (!topic->subs.size() && !topic->children.size() && !topic->terminatingWildcardChild && !topic->wildcardChild) {
             Topic *parent = topic->parent;
 
@@ -456,9 +456,9 @@ public:
     }
 
     /* Can be called with nullptr, ignore it then */
-    void unsubscribeAll(Subscriber *subscriber, bool mayFlush = true) {
+    void unsubscribeAll(Subscriber *&subscriber, bool mayFlush = true) {
         if (subscriber) {
-            for (Topic *topic : subscriber->subscriptions) {
+            for (auto& topic : subscriber->subscriptions) {
 
                 /* We do not want to flush when closing a socket, it makes no sense to do so */
 

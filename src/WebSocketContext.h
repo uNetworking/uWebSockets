@@ -254,9 +254,6 @@ private:
                 webSocketData->subscriber = nullptr;
             }
 
-            /* Destruct in-placed data struct */
-            webSocketData->~WebSocketData();
-
             return s;
         });
 

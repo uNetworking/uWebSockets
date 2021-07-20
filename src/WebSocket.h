@@ -179,6 +179,8 @@ public:
         webSocketContextData->topicTree.unsubscribeAll(webSocketData->subscriber, false);
         delete webSocketData->subscriber;
         webSocketData->subscriber = nullptr;
+        webSocketData->~WebSocketData();
+        webSocketData = nullptr;
     }
 
     /* Corks the response if possible. Leaves already corked socket be. */
