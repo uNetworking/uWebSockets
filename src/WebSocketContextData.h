@@ -18,6 +18,9 @@
 #ifndef UWS_WEBSOCKETCONTEXTDATA_H
 #define UWS_WEBSOCKETCONTEXTDATA_H
 
+#include "Loop.h"
+#include "AsyncSocket.h"
+
 #include "MoveOnlyFunction.h"
 #include <string_view>
 #include <vector>
