@@ -22,6 +22,7 @@
 
 #include "AsyncSocket.h"
 #include "HttpResponseData.h"
+#include "HttpContext.h"
 #include "HttpContextData.h"
 #include "Utilities.h"
 

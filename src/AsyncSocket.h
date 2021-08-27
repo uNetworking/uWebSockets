@@ -24,6 +24,10 @@
  * to unsigned length for everything to/from uSockets - this would however remove the opportunity
  * to signal error with -1 (which is how the entire UNIX syscalling is built). */
 
+#include <cstring>
+
+#include "libusockets.h"
+
 #include "LoopData.h"
 #include "AsyncSocketData.h"
 

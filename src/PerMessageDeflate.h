@@ -20,6 +20,8 @@
 #ifndef UWS_PERMESSAGEDEFLATE_H
 #define UWS_PERMESSAGEDEFLATE_H
 
+#include <cstdint>
+
 /* We always define these options no matter if ZLIB is enabled or not */
 namespace uWS {
     /* Compressor mode is HIGH8(windowBits), LOW8(memLevel) */
