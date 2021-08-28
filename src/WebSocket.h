@@ -167,10 +167,14 @@ public:
             }
         }
 
-        /* Emit close event */
         WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
+
+        /* Set shorter timeout (use ping-timeout) to avoid long hanging sockets after end() on broken connections */
+        Super::timeout(webSocketContextData->idleTimeoutComponents.second);
+
+        /* Emit close event */
         if (webSocketContextData->closeHandler) {
             webSocketContextData->closeHandler(this, code, message);
         }

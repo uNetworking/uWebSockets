@@ -88,13 +88,9 @@ public:
         while ((int) idleTimeout - margin * 2 >= margin * 2 && margin < 16) {
             margin = (unsigned short) (margin << 1);
         }
-        /* We should have no margin if not using sendPingsAutomatically */
-        if (!sendPingsAutomatically) {
-            margin = 0;
-        }
         idleTimeoutComponents = {
-            idleTimeout - margin,
-            margin
+            idleTimeout - (sendPingsAutomatically ? margin : 0), /* reduce normal idleTimeout if it is extended by ping-timeout */
+            margin /* ping-timeout - also used for end() timeout */
         };
     }
 

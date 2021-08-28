@@ -364,7 +364,7 @@ private:
             auto *webSocketData = (WebSocketData *)(us_socket_ext(SSL, s));
             auto *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL, us_socket_context(SSL, (us_socket_t *) s));
 
-            if (webSocketContextData->sendPingsAutomatically && !webSocketData->hasTimedOut) {
+            if (webSocketContextData->sendPingsAutomatically && !webSocketData->isShuttingDown && !webSocketData->hasTimedOut) {
                 webSocketData->hasTimedOut = true;
                 us_socket_timeout(SSL, s, webSocketContextData->idleTimeoutComponents.second);
                 /* Send ping without being corked */
