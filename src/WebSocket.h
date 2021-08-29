@@ -53,8 +53,19 @@ public:
     using Super::getRemoteAddressAsText;
     using Super::getNativeHandle;
 
-    /* Simple, immediate close of the socket. Emits close event */
-    using Super::close;
+    /* WebSocket close cannot be an alias to AsyncSocket::close since
+     * we need to check first if it was shut down by remote peer */
+    us_socket_t *close() {
+        if (us_socket_is_closed(SSL, (us_socket_t *) this)) {
+            return nullptr;
+        }
+        WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
+        if (webSocketData->isShuttingDown) {
+            return nullptr;
+        }
+
+        return us_socket_close(SSL, (us_socket_t *) this, 0, nullptr);
+    }
 
     enum SendStatus : int {
         BACKPRESSURE,
