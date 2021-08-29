@@ -38,6 +38,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size > 4) {
             /* Last of all is a string */
             std::string_view lastString((char *) data + 5, size - 5);
+            
+            /* Why not */
+            topicTree.lookupTopic(lastString);
 
             /* First 4 bytes is the subscriber id */
             uint32_t id;
