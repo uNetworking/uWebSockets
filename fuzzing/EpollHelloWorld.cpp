@@ -103,6 +103,11 @@ void test() {
         struct us_socket_context_t *client_context = us_create_socket_context(0, loop, 0, {});
         us_socket_context_timestamp(0, client_context);
         client = us_socket_context_connect(0, client_context, "hostname", 5000, "localhost", 0, 0);
+	    
+        if (client) {
+            us_socket_is_established(0, client);
+            us_socket_local_port(0, client);
+        }
 
         us_socket_context_on_connect_error(0, client_context, [](struct us_socket_t *s, int code) {
             client = nullptr;
