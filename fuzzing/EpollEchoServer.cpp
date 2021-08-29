@@ -72,7 +72,8 @@ void test() {
 
             },
             .close = [](auto *ws, int code, std::string_view message) {
-
+                /* Cause reported crash */
+                ws->close();
             }
         }).ws<PerSocketData>("/*", {
             /* Settings */
