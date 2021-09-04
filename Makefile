@@ -33,6 +33,12 @@ ifeq ($(WITH_LIBUV),1)
 	override LDFLAGS += -luv
 endif
 
+# WITH_ASIO=1 builds with ASIO as event-loop
+ifeq ($(WITH_ASIO),1)
+	override CXXFLAGS += -pthread
+	override LDFLAGS += -lpthread
+endif
+
 # WITH_ASAN builds with sanitizers
 ifeq ($(WITH_ASAN),1)
 	override CXXFLAGS += -fsanitize=address -g
