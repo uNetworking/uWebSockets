@@ -67,7 +67,7 @@ Special thanks to BitMEX, Bitfinex, Google, Coinbase, Bitwyre and deepstreamHub 
 <img src="https://github.com/uNetworking/uWebSockets/raw/master/misc/2018.png" />
 
 ### :wrench: Customizable architecture
-µWebSockets builds on <a href="https://github.com/uNetworking/uSockets">µSockets</a>, a foundation library implementing eventing, networking and cryptography in three different layers. Every layer has multiple implementations and you control the compiled composition with flags.
+µWebSockets builds on <a href="https://github.com/uNetworking/uSockets">µSockets</a>, a foundation library implementing eventing, networking and cryptography in three different layers. Every layer has multiple implementations and you control the compiled composition with flags. There are currently five event-loop integrations; libuv, ASIO, GCD and raw epoll/kqueue.
 
 In a nutshell:
 
