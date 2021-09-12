@@ -19,6 +19,8 @@ oss-fuzz:
 	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O3 -DUWS_MOCK_ZLIB -I../src -I../uSockets/src EpollHelloWorld.cpp -o $(OUT)/EpollHelloWorld $(LIB_FUZZING_ENGINE) *.o
 	rm -f EpollHelloWorld.o
 	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O3 -DUWS_MOCK_ZLIB -I../src -I../uSockets/src EpollEchoServer.cpp -o $(OUT)/EpollEchoServer $(LIB_FUZZING_ENGINE) *.o
+	rm -f EpollEchoServer.o
+	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O3 -DUWS_MOCK_ZLIB -I../src -I../uSockets/src EpollEchoServerPubSub.cpp -o $(OUT)/EpollEchoServerPubSub $(LIB_FUZZING_ENGINE) *.o
 # "Unit tests"
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 Extensions.cpp -o $(OUT)/Extensions $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 QueryParser.cpp -o $(OUT)/QueryParser $(LIB_FUZZING_ENGINE)

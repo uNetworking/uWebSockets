@@ -73,8 +73,18 @@ protected:
         return us_socket_close(SSL, (us_socket_t *) this, 0, nullptr);
     }
 
+    void corkUnchecked() {
+        /* What if another socket is corked? */
+        getLoopData()->corkedSocket = this;
+    }
+
     /* Cork this socket. Only one socket may ever be corked per-loop at any given time */
     void cork() {
+        /* Extra check for invalid corking of others */
+        if (getLoopData()->corkOffset && getLoopData()->corkedSocket != this) {
+            std::abort();
+        }
+
         /* What if another socket is corked? */
         getLoopData()->corkedSocket = this;
     }

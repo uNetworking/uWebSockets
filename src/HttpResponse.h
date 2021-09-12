@@ -287,7 +287,7 @@ public:
 
         /* For whatever reason we were corked, update cork to the new socket */
         if (wasCorked) {
-            webSocket->AsyncSocket<SSL>::cork();
+            webSocket->AsyncSocket<SSL>::corkUnchecked();
         }
 
         /* Initialize websocket with any moved backpressure intact */
