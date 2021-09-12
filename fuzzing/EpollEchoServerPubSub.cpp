@@ -29,12 +29,12 @@ void test() {
     app->ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::DISABLED,
-        .maxPayloadLength = 16 * 1024 * 1024,
+        .maxPayloadLength = 512, // also have a low value here for fuzzing
         .idleTimeout = 60,
-        .maxBackpressure = 16 * 1024 * 1024,
-        .closeOnBackpressureLimit = false,
-        .resetIdleTimeoutOnSend = true,
-        .sendPingsAutomatically = false,
+        .maxBackpressure = 128, // we want a low number so that we can reach this in fuzzing
+        .closeOnBackpressureLimit = false, // this one could be tested as well
+        .resetIdleTimeoutOnSend = true, // and this
+        .sendPingsAutomatically = false, // and this
         /* Handlers */
         .upgrade = nullptr,
         .open = [](auto *ws) {
