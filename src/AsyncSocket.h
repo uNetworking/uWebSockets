@@ -25,6 +25,7 @@
  * to signal error with -1 (which is how the entire UNIX syscalling is built). */
 
 #include <cstring>
+#include <iostream>
 
 #include "libusockets.h"
 
@@ -82,7 +83,8 @@ protected:
     void cork() {
         /* Extra check for invalid corking of others */
         if (getLoopData()->corkOffset && getLoopData()->corkedSocket != this) {
-            std::abort();
+            std::cerr << "Error: Cork buffer must not be acquired without checking canCork!" << std::endl;
+            std::terminate();
         }
 
         /* What if another socket is corked? */
