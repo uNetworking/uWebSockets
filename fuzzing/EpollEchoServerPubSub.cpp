@@ -43,7 +43,7 @@ void test() {
             PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
 
             for (int i = 0; i < 100; i++) {
-                std::string topic = std::to_string(ws);
+                std::string topic = std::to_string((uintptr_t)ws) + "-" + std::to_string(i);
                 perSocketData->topics.push_back(topic);
                 ws->subscribe(topic);
             }
@@ -51,7 +51,7 @@ void test() {
         .message = [&app](auto *ws, std::string_view message, uWS::OpCode opCode) {
             PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
 
-            app->publish(perSocketData->topics[++nr % 100], message, opCode);
+            app->publish(perSocketData->topics[++perSocketData->nr % 100], message, opCode);
         },
         .drain = [](auto */*ws*/) {
             /* Check ws->getBufferedAmount() here */

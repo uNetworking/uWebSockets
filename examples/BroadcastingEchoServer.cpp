@@ -3,51 +3,73 @@
 struct us_listen_socket_t *global_listen_socket;
 
 int main() {
+
     /* ws->getUserData returns one of these */
     struct PerSocketData {
-
+        /* Fill with user data */
+        std::vector<std::string> topics;
+        int nr = 0;
     };
 
-    /* Very simple WebSocket broadcasting echo server */
-    uWS::App().ws<PerSocketData>("/*", {
+    /* Keep in mind that uWS::SSLApp({options}) is the same as uWS::App() when compiled without SSL support.
+     * You may swap to using uWS:App() if you don't need SSL */
+    uWS::SSLApp *app = new uWS::SSLApp({
+        /* There are example certificates in uWebSockets.js repo */
+	    .key_file_name = "../misc/key.pem",
+	    .cert_file_name = "../misc/cert.pem",
+	    .passphrase = "1234"
+	});
+    
+    app->ws<PerSocketData>("/*", {
         /* Settings */
-        .compression = uWS::DEDICATED_COMPRESSOR_3KB,
+        .compression = uWS::DISABLED,
         .maxPayloadLength = 16 * 1024 * 1024,
-        .idleTimeout = 10,
-        .maxBackpressure = 1 * 1024 * 1024,
+        .idleTimeout = 60,
+        .maxBackpressure = 16 * 1024 * 1024,
+        .closeOnBackpressureLimit = false,
+        .resetIdleTimeoutOnSend = true,
+        .sendPingsAutomatically = false,
         /* Handlers */
         .upgrade = nullptr,
         .open = [](auto *ws) {
-            /* Let's make every connection subscribe to the "broadcast" topic */
-            ws->subscribe("broadcast");
-        },
-        .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
-            /* Exit gracefully if we get a closedown message (ASAN debug) */
-            if (message == "closedown") {
-               /* Bye bye */
-               us_listen_socket_close(0, global_listen_socket);
-               ws->close();
-            }
+            /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
 
-            /* Simply broadcast every single message we get */
-            ws->publish("broadcast", message, opCode, true);
+            PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
+
+            for (int i = 0; i < 100; i++) {
+                std::string topic = std::to_string((uintptr_t)ws) + "-" + std::to_string(i);
+                perSocketData->topics.push_back(topic);
+                ws->subscribe(topic);
+            }
+        },
+        .message = [&app](auto *ws, std::string_view message, uWS::OpCode opCode) {
+            PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
+
+            app->publish(perSocketData->topics[++perSocketData->nr % 100], message, opCode);
         },
         .drain = [](auto */*ws*/) {
-            /* Check getBufferedAmount here */
+            /* Check ws->getBufferedAmount() here */
+            //std::cout << "drain" << std::endl;
         },
-        .ping = [](auto */*ws*/, std::string_view) {
-
+        .ping = [](auto */*ws*/, std::string_view ) {
+            /* Not implemented yet */
         },
-        .pong = [](auto */*ws*/, std::string_view) {
-
+        .pong = [](auto */*ws*/, std::string_view ) {
+            /* Not implemented yet */
         },
         .close = [](auto */*ws*/, int /*code*/, std::string_view /*message*/) {
-            /* We automatically unsubscribe from any topic here */
+            /* You may access ws->getUserData() here */
         }
-    }).listen(9001, [](auto *listen_socket) {
-        global_listen_socket = listen_socket;
-        if (listen_socket) {
+    }).listen(9001, [](auto *listen_s) {
+        if (listen_s) {
             std::cout << "Listening on port " << 9001 << std::endl;
+            //listen_socket = listen_s;
         }
-    }).run();
+    });
+    
+    app->run();
+
+    delete app;
+
+    uWS::Loop::get()->free();
 }
