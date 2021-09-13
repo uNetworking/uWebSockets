@@ -196,7 +196,79 @@ void testBugReport() {
     delete topicTree;
 }
 
+void testReorderingv19() {
+    std::cout << "TestReorderingv19" << std::endl;
+
+    uWS::TopicTree *topicTree;
+    std::map<void *, std::pair<std::string, std::string>> expectedResult;
+    std::map<void *, std::pair<std::string, std::string>> actualResult;
+
+    topicTree = new uWS::TopicTree([&topicTree, &actualResult](uWS::Subscriber *s, uWS::Intersection &intersection) {
+
+        /* How many bytes we have in first data channel at time we get fin = true */
+        unsigned int finAt = 0;
+
+        intersection.forSubscriber(topicTree->getSenderFor(s), [s, &finAt, &actualResult](std::pair<std::string_view, std::string_view> dataChannels, bool fin) {
+            actualResult[s].first += dataChannels.first;
+            actualResult[s].second += dataChannels.second;
+
+            /* Check that getting fin = true really is the last segment */
+            if (!finAt && fin) {
+                finAt = actualResult[s].first.length();
+            }
+        });
+
+        /* Assume finAt == actualResult[s].first.length() */
+        if (actualResult[s].first.length() != finAt) {
+            std::cout << "ERROR! FinAt mismatching!" << std::endl;
+            exit(1);
+        }
+
+        /* We actually don't use this one */
+        return 0;
+    });
+
+    uWS::Subscriber *s1 = new uWS::Subscriber(nullptr);
+
+    /* Subscribe to 100 topics */
+    for (int i = 0; i < 100; i++) {
+        topicTree->subscribe(std::to_string(i), s1);
+    }
+
+    /* Publish to 100 topics in order with messages in order */
+    for (int i = 0; i < 100; i++) {
+        topicTree->publish(std::to_string(i), {std::to_string(i) + ",", std::to_string(i) + ","}, nullptr);
+
+        expectedResult[s1].first.append(std::to_string(i) + ",");
+        expectedResult[s1].second.append(std::to_string(i) + ",");
+    }
+
+    /* Compare result with expected result for every subscriber */
+    topicTree->drain();
+    for (auto &p : expectedResult) {
+        std::cout << "Subscriber: " << p.first << std::endl;
+
+        if (p.second.first != actualResult[p.first].first) {
+            std::cout << "ERROR: <" << actualResult[p.first].first << "> should be <" << p.second.first << ">" << std::endl;
+            exit(1);
+        }
+
+        if (p.second.second != actualResult[p.first].second) {
+            std::cout << "ERROR: <" << actualResult[p.first].second << "> should be <" << p.second.second << ">" << std::endl;
+            exit(1);
+        }
+    }
+
+    /* Release resources */
+    topicTree->unsubscribeAll(s1);
+
+    delete s1;
+
+    delete topicTree;
+}
+
 int main() {
     testCorrectness();
     testBugReport();
+    testReorderingv19();
 }
