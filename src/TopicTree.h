@@ -250,7 +250,6 @@ private:
 
             /* Do we have a terminating wildcard child? */
             if (iterator->terminatingWildcardChild) {
-                iterator->terminatingWildcardChild->messages[messageId] = message;
 
                 /* Add this topic to triggered */
                 if (!iterator->terminatingWildcardChild->triggered) {
@@ -262,6 +261,9 @@ private:
                     triggeredTopics[numTriggeredTopics++] = iterator->terminatingWildcardChild;
                     iterator->terminatingWildcardChild->triggered = true;
                 }
+
+                /* Above drain can reset messageId so we have to add new messages after */
+                iterator->terminatingWildcardChild->messages[messageId] = message;
 
                 didMatch = true;
             }
@@ -281,7 +283,6 @@ private:
         }
 
         /* If we went all the way we matched exactly */
-        iterator->messages[messageId] = message;
 
         /* Add this topic to triggered */
         if (!iterator->triggered) {
@@ -293,6 +294,9 @@ private:
             triggeredTopics[numTriggeredTopics++] = iterator;
             iterator->triggered = true;
         }
+
+        /* Above drain can change messageId to 0, so we put the message after */
+        iterator->messages[messageId] = message;
 
         /* We obviously matches exactly here */
         return true;
