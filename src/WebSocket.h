@@ -120,6 +120,12 @@ public:
         protocol::formatMessage<isServer>(sendBuffer, message.data(), message.length(), opCode, message.length(), compress);
         /* This is the slow path, when we couldn't cork for the user */
         if (requiresWrite) {
+            /* We tried corking for the user but in the end we did not even fit in the cork buffer */
+            if (automaticallyCorked) {
+                Super::uncork();
+                automaticallyCorked = false;
+            }
+
             auto[written, failed] = Super::write(sendBuffer, (int) messageFrameSize);
 
             /* For now, we are slow here */
