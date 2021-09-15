@@ -214,6 +214,17 @@ public:
         return webSocketContextData->topicTree.unsubscribe(topic, webSocketData->subscriber);
     }
 
+    /* Iterates all root-level topic subscriptions. Highly invalid to modify (subscribe, unsubscribe) within */
+    void iterateRootTopics(fu2::unique_function<void(std::string_view)> &&cb) {
+        WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
+
+        if (webSocketData->subscriber) {
+            for (Topic *t : webSocketData->subscriber->subscriptions) {
+                cb(std::string_view(t->name, t->length));
+            }
+        }
+    }
+
     /* Unsubscribe from all topics you might be subscribed to */
     void unsubscribeAll() {
         WebSocketContextData<SSL> *webSocketContextData = (WebSocketContextData<SSL> *) us_socket_context_ext(SSL,

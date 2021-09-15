@@ -20,6 +20,9 @@ int main() {
         .open = [](auto *ws) {
             /* Let's make every connection subscribe to the "broadcast" topic */
             ws->subscribe("broadcast");
+            ws->iterateRootTopics([](std::string_view topic) {
+                std::cout << "New websocket subscribed to topic <" << topic << ">" << std::endl;
+            });
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             /* Exit gracefully if we get a closedown message (ASAN debug) */
