@@ -176,7 +176,7 @@ protected:
             if ((unsigned int) written < asyncSocketData->buffer.length()) {
 
                 /* Update buffering (todo: we can do better here if we keep track of what happens to this guy later on) */
-                asyncSocketData->buffer = asyncSocketData->buffer.substr((size_t) written);
+                asyncSocketData->buffer.erase((unsigned int) written);
 
                 if (optionally) {
                     /* Thankfully we can exit early here */

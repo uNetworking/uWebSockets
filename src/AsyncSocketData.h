@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2021.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,15 +22,51 @@
 
 namespace uWS {
 
+struct BackPressure {
+    std::string buffer;
+    unsigned int pendingRemoval = 0;
+    BackPressure(BackPressure &&other) {
+        buffer = std::move(other.buffer);
+        pendingRemoval = other.pendingRemoval;
+    }
+    BackPressure() = default;
+    void append(const char *data, size_t length) {
+        buffer.append(data, length);
+    }
+    void erase(unsigned int length) {
+        pendingRemoval += length;
+        if (pendingRemoval > 1024 * 1024 || !(buffer.length() - pendingRemoval)) {
+            buffer.erase(0, pendingRemoval);
+            pendingRemoval = 0;
+        }
+    }
+    size_t length() {
+        return buffer.length() - pendingRemoval;
+    }
+    void clear() {
+        pendingRemoval = 0;
+        buffer.clear();
+    }
+    void reserve(size_t length) {
+        buffer.reserve(length + pendingRemoval);
+    }
+    const char *data() {
+        return buffer.data() + pendingRemoval;
+    }
+    size_t size() {
+        return length();
+    }
+};
+
 /* Depending on how we want AsyncSocket to function, this will need to change */
 
 template <bool SSL>
 struct AsyncSocketData {
     /* This will do for now */
-    std::string buffer;
+    BackPressure buffer;
 
     /* Allow move constructing us */
-    AsyncSocketData(std::string &&backpressure) : buffer(std::move(backpressure)) {
+    AsyncSocketData(BackPressure &&backpressure) : buffer(std::move(backpressure)) {
 
     }
 
