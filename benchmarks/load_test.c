@@ -1,13 +1,15 @@
 /* This is a simple yet efficient WebSocket server benchmark much like WRK */
 
+#define _BSD_SOURCE
+#include <endian.h>
+#include <stdint.h>
+
 #include <libusockets.h>
 int SSL;
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-// request eller upgradeRequest samt webSocketFrame
 
 /* Whatever type we selected (compressed or not) */
 unsigned char *web_socket_request;
@@ -24,8 +26,29 @@ unsigned char web_socket_request_deflate[13] = {
 };
 
 /* Not compressed */
-unsigned char web_socket_request_text[26] = {130, 128 | 20, 1, 2, 3, 4};
+unsigned char web_socket_request_text_small[26] = {130, 128 | 20, 1, 2, 3, 4};
+unsigned int web_socket_request_text_size = 26;
+unsigned char *web_socket_request_text = web_socket_request_text_small;
 
+/* Called to swap from small text message to big text message */
+void init_big_message(unsigned int size) {
+    if (size < 65536) {
+        printf("Error: message size must be bigger\n");
+        exit(0);
+    }
+
+    web_socket_request_text_size = size + 6 + 8;
+
+    web_socket_request_text = malloc(web_socket_request_text_size);
+    web_socket_request_text[0] = 130;
+    web_socket_request_text[1] = 255;
+    uint64_t msg_size = htobe64(size);
+    memcpy(&web_socket_request_text[2], &msg_size, 8);
+    web_socket_request_text[10] = 1;
+    web_socket_request_text[10] = 2;
+    web_socket_request_text[10] = 3;
+    web_socket_request_text[10] = 4;
+}
 
 char request_deflate[] = "GET / HTTP/1.1\r\n"
                  "Upgrade: websocket\r\n"
@@ -54,6 +77,12 @@ struct http_socket {
 
     /* How far we have streamed our upgrade request */
     int upgrade_offset;
+
+    /* Whether or not we have received the upgrade response */
+    int is_upgraded;
+
+    /* How many bytes we expect to be echoed back to us before we consider the echo done */
+    int outstanding_bytes;
 };
 
 /* We don't need any of these */
@@ -114,13 +143,35 @@ struct us_socket_t *on_http_socket_end(struct us_socket_t *s) {
 struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int length) {
     /* Get socket extension and the socket's context's extension */
     struct http_socket *http_socket = (struct http_socket *) us_socket_ext(SSL, s);
-    //struct http_context *http_context = (struct http_context *) us_socket_context_ext(SSL, us_socket_context(SSL, s));
+    
+    if (http_socket->is_upgraded) {
 
-    /* We treat all data events as a response */
-    http_socket->offset = us_socket_write(SSL, s, (char *) web_socket_request, web_socket_request_size, 0);
+        /* If we are upgraded we now count to see if we receive the corect echo */
+        http_socket->outstanding_bytes -= length;
 
-    /* */
-    responses++;
+        if (http_socket->outstanding_bytes == 0) {
+            /* We got exactly the correct amount of bytes back, send another message */
+            http_socket->offset = us_socket_write(SSL, s, (char *) web_socket_request, web_socket_request_size, 0);
+            http_socket->outstanding_bytes = web_socket_request_size - 4;
+
+            /* Increase stats */
+            responses++;
+        } else if (http_socket->outstanding_bytes < 0) {
+            /* This should never happen */
+            printf("ERROR: outstanding bytes negative!");
+            exit(0);
+        }
+    } else {
+        /* We assume the last 4 bytes will be delivered in one chunk */
+        if (length >= 4 && memcmp(data + length - 4, "\r\n\r\n", 4) == 0) {
+            /* We are upgraded so start sending the message for echoing */
+            http_socket->offset = us_socket_write(SSL, s, (char *) web_socket_request, web_socket_request_size, 0);
+
+            /* Server will echo back the same message minus 4 bytes for mask */
+            http_socket->outstanding_bytes = web_socket_request_size - 4;
+            http_socket->is_upgraded = 1;
+        }
+    }
 
     return s;
 }
@@ -130,6 +181,8 @@ struct us_socket_t *on_http_socket_open(struct us_socket_t *s, int is_client, ch
 
     /* Reset offsets */
     http_socket->offset = 0;
+
+    http_socket->is_upgraded = 0;
 
     /* Send an upgrade request */
     http_socket->upgrade_offset = us_socket_write(SSL, s, upgrade_request, upgrade_request_length, 0);
@@ -153,8 +206,8 @@ struct us_socket_t *on_http_socket_timeout(struct us_socket_t *s) {
 int main(int argc, char **argv) {
 
     /* Parse host and port */
-    if (argc != 6) {
-        printf("Usage: connections host port ssl deflate\n");
+    if (argc != 6 && argc != 7) {
+        printf("Usage: connections host port ssl deflate [size_mb]\n");
         return 0;
     }
 
@@ -171,8 +224,16 @@ int main(int argc, char **argv) {
         upgrade_request = request_deflate;
         upgrade_request_length = sizeof(request_deflate) - 1;
     } else {
+        /* Only if we are NOT using defalte can we support testing with 100mb for now */
+        if (argc == 7) {
+            int size_mb = atoi(argv[6]);
+            printf("Using message size of %d MB\n", size_mb);
+            /* Size has to be in MB since the minimal size is 64kb */
+            init_big_message(size_mb * 1024 * 1024);
+        }
+
         web_socket_request = web_socket_request_text;
-        web_socket_request_size = sizeof(web_socket_request_text);
+        web_socket_request_size = web_socket_request_text_size;
 
         upgrade_request = request_text;
         upgrade_request_length = sizeof(request_text) - 1;
