@@ -50,6 +50,9 @@ struct BackPressure {
     void reserve(size_t length) {
         buffer.reserve(length + pendingRemoval);
     }
+    void resize(size_t length) {
+        buffer.resize(length + pendingRemoval);
+    }
     const char *data() {
         return buffer.data() + pendingRemoval;
     }

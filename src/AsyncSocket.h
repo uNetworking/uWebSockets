@@ -34,6 +34,12 @@
 
 namespace uWS {
 
+    enum SendBufferAttribute {
+        NEEDS_NOTHING,
+        NEEDS_DRAIN,
+        NEEDS_UNCORK
+    };
+
     template <bool, bool, typename> struct WebSocketContext;
 
 template <bool SSL>
@@ -102,16 +108,27 @@ protected:
     }
 
     /* Returns a suitable buffer for temporary assemblation of send data */
-    std::pair<char *, bool> getSendBuffer(size_t size) {
-        /* If we are corked and we have room, return the cork buffer itself */
+    std::pair<char *, SendBufferAttribute> getSendBuffer(size_t size) {
+        /* First step is to determine if we already have backpressure or not */
         LoopData *loopData = getLoopData();
-        if (loopData->corkedSocket == this && loopData->corkOffset + size < LoopData::CORK_BUFFER_SIZE) {
-            char *sendBuffer = loopData->corkBuffer + loopData->corkOffset;
-            loopData->corkOffset += (unsigned int) size;
-            return {sendBuffer, false};
+        BackPressure &backPressure = getAsyncSocketData()->buffer;
+        size_t existingBackpressure = backPressure.length();
+        if ((!existingBackpressure) && (isCorked() || canCork()) && (loopData->corkOffset + size < LoopData::CORK_BUFFER_SIZE)) {
+            /* Cork automatically if we can */
+            if (isCorked()) {
+                char *sendBuffer = loopData->corkBuffer + loopData->corkOffset;
+                loopData->corkOffset += (unsigned int) size;
+                return {sendBuffer, SendBufferAttribute::NEEDS_NOTHING};
+            } else {
+                cork();
+                char *sendBuffer = loopData->corkBuffer + loopData->corkOffset;
+                loopData->corkOffset += (unsigned int) size;
+                return {sendBuffer, SendBufferAttribute::NEEDS_UNCORK};
+            }
         } else {
-            /* Slow path for now, we want to always be corked if possible */
-            return {(char *) malloc(size), true};
+            /* Fallback is to use the backpressure as buffer */
+            backPressure.resize(existingBackpressure + size);
+            return {(char *) backPressure.data() + existingBackpressure, SendBufferAttribute::NEEDS_DRAIN};
         }
     }
 

@@ -107,38 +107,21 @@ public:
             }
         }
 
-        /* Check to see if we can cork for the user */
-        bool automaticallyCorked = false;
-        if (!Super::isCorked() && Super::canCork()) {
-            automaticallyCorked = true;
-            Super::cork();
-        }
-
-        /* Get size, alloate size, write if needed */
+        /* Get size, allocate size, write if needed */
         size_t messageFrameSize = protocol::messageFrameSize(message.length());
-        auto [sendBuffer, requiresWrite] = Super::getSendBuffer(messageFrameSize);
+        auto [sendBuffer, sendBufferAttribute] = Super::getSendBuffer(messageFrameSize);
         protocol::formatMessage<isServer>(sendBuffer, message.data(), message.length(), opCode, message.length(), compress);
-        /* This is the slow path, when we couldn't cork for the user */
-        if (requiresWrite) {
-            /* We tried corking for the user but in the end we did not even fit in the cork buffer */
-            if (automaticallyCorked) {
-                Super::uncork();
-                automaticallyCorked = false;
-            }
 
-            auto[written, failed] = Super::write(sendBuffer, (int) messageFrameSize);
-
-            /* For now, we are slow here */
-            free(sendBuffer);
-
+        /* Depending on size of message we have different paths */
+        if (sendBufferAttribute == SendBufferAttribute::NEEDS_DRAIN) {
+            /* This is a drain */
+            auto[written, failed] = Super::write(nullptr, 0);
             if (failed) {
                 /* Return false for failure, skipping to reset the timeout below */
                 return BACKPRESSURE;
             }
-        }
-
-        /* Uncork here if we automatically corked for the user */
-        if (automaticallyCorked) {
+        } else if (sendBufferAttribute == SendBufferAttribute::NEEDS_UNCORK) {
+            /* Uncork if we came here uncorked */
             auto [written, failed] = Super::uncork();
             if (failed) {
                 return BACKPRESSURE;
