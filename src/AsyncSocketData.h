@@ -22,6 +22,9 @@
 
 namespace uWS {
 
+/* We erase a minimum of 32kb off the front of the backpressure buffer when draining */
+const int BACKPRESSURE_MINIMAL_ERASE = 32 * 1024;
+
 struct BackPressure {
     std::string buffer;
     unsigned int pendingRemoval = 0;
@@ -35,7 +38,7 @@ struct BackPressure {
     }
     void erase(unsigned int length) {
         pendingRemoval += length;
-        if (pendingRemoval > 1024 * 1024 || !(buffer.length() - pendingRemoval)) {
+        if (pendingRemoval > BACKPRESSURE_MINIMAL_ERASE || !(buffer.length() - pendingRemoval)) {
             buffer.erase(0, pendingRemoval);
             pendingRemoval = 0;
         }
