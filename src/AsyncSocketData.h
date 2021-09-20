@@ -62,6 +62,10 @@ struct BackPressure {
     size_t size() {
         return length();
     }
+    /* The total length, incuding pending removal */
+    size_t totalLength() {
+        return buffer.length();
+    }
 };
 
 /* Depending on how we want AsyncSocket to function, this will need to change */

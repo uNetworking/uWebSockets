@@ -134,7 +134,8 @@ protected:
 
     /* Returns the user space backpressure. */
     unsigned int getBufferedAmount() {
-        return (unsigned int) getAsyncSocketData()->buffer.size();
+        /* We return the actual amount of bytes in backbuffer, including pendingRemoval */
+        return (unsigned int) getAsyncSocketData()->buffer.totalLength();
     }
 
     /* Returns the text representation of an IPv4 or IPv6 address */
