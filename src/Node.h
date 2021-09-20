@@ -151,11 +151,13 @@ public:
                 }
             }
         }
-
-        for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
-            if (a->ai_family == AF_INET) {
-                listenFd = netContext->createSocket(a->ai_family, a->ai_socktype, a->ai_protocol);
-                listenAddr = a;
+        
+        else {
+            for (addrinfo *a = result; a && listenFd == SOCKET_ERROR; a = a->ai_next) {
+                if (a->ai_family == AF_INET) {
+                    listenFd = netContext->createSocket(a->ai_family, a->ai_socktype, a->ai_protocol);
+                    listenAddr = a;
+                }
             }
         }
 
