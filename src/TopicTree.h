@@ -473,6 +473,9 @@ public:
                 topic->subs.erase(subscriber);
                 trimTree(topic);
             }
+            /* If we are sender with outstanding holes, remove them now that we are dead */
+            senderHoles.erase(subscriber);
+
             subscriber->subscriptions.clear();
         }
     }
