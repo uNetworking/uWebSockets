@@ -93,7 +93,7 @@ public:
         WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
         if (webSocketData->subscriber) {
             /* This will call back into us, send. */
-            webSocketContextData->topicTree.drain(webSocketData->subscriber);
+            webSocketContextData->topicTree->drain(webSocketData->subscriber);
         }
 
         /* Transform the message to compressed domain if requested */
@@ -187,7 +187,7 @@ public:
         }
 
         /* Make sure to unsubscribe from any pub/sub node at exit */
-        webSocketContextData->topicTree.freeSubscriber(webSocketData->subscriber);
+        webSocketContextData->topicTree->freeSubscriber(webSocketData->subscriber);
         webSocketData->subscriber = nullptr;
     }
 
@@ -215,12 +215,12 @@ public:
         /* Make us a subscriber if we aren't yet */
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
         if (!webSocketData->subscriber) {
-            webSocketData->subscriber = webSocketContextData->topicTree.createSubscriber();
+            webSocketData->subscriber = webSocketContextData->topicTree->createSubscriber();
             webSocketData->subscriber->user = this;
         }
 
         /* Cannot return numSubscribers as this is only for this particular websocket context */
-        webSocketContextData->topicTree.subscribe(webSocketData->subscriber, topic);
+        webSocketContextData->topicTree->subscribe(webSocketData->subscriber, topic);
 
         /* Subscribe always succeeds */
         return true;
@@ -235,11 +235,11 @@ public:
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
 
         /* Cannot return numSubscribers as this is only for this particular websocket context */
-        auto [ok, last] = webSocketContextData->topicTree.unsubscribe(webSocketData->subscriber, topic);
+        auto [ok, last] = webSocketContextData->topicTree->unsubscribe(webSocketData->subscriber, topic);
 
         /* Free us as subscribers if we unsubscribed from our last topic */
         if (ok && last) {
-            webSocketContextData->topicTree.freeSubscriber(webSocketData->subscriber);
+            webSocketContextData->topicTree->freeSubscriber(webSocketData->subscriber);
             webSocketData->subscriber = nullptr;
         }
 
@@ -257,7 +257,7 @@ public:
             return false;
         }
 
-        Topic *topicPtr = webSocketContextData->topicTree.lookupTopic(topic);
+        Topic *topicPtr = webSocketContextData->topicTree->lookupTopic(topic);
         if (!topicPtr) {
             return false;
         }
@@ -277,14 +277,14 @@ public:
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
         if (webSocketData->subscriber) {
             /* Lock this subscriber for unsubscription / subscription */
-            webSocketContextData->topicTree.iteratingSubscriber = webSocketData->subscriber;
+            webSocketContextData->topicTree->iteratingSubscriber = webSocketData->subscriber;
 
             for (Topic *topicPtr : webSocketData->subscriber->topics) {
                 cb({topicPtr->name.data(), topicPtr->name.length()});
             }
 
             /* Unlock subscriber */
-            webSocketContextData->topicTree.iteratingSubscriber = nullptr;
+            webSocketContextData->topicTree->iteratingSubscriber = nullptr;
         }
     }
 
@@ -304,15 +304,7 @@ public:
         }
 
         /* Publish as sender, does not receive its own messages even if subscribed to relevant topics */
-        bool success = webSocketContextData->topicTree.publish(webSocketData->subscriber, topic, {std::string(message), opCode, compress});
-
-        /* Loop over all websocket contexts for this App */
-        if (success) {
-            /* Success is really only determined by the first publish. We must be subscribed to the topic. */
-            for (auto *adjacentWebSocketContextData : webSocketContextData->adjacentWebSocketContextDatas) {
-                adjacentWebSocketContextData->topicTree.publish(nullptr, topic, {std::string(message), opCode, compress});
-            }
-        }
+        bool success = webSocketContextData->topicTree->publish(webSocketData->subscriber, topic, {std::string(message), opCode, compress});
 
         return success;
     }

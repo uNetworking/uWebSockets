@@ -249,7 +249,7 @@ private:
                 }
 
                 /* Make sure to unsubscribe from any pub/sub node at exit */
-                webSocketContextData->topicTree.freeSubscriber(webSocketData->subscriber);
+                webSocketContextData->topicTree->freeSubscriber(webSocketData->subscriber);
                 webSocketData->subscriber = nullptr;
             }
 
@@ -390,14 +390,14 @@ private:
 
 public:
     /* WebSocket contexts are always child contexts to a HTTP context so no SSL options are needed as they are inherited */
-    static WebSocketContext *create(Loop */*loop*/, us_socket_context_t *parentSocketContext) {
+    static WebSocketContext *create(Loop */*loop*/, us_socket_context_t *parentSocketContext, TopicTree<TopicTreeMessage> *topicTree) {
         WebSocketContext *webSocketContext = (WebSocketContext *) us_create_child_socket_context(SSL, parentSocketContext, sizeof(WebSocketContextData<SSL, USERDATA>));
         if (!webSocketContext) {
             return nullptr;
         }
 
         /* Init socket context data */
-        new ((WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL, (us_socket_context_t *)webSocketContext)) WebSocketContextData<SSL, USERDATA>;
+        new ((WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL, (us_socket_context_t *)webSocketContext)) WebSocketContextData<SSL, USERDATA>(topicTree);
         return webSocketContext->init();
     }
 };

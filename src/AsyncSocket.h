@@ -44,8 +44,10 @@ namespace uWS {
 
 template <bool SSL>
 struct AsyncSocket {
+    /* This guy is promiscuous */
     template <bool> friend struct HttpContext;
     template <bool, bool, typename> friend struct WebSocketContext;
+    template <bool> friend struct TemplatedApp;
     template <bool, typename> friend struct WebSocketContextData;
     template <typename> friend struct TopicTree;
 

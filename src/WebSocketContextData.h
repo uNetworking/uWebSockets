@@ -40,16 +40,9 @@ struct WebSocketContextData {
 private:
 
 public:
-    /* Type queued up when publishing */
-    struct TopicTreeMessage {
-        std::string message;
-        OpCode opCode;
-        bool compress;
-    };
 
-    /* All WebSocketContextData holds a list to all other WebSocketContextData in this app.
-     * We cannot type it USERDATA since different WebSocketContextData can have different USERDATA. */
-    std::vector<WebSocketContextData<SSL, int> *> adjacentWebSocketContextDatas;
+    /* This one points to the App's shared topicTree */
+    TopicTree<TopicTreeMessage> *topicTree;
 
     /* The callbacks for this context */
     MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *)> openHandler = nullptr;
@@ -75,9 +68,6 @@ public:
     /* These are calculated on creation */
     std::pair<unsigned short, unsigned short> idleTimeoutComponents;
 
-    /* Each websocket context has a topic tree for pub/sub */
-    TopicTree<TopicTreeMessage> topicTree;
-
     /* This is run once on start-up */
     void calculateIdleTimeoutCompnents(unsigned short idleTimeout) {
         unsigned short margin = 4;
@@ -92,55 +82,11 @@ public:
     }
 
     ~WebSocketContextData() {
-        /* We must unregister any loop post handler here */
-        Loop::get()->removePostHandler(this);
-        Loop::get()->removePreHandler(this);
+
     }
 
-    WebSocketContextData() : topicTree([](Subscriber *s, TopicTreeMessage &message, auto flags) {
-        /* Subscriber's user is the socket */
-        auto *ws = (WebSocket<SSL, true, USERDATA> *) s->user;
+    WebSocketContextData(TopicTree<TopicTreeMessage> *topicTree) : topicTree(topicTree) {
 
-        /* If this is the first message we try and cork */
-        bool needsUncork = false;
-        if (flags & TopicTree<TopicTreeMessage>::IteratorFlags::FIRST) {
-            if (ws->canCork() && !ws->isCorked()) {
-                ((AsyncSocket<SSL> *)ws)->cork();
-                needsUncork = true;
-            }
-        }
-
-        /* If we ever overstep maxBackpresure, exit immediately */
-        if (WebSocket<SSL, true, USERDATA>::SendStatus::DROPPED == ws->send(message.message, message.opCode, message.compress)) {
-
-            if (needsUncork) {
-                ((AsyncSocket<SSL> *)ws)->uncork();
-            }
-            /* Stop draining */
-            return true;
-        }
-
-        /* If this is the last message we uncork if we are corked */
-        if (flags & TopicTree<TopicTreeMessage>::IteratorFlags::LAST) {
-            /* We should not uncork in all cases? */
-            if (needsUncork) {
-                ((AsyncSocket<SSL> *)ws)->uncork();
-            }
-        }
-
-        /* Success */
-        return false;
-    }) {
-        /* We empty for both pre and post just to make sure */
-        Loop::get()->addPostHandler(this, [this](Loop */*loop*/) {
-            /* Commit pub/sub batches every loop iteration */
-            topicTree.drain();
-        });
-
-        Loop::get()->addPreHandler(this, [this](Loop */*loop*/) {
-            /* Commit pub/sub batches every loop iteration */
-            topicTree.drain();
-        });
     }
 };
 
