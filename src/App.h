@@ -163,8 +163,8 @@ public:
         webSocketContextDeleters = std::move(other.webSocketContextDeleters);
 
         /* Move TopicTree */
-        other.topicTree = topicTree;
-        topicTree = nullptr;
+        topicTree = other.topicTree;
+        other.topicTree = nullptr;
     }
 
     TemplatedApp(SocketContextOptions options = {}) {
@@ -224,7 +224,7 @@ public:
         /* If we don't have a TopicTree yet, create one now */
         if (!topicTree) {
 
-            topicTree = new TopicTree<TopicTreeMessage>([](Subscriber *s, TopicTreeMessage &message, auto flags) {
+            topicTree = new TopicTree<TopicTreeMessage>([](Subscriber *s, TopicTreeMessage &message, TopicTree<TopicTreeMessage>::IteratorFlags flags) {
                 /* Subscriber's user is the socket */
                 /* Unfortunately we need to cast is to PerSocketData = int
                  * since many different WebSocketContexts use the same
