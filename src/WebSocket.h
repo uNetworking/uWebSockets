@@ -89,6 +89,13 @@ public:
             return DROPPED;
         }
 
+        /* If we are subscribers and have messages to drain we need to drain them here to stay synced */
+        WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
+        if (webSocketData->subscriber) {
+            /* This will call back into us, send. */
+            webSocketContextData->topicTree.drain(webSocketData->subscriber);
+        }
+
         /* Transform the message to compressed domain if requested */
         if (compress) {
             WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
@@ -180,8 +187,7 @@ public:
         }
 
         /* Make sure to unsubscribe from any pub/sub node at exit */
-        webSocketContextData->topicTree.unsubscribeAll(webSocketData->subscriber, false);
-        delete webSocketData->subscriber;
+        webSocketContextData->topicTree.freeSubscriber(webSocketData->subscriber);
         webSocketData->subscriber = nullptr;
     }
 
@@ -201,7 +207,7 @@ public:
     }
 
     /* Subscribe to a topic according to MQTT rules and syntax. Returns success */
-    /*std::pair<unsigned int, bool>*/ bool subscribe(std::string_view topic, bool nonStrict = false) {
+    bool subscribe(std::string_view topic, bool = false) {
         WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
@@ -209,15 +215,19 @@ public:
         /* Make us a subscriber if we aren't yet */
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
         if (!webSocketData->subscriber) {
-            webSocketData->subscriber = new Subscriber(this);
+            webSocketData->subscriber = webSocketContextData->topicTree.createSubscriber();
+            webSocketData->subscriber->user = this;
         }
 
         /* Cannot return numSubscribers as this is only for this particular websocket context */
-        return webSocketContextData->topicTree.subscribe(topic, webSocketData->subscriber, nonStrict).second;
+        webSocketContextData->topicTree.subscribe(webSocketData->subscriber, topic);
+
+        /* Subscribe always succeeds */
+        return true;
     }
 
     /* Unsubscribe from a topic, returns true if we were subscribed. */
-    /*std::pair<unsigned int, bool>*/ bool unsubscribe(std::string_view topic, bool nonStrict = false) {
+    bool unsubscribe(std::string_view topic, bool = false) {
         WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
@@ -225,7 +235,15 @@ public:
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
 
         /* Cannot return numSubscribers as this is only for this particular websocket context */
-        return webSocketContextData->topicTree.unsubscribe(topic, webSocketData->subscriber, nonStrict).second;
+        auto [ok, last] = webSocketContextData->topicTree.unsubscribe(webSocketData->subscriber, topic);
+
+        /* Free us as subscribers if we unsubscribed from our last topic */
+        if (ok && last) {
+            webSocketContextData->topicTree.freeSubscriber(webSocketData->subscriber);
+            webSocketData->subscriber = nullptr;
+        }
+
+        return ok;
     }
 
     /* Returns whether this socket is subscribed to the specified topic */
@@ -239,30 +257,34 @@ public:
             return false;
         }
 
-        Topic *t = webSocketContextData->topicTree.lookupTopic(topic);
-        if (t) {
-            return t->subs.find(webSocketData->subscriber) != t->subs.end();
+        Topic *topicPtr = webSocketContextData->topicTree.lookupTopic(topic);
+        if (!topicPtr) {
+            return false;
         }
 
-        return false;
+        return topicPtr->count(webSocketData->subscriber);
     }
 
     /* Iterates all topics of this WebSocket. Every topic is represented by its full name.
      * Can be called in close handler. It is possible to modify the subscription list while
      * inside the callback ONLY IF not modifying the topic passed to the callback.
      * Topic names are valid only for the duration of the callback. */
-    void iterateTopics(MoveOnlyFunction<void(std::string_view/*, unsigned int*/)> cb) {
+    void iterateTopics(MoveOnlyFunction<void(std::string_view)> cb) {
+        WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
+            (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
+        );
+
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
-
         if (webSocketData->subscriber) {
-            for (Topic *t : webSocketData->subscriber->subscriptions) {
-                /* Lock this topic so that nobody may unsubscribe from it during this callback */
-                t->locked = true;
+            /* Lock this subscriber for unsubscription / subscription */
+            webSocketContextData->topicTree.iteratingSubscriber = webSocketData->subscriber;
 
-                cb(t->fullName/*, (unsigned int) t->subs.size()*/);
-
-                t->locked = false;
+            for (Topic *topicPtr : webSocketData->subscriber->topics) {
+                cb({topicPtr->name.data(), topicPtr->name.length()});
             }
+
+            /* Unlock subscriber */
+            webSocketContextData->topicTree.iteratingSubscriber = nullptr;
         }
     }
 
@@ -282,13 +304,13 @@ public:
         }
 
         /* Publish as sender, does not receive its own messages even if subscribed to relevant topics */
-        bool success = webSocketContextData->publish(topic, message, opCode, compress, webSocketData->subscriber);
+        bool success = webSocketContextData->topicTree.publish(webSocketData->subscriber, topic, {std::string(message), opCode, compress});
 
         /* Loop over all websocket contexts for this App */
         if (success) {
             /* Success is really only determined by the first publish. We must be subscribed to the topic. */
             for (auto *adjacentWebSocketContextData : webSocketContextData->adjacentWebSocketContextDatas) {
-                adjacentWebSocketContextData->publish(topic, message, opCode, compress);
+                adjacentWebSocketContextData->topicTree.publish(nullptr, topic, {std::string(message), opCode, compress});
             }
         }
 

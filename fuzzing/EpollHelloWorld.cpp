@@ -55,7 +55,7 @@ void test() {
             }
             /* Some invalid queries */
             req->getParameter(30000);
-            req->getParameter(-34234);
+            req->getParameter((unsigned short) -34234);
             req->getHeader("yhello");
             req->getQuery();
             req->getQuery("assd");

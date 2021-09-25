@@ -101,7 +101,7 @@ public:
      * app has one conceptual Topic tree) */
     void publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress = false) {
         for (auto *webSocketContext : webSocketContexts) {
-            webSocketContext->getExt()->publish(topic, message, opCode, compress);
+            webSocketContext->getExt()->topicTree.publish(nullptr, topic, {std::string(message), opCode, compress});
         }
     }
 
@@ -116,7 +116,7 @@ public:
 
             Topic *t = webSocketContextData->topicTree.lookupTopic(topic);
             if (t) {
-                subscribers += t->subs.size();
+                subscribers += t->size();
             }
         }
 

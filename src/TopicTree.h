@@ -18,599 +18,296 @@
 #ifndef UWS_TOPICTREE_H
 #define UWS_TOPICTREE_H
 
-#include <iostream>
-#include <vector>
 #include <map>
+#include <list>
+#include <iostream>
+#include <unordered_set>
+#include <utility>
+#include <memory>
+#include <unordered_map>
+#include <vector>
 #include <string_view>
 #include <functional>
 #include <set>
-#include <chrono>
-#include <list>
-#include <cstring>
-
-/* We use std::function here, not MoveOnlyFunction */
-#include <functional>
 
 namespace uWS {
 
-/* A Subscriber is an extension of a socket */
+struct Subscriber;
+
+struct Topic : std::unordered_set<Subscriber *> {
+
+    Topic(std::string_view topic) : name(topic) {
+
+    }
+
+    std::string name;
+};
+
 struct Subscriber {
-    std::list<struct Topic *> subscriptions;
-    void *user;
 
-    Subscriber(void *user) : user(user) {}
-};
-
-struct Topic {
-    /* Memory for our name */
-    char *name;
-    size_t length;
-
-    /* Our parent or nullptr */
-    Topic *parent = nullptr;
-
-    /* Next triggered Topic */
-    bool triggered = false;
-
-    /* Exact string matches */
-    std::map<std::string_view, Topic *> children;
-
-    /* Wildcard child */
-    Topic *wildcardChild = nullptr;
-
-    /* Terminating wildcard child */
-    Topic *terminatingWildcardChild = nullptr;
-
-    /* What we published, {inflated, deflated} */
-    std::map<unsigned int, std::pair<std::string, std::string>> messages;
-
-    std::set<Subscriber *> subs;
-
-    /* Locked or not, used only when iterating over a Subscriber's topics */
-    bool locked = false;
-
-    /* Full name is used when iterating topcis */
-    std::string fullName;
-};
-
-struct Hole {
-    std::pair<size_t, size_t> lengths;
-    unsigned int messageId;
-};
-
-struct Intersection {
-    std::pair<std::string, std::string> dataChannels;
-    std::vector<Hole> holes;
-
-    void forSubscriber(std::vector<unsigned int> &senderForMessages, std::function<void(std::pair<std::string_view, std::string_view>, bool)> cb) {
-        /* How far we already emitted of the two dataChannels */
-        std::pair<size_t, size_t> emitted = {};
-
-        /* This is a slow path of sorts, most subscribers will be observers, not active senders */
-        if (!senderForMessages.empty()) {
-
-            std::pair<size_t, size_t> toEmit = {};
-            unsigned int startAt = 0;
-
-            /* Iterate each message looking for any to skip */
-            for (auto &message : holes) {
-
-                /* If this message was sent by this subscriber skip it */
-                bool skipMessage = false;
-                for (unsigned int i = startAt; i < senderForMessages.size(); i++) {
-                    if (senderForMessages[i] > message.messageId) {
-                        startAt = i;
-                        break;
-                    }
-                    if (message.messageId == senderForMessages[i]) {
-                        skipMessage = true;
-                        startAt = ++i;
-                        break;
-                    }
-                }
-
-                /* Collect messages until a skip, then emit messages */
-                if (!skipMessage) {
-                    toEmit.first += message.lengths.first;
-                    toEmit.second += message.lengths.second;
-                } else {
-                    if (toEmit.first || toEmit.second) {
-                        std::pair<std::string_view, std::string_view> cutDataChannels = {
-                            std::string_view(dataChannels.first.data() + emitted.first, toEmit.first),
-                            std::string_view(dataChannels.second.data() + emitted.second, toEmit.second),
-                        };
-                        /* Only need to test the first data channel for "FIN" */
-                        cb(cutDataChannels, emitted.first + toEmit.first + message.lengths.first == dataChannels.first.length());
-                        emitted.first += toEmit.first;
-                        emitted.second += toEmit.second;
-                        toEmit = {};
-                    }
-                    /* This message is now accounted for, mark as emitted */
-                    emitted.first += message.lengths.first;
-                    emitted.second += message.lengths.second;
-                }
-            }
-        }
-
-        if (emitted.first == dataChannels.first.length() && emitted.second == dataChannels.second.length()) {
-            return;
-        }
-
-        std::pair<std::string_view, std::string_view> cutDataChannels = {
-            std::string_view(dataChannels.first.data() + emitted.first, dataChannels.first.length() - emitted.first),
-            std::string_view(dataChannels.second.data() + emitted.second, dataChannels.second.length() - emitted.second),
-        };
-
-        cb(cutDataChannels, true);
-    }
-};
-
-struct TopicTree {
-    /* Returns Topic, or nullptr. Topic can be root if empty string given. */
-    Topic *lookupTopic(std::string_view topic) {
-        /* Lookup exact Topic ptr from string */
-        Topic *iterator = root;
-        for (size_t start = 0, stop = 0; stop != std::string::npos; start = stop + 1) {
-            stop = topic.find('/', start);
-            std::string_view segment = topic.substr(start, stop - start);
-
-            std::map<std::string_view, Topic *>::iterator it = iterator->children.find(segment);
-            if (it == iterator->children.end()) {
-                /* This topic does not even exist */
-                return nullptr;
-            }
-
-            iterator = it->second;
-        }
-
-        return iterator;
-    }
+    template <typename> friend struct TopicTree;
 
 private:
-    std::function<int(Subscriber *, Intersection &)> cb;
+    /* We use a factory */
+    Subscriber() = default;
 
-    Topic *root = new Topic;
+    /* State of prev, next does not matter unless we are needsDrainage() since we are not in the list */
+    Subscriber *prev, *next;
 
-    /* Global messageId for deduplication of overlapping topics and ordering between topics */
-    unsigned int messageId = 0;
+    /* Any one subscriber can be part of at most 32 publishes before it needs a drain,
+     * or whatever encoding of runs or whatever we might do in the future */
+    uint16_t messageIndices[32];
 
-    /* Sender holes */
-    std::map<Subscriber *, std::vector<unsigned int>> senderHoles;
+    /* This one matters the most, if it is 0 we are not in the list of drainableSubscribers */
+    unsigned char numMessageIndices = 0;
 
-    /* The triggered topics */
-    Topic *triggeredTopics[64];
-    int numTriggeredTopics = 0;
-    Subscriber *min = (Subscriber *) UINTPTR_MAX;
+public:
 
-    /* Cull or trim unused Topic nodes from leaf to root */
-    void trimTree(Topic *topic) {
-        while (!topic->subs.size() && !topic->children.size() && !topic->terminatingWildcardChild && !topic->wildcardChild) {
-            Topic *parent = topic->parent;
+    /* We have a list of topics we subscribe to (read by WebSocket::iterateTopics) */
+    std::set<Topic *> topics;
 
-            if (topic->length == 1) {
-                if (topic->name[0] == '#') {
-                    parent->terminatingWildcardChild = nullptr;
-                } else if (topic->name[0] == '+') {
-                    parent->wildcardChild = nullptr;
-                }
-            }
-            /* Erase us from our parents set (wildcards also live here) */
-            parent->children.erase(std::string_view(topic->name, topic->length));
+    /* User data */
+    void *user;
 
-            /* If this node is triggered, make sure to remove it from the triggered list */
-            if (topic->triggered) {
-                Topic *tmp[64];
-                int length = 0;
-                for (int i = 0; i < numTriggeredTopics; i++) {
-                    if (triggeredTopics[i] != topic) {
-                        tmp[length++] = triggeredTopics[i];
-                    }
-                }
+    bool needsDrainage() {
+        return numMessageIndices;
+    }
+};
 
-                for (int i = 0; i < length; i++) {
-                    triggeredTopics[i] = tmp[i];
-                }
-                numTriggeredTopics = length;
-            }
+template <typename T>
+struct TopicTree {
 
-            /* Free various memory for the node */
-            delete [] topic->name;
-            delete topic;
+    enum IteratorFlags {
+        LAST = 1,
+        FIRST = 2
+    };
 
-            if (parent == root) {
-              break;
-            }
+private:
+    /* Whomever is iterating this topic is locked to not modify its own list */
+    Subscriber *iteratingSubscriber = nullptr;
 
-            topic = parent;
+    /* The drain callback must not publish, unsubscribe or subscribe.
+     * It must only cork, uncork, send, write */
+    std::function<bool(Subscriber *, T &, IteratorFlags)> cb;
+
+    /* The topics */
+    std::unordered_map<std::string_view, std::unique_ptr<Topic>> topics;
+
+    /* List of subscribers that needs drainage */
+    Subscriber *drainableSubscribers = nullptr;
+
+    /* Palette of outgoing messages, up to 64k */
+    std::vector<T> outgoingMessages;
+
+    void checkIteratingSubscriber(Subscriber *s) {
+        /* Notify user that they are doing something wrong here */
+        if (iteratingSubscriber == s) {
+            std::cerr << "Error: WebSocket must not subscribe or unsubscribe to topics while iterating its topics!" << std::endl;
+            std::terminate();
         }
     }
 
-    /* Publishes to all matching topics and wildcards. Returns whether at least one topic was a match. */
-    bool publish(Topic *iterator, size_t start, size_t stop, std::string_view topic, std::pair<std::string_view, std::string_view> message) {
+    /* Warning: does NOT unlink from drainableSubscribers or modify next, prev. */
+    void drainImpl(Subscriber *s) {
+        /* Before we call cb we need to make sure this subscriber will not report needsDrainage()
+         * since WebSocket::send will call drain from within the cb in that case.*/
+        int numMessageIndices = s->numMessageIndices;
+        s->numMessageIndices = 0;
 
-        /* Whether we matched with at least one topic */
-        bool didMatch = false;
+        /* Then we emit cb */
+        for (int i = 0; i < numMessageIndices; i++) {
+            T &outgoingMessage = outgoingMessages[s->messageIndices[i]];
 
-        /* Iterate over all segments in given topic */
-        for (; stop != std::string::npos; start = stop + 1) {
-            stop = topic.find('/', start);
-            std::string_view segment = topic.substr(start, stop - start);
+            int flags = (i == numMessageIndices - 1) ? LAST : 0;
 
-            /* It is very important to disallow wildcards when publishing.
-             * We will not catch EVERY misuse this lazy way, but enough to hinder
-             * explosive recursion.
-             * Terminating wildcards MAY still get triggered along the way, if for
-             * instace the error is found late while iterating the topic segments. */
-            if (segment.length() == 1) {
-                if (segment[0] == '+' || segment[0] == '#') {
-                    /* "Fail" here, but not necessarily for the entire publish */
-                    return didMatch;
-                }
+            /* Returning true will stop drainage short (such as when backpressure is too high) */
+            if (cb(s, outgoingMessage, (IteratorFlags)(flags | (i == 0 ? FIRST : 0)))) {
+                break;
             }
-
-            /* Do we have a terminating wildcard child? */
-            if (iterator->terminatingWildcardChild) {
-
-                /* Add this topic to triggered */
-                if (!iterator->terminatingWildcardChild->triggered) {
-                    /* If we already have 64 triggered topics make sure to drain it here */
-                    if (numTriggeredTopics == 64) {
-                        drain();
-                    }
-
-                    triggeredTopics[numTriggeredTopics++] = iterator->terminatingWildcardChild;
-                    iterator->terminatingWildcardChild->triggered = true;
-                }
-
-                /* Above drain can reset messageId so we have to add new messages after */
-                iterator->terminatingWildcardChild->messages[messageId] = message;
-
-                didMatch = true;
-            }
-
-            /* Do we have a wildcard child? */
-            if (iterator->wildcardChild) {
-                didMatch |= publish(iterator->wildcardChild, stop + 1, stop, topic, message);
-            }
-
-            std::map<std::string_view, Topic *>::iterator it = iterator->children.find(segment);
-            if (it == iterator->children.end()) {
-                /* Stop trying to match by exact string */
-                return didMatch;
-            }
-
-            iterator = it->second;
         }
-
-        /* If we went all the way we matched exactly */
-
-        /* Add this topic to triggered */
-        if (!iterator->triggered) {
-            /* If we already have 64 triggered topics make sure to drain it here */
-            if (numTriggeredTopics == 64) {
-                drain();
-            }
-
-            triggeredTopics[numTriggeredTopics++] = iterator;
-            iterator->triggered = true;
-        }
-
-        /* Above drain can change messageId to 0, so we put the message after */
-        iterator->messages[messageId] = message;
-
-        /* We obviously matches exactly here */
-        return true;
     }
 
 public:
 
-    TopicTree(std::function<int(Subscriber *, Intersection &)> cb) {
-        this->cb = cb;
+    TopicTree(std::function<bool(Subscriber *, T &, IteratorFlags)> cb) : cb(cb) {
+
     }
 
-    ~TopicTree() {
-        delete root;
+    /* Returns nullptr if not found */
+    Topic *lookupTopic(std::string_view topic) {
+        auto it = topics.find(topic);
+        if (it == topics.end()) {
+            return nullptr;
+        }
+        return it->second.get();
     }
 
-    /* This is part of the fast path, so should be optimal */
-    std::vector<unsigned int> &getSenderFor(Subscriber *s) {
-        static thread_local std::vector<unsigned int> emptyVector;
+    /* Subscribe fails if we already are subscribed */
+    bool subscribe(Subscriber *s, std::string_view topic) {
+        /* Notify user that they are doing something wrong here */
+        checkIteratingSubscriber(s);
 
-        auto it = senderHoles.find(s);
-        if (it != senderHoles.end()) {
-            return it->second;
+        /* Lookup or create new topic */
+        Topic *topicPtr = lookupTopic(topic);
+        if (!topicPtr) {
+            Topic *newTopic = new Topic(topic);
+            topics.insert({std::string_view(newTopic->name.data(), newTopic->name.length()), std::unique_ptr<Topic>(newTopic)});
+            topicPtr = newTopic;
         }
 
-        return emptyVector;
+        /* Insert us in topic, insert topic in us */
+        auto [it, inserted] = s->topics.insert(topicPtr);
+        if (!inserted) {
+            return false;
+        }
+        topicPtr->insert(s);
+
+        /* Success */
+        return true;
     }
 
-    /* Returns number of subscribers after the call and whether or not we were successful in subscribing */
-    std::pair<unsigned int, bool> subscribe(std::string_view topic, Subscriber *subscriber, bool nonStrict = false) {
-        /* Start iterating from the root */
-        Topic *iterator = root;
+    /* Returns ok, last */
+    std::pair<bool, bool> unsubscribe(Subscriber *s, std::string_view topic) {
+        /* Notify user that they are doing something wrong here */
+        checkIteratingSubscriber(s);
 
-        /* Traverse the topic, inserting a node for every new segment separated by / */
-        for (size_t start = 0, stop = 0; stop != std::string::npos; start = stop + 1) {
-            stop = topic.find('/', start);
-            std::string_view segment = topic.substr(start, stop - start);
+        /* Lookup topic */
+        Topic *topicPtr = lookupTopic(topic);
+        if (!topicPtr) {
+            /* If the topic doesn't exist we are assumed to still be subscribers of something */
+            return {false, false};
+        }
 
-            auto lb = iterator->children.lower_bound(segment);
+        /* Erase from our list first */
+        if (s->topics.erase(topicPtr) == 0) {
+            return {false, false};
+        }
 
-            if (lb != iterator->children.end() && !(iterator->children.key_comp()(segment, lb->first))) {
-                iterator = lb->second;
+        /* Remove us from topic */
+        topicPtr->erase(s);
+
+        /* If there is no subscriber to this topic, remove it */
+        if (!topicPtr->size()) {
+            /* Unique_ptr deletes the topic */
+            topics.erase(topic);
+        }
+
+        /* If we don't hold any topics we are to be freed altogether */
+        return {true, topics.size() == 0};
+    }
+
+    /* Factory function for creating a Subscriber */
+    Subscriber *createSubscriber() {
+        return new Subscriber();
+    }
+
+    /* This is used to end a Subscriber, before freeing it */
+    void freeSubscriber(Subscriber *s) {
+
+        /* I guess we call this one even if we are not subscribers */
+        if (!s) {
+            return;
+        }
+
+        /* For all topics, unsubscribe */
+        for (Topic *topicPtr : s->topics) {
+            /* If we are the last subscriber, simply remove the whole topic */
+            if (topicPtr->size() == 1) {
+                topics.erase(topicPtr->name);
             } else {
-                /* Allocate and insert new node */
-                Topic *newTopic = new Topic;
-                newTopic->parent = iterator;
-                newTopic->name = new char[segment.length()];
-                newTopic->length = segment.length();
-                newTopic->terminatingWildcardChild = nullptr;
-                newTopic->wildcardChild = nullptr;
-                memcpy(newTopic->name, segment.data(), segment.length());
-
-                /* Set fullname as parent's name plus our name */
-                newTopic->fullName.reserve(newTopic->parent->fullName.length() + 1 + segment.length());
-
-                /* Only append parent's name if parent is not root */
-                if (newTopic->parent != root) {
-                    newTopic->fullName.append(newTopic->parent->fullName);
-                    newTopic->fullName.append("/");
-                }
-
-                newTopic->fullName.append(segment);
-
-                /* For simplicity we do insert wildcards with text */
-                iterator->children.insert(lb, {std::string_view(newTopic->name, segment.length()), newTopic});
-
-                /* Store fast lookup to wildcards */
-                if (segment.length() == 1) {
-                    /* If this segment is '+' it is a wildcard */
-                    if (segment[0] == '+') {
-                        iterator->wildcardChild = newTopic;
-                    }
-                    /* If this segment is '#' it is a terminating wildcard */
-                    if (segment[0] == '#') {
-                        iterator->terminatingWildcardChild = newTopic;
-                    }
-                }
-
-                iterator = newTopic;
+                /* Otherwise just remove us */
+                topicPtr->erase(s);
             }
         }
 
-        /* If this topic is triggered, drain the tree before we join */
-        if (iterator->triggered) {
-            if (!nonStrict) {
-                drain();
-            }
-        }
-
-        /* Add socket to Topic's Set */
-        auto [it, inserted] = iterator->subs.insert(subscriber);
-
-        /* Add Topic to list of subscriptions only if we weren't already subscribed */
-        if (inserted) {
-            subscriber->subscriptions.push_back(iterator);
-            return {(unsigned int) iterator->subs.size(), true};
-        }
-        return {(unsigned int) iterator->subs.size(), false};
+        delete s;
     }
 
-    bool publish(std::string_view topic, std::pair<std::string_view, std::string_view> message, Subscriber *sender = nullptr) {
-        /* Add a hole for the sender if one */
-        if (sender) {
-            senderHoles[sender].push_back(messageId);
-        }
-
-        auto ret = publish(root, 0, 0, topic, message);
-        /* MessageIDs are reset on drain - this should be fine since messages itself are cleared on drain */
-        messageId++;
-        return ret;
-    }
-
-    /* Returns a pair of numSubscribers after operation, and whether we were subscribed prior */
-    std::pair<unsigned int, bool> unsubscribe(std::string_view topic, Subscriber *subscriber, bool nonStrict = false) {
-        /* Subscribers are likely to have very few subscriptions (20 or fewer) */
-        if (subscriber) {
-            /* Lookup exact Topic ptr from string */
-            Topic *iterator = root;
-            for (size_t start = 0, stop = 0; stop != std::string::npos; start = stop + 1) {
-                stop = topic.find('/', start);
-                std::string_view segment = topic.substr(start, stop - start);
-
-                std::map<std::string_view, Topic *>::iterator it = iterator->children.find(segment);
-                if (it == iterator->children.end()) {
-                    /* This topic does not even exist */
-                    return {0, false};
-                }
-
-                iterator = it->second;
+    /* Mainly used by WebSocket::send to drain one socket before sending */
+    void drain(Subscriber *s) {
+        /* The list is undefined and cannot be touched unless needsDrainage(). */
+        if (s->needsDrainage()) {
+            /* This function differs from drainImpl by properly unlinking
+            * the subscriber from drainableSubscribers. drainImpl does not. */
+            if (s->prev) {
+                s->prev->next = s->next;
             }
-
-            /* Is this topic locked? If so, we cannot unsubscribe from it */
-            if (iterator->locked) {
-                return {iterator->subs.size(), false};
+            if (s->next) {
+                s->next->prev = s->prev;
             }
-
-            /* Try and remove this topic from our list */
-            for (auto it = subscriber->subscriptions.begin(); it != subscriber->subscriptions.end(); it++) {
-                if (*it == iterator) {
-                    /* If this topic is triggered, drain the tree before we leave */
-                    if (iterator->triggered) {
-                        if (!nonStrict) {
-                            drain();
-                        }
-                    }
-
-                    /* Remove topic ptr from our list */
-                    subscriber->subscriptions.erase(it);
-
-                    /* Remove us from Topic's subs */
-                    iterator->subs.erase(subscriber);
-                    unsigned int numSubscribers = (unsigned int) iterator->subs.size();
-                    trimTree(iterator);
-                    return {numSubscribers, true};
-                }
+            /* If we are the head, then we also need to reset the head */
+            if (drainableSubscribers == s) {
+                drainableSubscribers = nullptr;
             }
-        }
-        return {0, false};
-    }
-
-    /* Can be called with nullptr, ignore it then */
-    void unsubscribeAll(Subscriber *subscriber, bool mayFlush = true) {
-        if (subscriber) {
-            for (Topic *topic : subscriber->subscriptions) {
-
-                /* We do not want to flush when closing a socket, it makes no sense to do so */
-
-                /* If this topic is triggered, drain the tree before we leave */
-                if (mayFlush && topic->triggered) {
-                    /* Never mind nonStrict here (yet?) */
-                    drain();
-                }
-
-                /* Remove us from the topic's set */
-                topic->subs.erase(subscriber);
-                trimTree(topic);
-            }
-            /* If we are sender with outstanding holes, remove them now that we are dead */
-            senderHoles.erase(subscriber);
-
-            subscriber->subscriptions.clear();
+            
+            /* This one always resets needsDrainage before it calls any cb's.
+             * Otherwise we would stackoverflow when sending after publish but before drain. */
+            drainImpl(s);
         }
     }
 
-    /* Drain the tree by emitting what to send with every Subscriber */
-    /* Better name would be commit() and making it public so that one can commit and shutdown, etc */
+    /* Called everytime we call send, to drain published messages so to sync outgoing messages */
     void drain() {
-
-        /* Do nothing if nothing to send */
-        if (!numTriggeredTopics) {
-            return;
-        }
-
-        /* bug fix: Filter triggered topics without subscribers */
-        int numFilteredTriggeredTopics = 0;
-        for (int i = 0; i < numTriggeredTopics; i++) {
-            if (triggeredTopics[i]->subs.size()) {
-                triggeredTopics[numFilteredTriggeredTopics++] = triggeredTopics[i];
-            } else {
-                /* If we no longer have any subscribers, yet still keep this Topic alive (parent),
-                 * make sure to clear its potential messages. */
-                triggeredTopics[i]->messages.clear();
-                triggeredTopics[i]->triggered = false;
+        if (drainableSubscribers) {
+            /* Drain one socket a time */
+            for (Subscriber *s = drainableSubscribers; s; s = s->next) {
+                /* Instead of unlinking every single subscriber, we just leave the list undefined
+                 * and reset drainableSubscribers ptr below. */
+                drainImpl(s);
             }
+            /* Drain always clears drainableSubscribers and outgoingMessages */
+            drainableSubscribers = nullptr;
+            outgoingMessages.clear();
         }
-        numTriggeredTopics = numFilteredTriggeredTopics;
-
-        if (!numTriggeredTopics) {
-            senderHoles.clear();
-            messageId = 0;
-            return;
-        }
-
-        /* bug fix: update min, as the one tracked via subscribe gets invalid as you unsubscribe */
-        min = (Subscriber *)UINTPTR_MAX;
-        for (int i = 0; i < numTriggeredTopics; i++) {
-            if ((triggeredTopics[i]->subs.size()) && (min > *triggeredTopics[i]->subs.begin())) {
-                min = *triggeredTopics[i]->subs.begin();
-            }
-        }
-
-        /* Check if we really have any sockets still */
-        if (min != (Subscriber *)UINTPTR_MAX) {
-
-            /* Up to 64 triggered Topics per batch */
-            std::map<uint64_t, Intersection> intersectionCache;
-
-            /* Loop over these here */
-            std::set<Subscriber *>::iterator it[64];
-            std::set<Subscriber *>::iterator end[64];
-            for (int i = 0; i < numTriggeredTopics; i++) {
-                it[i] = triggeredTopics[i]->subs.begin();
-                end[i] = triggeredTopics[i]->subs.end();
-            }
-
-            /* Empty all sets from unique subscribers */
-            for (int nonEmpty = numTriggeredTopics; nonEmpty; ) {
-
-                Subscriber *nextMin = (Subscriber *)UINTPTR_MAX;
-
-                /* The message sets relevant for this intersection */
-                std::map<unsigned int, std::pair<std::string, std::string>> *perSubscriberIntersectingTopicMessages[64];
-                int numPerSubscriberIntersectingTopicMessages = 0;
-
-                uint64_t intersection = 0;
-
-                for (int i = 0; i < numTriggeredTopics; i++) {
-                    if ((it[i] != end[i]) && (*it[i] == min)) {
-
-                        /* Mark this intersection */
-                        intersection |= ((uint64_t)1 << i);
-                        perSubscriberIntersectingTopicMessages[numPerSubscriberIntersectingTopicMessages++] = &triggeredTopics[i]->messages;
-
-                        it[i]++;
-                        if (it[i] == end[i]) {
-                            nonEmpty--;
-                        }
-                        else {
-                            if (nextMin > *it[i]) {
-                                nextMin = *it[i];
-                            }
-                        }
-                    }
-                    else {
-                        /* We need to lower nextMin to us, in the case of min being the last in a set */
-                        if ((it[i] != end[i]) && (nextMin > *it[i])) {
-                            nextMin = *it[i];
-                        }
-                    }
-                }
-
-                /* Generate cache for intersection */
-                if (intersectionCache[intersection].dataChannels.first.length() == 0) {
-
-                    /* Build the union in order without duplicates */
-                    std::map<unsigned int, std::pair<std::string, std::string>> complete;
-                    for (int i = 0; i < numPerSubscriberIntersectingTopicMessages; i++) {
-                        complete.insert(perSubscriberIntersectingTopicMessages[i]->begin(), perSubscriberIntersectingTopicMessages[i]->end());
-                    }
-
-                    /* Create the linear cache, {inflated, deflated} */
-                    Intersection res;
-                    for (auto &p : complete) {
-                        res.dataChannels.first.append(p.second.first);
-                        res.dataChannels.second.append(p.second.second);
-
-                        /* Appends {id, length, length}
-                         * We could possibly append byte offset also,
-                         * if we want to use log2 search later. */
-                        Hole h;
-                        h.lengths.first = p.second.first.length();
-                        h.lengths.second = p.second.second.length();
-                        h.messageId = p.first;
-                        res.holes.push_back(h);
-                    }
-
-                    cb(min, intersectionCache[intersection] = std::move(res));
-                }
-                else {
-                    cb(min, intersectionCache[intersection]);
-                }
-
-                min = nextMin;
-            }
-        }
-
-        /* Clear messages of triggered Topics */
-        for (int i = 0; i < numTriggeredTopics; i++) {
-            triggeredTopics[i]->messages.clear();
-            triggeredTopics[i]->triggered = false;
-        }
-        numTriggeredTopics = 0;
-        senderHoles.clear();
-        messageId = 0;
     }
+
+    /* Linear in number of affected subscribers */
+    bool publish(Subscriber *sender, std::string_view topic, T &&message) {
+        /* Do we even have this topic? */
+        auto it = topics.find(topic);
+        if (it == topics.end()) {
+            return false;
+        }
+
+        /* If we have more than 65k messages we need to drain every socket. */
+        if (outgoingMessages.size() == UINT16_MAX) {
+            /* If there is a socket that is currently corked, this will be ugly as all sockets will drain
+             * to their own backpressure */
+            drain();
+        }
+
+        /* For all subscribers in topic */
+        for (Subscriber *s : *it->second) {
+
+            /* If we are sender then ignore us */
+            if (sender != s) {
+
+                /* If we already have too many outgoing messages on this subscriber, drain it now */
+                if (s->numMessageIndices == 32) {
+                    /* This one does not need to check needsDrainage here but still does. */
+                    drain(s);
+                }
+
+                /* Finally we can continue */
+                s->messageIndices[s->numMessageIndices++] = (uint16_t)outgoingMessages.size();
+                /* First message adds subscriber to list of drainable subscribers */
+                if (s->numMessageIndices == 1) {
+                    /* Insert us in the head of drainable subscribers */
+                    s->next = drainableSubscribers;
+                    s->prev = nullptr;
+                    if (s->next) {
+                        s->next->prev = s;
+                    }
+                    drainableSubscribers = s;
+                }
+            }
+        }
+
+        /* Push this message and return with success */
+        outgoingMessages.emplace_back(message);
+        return true;
+    }
+
 };
 
 }

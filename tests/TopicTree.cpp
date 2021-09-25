@@ -13,37 +13,20 @@
 void testCorrectness() {
     std::cout << "TestCorrectness" << std::endl;
 
-    uWS::TopicTree *topicTree;
-    std::map<void *, std::pair<std::string, std::string>> expectedResult;
-    std::map<void *, std::pair<std::string, std::string>> actualResult;
+    uWS::TopicTree<std::string> *topicTree;
+    std::map<void *, std::string> expectedResult;
+    std::map<void *, std::string> actualResult;
 
-    topicTree = new uWS::TopicTree([&topicTree, &actualResult](uWS::Subscriber *s, uWS::Intersection &intersection) {
+    topicTree = new uWS::TopicTree<std::string>([&topicTree, &actualResult](uWS::Subscriber *s, std::string &message, auto flags) {
 
-        /* How many bytes we have in first data channel at time we get fin = true */
-        unsigned int finAt = 0;
+        actualResult[s] += message;
 
-        intersection.forSubscriber(topicTree->getSenderFor(s), [s, &finAt, &actualResult](std::pair<std::string_view, std::string_view> dataChannels, bool fin) {
-            actualResult[s].first += dataChannels.first;
-            actualResult[s].second += dataChannels.second;
-
-            /* Check that getting fin = true really is the last segment */
-            if (!finAt && fin) {
-                finAt = actualResult[s].first.length();
-            }
-        });
-
-        /* Assume finAt == actualResult[s].first.length() */
-        if (actualResult[s].first.length() != finAt) {
-            std::cout << "ERROR! FinAt mismatching!" << std::endl;
-            exit(1);
-        }
-
-        /* We actually don't use this one */
-        return 0;
+        /* Success */
+        return false;
     });
 
-    uWS::Subscriber *s1 = new uWS::Subscriber(nullptr);
-    uWS::Subscriber *s2 = new uWS::Subscriber(nullptr);
+    uWS::Subscriber *s1 = topicTree->createSubscriber();
+    uWS::Subscriber *s2 = topicTree->createSubscriber();
 
     /* Make sure s1 < s2 (for debugging) */
     if (s2 < s1) {
@@ -53,35 +36,35 @@ void testCorrectness() {
     }
 
     /* Publish to topic3 - nobody should see this */
-    topicTree->publish("topic3", {std::string_view("Nobody"), std::string_view("should see")}, nullptr);
+    topicTree->publish(nullptr, "topic3", "Nobody should see");
 
     /* Subscribe s1 to topic3 - s1 should not see above message */
-    topicTree->subscribe("topic3", s1);
+    topicTree->subscribe(s1, "topic3");
 
     /* Publish to topic3 with s1 as sender - s1 should not get its own messages */
-    topicTree->publish("topic3", {std::string_view("Nobody"), std::string_view("should see")}, s1);
+    topicTree->publish(s1, "topic3", "Nobody should see");
 
     /* Subscribe s2 to topic3 - should not get any message */
-    topicTree->subscribe("topic3", s2);
+    topicTree->subscribe(s2, "topic3");
 
     /* Publish to topic3 without sender - both should see */
-    topicTree->publish("topic3", {std::string_view("Both"), std::string_view("should see")}, nullptr);
+    topicTree->publish(nullptr, "topic3", "Both should see");
 
     /* Publish to topic3 with s2 as sender - s1 should see */
-    topicTree->publish("topic3", {std::string_view("s1"), std::string_view("should see, not s2")}, s2);
+    topicTree->publish(s2, "topic3", "s1 should see, not s2");
 
     /* Publish to topic3 with s1 as sender - s2 should see */
-    topicTree->publish("topic3", {std::string_view("s2"), std::string_view("should see, not s1")}, s1);
+    topicTree->publish(s1, "topic3", "s2 should see, not s1");
 
     /* Publish to topic3 without sender - both should see */
-    topicTree->publish("topic3", {std::string_view("Again, both"), std::string_view("should see this as well")}, nullptr);
+    topicTree->publish(nullptr, "topic3", "Again, both should see this as well");
 
     // todo: add more cases involving more topics and duplicates, etc
 
     /* Fill out expectedResult */
     expectedResult = {
-        {s1, {"Boths1Again, both", "should seeshould see, not s2should see this as well"}},
-        {s2, {"Boths2Again, both", "should seeshould see, not s1should see this as well"}}
+        {s1, "Both should sees1 should see, not s2Again, both should see this as well"},
+        {s2, "Both should sees2 should see, not s1Again, both should see this as well"}
     };
 
     /* Compare result with expected result for every subscriber */
@@ -89,23 +72,15 @@ void testCorrectness() {
     for (auto &p : expectedResult) {
         std::cout << "Subscriber: " << p.first << std::endl;
 
-        if (p.second.first != actualResult[p.first].first) {
-            std::cout << "ERROR: <" << actualResult[p.first].first << "> should be <" << p.second.first << ">" << std::endl;
-            exit(1);
-        }
-
-        if (p.second.second != actualResult[p.first].second) {
-            std::cout << "ERROR: <" << actualResult[p.first].second << "> should be <" << p.second.second << ">" << std::endl;
+        if (p.second != actualResult[p.first]) {
+            std::cout << "ERROR: <" << actualResult[p.first] << "> should be <" << p.second << ">" << std::endl;
             exit(1);
         }
     }
 
     /* Release resources */
-    topicTree->unsubscribeAll(s1);
-    topicTree->unsubscribeAll(s2);
-
-    delete s1;
-    delete s2;
+    topicTree->freeSubscriber(s1);
+    topicTree->freeSubscriber(s2);
 
     delete topicTree;
 }
@@ -113,37 +88,20 @@ void testCorrectness() {
 void testBugReport() {
     std::cout << "TestBugReport" << std::endl;
 
-    uWS::TopicTree *topicTree;
-    std::map<void *, std::pair<std::string, std::string>> expectedResult;
-    std::map<void *, std::pair<std::string, std::string>> actualResult;
+    uWS::TopicTree<std::string> *topicTree;
+    std::map<void *, std::string> expectedResult;
+    std::map<void *, std::string> actualResult;
 
-    topicTree = new uWS::TopicTree([&topicTree, &actualResult](uWS::Subscriber *s, uWS::Intersection &intersection) {
+    topicTree = new uWS::TopicTree<std::string>([&topicTree, &actualResult](uWS::Subscriber *s, std::string &message, auto flags) {
 
-        /* How many bytes we have in first data channel at time we get fin = true */
-        unsigned int finAt = 0;
+        actualResult[s] += message;
 
-        intersection.forSubscriber(topicTree->getSenderFor(s), [s, &finAt, &actualResult](std::pair<std::string_view, std::string_view> dataChannels, bool fin) {
-            actualResult[s].first += dataChannels.first;
-            actualResult[s].second += dataChannels.second;
-
-            /* Check that getting fin = true really is the last segment */
-            if (!finAt && fin) {
-                finAt = actualResult[s].first.length();
-            }
-        });
-
-        /* Assume finAt == actualResult[s].first.length() */
-        if (actualResult[s].first.length() != finAt) {
-            std::cout << "ERROR! FinAt mismatching!" << std::endl;
-            exit(1);
-        }
-
-        /* We actually don't use this one */
-        return 0;
+        /* Success */
+        return false;
     });
 
-    uWS::Subscriber *s1 = new uWS::Subscriber(nullptr);
-    uWS::Subscriber *s2 = new uWS::Subscriber(nullptr);
+    uWS::Subscriber *s1 = topicTree->createSubscriber();
+    uWS::Subscriber *s2 = topicTree->createSubscriber();
 
     /* Make sure s1 < s2 (for debugging) */
     if (s2 < s1) {
@@ -153,21 +111,21 @@ void testBugReport() {
     }
 
     /* Each subscriber to its own topic */
-    topicTree->subscribe("b1", s1);
-    topicTree->subscribe("b2", s2);
+    topicTree->subscribe(s1, "b1");
+    topicTree->subscribe(s2, "b2");
 
     /* This one should send b2 to s2 */
-    topicTree->publish("b1", {std::string_view("b1"), std::string_view("b1")}, s1);
-    topicTree->publish("b2", {std::string_view("b2"), std::string_view("b2")}, s1);
+    topicTree->publish(s1, "b1", "b1");
+    topicTree->publish(s1, "b2", "b2");
 
     /* This one should send b1 to s1 */
-    topicTree->publish("b1", {std::string_view("b1"), std::string_view("b1")}, s2);
-    topicTree->publish("b2", {std::string_view("b2"), std::string_view("b2")}, s2);
+    topicTree->publish(s2, "b1", "b1");
+    topicTree->publish(s2, "b2", "b2");
 
     /* Fill out expectedResult */
     expectedResult = {
-        {s1, {"b1", "b1"}},
-        {s2, {"b2", "b2"}}
+        {s1, "b1"},
+        {s2, "b2"}
     };
 
     /* Compare result with expected result for every subscriber */
@@ -175,23 +133,15 @@ void testBugReport() {
     for (auto &p : expectedResult) {
         std::cout << "Subscriber: " << p.first << std::endl;
 
-        if (p.second.first != actualResult[p.first].first) {
-            std::cout << "ERROR: <" << actualResult[p.first].first << "> should be <" << p.second.first << ">" << std::endl;
-            exit(1);
-        }
-
-        if (p.second.second != actualResult[p.first].second) {
-            std::cout << "ERROR: <" << actualResult[p.first].second << "> should be <" << p.second.second << ">" << std::endl;
+        if (p.second != actualResult[p.first]) {
+            std::cout << "ERROR: <" << actualResult[p.first] << "> should be <" << p.second << ">" << std::endl;
             exit(1);
         }
     }
 
     /* Release resources */
-    topicTree->unsubscribeAll(s1);
-    topicTree->unsubscribeAll(s2);
-
-    delete s1;
-    delete s2;
+    topicTree->freeSubscriber(s1);
+    topicTree->freeSubscriber(s2);
 
     delete topicTree;
 }
@@ -199,48 +149,30 @@ void testBugReport() {
 void testReorderingv19() {
     std::cout << "TestReorderingv19" << std::endl;
 
-    uWS::TopicTree *topicTree;
-    std::map<void *, std::pair<std::string, std::string>> expectedResult;
-    std::map<void *, std::pair<std::string, std::string>> actualResult;
+    uWS::TopicTree<std::string> *topicTree;
+    std::map<void *, std::string> expectedResult;
+    std::map<void *, std::string> actualResult;
 
-    topicTree = new uWS::TopicTree([&topicTree, &actualResult](uWS::Subscriber *s, uWS::Intersection &intersection) {
+    topicTree = new uWS::TopicTree<std::string>([&topicTree, &actualResult](uWS::Subscriber *s, std::string &message, auto flags) {
 
-        /* How many bytes we have in first data channel at time we get fin = true */
-        unsigned int finAt = 0;
+        actualResult[s] += message;
 
-        intersection.forSubscriber(topicTree->getSenderFor(s), [s, &finAt, &actualResult](std::pair<std::string_view, std::string_view> dataChannels, bool fin) {
-            actualResult[s].first += dataChannels.first;
-            actualResult[s].second += dataChannels.second;
-
-            /* Check that getting fin = true really is the last segment */
-            if (!finAt && fin) {
-                finAt = actualResult[s].first.length();
-            }
-        });
-
-        /* Assume finAt == actualResult[s].first.length() */
-        if (actualResult[s].first.length() != finAt) {
-            std::cout << "ERROR! FinAt mismatching!" << std::endl;
-            exit(1);
-        }
-
-        /* We actually don't use this one */
-        return 0;
+        /* Success */
+        return false;
     });
 
-    uWS::Subscriber *s1 = new uWS::Subscriber(nullptr);
+    uWS::Subscriber *s1 = topicTree->createSubscriber();
 
     /* Subscribe to 100 topics */
     for (int i = 0; i < 100; i++) {
-        topicTree->subscribe(std::to_string(i), s1);
+        topicTree->subscribe(s1, std::to_string(i));
     }
 
     /* Publish to 100 topics in order with messages in order */
     for (int i = 0; i < 100; i++) {
-        topicTree->publish(std::to_string(i), {std::to_string(i) + ",", std::to_string(i) + ","}, nullptr);
+        topicTree->publish(nullptr, std::to_string(i), std::to_string(i) + ",");
 
-        expectedResult[s1].first.append(std::to_string(i) + ",");
-        expectedResult[s1].second.append(std::to_string(i) + ",");
+        expectedResult[s1].append(std::to_string(i) + ",");
     }
 
     /* Compare result with expected result for every subscriber */
@@ -248,21 +180,14 @@ void testReorderingv19() {
     for (auto &p : expectedResult) {
         std::cout << "Subscriber: " << p.first << std::endl;
 
-        if (p.second.first != actualResult[p.first].first) {
-            std::cout << "ERROR: <" << actualResult[p.first].first << "> should be <" << p.second.first << ">" << std::endl;
-            exit(1);
-        }
-
-        if (p.second.second != actualResult[p.first].second) {
-            std::cout << "ERROR: <" << actualResult[p.first].second << "> should be <" << p.second.second << ">" << std::endl;
+        if (p.second != actualResult[p.first]) {
+            std::cout << "ERROR: <" << actualResult[p.first] << "> should be <" << p.second << ">" << std::endl;
             exit(1);
         }
     }
 
     /* Release resources */
-    topicTree->unsubscribeAll(s1);
-
-    delete s1;
+    topicTree->freeSubscriber(s1);
 
     delete topicTree;
 }

@@ -9,28 +9,25 @@
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     /* Create topic tree */
-    uWS::TopicTree topicTree([](uWS::Subscriber *s, uWS::Intersection &intersection) {
-
-        /* For now we do not care about iterating over holes! TODO! */
-        std::pair<std::string_view, std::string_view> message = intersection.dataChannels;
-
-        /* Subscriber must not be null, and at this point we have to have subscriptions.
-         * This assumption seems to hold true. */
-        if (!s->subscriptions.size()) {
-            free((void *) -1);
-        }
+    uWS::TopicTree<std::string> topicTree([](uWS::Subscriber *s, std::string &message, auto flags) {
 
         /* Depending on what publishing we do below (with or without empty strings),
          * this assumption can hold true or not. For now it should hold true */
-        if (!message.first.length()) {
+        if (!message.length()) {
             free((void *) -1);
         }
 
-        return 0;
+        /* Break if we have no subscriptions (not really an error, just to bring more randomness) */
+        if (s->topics.size() == 0) {
+            return true;
+        }
+
+        /* Success */
+        return false;
     });
 
     /* Holder for all manually allocated subscribers */
-    std::map<uint32_t, std::unique_ptr<uWS::Subscriber>> subscribers;
+    std::map<uint32_t, uWS::Subscriber *> subscribers;
 
     /* Iterate the padded fuzz as chunks */
     makeChunked(makePadded(data, size), size, [&topicTree, &subscribers](const uint8_t *data, size_t size) {
@@ -62,35 +59,48 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         return;
                     }
 
-                    uWS::Subscriber *subscriber = new uWS::Subscriber(nullptr);
-                    subscribers[id] = std::unique_ptr<uWS::Subscriber>(subscriber);
-                    topicTree.subscribe(lastString, subscriber);
+                    uWS::Subscriber *subscriber = topicTree.createSubscriber();
+                    subscribers[id] = subscriber;
+                    topicTree.subscribe(subscriber, lastString);
                 } else {
                     /* Limit per subscriber subscriptions (OOM) */
-                    uWS::Subscriber *subscriber = subscribers[id].get();
-                    if (subscriber->subscriptions.size() < 50) {
-                        topicTree.subscribe(lastString, subscriber);
+                    uWS::Subscriber *subscriber = subscribers[id];
+                    if (subscriber->topics.size() < 50) {
+                        topicTree.subscribe(subscriber, lastString);
                     }
                 }
             } else if (data[4] == 'U') {
                 /* Unsubscribe */
                 auto it = subscribers.find(id);
                 if (it != subscribers.end()) {
-                    topicTree.unsubscribe(lastString, it->second.get());
+                    topicTree.unsubscribe(it->second, lastString);
                 }
             } else if (data[4] == 'A') {
                 /* Unsubscribe from all */
                 auto it = subscribers.find(id);
                 if (it != subscribers.end()) {
-                    topicTree.unsubscribeAll(it->second.get());
+                    std::vector<std::string> topics;
+                    for (auto *topic : it->second->topics) {
+                        topics.push_back(topic->name);
+                    }
+
+                    for (std::string &topic : topics) {
+                        topicTree.unsubscribe(it->second, topic);
+                    }
+                }
+            } else if (data[4] == 'O') {
+                /* Drain one socket */
+                auto it = subscribers.find(id);
+                if (it != subscribers.end()) {
+                    topicTree.drain(it->second);
                 }
             } else if (data[4] == 'P') {
                 /* Publish only if we actually have data */
                 if (lastString.length()) {
-                    topicTree.publish(lastString, {lastString, lastString});
+                    topicTree.publish(nullptr, lastString, std::string(lastString));
                 } else {
                     /* We could use having more strings */
-                    topicTree.publish("", {"anything", "something else"});
+                    topicTree.publish(nullptr, "", "anything");
                 }
             } else {
                 /* Drain for everything else (OOM) */
@@ -101,7 +111,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
     /* Remove any subscriber from the tree */
     for (auto &p : subscribers) {
-        topicTree.unsubscribeAll(p.second.get());
+        topicTree.freeSubscriber(p.second);
     }
 
     return 0;
