@@ -7,6 +7,8 @@
 
 #include <memory>
 
+// std::vector<std::string_view> topics = {"", "one", "two", "three"};
+
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     /* Create topic tree */
     uWS::TopicTree<std::string> topicTree([](uWS::Subscriber *s, std::string &message, auto flags) {
@@ -74,6 +76,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 auto it = subscribers.find(id);
                 if (it != subscribers.end()) {
                     topicTree.unsubscribe(it->second, lastString);
+                }
+            } else if (data[4] == 'F') {
+                /* Free subscriber */
+                auto it = subscribers.find(id);
+                if (it != subscribers.end()) {
+                    topicTree.freeSubscriber(it->second);
+                    subscribers.erase(it);
                 }
             } else if (data[4] == 'A') {
                 /* Unsubscribe from all */

@@ -220,6 +220,20 @@ public:
             }
         }
 
+        /* We also need to unlink us */
+        if (s->needsDrainage()) {
+            if (s->prev) {
+                s->prev->next = s->next;
+            }
+            if (s->next) {
+                s->next->prev = s->prev;
+            }
+            /* If we are the head, then we also need to reset the head */
+            if (drainableSubscribers == s) {
+                drainableSubscribers = nullptr;
+            }
+        }
+
         delete s;
     }
 
