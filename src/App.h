@@ -224,7 +224,8 @@ public:
         /* If we don't have a TopicTree yet, create one now */
         if (!topicTree) {
 
-            topicTree = new TopicTree<TopicTreeMessage>([](Subscriber *s, TopicTreeMessage &message, TopicTree<TopicTreeMessage>::IteratorFlags flags) {
+            bool needsUncork = false;
+            topicTree = new TopicTree<TopicTreeMessage>([needsUncork](Subscriber *s, TopicTreeMessage &message, TopicTree<TopicTreeMessage>::IteratorFlags flags) mutable {
                 /* Subscriber's user is the socket */
                 /* Unfortunately we need to cast is to PerSocketData = int
                  * since many different WebSocketContexts use the same
@@ -232,7 +233,6 @@ public:
                 auto *ws = (WebSocket<SSL, true, int> *) s->user;
 
                 /* If this is the first message we try and cork */
-                bool needsUncork = false;
                 if (flags & TopicTree<TopicTreeMessage>::IteratorFlags::FIRST) {
                     if (ws->canCork() && !ws->isCorked()) {
                         ((AsyncSocket<SSL> *)ws)->cork();
@@ -242,9 +242,9 @@ public:
 
                 /* If we ever overstep maxBackpresure, exit immediately */
                 if (WebSocket<SSL, true, int>::SendStatus::DROPPED == ws->send(message.message, (OpCode)message.opCode, message.compress)) {
-
                     if (needsUncork) {
                         ((AsyncSocket<SSL> *)ws)->uncork();
+                        needsUncork = false;
                     }
                     /* Stop draining */
                     return true;
