@@ -127,6 +127,19 @@ private:
         }
     }
 
+    void unlinkDrainableSubscriber(Subscriber *s) {
+        if (s->prev) {
+            s->prev->next = s->next;
+        }
+        if (s->next) {
+            s->next->prev = s->prev;
+        }
+        /* If we are the head, then we also need to reset the head */
+        if (drainableSubscribers == s) {
+            drainableSubscribers = s->next;
+        }
+    }
+
 public:
 
     TopicTree(std::function<bool(Subscriber *, T &, IteratorFlags)> cb) : cb(cb) {
@@ -222,16 +235,7 @@ public:
 
         /* We also need to unlink us */
         if (s->needsDrainage()) {
-            if (s->prev) {
-                s->prev->next = s->next;
-            }
-            if (s->next) {
-                s->next->prev = s->prev;
-            }
-            /* If we are the head, then we also need to reset the head */
-            if (drainableSubscribers == s) {
-                drainableSubscribers = nullptr;
-            }
+            unlinkDrainableSubscriber(s);
         }
 
         delete s;
@@ -243,17 +247,8 @@ public:
         if (s->needsDrainage()) {
             /* This function differs from drainImpl by properly unlinking
             * the subscriber from drainableSubscribers. drainImpl does not. */
-            if (s->prev) {
-                s->prev->next = s->next;
-            }
-            if (s->next) {
-                s->next->prev = s->prev;
-            }
-            /* If we are the head, then we also need to reset the head */
-            if (drainableSubscribers == s) {
-                drainableSubscribers = nullptr;
-            }
-            
+            unlinkDrainableSubscriber(s);
+
             /* This one always resets needsDrainage before it calls any cb's.
              * Otherwise we would stackoverflow when sending after publish but before drain. */
             drainImpl(s);
