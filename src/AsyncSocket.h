@@ -49,7 +49,7 @@ struct AsyncSocket {
     template <bool, bool, typename> friend struct WebSocketContext;
     template <bool> friend struct TemplatedApp;
     template <bool, typename> friend struct WebSocketContextData;
-    template <typename> friend struct TopicTree;
+    template <typename, typename> friend struct TopicTree;
 
 protected:
     /* Returns SSL pointer or FD as pointer */

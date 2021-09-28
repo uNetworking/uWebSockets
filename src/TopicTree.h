@@ -45,7 +45,7 @@ struct Topic : std::unordered_set<Subscriber *> {
 
 struct Subscriber {
 
-    template <typename> friend struct TopicTree;
+    template <typename, typename> friend struct TopicTree;
 
 private:
     /* We use a factory */
@@ -74,7 +74,7 @@ public:
     }
 };
 
-template <typename T>
+template <typename T, typename B>
 struct TopicTree {
 
     enum IteratorFlags {
@@ -275,6 +275,27 @@ public:
         }
     }
 
+    /* Big messages bypass all buffering and land directly in backpressure */
+    template <typename F>
+    bool publishBig(Subscriber *sender, std::string_view topic, B &&bigMessage, F cb) {
+        /* Do we even have this topic? */
+        auto it = topics.find(topic);
+        if (it == topics.end()) {
+            return false;
+        }
+
+        /* For all subscribers in topic */
+        for (Subscriber *s : *it->second) {
+
+            /* If we are sender then ignore us */
+            if (sender != s) {
+                cb(s, bigMessage);
+            }
+        }
+
+        return true;
+    }
+
     /* Linear in number of affected subscribers */
     bool publish(Subscriber *sender, std::string_view topic, T &&message) {
         /* Do we even have this topic? */
@@ -290,11 +311,17 @@ public:
             drain();
         }
 
+        /* If nobody references this message, don't buffer it */
+        bool referencedMessage = false;
+
         /* For all subscribers in topic */
         for (Subscriber *s : *it->second) {
 
             /* If we are sender then ignore us */
             if (sender != s) {
+
+                /* At least one subscriber wants this message */
+                referencedMessage = true;
 
                 /* If we already have too many outgoing messages on this subscriber, drain it now */
                 if (s->numMessageIndices == 32) {
@@ -318,10 +345,13 @@ public:
         }
 
         /* Push this message and return with success */
-        outgoingMessages.emplace_back(message);
-        return true;
-    }
+        if (referencedMessage) {
+            outgoingMessages.emplace_back(message);
+        }
 
+        /* Success if someone wants it */
+        return referencedMessage;
+    }
 };
 
 }

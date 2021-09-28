@@ -304,9 +304,15 @@ public:
         }
 
         /* Publish as sender, does not receive its own messages even if subscribed to relevant topics */
-        bool success = webSocketContextData->topicTree->publish(webSocketData->subscriber, topic, {std::string(message), opCode, compress});
+        if (message.length() >= LoopData::CORK_BUFFER_SIZE) {
+            return webSocketContextData->topicTree->publishBig(webSocketData->subscriber, topic, {message, opCode, compress}, [](Subscriber *s, TopicTreeBigMessage &message) {
+                auto *ws = (WebSocket<SSL, true, int> *) s->user;
 
-        return success;
+                ws->send(message.message, (OpCode)message.opCode, message.compress);
+            });
+        } else {
+            return webSocketContextData->topicTree->publish(webSocketData->subscriber, topic, {std::string(message), opCode, compress});
+        }
     }
 };
 

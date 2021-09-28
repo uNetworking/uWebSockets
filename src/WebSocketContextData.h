@@ -42,7 +42,7 @@ private:
 public:
 
     /* This one points to the App's shared topicTree */
-    TopicTree<TopicTreeMessage> *topicTree;
+    TopicTree<TopicTreeMessage, TopicTreeBigMessage> *topicTree;
 
     /* The callbacks for this context */
     MoveOnlyFunction<void(WebSocket<SSL, true, USERDATA> *)> openHandler = nullptr;
@@ -85,7 +85,7 @@ public:
 
     }
 
-    WebSocketContextData(TopicTree<TopicTreeMessage> *topicTree) : topicTree(topicTree) {
+    WebSocketContextData(TopicTree<TopicTreeMessage, TopicTreeBigMessage> *topicTree) : topicTree(topicTree) {
 
     }
 };

@@ -27,6 +27,11 @@ namespace uWS {
         /*OpCode*/ int opCode;
         bool compress;
     };
+    struct TopicTreeBigMessage {
+        std::string_view message;
+        /*OpCode*/ int opCode;
+        bool compress;
+    };
 }
 
 /* An app is a convenience wrapper of some of the most used fuctionalities and allows a
@@ -69,7 +74,7 @@ private:
 
 public:
 
-    TopicTree<TopicTreeMessage> *topicTree = nullptr;
+    TopicTree<TopicTreeMessage, TopicTreeBigMessage> *topicTree = nullptr;
 
     /* Server name */
     TemplatedApp &&addServerName(std::string hostname_pattern, SocketContextOptions options = {}) {
@@ -113,8 +118,18 @@ public:
     /* Publishes a message to all websocket contexts - conceptually as if publishing to the one single
      * TopicTree of this app (technically there are many TopicTrees, however the concept is that one
      * app has one conceptual Topic tree) */
-    void publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress = false) {
-        topicTree->publish(nullptr, topic, {std::string(message), opCode, compress});
+    bool publish(std::string_view topic, std::string_view message, OpCode opCode, bool compress = false) {
+        /* Anything big bypasses corking efforts */
+        if (message.length() >= LoopData::CORK_BUFFER_SIZE) {
+            return topicTree->publishBig(nullptr, topic, {message, opCode, compress}, [](Subscriber *s, TopicTreeBigMessage &message) {
+                auto *ws = (WebSocket<SSL, true, int> *) s->user;
+
+                /* Send will drain if needed */
+                ws->send(message.message, (OpCode)message.opCode, message.compress);
+            });
+        } else {
+            return topicTree->publish(nullptr, topic, {std::string(message), opCode, compress});
+        }
     }
 
     /* Returns number of subscribers for this topic, or 0 for failure.
@@ -225,7 +240,7 @@ public:
         if (!topicTree) {
 
             bool needsUncork = false;
-            topicTree = new TopicTree<TopicTreeMessage>([needsUncork](Subscriber *s, TopicTreeMessage &message, TopicTree<TopicTreeMessage>::IteratorFlags flags) mutable {
+            topicTree = new TopicTree<TopicTreeMessage, TopicTreeBigMessage>([needsUncork](Subscriber *s, TopicTreeMessage &message, TopicTree<TopicTreeMessage, TopicTreeBigMessage>::IteratorFlags flags) mutable {
                 /* Subscriber's user is the socket */
                 /* Unfortunately we need to cast is to PerSocketData = int
                  * since many different WebSocketContexts use the same
@@ -233,7 +248,7 @@ public:
                 auto *ws = (WebSocket<SSL, true, int> *) s->user;
 
                 /* If this is the first message we try and cork */
-                if (flags & TopicTree<TopicTreeMessage>::IteratorFlags::FIRST) {
+                if (flags & TopicTree<TopicTreeMessage, TopicTreeBigMessage>::IteratorFlags::FIRST) {
                     if (ws->canCork() && !ws->isCorked()) {
                         ((AsyncSocket<SSL> *)ws)->cork();
                         needsUncork = true;
@@ -251,7 +266,7 @@ public:
                 }
 
                 /* If this is the last message we uncork if we are corked */
-                if (flags & TopicTree<TopicTreeMessage>::IteratorFlags::LAST) {
+                if (flags & TopicTree<TopicTreeMessage, TopicTreeBigMessage>::IteratorFlags::LAST) {
                     /* We should not uncork in all cases? */
                     if (needsUncork) {
                         ((AsyncSocket<SSL> *)ws)->uncork();
