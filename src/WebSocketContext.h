@@ -72,7 +72,14 @@ private:
                         webSocketData->compressionStatus = WebSocketData::CompressionStatus::ENABLED;
 
                         LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(SSL, us_socket_context(SSL, (us_socket_t *) s)));
-                        auto inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {data, length}, webSocketContextData->maxPayloadLength);
+                        /* Decompress using shared or dedicated decompressor */
+                        std::optional<std::string_view> inflatedFrame;
+                        if (webSocketData->inflationStream) {
+                            inflatedFrame = webSocketData->inflationStream->inflate(loopData->zlibContext, {data, length}, webSocketContextData->maxPayloadLength, false);
+                        } else {
+                            inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {data, length}, webSocketContextData->maxPayloadLength, true);
+                        }
+
                         if (!inflatedFrame.has_value()) {
                             forceClose(webSocketState, s, ERR_TOO_BIG_MESSAGE_INFLATION);
                             return true;
@@ -124,7 +131,14 @@ private:
                                 )
                             );
 
-                            auto inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 9}, webSocketContextData->maxPayloadLength);
+                            /* Decompress using shared or dedicated decompressor */
+                            std::optional<std::string_view> inflatedFrame;
+                            if (webSocketData->inflationStream) {
+                                inflatedFrame = webSocketData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 9}, webSocketContextData->maxPayloadLength, false);
+                            } else {
+                                inflatedFrame = loopData->inflationStream->inflate(loopData->zlibContext, {webSocketData->fragmentBuffer.data(), webSocketData->fragmentBuffer.length() - 9}, webSocketContextData->maxPayloadLength, true);
+                            }
+
                             if (!inflatedFrame.has_value()) {
                                 forceClose(webSocketState, s, ERR_TOO_BIG_MESSAGE_INFLATION);
                                 return true;

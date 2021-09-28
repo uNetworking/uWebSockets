@@ -46,6 +46,8 @@ private:
 
     /* We might have a dedicated compressor */
     DeflationStream *deflationStream = nullptr;
+    /* And / or a dedicated decompressor */
+    InflationStream *inflationStream = nullptr;
 
     /* We could be a subscriber */
     Subscriber *subscriber = nullptr;
@@ -53,15 +55,23 @@ public:
     WebSocketData(bool perMessageDeflate, CompressOptions compressOptions, BackPressure &&backpressure) : AsyncSocketData<false>(std::move(backpressure)), WebSocketState<true>() {
         compressionStatus = perMessageDeflate ? ENABLED : DISABLED;
 
-        /* Initialize the dedicated sliding window */
-        if (perMessageDeflate && (compressOptions != CompressOptions::SHARED_COMPRESSOR)) {
+        /* Initialize the dedicated sliding window(s) */
+        if (perMessageDeflate && (0 == (compressOptions & CompressOptions::SHARED_COMPRESSOR))) {
             deflationStream = new DeflationStream(compressOptions);
+        }
+
+        if (perMessageDeflate && (compressOptions & CompressOptions::DEDICATED_DECOMPRESSOR)) {
+            inflationStream = new InflationStream();
         }
     }
 
     ~WebSocketData() {
         if (deflationStream) {
             delete deflationStream;
+        }
+
+        if (inflationStream) {
+            delete inflationStream;
         }
 
         if (subscriber) {

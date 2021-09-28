@@ -123,7 +123,7 @@ public:
     unsigned int numSubscribers(std::string_view topic) {
         Topic *t = topicTree->lookupTopic(topic);
         if (t) {
-            return t->size();
+            return (unsigned int) t->size();
         }
 
         return 0;

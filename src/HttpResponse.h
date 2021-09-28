@@ -236,8 +236,11 @@ public:
         CompressOptions compressOptions = CompressOptions::DISABLED;
         if (secWebSocketExtensions.length() && webSocketContextData->compression != DISABLED) {
 
-            /* We always want shared inflation */
+            /* We always want shared inflation, (or the full 15)  */
             int wantedInflationWindow = 0;
+            if (webSocketContextData->compression & DEDICATED_DECOMPRESSOR) {
+                wantedInflationWindow = 15;
+            }
 
             /* Map from selected compressor */
             int wantedCompressionWindow = (webSocketContextData->compression & 0xFF00) >> 8;

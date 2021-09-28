@@ -24,10 +24,14 @@
 
 /* We always define these options no matter if ZLIB is enabled or not */
 namespace uWS {
-    /* Compressor mode is HIGH8(windowBits), LOW8(memLevel) */
+    /* Compressor mode is 16 low bit where HIGH8(windowBits), LOW8(memLevel) */
     enum CompressOptions : uint32_t {
         DISABLED = 0,
-        SHARED_COMPRESSOR = 1,
+        /* Highest bit is shared compressor */
+        SHARED_COMPRESSOR = (uint32_t)1 << (uint32_t)31,
+        /* Second highest bit is DEDICATED_DECOMPRESSOR */
+        DEDICATED_DECOMPRESSOR = (uint32_t)1 << (uint32_t)30,
+        /* Lowest 16 bit describe compressor */
         DEDICATED_COMPRESSOR_3KB = 9 << 8 | 1,
         DEDICATED_COMPRESSOR_4KB = 9 << 8 | 2,
         DEDICATED_COMPRESSOR_8KB = 10 << 8 | 3,
@@ -59,15 +63,15 @@ namespace uWS {
 #if defined(UWS_NO_ZLIB) || defined(UWS_MOCK_ZLIB)
 struct ZlibContext {};
 struct InflationStream {
-    std::optional<std::string_view> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
+    std::optional<std::string_view> inflate(ZlibContext * /*zlibContext*/, std::string_view compressed, size_t maxPayloadLength, bool /*reset*/) {
         return compressed.substr(0, std::min(maxPayloadLength, compressed.length()));
     }
 };
 struct DeflationStream {
-    std::string_view deflate(ZlibContext *zlibContext, std::string_view raw, bool reset) {
+    std::string_view deflate(ZlibContext * /*zlibContext*/, std::string_view raw, bool /*reset*/) {
         return raw;
     }
-    DeflationStream(int compressOptions) {
+    DeflationStream(CompressOptions /*compressOptions*/) {
     }
 };
 #else
@@ -201,7 +205,7 @@ struct InflationStream {
     }
 
     /* Zero length inflates are possible and valid */
-    std::optional<std::string_view> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength) {
+    std::optional<std::string_view> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength, bool reset) {
 
 #ifdef UWS_USE_LIBDEFLATE
         /* Try fast path first */
@@ -242,7 +246,9 @@ struct InflationStream {
 
         } while (inflationStream.avail_out == 0 && zlibContext->dynamicInflationBuffer.length() <= maxPayloadLength);
 
-        inflateReset(&inflationStream);
+        if (reset) {
+            inflateReset(&inflationStream);
+        }
 
         if ((err != Z_BUF_ERROR && err != Z_OK) || zlibContext->dynamicInflationBuffer.length() > maxPayloadLength) {
             return std::nullopt;

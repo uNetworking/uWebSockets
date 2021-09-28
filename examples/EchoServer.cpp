@@ -19,7 +19,7 @@ int main() {
 	    .passphrase = "1234"
 	}).ws<PerSocketData>("/*", {
         /* Settings */
-        .compression = uWS::DEDICATED_COMPRESSOR_4KB,
+        .compression = uWS::CompressOptions(uWS::DEDICATED_COMPRESSOR_4KB | uWS::DEDICATED_DECOMPRESSOR),
         .maxPayloadLength = 100 * 1024 * 1024,
         .idleTimeout = 16,
         .maxBackpressure = 100 * 1024 * 1024,
@@ -30,6 +30,7 @@ int main() {
         .upgrade = nullptr,
         .open = [](auto */*ws*/) {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
+
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode, true);
