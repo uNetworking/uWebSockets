@@ -13,11 +13,11 @@
 void testCorrectness() {
     std::cout << "TestCorrectness" << std::endl;
 
-    uWS::TopicTree<std::string> *topicTree;
+    uWS::TopicTree<std::string, std::string_view> *topicTree;
     std::map<void *, std::string> expectedResult;
     std::map<void *, std::string> actualResult;
 
-    topicTree = new uWS::TopicTree<std::string>([&topicTree, &actualResult](uWS::Subscriber *s, std::string &message, auto flags) {
+    topicTree = new uWS::TopicTree<std::string, std::string_view>([&topicTree, &actualResult](uWS::Subscriber *s, std::string &message, auto flags) {
 
         actualResult[s] += message;
 
@@ -88,11 +88,11 @@ void testCorrectness() {
 void testBugReport() {
     std::cout << "TestBugReport" << std::endl;
 
-    uWS::TopicTree<std::string> *topicTree;
+    uWS::TopicTree<std::string, std::string_view> *topicTree;
     std::map<void *, std::string> expectedResult;
     std::map<void *, std::string> actualResult;
 
-    topicTree = new uWS::TopicTree<std::string>([&topicTree, &actualResult](uWS::Subscriber *s, std::string &message, auto flags) {
+    topicTree = new uWS::TopicTree<std::string, std::string_view>([&topicTree, &actualResult](uWS::Subscriber *s, std::string &message, auto flags) {
 
         actualResult[s] += message;
 
@@ -149,11 +149,11 @@ void testBugReport() {
 void testReorderingv19() {
     std::cout << "TestReorderingv19" << std::endl;
 
-    uWS::TopicTree<std::string> *topicTree;
+    uWS::TopicTree<std::string, std::string_view> *topicTree;
     std::map<void *, std::string> expectedResult;
     std::map<void *, std::string> actualResult;
 
-    topicTree = new uWS::TopicTree<std::string>([&topicTree, &actualResult](uWS::Subscriber *s, std::string &message, auto flags) {
+    topicTree = new uWS::TopicTree<std::string, std::string_view>([&topicTree, &actualResult](uWS::Subscriber *s, std::string &message, auto flags) {
 
         actualResult[s] += message;
 

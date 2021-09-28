@@ -11,7 +11,7 @@
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     /* Create topic tree */
-    uWS::TopicTree<std::string> topicTree([](uWS::Subscriber *s, std::string &message, auto flags) {
+    uWS::TopicTree<std::string, std::string_view> topicTree([](uWS::Subscriber *s, std::string &message, auto flags) {
 
         /* Depending on what publishing we do below (with or without empty strings),
          * this assumption can hold true or not. For now it should hold true */
