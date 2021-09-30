@@ -128,9 +128,22 @@ protected:
                 return {sendBuffer, SendBufferAttribute::NEEDS_UNCORK};
             }
         } else {
+
+            /* If we are corked and there is already data in the cork buffer,
+            mark how much is ours and reset it */
+            unsigned int ourCorkOffset = 0;
+            if (isCorked() && loopData->corkOffset) {
+                ourCorkOffset = loopData->corkOffset;
+                loopData->corkOffset = 0;
+            }
+
             /* Fallback is to use the backpressure as buffer */
-            backPressure.resize(existingBackpressure + size);
-            return {(char *) backPressure.data() + existingBackpressure, SendBufferAttribute::NEEDS_DRAIN};
+            backPressure.resize(ourCorkOffset + existingBackpressure + size);
+
+            /* And copy corkbuffer in front */
+            memcpy((char *) backPressure.data() + existingBackpressure, loopData->corkBuffer, ourCorkOffset);
+
+            return {(char *) backPressure.data() + ourCorkOffset + existingBackpressure, SendBufferAttribute::NEEDS_DRAIN};
         }
     }
 
