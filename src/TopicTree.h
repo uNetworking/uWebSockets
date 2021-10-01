@@ -82,9 +82,10 @@ struct TopicTree {
         FIRST = 2
     };
 
-private:
     /* Whomever is iterating this topic is locked to not modify its own list */
     Subscriber *iteratingSubscriber = nullptr;
+
+private:
 
     /* The drain callback must not publish, unsubscribe or subscribe.
      * It must only cork, uncork, send, write */
