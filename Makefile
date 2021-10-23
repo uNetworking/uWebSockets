@@ -17,14 +17,20 @@ ifeq ($(WITH_LIBDEFLATE),1)
 	override LDFLAGS += libdeflate/libdeflate.a
 endif
 
-# WITH_OPENSSL=1 enables OpenSSL 1.1+ support
-ifeq ($(WITH_OPENSSL),1)
-	# With problems on macOS, make sure to pass needed LDFLAGS required to find these
-	override LDFLAGS += -lssl -lcrypto
+# Heavily prefer boringssl over openssl
+ifeq ($(WITH_BORINGSSL),1)
+	override CFLAGS += -I uSockets/boringssl/include -pthread -DLIBUS_USE_OPENSSL
+	override LDFLAGS += -pthread uSockets/boringssl/build/ssl/libssl.a uSockets/boringssl/build/crypto/libcrypto.a
 else
-	# WITH_WOLFSSL=1 enables WolfSSL 4.2.0 support (mutually exclusive with OpenSSL)
-	ifeq ($(WITH_WOLFSSL),1)
-		override LDFLAGS += -L/usr/local/lib -lwolfssl
+	# WITH_OPENSSL=1 enables OpenSSL 1.1+ support
+	ifeq ($(WITH_OPENSSL),1)
+		# With problems on macOS, make sure to pass needed LDFLAGS required to find these
+		override LDFLAGS += -lssl -lcrypto
+	else
+		# WITH_WOLFSSL=1 enables WolfSSL 4.2.0 support (mutually exclusive with OpenSSL)
+		ifeq ($(WITH_WOLFSSL),1)
+			override LDFLAGS += -L/usr/local/lib -lwolfssl
+		endif
 	endif
 endif
 
