@@ -1,7 +1,7 @@
 
 <div align="center">
 <img src="https://raw.githubusercontent.com/uNetworking/uWebSockets/master/misc/logo.svg" height="180" /><br>
-<i>Simple, secure</i><sup><a href="https://github.com/uNetworking/uWebSockets/tree/master/fuzzing#fuzz-testing-of-various-parsers-and-mocked-examples">[1]</a></sup><i> & standards compliant</i><sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">[2]</a></sup><i> web server for the most demanding</i><sup><a href="https://github.com/uNetworking/uWebSockets/tree/master/benchmarks#benchmark-driven-development">[3]</a></sup><i> of applications.</i> <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">Read more...</a>
+<i>Simple, secure</i><sup><a href="https://github.com/uNetworking/uWebSockets/tree/master/fuzzing#fuzz-testing-of-various-parsers-and-mocked-examples">1</a></sup><i> & standards compliant</i><sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">2</a></sup><i> web server for the most demanding</i><sup><a href="https://github.com/uNetworking/uWebSockets/tree/master/benchmarks#benchmark-driven-development">3</a></sup><i> of applications.</i> <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">Read more...</a>
 <br><br>
 
 <a href="https://github.com/uNetworking/uWebSockets/releases"><img src="https://img.shields.io/github/v/release/uNetworking/uWebSockets"></a> <a href="https://lgtm.com/projects/g/uNetworking/uWebSockets/context:cpp"><img alt="Language grade: C/C++" src="https://img.shields.io/lgtm/grade/cpp/g/uNetworking/uWebSockets.svg?logo=lgtm&logoWidth=18"/></a> <a href="https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:uwebsockets"><img src="https://oss-fuzz-build-logs.storage.googleapis.com/badges/uwebsockets.svg" /></a> <img src="https://img.shields.io/badge/downloads-65%20million-pink" />
@@ -19,7 +19,7 @@ Furthermore, we partake in Google's OSS-Fuzz with a ~95% daily fuzzing coverage<
 µWebSockets is written entirely in C & C++ but has a seamless integration for Node.js backends. This allows for rapid scripting of powerful apps, using widespread competence. See <a href="https://github.com/uNetworking/uWebSockets.js">µWebSockets.js</a>.
 
 ### :crossed_swords: Battle proven
-We've been fully standards compliant with a perfect Autobahn|Testsuite score since 2016<sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">[2]</a></sup>. µWebSockets powers many of the biggest crypto exchanges in the world, handling trade volumes of multiple billions of USD every day. If you trade crypto, chances are you do so via µWebSockets.
+We've been fully standards compliant with a perfect Autobahn|Testsuite score since 2016<sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">2</a></sup>. µWebSockets powers many of the biggest crypto exchanges in the world, handling trade volumes of multiple billions of USD every day. If you trade crypto, chances are you do so via µWebSockets.
 
 ### :battery: Batteries included
 Designed around a convenient URL router with wildcard & parameter support - paired with efficient pub/sub features inspired by MQTT. µWebSockets should be the obvious, complete starting point for any real-time web project with high demands.
