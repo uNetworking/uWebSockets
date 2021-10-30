@@ -73,9 +73,23 @@ public:
         DROPPED
     };
 
+    /* Sending fragmented messages puts a bit of effort on the user; you must not interleave regular sends
+     * with fragmented sends and you must sendFirstFragment, [sendFragment], then finally sendLastFragment. */
+    SendStatus sendFirstFragment(std::string_view message, OpCode opCode = OpCode::BINARY, bool compress = false) {
+        return send(message, opCode, compress, false);
+    }
+
+    SendStatus sendFragment(std::string_view message, bool compress = false) {
+        return send(message, CONTINUATION, compress, false);
+    }
+
+    SendStatus sendLastFragment(std::string_view message, bool compress = false) {
+        return send(message, CONTINUATION, compress, true);
+    }
+
     /* Send or buffer a WebSocket frame, compressed or not. Returns BACKPRESSURE on increased user space backpressure,
      * DROPPED on dropped message (due to backpressure) or SUCCCESS if you are free to send even more now. */
-    SendStatus send(std::string_view message, OpCode opCode = OpCode::BINARY, bool compress = false) {
+    SendStatus send(std::string_view message, OpCode opCode = OpCode::BINARY, bool compress = false, bool fin = true) {
         WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
@@ -117,7 +131,7 @@ public:
         /* Get size, allocate size, write if needed */
         size_t messageFrameSize = protocol::messageFrameSize(message.length());
         auto [sendBuffer, sendBufferAttribute] = Super::getSendBuffer(messageFrameSize);
-        protocol::formatMessage<isServer>(sendBuffer, message.data(), message.length(), opCode, message.length(), compress);
+        protocol::formatMessage<isServer>(sendBuffer, message.data(), message.length(), opCode, message.length(), compress, fin);
 
         /* Depending on size of message we have different paths */
         if (sendBufferAttribute == SendBufferAttribute::NEEDS_DRAIN) {
