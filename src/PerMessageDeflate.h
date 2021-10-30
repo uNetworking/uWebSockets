@@ -21,17 +21,34 @@
 #define UWS_PERMESSAGEDEFLATE_H
 
 #include <cstdint>
+#include <cstring>
 
 /* We always define these options no matter if ZLIB is enabled or not */
 namespace uWS {
-    /* Compressor mode is 16 low bit where HIGH8(windowBits), LOW8(memLevel) */
-    enum CompressOptions : uint32_t {
+    /* Compressor mode is 12 lowest bits where HIGH4(windowBits), LOW8(memLevel).
+     * Decompressor mode is 4 highest bits (windowBits).
+     * If compressor or decompressor bits are 1, then they are shared.
+     * If everything is just simply 0, then everything is disabled. */
+    enum CompressOptions : uint16_t {
+        /* These are not actual compression options */
+        _COMPRESSOR_MASK = 0x0FFF,
+        _DECOMPRESSOR_MASK = 0xF000,
+        /* Disabled, shared, shared are "special" values */
         DISABLED = 0,
-        /* Highest bit is shared compressor */
-        SHARED_COMPRESSOR = (uint32_t)1 << (uint32_t)31,
-        /* Second highest bit is DEDICATED_DECOMPRESSOR */
-        DEDICATED_DECOMPRESSOR = (uint32_t)1 << (uint32_t)30,
-        /* Lowest 16 bit describe compressor */
+        SHARED_COMPRESSOR = 1,
+        SHARED_DECOMPRESSOR = 1 << 12,
+        /* Highest 4 bits describe decompressor */
+        DEDICATED_DECOMPRESSOR_32KB = 15 << 12,
+        DEDICATED_DECOMPRESSOR_16KB = 14 << 12,
+        DEDICATED_DECOMPRESSOR_8KB = 13 << 12,
+        DEDICATED_DECOMPRESSOR_4KB = 12 << 12,
+        DEDICATED_DECOMPRESSOR_2KB = 11 << 12,
+        DEDICATED_DECOMPRESSOR_1KB = 10 << 12,
+        DEDICATED_DECOMPRESSOR_512B = 9 << 12,
+        /* Same as 32kb */
+        DEDICATED_DECOMPRESSOR = 15 << 12,
+
+        /* Lowest 12 bit describe compressor */
         DEDICATED_COMPRESSOR_3KB = 9 << 8 | 1,
         DEDICATED_COMPRESSOR_4KB = 9 << 8 | 2,
         DEDICATED_COMPRESSOR_8KB = 10 << 8 | 3,
@@ -65,6 +82,8 @@ struct ZlibContext {};
 struct InflationStream {
     std::optional<std::string_view> inflate(ZlibContext * /*zlibContext*/, std::string_view compressed, size_t maxPayloadLength, bool /*reset*/) {
         return compressed.substr(0, std::min(maxPayloadLength, compressed.length()));
+    }
+    InflationStream(CompressOptions /*compressOptions*/) {
     }
 };
 struct DeflationStream {
@@ -196,8 +215,10 @@ struct DeflationStream {
 struct InflationStream {
     z_stream inflationStream = {};
 
-    InflationStream() {
-        inflateInit2(&inflationStream, -15);
+    InflationStream(CompressOptions compressOptions) {
+        /* Inflation windowBits are the top 4 bits of the 16 bit compressOptions */
+        //printf("%d\n", -(compressOptions >> 12));
+        inflateInit2(&inflationStream, -(compressOptions >> 12));
     }
 
     ~InflationStream() {
@@ -224,6 +245,11 @@ struct InflationStream {
             return std::string_view(buf, written);
         }
 #endif
+
+        /* Append tail to chunk */
+        unsigned char tail[4] = {0x00, 0x00, 0xff, 0xff};
+        memcpy((char *)compressed.data() + compressed.length(), tail, 4);
+        compressed = {compressed.data(), compressed.length() + 4};
 
         /* We clear this one here, could be done better */
         zlibContext->dynamicInflationBuffer.clear();

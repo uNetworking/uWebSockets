@@ -236,14 +236,14 @@ public:
         CompressOptions compressOptions = CompressOptions::DISABLED;
         if (secWebSocketExtensions.length() && webSocketContextData->compression != DISABLED) {
 
-            /* We always want shared inflation, (or the full 15)  */
+            /* Make sure to map SHARED_DECOMPRESSOR to windowBits = 0, not 1  */
             int wantedInflationWindow = 0;
-            if (webSocketContextData->compression & DEDICATED_DECOMPRESSOR) {
-                wantedInflationWindow = 15;
+            if ((webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) != CompressOptions::SHARED_DECOMPRESSOR) {
+                wantedInflationWindow = (webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) >> 12;
             }
 
-            /* Map from selected compressor */
-            int wantedCompressionWindow = (webSocketContextData->compression & 0xFF00) >> 8;
+            /* Map from selected compressor (this automatically maps SHARED_COMPRESSOR to windowBits 0, not 1) */
+            int wantedCompressionWindow = (webSocketContextData->compression & CompressOptions::_COMPRESSOR_MASK) >> 8;
 
             auto [negCompression, negCompressionWindow, negInflationWindow, negResponse] =
             negotiateCompression(true, wantedCompressionWindow, wantedInflationWindow,
@@ -252,7 +252,7 @@ public:
             if (negCompression) {
                 perMessageDeflate = true;
 
-                /* Map from windowBits to compressor */
+                /* Map from negotiated windowBits to compressor and decompressor */
                 if (negCompressionWindow == 0) {
                     compressOptions = CompressOptions::SHARED_COMPRESSOR;
                 } else {
@@ -261,9 +261,16 @@ public:
 
                     /* If we are dedicated and have the 3kb then correct any 4kb to 3kb,
                      * (they both share the windowBits = 9) */
-                    if (webSocketContextData->compression == DEDICATED_COMPRESSOR_3KB) {
+                    if (webSocketContextData->compression & DEDICATED_COMPRESSOR_3KB) {
                         compressOptions = DEDICATED_COMPRESSOR_3KB;
                     }
+                }
+
+                /* Here we modify the above compression with negotiated decompressor */
+                if (negInflationWindow == 0) {
+                    compressOptions = CompressOptions(compressOptions | CompressOptions::SHARED_DECOMPRESSOR);
+                } else {
+                    compressOptions = CompressOptions(compressOptions | (negInflationWindow << 12));
                 }
 
                 writeHeader("Sec-WebSocket-Extensions", negResponse);

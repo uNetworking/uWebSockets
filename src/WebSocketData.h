@@ -56,12 +56,13 @@ public:
         compressionStatus = perMessageDeflate ? ENABLED : DISABLED;
 
         /* Initialize the dedicated sliding window(s) */
-        if (perMessageDeflate && (0 == (compressOptions & CompressOptions::SHARED_COMPRESSOR))) {
-            deflationStream = new DeflationStream(compressOptions);
-        }
-
-        if (perMessageDeflate && (compressOptions & CompressOptions::DEDICATED_DECOMPRESSOR)) {
-            inflationStream = new InflationStream();
+        if (perMessageDeflate) {
+            if ((compressOptions & CompressOptions::_COMPRESSOR_MASK) != CompressOptions::SHARED_COMPRESSOR) {
+                deflationStream = new DeflationStream(compressOptions);
+            }
+            if ((compressOptions & CompressOptions::_DECOMPRESSOR_MASK) != CompressOptions::SHARED_DECOMPRESSOR) {
+                inflationStream = new InflationStream(compressOptions);
+            }
         }
     }
 

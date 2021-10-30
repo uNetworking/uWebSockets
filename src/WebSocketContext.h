@@ -122,7 +122,7 @@ private:
                     if (webSocketData->compressionStatus == WebSocketData::CompressionStatus::COMPRESSED_FRAME) {
                             webSocketData->compressionStatus = WebSocketData::CompressionStatus::ENABLED;
 
-                            /* 9 bytes of padding for libdeflate */
+                            /* 9 bytes of padding for libdeflate, 4 for zlib */
                             webSocketData->fragmentBuffer.append("123456789");
 
                             LoopData *loopData = (LoopData *) us_loop_ext(

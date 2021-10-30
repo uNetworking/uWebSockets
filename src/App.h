@@ -310,7 +310,7 @@ public:
             /* Initialize loop's deflate inflate streams */
             if (!loopData->zlibContext) {
                 loopData->zlibContext = new ZlibContext;
-                loopData->inflationStream = new InflationStream;
+                loopData->inflationStream = new InflationStream(CompressOptions::DEDICATED_DECOMPRESSOR);
                 loopData->deflationStream = new DeflationStream(CompressOptions::DEDICATED_COMPRESSOR);
             }
         }
