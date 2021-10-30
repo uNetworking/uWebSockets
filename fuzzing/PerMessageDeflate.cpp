@@ -38,10 +38,9 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         * triggering more line coverage. Currently it is set to 16kb which is always too much */
         struct StaticData {
             uWS::DeflationStream deflationStream;
-            uWS::ZlibContext zlibContext;
-
             uWS::InflationStream inflationStream;
-        } staticData = {compressor};
+            uWS::ZlibContext zlibContext;
+        } staticData = {compressor, compressor};
 
         /* Why is this padded? */
         makeChunked(makePadded(data, size), size, [&staticData, &b](const uint8_t *data, size_t size) {
