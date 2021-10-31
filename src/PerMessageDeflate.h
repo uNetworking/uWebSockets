@@ -25,40 +25,40 @@
 
 /* We always define these options no matter if ZLIB is enabled or not */
 namespace uWS {
-    /* Compressor mode is 12 lowest bits where HIGH4(windowBits), LOW8(memLevel).
-     * Decompressor mode is 4 highest bits (windowBits).
+    /* Compressor mode is 8 lowest bits where HIGH4(windowBits), LOW4(memLevel).
+     * Decompressor mode is 8 highest bits LOW4(windowBits).
      * If compressor or decompressor bits are 1, then they are shared.
      * If everything is just simply 0, then everything is disabled. */
     enum CompressOptions : uint16_t {
         /* These are not actual compression options */
-        _COMPRESSOR_MASK = 0x0FFF,
-        _DECOMPRESSOR_MASK = 0xF000,
+        _COMPRESSOR_MASK = 0x00FF,
+        _DECOMPRESSOR_MASK = 0x0F00,
         /* Disabled, shared, shared are "special" values */
         DISABLED = 0,
         SHARED_COMPRESSOR = 1,
-        SHARED_DECOMPRESSOR = 1 << 12,
+        SHARED_DECOMPRESSOR = 1 << 8,
         /* Highest 4 bits describe decompressor */
-        DEDICATED_DECOMPRESSOR_32KB = 15 << 12,
-        DEDICATED_DECOMPRESSOR_16KB = 14 << 12,
-        DEDICATED_DECOMPRESSOR_8KB = 13 << 12,
-        DEDICATED_DECOMPRESSOR_4KB = 12 << 12,
-        DEDICATED_DECOMPRESSOR_2KB = 11 << 12,
-        DEDICATED_DECOMPRESSOR_1KB = 10 << 12,
-        DEDICATED_DECOMPRESSOR_512B = 9 << 12,
+        DEDICATED_DECOMPRESSOR_32KB = 15 << 8,
+        DEDICATED_DECOMPRESSOR_16KB = 14 << 8,
+        DEDICATED_DECOMPRESSOR_8KB = 13 << 8,
+        DEDICATED_DECOMPRESSOR_4KB = 12 << 8,
+        DEDICATED_DECOMPRESSOR_2KB = 11 << 8,
+        DEDICATED_DECOMPRESSOR_1KB = 10 << 8,
+        DEDICATED_DECOMPRESSOR_512B = 9 << 8,
         /* Same as 32kb */
-        DEDICATED_DECOMPRESSOR = 15 << 12,
+        DEDICATED_DECOMPRESSOR = 15 << 8,
 
-        /* Lowest 12 bit describe compressor */
-        DEDICATED_COMPRESSOR_3KB = 9 << 8 | 1,
-        DEDICATED_COMPRESSOR_4KB = 9 << 8 | 2,
-        DEDICATED_COMPRESSOR_8KB = 10 << 8 | 3,
-        DEDICATED_COMPRESSOR_16KB = 11 << 8 | 4,
-        DEDICATED_COMPRESSOR_32KB = 12 << 8 | 5,
-        DEDICATED_COMPRESSOR_64KB = 13 << 8 | 6,
-        DEDICATED_COMPRESSOR_128KB = 14 << 8 | 7,
-        DEDICATED_COMPRESSOR_256KB = 15 << 8 | 8,
+        /* Lowest 8 bit describe compressor */
+        DEDICATED_COMPRESSOR_3KB = 9 << 4 | 1,
+        DEDICATED_COMPRESSOR_4KB = 9 << 4 | 2,
+        DEDICATED_COMPRESSOR_8KB = 10 << 4 | 3,
+        DEDICATED_COMPRESSOR_16KB = 11 << 4 | 4,
+        DEDICATED_COMPRESSOR_32KB = 12 << 4 | 5,
+        DEDICATED_COMPRESSOR_64KB = 13 << 4 | 6,
+        DEDICATED_COMPRESSOR_128KB = 14 << 4 | 7,
+        DEDICATED_COMPRESSOR_256KB = 15 << 4 | 8,
         /* Same as 256kb */
-        DEDICATED_COMPRESSOR = 15 << 8 | 8
+        DEDICATED_COMPRESSOR = 15 << 4 | 8
     };
 }
 
@@ -140,7 +140,7 @@ struct DeflationStream {
         /* Sliding inflator should be about 44kb by default, less than compressor */
 
         /* Memory usage is given by 2 ^ (windowBits + 2) + 2 ^ (memLevel + 9) */
-        int windowBits = -(int) ((compressOptions & 0xFF00) >> 8), memLevel = compressOptions & 0x00FF;
+        int windowBits = -(int) ((compressOptions & _COMPRESSOR_MASK) >> 4), memLevel = compressOptions & 0xF;
 
         //printf("windowBits: %d, memLevel: %d\n", windowBits, memLevel);
 
@@ -216,9 +216,8 @@ struct InflationStream {
     z_stream inflationStream = {};
 
     InflationStream(CompressOptions compressOptions) {
-        /* Inflation windowBits are the top 4 bits of the 16 bit compressOptions */
-        //printf("%d\n", -(compressOptions >> 12));
-        inflateInit2(&inflationStream, -(compressOptions >> 12));
+        /* Inflation windowBits are the top 8 bits of the 16 bit compressOptions */
+        inflateInit2(&inflationStream, -(compressOptions >> 8));
     }
 
     ~InflationStream() {

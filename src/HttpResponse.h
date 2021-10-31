@@ -239,11 +239,11 @@ public:
             /* Make sure to map SHARED_DECOMPRESSOR to windowBits = 0, not 1  */
             int wantedInflationWindow = 0;
             if ((webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) != CompressOptions::SHARED_DECOMPRESSOR) {
-                wantedInflationWindow = (webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) >> 12;
+                wantedInflationWindow = (webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) >> 8;
             }
 
             /* Map from selected compressor (this automatically maps SHARED_COMPRESSOR to windowBits 0, not 1) */
-            int wantedCompressionWindow = (webSocketContextData->compression & CompressOptions::_COMPRESSOR_MASK) >> 8;
+            int wantedCompressionWindow = (webSocketContextData->compression & CompressOptions::_COMPRESSOR_MASK) >> 4;
 
             auto [negCompression, negCompressionWindow, negInflationWindow, negResponse] =
             negotiateCompression(true, wantedCompressionWindow, wantedInflationWindow,
@@ -256,7 +256,7 @@ public:
                 if (negCompressionWindow == 0) {
                     compressOptions = CompressOptions::SHARED_COMPRESSOR;
                 } else {
-                    compressOptions = (CompressOptions) ((uint32_t) (negCompressionWindow << 8)
+                    compressOptions = (CompressOptions) ((uint32_t) (negCompressionWindow << 4)
                                                         | (uint32_t) (negCompressionWindow - 7));
 
                     /* If we are dedicated and have the 3kb then correct any 4kb to 3kb,
@@ -270,7 +270,7 @@ public:
                 if (negInflationWindow == 0) {
                     compressOptions = CompressOptions(compressOptions | CompressOptions::SHARED_DECOMPRESSOR);
                 } else {
-                    compressOptions = CompressOptions(compressOptions | (negInflationWindow << 12));
+                    compressOptions = CompressOptions(compressOptions | (negInflationWindow << 8));
                 }
 
                 writeHeader("Sec-WebSocket-Extensions", negResponse);
