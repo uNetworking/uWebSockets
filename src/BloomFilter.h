@@ -31,11 +31,11 @@ private:
     std::bitset<512> filter;
 
     unsigned int hash1(std::string_view key) {
-        return ((unsigned int)key[key.length() - 1] - (key.length() << 3)) & 511;
+        return ((size_t)key[key.length() - 1] - (key.length() << 3)) & 511;
     }
 
     unsigned int hash2(std::string_view key) {
-        return (((unsigned int)key[0] + (key.length() << 4)) & 511);
+        return (((size_t)key[0] + (key.length() << 4)) & 511);
     }
 
     unsigned int hash3(std::string_view key) {

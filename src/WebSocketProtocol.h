@@ -18,6 +18,8 @@
 #ifndef UWS_WEBSOCKETPROTOCOL_H
 #define UWS_WEBSOCKETPROTOCOL_H
 
+#include <libusockets.h>
+
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
@@ -33,6 +35,7 @@ const std::string_view ERR_TOO_BIG_MESSAGE_INFLATION("Received too big message, 
 const std::string_view ERR_INVALID_CLOSE_PAYLOAD("Received invalid close payload");
 
 enum OpCode : unsigned char {
+    CONTINUATION = 0,
     TEXT = 1,
     BINARY = 2,
     CLOSE = 8,
@@ -160,14 +163,14 @@ struct CloseFrame {
 
 static inline CloseFrame parseClosePayload(char *src, size_t length) {
     /* If we get no code or message, default to reporting 1005 no status code present */
-    CloseFrame cf = {1005};
+    CloseFrame cf = {1005, nullptr, 0};
     if (length >= 2) {
         memcpy(&cf.code, src, 2);
         cf = {cond_byte_swap<uint16_t>(cf.code), src + 2, length - 2};
         if (cf.code < 1000 || cf.code > 4999 || (cf.code > 1011 && cf.code < 4000) ||
             (cf.code >= 1004 && cf.code <= 1006) || !isValidUtf8((unsigned char *) cf.message, cf.length)) {
             /* Even though we got a WebSocket close frame, it in itself is abnormal */
-            return {1006};
+            return {1006, nullptr, 0};
         }
     }
     return cf;
@@ -203,7 +206,7 @@ enum {
 };
 
 template <bool isServer>
-static inline size_t formatMessage(char *dst, const char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed) {
+static inline size_t formatMessage(char *dst, const char *src, size_t length, OpCode opCode, size_t reportedLength, bool compressed, bool fin) {
     size_t messageLength;
     size_t headerLength;
     if (reportedLength < 126) {
@@ -221,16 +224,14 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
         memcpy(&dst[2], &tmp, sizeof(uint64_t));
     }
 
-    int flags = 0;
-    dst[0] = (char) ((flags & SND_NO_FIN ? 0 : 128) | (compressed ? SND_COMPRESSED : 0));
-    if (!(flags & SND_CONTINUATION)) {
-        dst[0] |= (char) opCode;
-    }
+    dst[0] = (char) ((fin ? 128 : 0) | ((compressed && opCode) ? SND_COMPRESSED : 0) | (char) opCode);
+
+    //printf("%d\n", (int)dst[0]);
 
     char mask[4];
     if (!isServer) {
         dst[1] |= 0x80;
-        uint32_t random = rand();
+        uint32_t random = (uint32_t) rand();
         memcpy(mask, &random, 4);
         memcpy(dst + headerLength, &random, 4);
         headerLength += 4;
@@ -362,9 +363,9 @@ protected:
     static inline bool consumeContinuation(char *&src, unsigned int &length, WebSocketState<isServer> *wState, void *user) {
         if (wState->remainingBytes <= length) {
             if (isServer) {
-                int n = wState->remainingBytes >> 2;
+                unsigned int n = wState->remainingBytes >> 2;
                 unmaskInplace(src, src + n * 4, wState->mask);
-                for (int i = 0, s = wState->remainingBytes % 4; i < s; i++) {
+                for (unsigned int i = 0, s = wState->remainingBytes % 4; i < s; i++) {
                     src[n * 4 + i] ^= wState->mask[i];
                 }
             }

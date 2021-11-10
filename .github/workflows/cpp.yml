@@ -5,14 +5,17 @@ on: [push]
 jobs:
   build_linux:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     
     steps:
     - name: Clone source
       run: git clone --recursive https://github.com/uNetworking/uWebSockets.git
     - name: Build source
       run: make -C uWebSockets
-      
+    - name: List binaries
+      run: ls uWebSockets
+    - name: Build tests
+      run: make -C uWebSockets/tests
       
   build_osx:
 
@@ -23,4 +26,7 @@ jobs:
       run: git clone --recursive https://github.com/uNetworking/uWebSockets.git
     - name: Build source
       run: make -C uWebSockets
-      
+    - name: List binaries
+      run: ls uWebSockets
+    - name: Build tests
+      run: make -C uWebSockets/tests

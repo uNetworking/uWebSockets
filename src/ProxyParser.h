@@ -133,7 +133,7 @@ public:
         uint16_t hostLength = _cond_byte_swap<uint16_t>(header.len);
 
         /* We must have all the data available */
-        if (data.length() < 16 + hostLength) {
+        if (data.length() < 16u + hostLength) {
             return {false, 0};
         }
 

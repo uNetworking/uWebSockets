@@ -1,8 +1,14 @@
+/* We rely on wrapped syscalls */
+#include "libEpollFuzzer/epoll_fuzzer.h"
+
 #include "App.h"
+#include <vector>
 
-struct us_listen_socket_t *global_listen_socket;
+/* We keep this one for teardown later on */
+struct us_listen_socket_t *listen_socket;
 
-int main() {
+/* This test is run by libEpollFuzzer */
+void test() {
 
     /* ws->getUserData returns one of these */
     struct PerSocketData {
@@ -23,12 +29,12 @@ int main() {
     app->ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::DISABLED,
-        .maxPayloadLength = 16 * 1024 * 1024,
+        .maxPayloadLength = 512, // also have a low value here for fuzzing
         .idleTimeout = 60,
-        .maxBackpressure = 16 * 1024 * 1024,
-        .closeOnBackpressureLimit = false,
-        .resetIdleTimeoutOnSend = true,
-        .sendPingsAutomatically = false,
+        .maxBackpressure = 128, // we want a low number so that we can reach this in fuzzing
+        .closeOnBackpressureLimit = false, // this one could be tested as well
+        .resetIdleTimeoutOnSend = true, // and this
+        .sendPingsAutomatically = false, // and this
         /* Handlers */
         .upgrade = nullptr,
         .open = [](auto *ws) {
@@ -36,7 +42,7 @@ int main() {
 
             PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
 
-            for (int i = 0; i < 32; i++) {
+            for (int i = 0; i < 100; i++) {
                 std::string topic = std::to_string((uintptr_t)ws) + "-" + std::to_string(i);
                 perSocketData->topics.push_back(topic);
                 ws->subscribe(topic);
@@ -45,8 +51,7 @@ int main() {
         .message = [&app](auto *ws, std::string_view message, uWS::OpCode opCode) {
             PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();
 
-            app->publish(perSocketData->topics[(size_t)(++perSocketData->nr % 32)], message, opCode);
-            ws->publish(perSocketData->topics[(size_t)(++perSocketData->nr % 32)], message, opCode);
+            app->publish(perSocketData->topics[++perSocketData->nr % 100], message, opCode);
         },
         .drain = [](auto */*ws*/) {
             /* Check ws->getBufferedAmount() here */
@@ -63,8 +68,8 @@ int main() {
         }
     }).listen(9001, [](auto *listen_s) {
         if (listen_s) {
-            std::cout << "Listening on port " << 9001 << std::endl;
-            //listen_socket = listen_s;
+            //std::cout << "Listening on port " << 9001 << std::endl;
+            listen_socket = listen_s;
         }
     });
     
@@ -73,4 +78,21 @@ int main() {
     delete app;
 
     uWS::Loop::get()->free();
+}
+
+/* Thus function should shutdown the event-loop and let the test fall through */
+void teardown() {
+	/* If we are called twice there's a bug (it potentially could if
+	 * all open sockets cannot be error-closed in one epoll_wait call).
+	 * But we only allow 1k FDs and we have a buffer of 1024 from epoll_wait */
+	if (!listen_socket) {
+		exit(-1);
+	}
+
+	/* We might have open sockets still, and these will be error-closed by epoll_wait */
+	// us_socket_context_close - close all open sockets created with this socket context
+    if (listen_socket) {
+        us_listen_socket_close(0, listen_socket);
+        listen_socket = NULL;
+    }
 }

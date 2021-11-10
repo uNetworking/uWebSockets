@@ -21,7 +21,7 @@
 #include "HttpRouter.h"
 
 #include <vector>
-#include "f2/function2.hpp"
+#include "MoveOnlyFunction.h"
 
 namespace uWS {
 template<bool> struct HttpResponse;
@@ -33,9 +33,9 @@ struct alignas(16) HttpContextData {
     template <bool> friend struct HttpResponse;
     template <bool> friend struct TemplatedApp;
 private:
-    std::vector<fu2::unique_function<void(HttpResponse<SSL> *, int)>> filterHandlers;
+    std::vector<MoveOnlyFunction<void(HttpResponse<SSL> *, int)>> filterHandlers;
 
-    fu2::unique_function<void(const char *hostname)> missingServerNameHandler;
+    MoveOnlyFunction<void(const char *hostname)> missingServerNameHandler;
 
     struct RouterData {
         HttpResponse<SSL> *httpResponse;

@@ -24,7 +24,7 @@
 #include "AsyncSocketData.h"
 #include "ProxyParser.h"
 
-#include "f2/function2.hpp"
+#include "MoveOnlyFunction.h"
 
 namespace uWS {
 
@@ -39,15 +39,15 @@ private:
         HTTP_WRITE_CALLED = 2, // used
         HTTP_END_CALLED = 4, // used
         HTTP_RESPONSE_PENDING = 8, // used
-        HTTP_ENDED_STREAM_OUT = 16 // not used
+        HTTP_CONNECTION_CLOSE = 16 // used
     };
 
     /* Per socket event handlers */
-    fu2::unique_function<bool(size_t)> onWritable;
-    fu2::unique_function<void()> onAborted;
-    fu2::unique_function<void(std::string_view, bool)> inStream; // onData
+    MoveOnlyFunction<bool(uintmax_t)> onWritable;
+    MoveOnlyFunction<void()> onAborted;
+    MoveOnlyFunction<void(std::string_view, bool)> inStream; // onData
     /* Outgoing offset */
-    size_t offset = 0;
+    uintmax_t offset = 0;
 
     /* Current state (content-length sent, status sent, write called, etc */
     int state = 0;

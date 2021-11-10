@@ -4,3 +4,6 @@
 [submodule "fuzzing/libEpollFuzzer"]
 	path = fuzzing/libEpollFuzzer
 	url = https://github.com/uNetworking/libEpollFuzzer
+[submodule "libdeflate"]
+	path = libdeflate
+	url = https://github.com/ebiggers/libdeflate
