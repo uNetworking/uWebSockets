@@ -276,7 +276,7 @@ struct InflationStream {
         }
 
         if ((err != Z_BUF_ERROR && err != Z_OK) || zlibContext->dynamicInflationBuffer.length() > maxPayloadLength) {
-            return std::nullopt;
+            return std::experimental::nullopt;
         }
 
         if (zlibContext->dynamicInflationBuffer.length()) {
@@ -284,7 +284,7 @@ struct InflationStream {
 
             /* Let's be strict about the max size */
             if (zlibContext->dynamicInflationBuffer.length() > maxPayloadLength) {
-                return std::nullopt;
+                return std::experimental::nullopt;
             }
 
             return std::string_view(zlibContext->dynamicInflationBuffer.data(), zlibContext->dynamicInflationBuffer.length());
@@ -292,7 +292,7 @@ struct InflationStream {
 
         /* Let's be strict about the max size */
         if ((LARGE_BUFFER_SIZE - inflationStream.avail_out) > maxPayloadLength) {
-            return std::nullopt;
+            return std::experimental::nullopt;
         }
 
         return std::string_view(zlibContext->inflationBuffer, LARGE_BUFFER_SIZE - inflationStream.avail_out);
