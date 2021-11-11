@@ -20,19 +20,36 @@
 
 /* This class implements async socket memory management strategies */
 
+/* NOTE: Many unsigned/signed conversion warnings could be solved by moving from int length
+ * to unsigned length for everything to/from uSockets - this would however remove the opportunity
+ * to signal error with -1 (which is how the entire UNIX syscalling is built). */
+
+#include <cstring>
+#include <iostream>
+
+#include "libusockets.h"
+
 #include "LoopData.h"
 #include "AsyncSocketData.h"
 
 namespace uWS {
 
-    template <bool, bool> struct WebSocketContext;
+    enum SendBufferAttribute {
+        NEEDS_NOTHING,
+        NEEDS_DRAIN,
+        NEEDS_UNCORK
+    };
+
+    template <bool, bool, typename> struct WebSocketContext;
 
 template <bool SSL>
 struct AsyncSocket {
+    /* This guy is promiscuous */
     template <bool> friend struct HttpContext;
-    template <bool, bool> friend struct WebSocketContext;
-    template <bool> friend struct WebSocketContextData;
-    friend struct TopicTree;
+    template <bool, bool, typename> friend struct WebSocketContext;
+    template <bool> friend struct TemplatedApp;
+    template <bool, typename> friend struct WebSocketContextData;
+    template <typename, typename> friend struct TopicTree;
 
 protected:
     /* Returns SSL pointer or FD as pointer */
@@ -65,8 +82,19 @@ protected:
         return us_socket_close(SSL, (us_socket_t *) this, 0, nullptr);
     }
 
+    void corkUnchecked() {
+        /* What if another socket is corked? */
+        getLoopData()->corkedSocket = this;
+    }
+
     /* Cork this socket. Only one socket may ever be corked per-loop at any given time */
     void cork() {
+        /* Extra check for invalid corking of others */
+        if (getLoopData()->corkOffset && getLoopData()->corkedSocket != this) {
+            std::cerr << "Error: Cork buffer must not be acquired without checking canCork!" << std::endl;
+            std::terminate();
+        }
+
         /* What if another socket is corked? */
         getLoopData()->corkedSocket = this;
     }
@@ -82,22 +110,47 @@ protected:
     }
 
     /* Returns a suitable buffer for temporary assemblation of send data */
-    std::pair<char *, bool> getSendBuffer(size_t size) {
-        /* If we are corked and we have room, return the cork buffer itself */
+    std::pair<char *, SendBufferAttribute> getSendBuffer(size_t size) {
+        /* First step is to determine if we already have backpressure or not */
         LoopData *loopData = getLoopData();
-        if (loopData->corkedSocket == this && loopData->corkOffset + size < LoopData::CORK_BUFFER_SIZE) {
-            char *sendBuffer = loopData->corkBuffer + loopData->corkOffset;
-            loopData->corkOffset += (int) size;
-            return {sendBuffer, false};
+        BackPressure &backPressure = getAsyncSocketData()->buffer;
+        size_t existingBackpressure = backPressure.length();
+        if ((!existingBackpressure) && (isCorked() || canCork()) && (loopData->corkOffset + size < LoopData::CORK_BUFFER_SIZE)) {
+            /* Cork automatically if we can */
+            if (isCorked()) {
+                char *sendBuffer = loopData->corkBuffer + loopData->corkOffset;
+                loopData->corkOffset += (unsigned int) size;
+                return {sendBuffer, SendBufferAttribute::NEEDS_NOTHING};
+            } else {
+                cork();
+                char *sendBuffer = loopData->corkBuffer + loopData->corkOffset;
+                loopData->corkOffset += (unsigned int) size;
+                return {sendBuffer, SendBufferAttribute::NEEDS_UNCORK};
+            }
         } else {
-            /* Slow path for now, we want to always be corked if possible */
-            return {(char *) malloc(size), true};
+
+            /* If we are corked and there is already data in the cork buffer,
+            mark how much is ours and reset it */
+            unsigned int ourCorkOffset = 0;
+            if (isCorked() && loopData->corkOffset) {
+                ourCorkOffset = loopData->corkOffset;
+                loopData->corkOffset = 0;
+            }
+
+            /* Fallback is to use the backpressure as buffer */
+            backPressure.resize(ourCorkOffset + existingBackpressure + size);
+
+            /* And copy corkbuffer in front */
+            memcpy((char *) backPressure.data() + existingBackpressure, loopData->corkBuffer, ourCorkOffset);
+
+            return {(char *) backPressure.data() + ourCorkOffset + existingBackpressure, SendBufferAttribute::NEEDS_DRAIN};
         }
     }
 
     /* Returns the user space backpressure. */
     unsigned int getBufferedAmount() {
-        return (unsigned int) getAsyncSocketData()->buffer.size();
+        /* We return the actual amount of bytes in backbuffer, including pendingRemoval */
+        return (unsigned int) getAsyncSocketData()->buffer.totalLength();
     }
 
     /* Returns the text representation of an IPv4 or IPv6 address */
@@ -127,7 +180,7 @@ protected:
         static thread_local char buf[16];
         int ipLength = 16;
         us_socket_remote_address(SSL, (us_socket_t *) this, buf, &ipLength);
-        return std::string_view(buf, ipLength);
+        return std::string_view(buf, (unsigned int) ipLength);
     }
 
     /* Returns the text representation of IP */
@@ -156,14 +209,14 @@ protected:
             if ((unsigned int) written < asyncSocketData->buffer.length()) {
 
                 /* Update buffering (todo: we can do better here if we keep track of what happens to this guy later on) */
-                asyncSocketData->buffer = asyncSocketData->buffer.substr(written);
+                asyncSocketData->buffer.erase((unsigned int) written);
 
                 if (optionally) {
                     /* Thankfully we can exit early here */
                     return {0, true};
                 } else {
                     /* This path is horrible and points towards erroneous usage */
-                    asyncSocketData->buffer.append(src, length);
+                    asyncSocketData->buffer.append(src, (unsigned int) length);
 
                     return {length, true};
                 }
@@ -176,21 +229,21 @@ protected:
         if (length) {
             if (loopData->corkedSocket == this) {
                 /* We are corked */
-                if (LoopData::CORK_BUFFER_SIZE - loopData->corkOffset >= length) {
+                if (LoopData::CORK_BUFFER_SIZE - loopData->corkOffset >= (unsigned int) length) {
                     /* If the entire chunk fits in cork buffer */
-                    memcpy(loopData->corkBuffer + loopData->corkOffset, src, length);
-                    loopData->corkOffset += length;
+                    memcpy(loopData->corkBuffer + loopData->corkOffset, src, (unsigned int) length);
+                    loopData->corkOffset += (unsigned int) length;
                     /* Fall through to default return */
                 } else {
                     /* Strategy differences between SSL and non-SSL regarding syscall minimizing */
                     if constexpr (SSL) {
                         /* Cork up as much as we can */
-                        int stripped = LoopData::CORK_BUFFER_SIZE - loopData->corkOffset;
+                        unsigned int stripped = LoopData::CORK_BUFFER_SIZE - loopData->corkOffset;
                         memcpy(loopData->corkBuffer + loopData->corkOffset, src, stripped);
                         loopData->corkOffset = LoopData::CORK_BUFFER_SIZE;
 
-                        auto [written, failed] = uncork(src + stripped, length - stripped, optionally);
-                        return {written + stripped, failed};
+                        auto [written, failed] = uncork(src + stripped, length - (int) stripped, optionally);
+                        return {written + (int) stripped, failed};
                     }
 
                     /* For non-SSL we take the penalty of two syscalls */
@@ -210,11 +263,11 @@ protected:
                     /* Fall back to worst possible case (should be very rare for HTTP) */
                     /* At least we can reserve room for next chunk if we know it up front */
                     if (nextLength) {
-                        asyncSocketData->buffer.reserve(asyncSocketData->buffer.length() + length - written + nextLength);
+                        asyncSocketData->buffer.reserve(asyncSocketData->buffer.length() + (size_t) (length - written + nextLength));
                     }
 
                     /* Buffer this chunk */
-                    asyncSocketData->buffer.append(src + written, length - written);
+                    asyncSocketData->buffer.append(src + written, (size_t) (length - written));
 
                     /* Return the failure */
                     return {length, true};
@@ -237,7 +290,7 @@ protected:
 
             if (loopData->corkOffset) {
                 /* Corked data is already accounted for via its write call */
-                auto [written, failed] = write(loopData->corkBuffer, loopData->corkOffset, false, length);
+                auto [written, failed] = write(loopData->corkBuffer, (int) loopData->corkOffset, false, length);
                 loopData->corkOffset = 0;
 
                 if (failed) {

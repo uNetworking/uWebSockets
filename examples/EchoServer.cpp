@@ -19,31 +19,36 @@ int main() {
 	    .passphrase = "1234"
 	}).ws<PerSocketData>("/*", {
         /* Settings */
-        .compression = uWS::SHARED_COMPRESSOR,
-        .maxPayloadLength = 16 * 1024,
-        .idleTimeout = 10,
-        .maxBackpressure = 1 * 1024 * 1024,
+        .compression = uWS::CompressOptions(uWS::DEDICATED_COMPRESSOR_4KB | uWS::DEDICATED_DECOMPRESSOR),
+        .maxPayloadLength = 100 * 1024 * 1024,
+        .idleTimeout = 16,
+        .maxBackpressure = 100 * 1024 * 1024,
+        .closeOnBackpressureLimit = false,
+        .resetIdleTimeoutOnSend = false,
+        .sendPingsAutomatically = true,
         /* Handlers */
-        .open = [](auto *ws) {
+        .upgrade = nullptr,
+        .open = [](auto */*ws*/) {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
+
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
             ws->send(message, opCode, true);
         },
-        .drain = [](auto *ws) {
+        .drain = [](auto */*ws*/) {
             /* Check ws->getBufferedAmount() here */
         },
-        .ping = [](auto *ws) {
+        .ping = [](auto */*ws*/, std::string_view) {
             /* Not implemented yet */
         },
-        .pong = [](auto *ws) {
+        .pong = [](auto */*ws*/, std::string_view) {
             /* Not implemented yet */
         },
-        .close = [](auto *ws, int code, std::string_view message) {
+        .close = [](auto */*ws*/, int /*code*/, std::string_view /*message*/) {
             /* You may access ws->getUserData() here */
         }
-    }).listen(9001, [](auto *token) {
-        if (token) {
+    }).listen(9001, [](auto *listen_socket) {
+        if (listen_socket) {
             std::cout << "Listening on port " << 9001 << std::endl;
         }
     }).run();

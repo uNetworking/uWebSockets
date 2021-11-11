@@ -28,7 +28,7 @@
 
 #include <string_view>
 #include <iostream>
-#include "f2/function2.hpp"
+#include "MoveOnlyFunction.h"
 
 namespace uWS {
 template<bool> struct HttpResponse;
@@ -62,7 +62,7 @@ private:
     /* Init the HttpContext by registering libusockets event handlers */
     HttpContext<SSL> *init() {
         /* Handle socket connections */
-        us_socket_context_on_open(SSL, getSocketContext(), [](us_socket_t *s, int is_client, char *ip, int ip_length) {
+        us_socket_context_on_open(SSL, getSocketContext(), [](us_socket_t *s, int /*is_client*/, char */*ip*/, int /*ip_length*/) {
             /* Any connected socket should timeout until it has a request */
             us_socket_timeout(SSL, s, HTTP_IDLE_TIMEOUT_S);
 
@@ -79,7 +79,7 @@ private:
         });
 
         /* Handle socket disconnections */
-        us_socket_context_on_close(SSL, getSocketContext(), [](us_socket_t *s, int code, void *reason) {
+        us_socket_context_on_close(SSL, getSocketContext(), [](us_socket_t *s, int /*code*/, void */*reason*/) {
             /* Get socket ext */
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_socket_ext(SSL, s);
 
@@ -133,7 +133,7 @@ private:
 #endif
 
             /* The return value is entirely up to us to interpret. The HttpParser only care for whether the returned value is DIFFERENT or not from passed user */
-            void *returnedSocket = httpResponseData->consumePostPadded(data, length, s, proxyParser, [httpContextData](void *s, uWS::HttpRequest *httpRequest) -> void * {
+            void *returnedSocket = httpResponseData->consumePostPadded(data, (unsigned int) length, s, proxyParser, [httpContextData](void *s, HttpRequest *httpRequest) -> void * {
                 /* For every request we reset the timeout and hang until user makes action */
                 /* Warning: if we are in shutdown state, resetting the timer is a security issue! */
                 us_socket_timeout(SSL, (us_socket_t *) s, 0);
@@ -150,6 +150,11 @@ private:
 
                 /* Mark pending request and emit it */
                 httpResponseData->state = HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
+
+                /* Mark this response as connectionClose if ancient or connection: close */
+                if (httpRequest->isAncient() || httpRequest->getHeader("connection").length() == 5) {
+                    httpResponseData->state |= HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE;
+                }
 
                 /* Route the method and URL */
                 httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
@@ -242,6 +247,18 @@ private:
                     ((AsyncSocket<SSL> *) s)->timeout(HTTP_IDLE_TIMEOUT_S);
                 }
 
+                /* We need to check if we should close this socket here now */
+                if (httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) {
+                    if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
+                        if (((AsyncSocket<SSL> *) s)->getBufferedAmount() == 0) {
+                            ((AsyncSocket<SSL> *) s)->shutdown();
+                            /* We need to force close after sending FIN since we want to hinder
+                             * clients from keeping to send their huge data */
+                            ((AsyncSocket<SSL> *) s)->close();
+                        }
+                    }
+                }
+
                 return (us_socket_t *) returnedSocket;
             }
 
@@ -305,6 +322,18 @@ private:
             /* Drain any socket buffer, this might empty our backpressure and thus finish the request */
             /*auto [written, failed] = */asyncSocket->write(nullptr, 0, true, 0);
 
+            /* Should we close this connection after a response - and is this response really done? */
+            if (httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) {
+                if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
+                    if (asyncSocket->getBufferedAmount() == 0) {
+                        asyncSocket->shutdown();
+                        /* We need to force close after sending FIN since we want to hinder
+                         * clients from keeping to send their huge data */
+                        asyncSocket->close();
+                    }
+                }
+            }
+
             /* Expect another writable event, or another request within the timeout */
             asyncSocket->timeout(HTTP_IDLE_TIMEOUT_S);
 
@@ -358,12 +387,12 @@ public:
         us_socket_context_free(SSL, getSocketContext());
     }
 
-    void filter(fu2::unique_function<void(HttpResponse<SSL> *, int)> &&filterHandler) {
+    void filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         getSocketContextData()->filterHandlers.emplace_back(std::move(filterHandler));
     }
 
     /* Register an HTTP route handler acording to URL pattern */
-    void onHttp(std::string method, std::string pattern, fu2::unique_function<void(HttpResponse<SSL> *, HttpRequest *)> &&handler, bool upgrade = false) {
+    void onHttp(std::string method, std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler, bool upgrade = false) {
         HttpContextData<SSL> *httpContextData = getSocketContextData();
 
         /* Todo: This is ugly, fix */

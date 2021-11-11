@@ -25,7 +25,7 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
-#include "f2/function2.hpp"
+#include "MoveOnlyFunction.h"
 
 #include "BloomFilter.h"
 #include "ProxyParser.h"
@@ -34,7 +34,7 @@
 namespace uWS {
 
 /* We require at least this much post padding */
-static const int MINIMUM_HTTP_POST_PADDING = 32;
+static const unsigned int MINIMUM_HTTP_POST_PADDING = 32;
 
 struct HttpRequest {
 
@@ -45,12 +45,17 @@ private:
     struct Header {
         std::string_view key, value;
     } headers[MAX_HEADERS];
-    int querySeparator;
+    bool ancientHttp;
+    unsigned int querySeparator;
     bool didYield;
     BloomFilter bf;
     std::pair<int, std::string_view *> currentParameters;
 
 public:
+    bool isAncient() {
+        return ancientHttp;
+    }
+
     bool getYield() {
         return didYield;
     }
@@ -111,7 +116,7 @@ public:
 
     /* Returns the raw querystring as a whole, still encoded */
     std::string_view getQuery() {
-        if (querySeparator < (int) headers->value.length()) {
+        if (querySeparator < headers->value.length()) {
             /* Strip the initial ? */
             return std::string_view(headers->value.data() + querySeparator + 1, headers->value.length() - querySeparator - 1);
         } else {
@@ -131,7 +136,7 @@ public:
         currentParameters = parameters;
     }
 
-    std::string_view getParameter(unsigned int index) {
+    std::string_view getParameter(unsigned short index) {
         if (currentParameters.first < (int) index) {
             return {};
         } else {
@@ -151,14 +156,39 @@ private:
 
     static unsigned int toUnsignedInteger(std::string_view str) {
         unsigned int unsignedIntegerValue = 0;
-        for (unsigned char c : str) {
-            unsignedIntegerValue = unsignedIntegerValue * 10 + (c - '0');
+        for (char c : str) {
+            unsignedIntegerValue = unsignedIntegerValue * 10u + ((unsigned int) c - (unsigned int) '0');
         }
         return unsignedIntegerValue;
     }
 
-    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, BloomFilter *bf) {
+    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
+
+        #ifdef UWS_WITH_PROXY
+            /* ProxyParser is passed as reserved parameter */
+            ProxyParser *pp = (ProxyParser *) reserved;
+
+            /* Parse PROXY protocol */
+            auto [done, offset] = pp->parse({start, (size_t) (end - postPaddedBuffer)});
+            if (!done) {
+                /* We do not reset the ProxyParser (on filure) since it is tied to this
+                * connection, which is really only supposed to ever get one PROXY frame
+                * anyways. We do however allow multiple PROXY frames to be sent (overwrites former). */
+                return 0;
+            } else {
+                /* We have consumed this data so skip it */
+                start += offset;
+            }
+        #else
+            /* This one is unused */
+            (void) reserved;
+        #endif
+
+        /* It is critical for fallback buffering logic that we only return with success
+         * if we managed to parse a complete HTTP request (minus data). Returning success
+         * for PROXY means we can end up succeeding, yet leaving bytes in the fallback buffer
+         * which is then removed, and our counters to flip due to overflow and we end up with a crash */
 
         for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS; i++) {
             for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') & (*postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
@@ -173,7 +203,7 @@ private:
                 headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
                 for (postPaddedBuffer++; (*postPaddedBuffer == ':' || *postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
                 preliminaryValue = postPaddedBuffer;
-                postPaddedBuffer = (char *) memchr(postPaddedBuffer, '\r', end - postPaddedBuffer);
+                postPaddedBuffer = (char *) memchr(postPaddedBuffer, '\r', (size_t) (end - postPaddedBuffer));
                 if (postPaddedBuffer && postPaddedBuffer[1] == '\n') {
                     headers->value = std::string_view(preliminaryValue, (size_t) (postPaddedBuffer - preliminaryValue));
                     postPaddedBuffer += 2;
@@ -188,37 +218,24 @@ private:
 
     // the only caller of getHeaders
     template <int CONSUME_MINIMALLY>
-    std::pair<int, void *> fenceAndConsumePostPadded(char *data, int length, void *user, void *reserved, HttpRequest *req, fu2::unique_function<void *(void *, HttpRequest *)> &requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &dataHandler) {
+    std::pair<unsigned int, void *> fenceAndConsumePostPadded(char *data, unsigned int length, void *user, void *reserved, HttpRequest *req, MoveOnlyFunction<void *(void *, HttpRequest *)> &requestHandler, MoveOnlyFunction<void *(void *, std::string_view, bool)> &dataHandler) {
 
         /* How much data we CONSUMED (to throw away) */
-        int consumedTotal = 0;
-
-#ifdef UWS_WITH_PROXY
-        /* ProxyParser is passed as reserved parameter */
-        ProxyParser *pp = (ProxyParser *) reserved;
-
-        /* Parse PROXY protocol */
-        auto [done, offset] = pp->parse({data, (unsigned int) length});
-        if (!done) {
-            return {0, user};
-        } else {
-            /* We have consumed this data so skip it */
-            data += offset;
-            length -= offset;
-            consumedTotal += offset;
-        }
-#endif
+        unsigned int consumedTotal = 0;
 
         /* Fence one byte past end of our buffer (buffer has post padded margins) */
         data[length] = '\r';
 
-        for (int consumed; length && (consumed = getHeaders(data, data + length, req->headers, &req->bf)); ) {
+        for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers, reserved)); ) {
             data += consumed;
             length -= consumed;
             consumedTotal += consumed;
 
+            /* Store HTTP version (ancient 1.0 or 1.1) */
+            req->ancientHttp = req->headers->value.length() && (req->headers->value[req->headers->value.length() - 1] == '0');
+
             /* Strip away tail of first "header value" aka URL */
-            req->headers->value = std::string_view(req->headers->value.data(), std::max<int>(0, (int) req->headers->value.length() - 9));
+            req->headers->value = std::string_view(req->headers->value.data(), (size_t) std::max<int>(0, (int) req->headers->value.length() - 9));
 
             /* Add all headers to bloom filter */
             req->bf.reset();
@@ -228,7 +245,7 @@ private:
 
             /* Parse query */
             const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());
-            req->querySeparator = (int) ((querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data());
+            req->querySeparator = (unsigned int) ((querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data());
 
             /* If returned socket is not what we put in we need
              * to break here as we either have upgraded to
@@ -267,7 +284,7 @@ private:
     }
 
 public:
-    void *consumePostPadded(char *data, int length, void *user, void *reserved, fu2::unique_function<void *(void *, HttpRequest *)> &&requestHandler, fu2::unique_function<void *(void *, std::string_view, bool)> &&dataHandler, fu2::unique_function<void *(void *)> &&errorHandler) {
+    void *consumePostPadded(char *data, unsigned int length, void *user, void *reserved, MoveOnlyFunction<void *(void *, HttpRequest *)> &&requestHandler, MoveOnlyFunction<void *(void *, std::string_view, bool)> &&dataHandler, MoveOnlyFunction<void *(void *)> &&errorHandler) {
 
         /* This resets BloomFilter by construction, but later we also reset it again.
          * Optimize this to skip resetting twice (req could be made global) */
@@ -277,8 +294,8 @@ public:
 
             // this is exactly the same as below!
             // todo: refactor this
-            if (remainingStreamingBytes >= (unsigned int) length) {
-                void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == (unsigned int) length);
+            if (remainingStreamingBytes >= length) {
+                void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
                 remainingStreamingBytes -= length;
                 return returnedUser;
             } else {
@@ -295,24 +312,26 @@ public:
             }
 
         } else if (fallback.length()) {
-            int had = (int) fallback.length();
+            unsigned int had = (unsigned int) fallback.length();
 
-            int maxCopyDistance = (int) std::min(MAX_FALLBACK_SIZE - fallback.length(), (size_t) length);
+            size_t maxCopyDistance = std::min(MAX_FALLBACK_SIZE - fallback.length(), (size_t) length);
 
             /* We don't want fallback to be short string optimized, since we want to move it */
-            fallback.reserve(fallback.length() + maxCopyDistance + std::max<int>(MINIMUM_HTTP_POST_PADDING, sizeof(std::string)));
+            fallback.reserve(fallback.length() + maxCopyDistance + std::max<unsigned int>(MINIMUM_HTTP_POST_PADDING, sizeof(std::string)));
             fallback.append(data, maxCopyDistance);
 
             // break here on break
-            std::pair<int, void *> consumed = fenceAndConsumePostPadded<true>(fallback.data(), (int) fallback.length(), user, reserved, &req, requestHandler, dataHandler);
+            std::pair<unsigned int, void *> consumed = fenceAndConsumePostPadded<true>(fallback.data(), (unsigned int) fallback.length(), user, reserved, &req, requestHandler, dataHandler);
             if (consumed.second != user) {
                 return consumed.second;
             }
 
             if (consumed.first) {
 
+                /* This logic assumes that we consumed everything in fallback buffer.
+                 * This is critically important, as we will get an integer overflow in case
+                 * of "had" being larger than what we consumed, and that we would drop data */
                 fallback.clear();
-
                 data += consumed.first - had;
                 length -= consumed.first - had;
 
@@ -346,7 +365,7 @@ public:
             }
         }
 
-        std::pair<int, void *> consumed = fenceAndConsumePostPadded<false>(data, length, user, reserved, &req, requestHandler, dataHandler);
+        std::pair<unsigned int, void *> consumed = fenceAndConsumePostPadded<false>(data, length, user, reserved, &req, requestHandler, dataHandler);
         if (consumed.second != user) {
             return consumed.second;
         }
@@ -355,7 +374,7 @@ public:
         length -= consumed.first;
 
         if (length) {
-            if ((unsigned int) length < MAX_FALLBACK_SIZE) {
+            if (length < MAX_FALLBACK_SIZE) {
                 fallback.append(data, length);
             } else {
                 return errorHandler(user);

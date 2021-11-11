@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
         .maxPayloadLength = 16 * 1024 * 1024,
         .idleTimeout = 10,
         /* Handlers */
-        .open = [](auto *ws, auto *req) {
+        .open = [](auto *ws) {
             std::cout << "WebSocket connected" << std::endl;
             /* Access per socket data */
             PerSocketData *perSocketData = (PerSocketData *) ws->getUserData();

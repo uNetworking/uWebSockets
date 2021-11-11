@@ -21,9 +21,9 @@ int main() {
 			.passphrase = "1234"
 		});
 
-	}).get("/*", [](auto *res, auto *req) {
+	}).get("/*", [](auto *res, auto */*req*/) {
 	    res->end("Hello world!");
-	}).get("/exit", [](auto *res, auto *req) {
+	}).get("/exit", [](auto *res, auto */*req*/) {
              res->end("Shutting down!");
             /* We use this to check graceful closedown */
             us_listen_socket_close(1, globalListenSocket);
