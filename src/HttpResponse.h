@@ -381,7 +381,11 @@ public:
 
     /* End without a body (no content-length) or end with a spoofed content-length. */
     void endWithoutBody(std::optional<size_t> reportedContentLength = std::nullopt, bool closeConnection = false) {
-        internalEnd({nullptr, 0}, false, false, closeConnection);
+        if (reportedContentLength.has_value()) {
+            //internalEnd({nullptr, 0}, reportedContentLength.value(), false, true, closeConnection);
+        } else {
+            internalEnd({nullptr, 0}, 0, false, false, closeConnection);
+        }
     }
 
     /* End the response with an optional data chunk. Always starts a timeout. */
