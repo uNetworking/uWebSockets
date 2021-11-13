@@ -195,14 +195,14 @@ public:
         /* Set shorter timeout (use ping-timeout) to avoid long hanging sockets after end() on broken connections */
         Super::timeout(webSocketContextData->idleTimeoutComponents.second);
 
+        /* Make sure to unsubscribe from any pub/sub node at exit */
+        webSocketContextData->topicTree->freeSubscriber(webSocketData->subscriber);
+        webSocketData->subscriber = nullptr;
+
         /* Emit close event */
         if (webSocketContextData->closeHandler) {
             webSocketContextData->closeHandler(this, code, message);
         }
-
-        /* Make sure to unsubscribe from any pub/sub node at exit */
-        webSocketContextData->topicTree->freeSubscriber(webSocketData->subscriber);
-        webSocketData->subscriber = nullptr;
     }
 
     /* Corks the response if possible. Leaves already corked socket be. */

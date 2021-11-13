@@ -258,13 +258,13 @@ private:
                 /* Emit close event */
                 auto *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL, us_socket_context(SSL, (us_socket_t *) s));
 
-                if (webSocketContextData->closeHandler) {
-                    webSocketContextData->closeHandler((WebSocket<SSL, isServer, USERDATA> *) s, 1006, {(char *) reason, (size_t) code});
-                }
-
                 /* Make sure to unsubscribe from any pub/sub node at exit */
                 webSocketContextData->topicTree->freeSubscriber(webSocketData->subscriber);
                 webSocketData->subscriber = nullptr;
+
+                if (webSocketContextData->closeHandler) {
+                    webSocketContextData->closeHandler((WebSocket<SSL, isServer, USERDATA> *) s, 1006, {(char *) reason, (size_t) code});
+                }
             }
 
             /* Destruct in-placed data struct */
