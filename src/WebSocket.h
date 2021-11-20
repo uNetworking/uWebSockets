@@ -247,6 +247,8 @@ public:
         );
 
         WebSocketData *webSocketData = (WebSocketData *) us_socket_ext(SSL, (us_socket_t *) this);
+        
+        if (!webSocketData->subscriber) { return false; }
 
         /* Cannot return numSubscribers as this is only for this particular websocket context */
         auto [ok, last] = webSocketContextData->topicTree->unsubscribe(webSocketData->subscriber, topic);
