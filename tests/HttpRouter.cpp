@@ -287,7 +287,7 @@ void testBugReports() {
         r.route("get", "/1ab");
         // this one fails with IDONEAB
         std::cout << result << std::endl;
-        assert(result == "ONEAB");
+        assert(result == "ONEABID");
     }
 
     {

@@ -65,6 +65,20 @@ private:
         Node(std::string name) : name(name) {}
     } root = {"rootNode"};
 
+    /* Sort wildcards after alphanum */
+    int lexicalOrder(std::string &name) {
+        if (!name.length()) {
+            return 2;
+        }
+        if (name[0] == ':') {
+            return 1;
+        }
+        if (name[0] == '*') {
+            return 0;
+        }
+        return 2;
+    }
+
     /* Advance from parent to child, adding child if necessary */
     Node *getNode(Node *parent, std::string child, bool isHighPriority) {
         for (std::unique_ptr<Node> &node : parent->children) {
@@ -82,7 +96,7 @@ private:
                 return a->isHighPriority;
             }
 
-            return b->name.length() && (parent != &root) && (b->name < a->name);
+            return b->name.length() && (parent != &root) && (lexicalOrder(b->name) < lexicalOrder(a->name));
         }), std::move(newNode))->get();
     }
 
