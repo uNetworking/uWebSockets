@@ -264,6 +264,52 @@ void testBugReports() {
         r.route("get", "/static");
         assert(result == "WWGSLAW");
     }
+
+    {
+        uWS::HttpRouter<int> r;
+        std::string result;
+
+        r.add({"get"}, "/foo", [&result](auto *) {
+            result += "FOO";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        r.add({"get"}, "/:id", [&result](auto *) {
+            result += "ID";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        r.add({"get"}, "/1ab", [&result](auto *) {
+            result += "ONEAB";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        r.route("get", "/1ab");
+        // this one fails with IDONEAB
+        std::cout << result << std::endl;
+        assert(result == "ONEAB");
+    }
+
+    {
+        uWS::HttpRouter<int> r;
+        std::string result;
+
+        r.add({"get"}, "/*", [&result](auto *) {
+            result += "STAR";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        r.add({"get"}, "/", [&result](auto *) {
+            result += "STATIC";
+            return false;
+        }, r.MEDIUM_PRIORITY);
+
+        r.route("get", "/");
+        std::cout << result << std::endl;
+        // this one fails with STARSTATIC
+        assert(result == "STATICSTAR");
+    }
+
 }
 
 void testParameters() {
