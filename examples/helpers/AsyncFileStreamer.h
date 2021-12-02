@@ -1,34 +1,72 @@
 #include <filesystem>
+#include <algorithm>
 
 struct AsyncFileStreamer {
 
     std::map<std::string_view, AsyncFileReader *> asyncFileReaders;
     std::string root;
+    int directive;
 
-    AsyncFileStreamer(std::string root) : root(root) {
-        // for all files in this path, init the map of AsyncFileReaders
-        updateRootCache();
+    std::string createUrlPath() {
+        // create the base URL for files based on the directory number given
+        // the number can not be higher than the total ammount of directories
+        // in the files path
+        std::vector<int> characterLocations;
+        static std::string pathSeparator = "\\";
+        static std::string urlPathSeparator = "/";
+        std::string urlpath = root;
+        size_t pos = urlpath.find(pathSeparator);
+
+        while (pos != std::string::npos) {
+            urlpath.replace(pos, pathSeparator.length(), urlPathSeparator);
+            pos = urlpath.find(pathSeparator, pos + urlPathSeparator.size());
+        }
+
+        for (int i = 0; i < urlpath.size(); i++) {
+            if (urlpath[i] == '/')
+                characterLocations.push_back(i);
+        }
+
+        urlpath.erase(0, characterLocations[directive]+1);
+        //std::cout << "url Directive: " << urlpath << std::endl;
+
+        return urlpath;
     }
 
-    void updateRootCache() {
+    AsyncFileStreamer(std::string root, int directive) : root(root) , directive(directive){
+        // for all files in this path, init the map of AsyncFileReaders
+        updateRootCache(root);
+    }
+
+    void updateRootCache(std::string root) {
         // todo: if the root folder changes, we want to reload the cache
-        for(auto &p : std::filesystem::recursive_directory_iterator(root)) {
-            std::string url = p.path().string().substr(root.length());
+
+        std::string urlpath = createUrlPath();
+
+        for (auto& p : std::filesystem::recursive_directory_iterator(root)) {
+            // removes extra characters from the url path because we concatnate two strings
+            std::string fileName = urlpath + "/" + p.path().string().substr(root.length() + 1);
+            char* cstr = new char[fileName.length()];
+            std::strcpy(cstr, fileName.c_str());
+            char* url = std::strtok(cstr, "");
+            size_t urlLength = std::strlen(url);
+
             if (url == "/index.html") {
-                url = "/";
+                *url = '/';
             }
 
-            char *key = new char[url.length()];
-            memcpy(key, url.data(), url.length());
-            asyncFileReaders[std::string_view(key, url.length())] = new AsyncFileReader(p.path().string());
+            char* key = url;
+            memcpy(key, url, urlLength);
+            std::cout << "key: " << key << std::endl;
+            asyncFileReaders[std::string_view(key, urlLength)] = new AsyncFileReader(p.path().string());
         }
     }
 
     template <bool SSL>
     void streamFile(uWS::HttpResponse<SSL> *res, std::string_view url) {
-        auto it = asyncFileReaders.find(url);
+        auto it = asyncFileReaders.find(url.substr(1));
         if (it == asyncFileReaders.end()) {
-            std::cout << "Did not find file: " << url << std::endl;
+            std::cout << "Did not find file: " << url.substr(1) << std::endl;
         } else {
             streamFile(res, it->second);
         }
