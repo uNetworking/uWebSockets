@@ -16,7 +16,7 @@ int main() {
         /* There are example certificates in uWebSockets.js repo */
 	    .key_file_name = "../misc/key.pem",
 	    .cert_file_name = "../misc/cert.pem",
-	    .passphrase = "1234"
+	    //.passphrase = "1234"
 	}).ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::CompressOptions(uWS::DEDICATED_COMPRESSOR_4KB | uWS::DEDICATED_DECOMPRESSOR),
@@ -47,9 +47,9 @@ int main() {
         .close = [](auto */*ws*/, int /*code*/, std::string_view /*message*/) {
             /* You may access ws->getUserData() here */
         }
-    }).listen(9001, [](auto *listen_socket) {
+    }).listen(50444, [](auto *listen_socket) {
         if (listen_socket) {
-            std::cout << "Listening on port " << 9001 << std::endl;
+            std::cout << "Listening on port " << 50444 << std::endl;
         }
     }).run();
 }
