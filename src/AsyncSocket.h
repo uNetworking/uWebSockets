@@ -77,6 +77,26 @@ protected:
         us_socket_shutdown(SSL, (us_socket_t *) this);
     }
 
+    /* Experimental pause (todo: move to uSockets as us_socket_pause) */
+    us_socket_t *uv_pause() {
+        struct us_poll_t *p = (struct us_poll_t *) this;
+        struct us_loop_t *loop = us_socket_context_loop(SSL, us_socket_context(SSL, (us_socket_t *) this));
+        //int events = us_poll_events(p);
+        us_poll_change(p, loop, 0);
+        return (us_socket_t *) this;
+    }
+
+    /* Experimental resume (kind of needs to know the size of write buffer) */
+    us_socket_t *uv_resume() {
+        struct us_poll_t *p = (struct us_poll_t *) this;
+        struct us_loop_t *loop = us_socket_context_loop(SSL, us_socket_context(SSL, (us_socket_t *) this));
+        // only valid for libuv
+        int events = getBufferedAmount() ? 1 | 2 : 1;
+
+        us_poll_change(p, loop, events);
+        return (us_socket_t *) this;
+    }
+
     /* Immediately close socket */
     us_socket_t *close() {
         return us_socket_close(SSL, (us_socket_t *) this, 0, nullptr);

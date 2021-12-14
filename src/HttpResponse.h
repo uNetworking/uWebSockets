@@ -330,6 +330,16 @@ public:
     using Super::getRemoteAddressAsText;
     using Super::getNativeHandle;
 
+    HttpResponse *pause() {
+        Super::uv_pause();
+        return this;
+    }
+
+    HttpResponse *resume() {
+        Super::uv_resume();
+        return this;
+    }
+
     /* Note: Headers are not checked in regards to timeout.
      * We only check when you actively push data or end the request */
 
