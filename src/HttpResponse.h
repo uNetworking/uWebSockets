@@ -332,13 +332,13 @@ public:
 
     /* Throttle reads and writes */
     HttpResponse *pause() {
-        Super::uv_pause();
+        Super::pause();
         Super::timeout(0);
         return this;
     }
 
     HttpResponse *resume() {
-        Super::uv_resume();
+        Super::resume();
         Super::timeout(HTTP_TIMEOUT_S);
         return this;
     }
