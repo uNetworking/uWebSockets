@@ -330,13 +330,16 @@ public:
     using Super::getRemoteAddressAsText;
     using Super::getNativeHandle;
 
+    /* Throttle reads and writes */
     HttpResponse *pause() {
         Super::uv_pause();
+        Super::timeout(0);
         return this;
     }
 
     HttpResponse *resume() {
         Super::uv_resume();
+        Super::timeout(HTTP_TIMEOUT_S);
         return this;
     }
 
