@@ -228,8 +228,11 @@ protected:
             /* On failure return, otherwise continue down the function */
             if ((unsigned int) written < asyncSocketData->buffer.length()) {
 
-                /* Update buffering (todo: we can do better here if we keep track of what happens to this guy later on) */
-                asyncSocketData->buffer.erase((unsigned int) written);
+                /*tcp buffer maybe full,this can saves one copy.*/
+                if (written > 0) {
+                    /* Update buffering (todo: we can do better here if we keep track of what happens to this guy later on) */
+                    asyncSocketData->buffer.erase((unsigned int) written);
+                }
 
                 if (optionally) {
                     /* Thankfully we can exit early here */
