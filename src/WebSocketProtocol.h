@@ -273,6 +273,14 @@ protected:
     static inline bool rsv23(char *frame) {return *((unsigned char *) frame) & 48;}
     static inline bool rsv1(char *frame) {return *((unsigned char *) frame) & 64;}
 
+    template <int N>
+    static inline void UnrolledXor(char * __restrict data, char * __restrict mask) {
+        if constexpr (N != 1) {
+            UnrolledXor<N - 1>(data, mask);
+        }
+        data[N - 1] ^= mask[(N - 1) % 4];
+    }
+
     static inline void unmaskImprecise(char *dst, char *src, char *mask, unsigned int length) {
         for (unsigned int n = (length >> 2) + 1; n; n--) {
             *(dst++) = *(src++) ^ mask[0];
@@ -360,6 +368,13 @@ protected:
         }
     }
 
+    /* This one is nicely vectorized on both ARM64 and X64 - especially with -mavx */
+    static inline void unmaskAll(char * __restrict data, char * __restrict mask) {
+        for (int i = 0; i < LIBUS_RECV_BUFFER_LENGTH; i += 16) {
+            UnrolledXor<16>(data + i, mask);
+        }
+    }
+
     static inline bool consumeContinuation(char *&src, unsigned int &length, WebSocketState<isServer> *wState, void *user) {
         if (wState->remainingBytes <= length) {
             if (isServer) {
@@ -384,7 +399,11 @@ protected:
             return true;
         } else {
             if (isServer) {
-                unmaskInplace(src, src + ((length >> 2) + 1) * 4, wState->mask);
+                /* No need to unmask if mask is 0 */
+                uint32_t nullmask = 0;
+                if (!memcmp(wState->mask, &nullmask, sizeof(uint32_t))) {
+                    unmaskAll(src, wState->mask);
+                }
             }
 
             wState->remainingBytes -= length;
