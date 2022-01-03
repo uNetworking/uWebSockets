@@ -402,7 +402,12 @@ protected:
                 /* No need to unmask if mask is 0 */
                 uint32_t nullmask = 0;
                 if (!memcmp(wState->mask, &nullmask, sizeof(uint32_t))) {
-                    unmaskAll(src, wState->mask);
+                    if /*constexpr*/ (LIBUS_RECV_BUFFER_LENGTH == length) {
+                        unmaskAll(src, wState->mask);
+                    } else {
+                        // Slow path
+                        unmaskInplace(src, src + ((length >> 2) + 1) * 4, wState->mask);
+                    }
                 }
             }
 
