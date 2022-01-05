@@ -41,10 +41,7 @@ endif
 ifeq ($(WITH_LIBUV),1)
 	override LDFLAGS += -luv
 endif
-# WITH_LIBUV_STATIC=1 statically builds with libuv as event-loop 
-ifeq ($(WITH_LIBUV_STATIC),1)
-	override LDFLAGS += --std=c++17 ../libuv/.libs/libuv.a -pthread -ldl -I ../libuv/include
-endif
+
 # WITH_ASIO=1 builds with ASIO as event-loop
 ifeq ($(WITH_ASIO),1)
 	override CXXFLAGS += -pthread
@@ -66,15 +63,15 @@ examples:
 
 .PHONY: capi
 capi:
-	$(MAKE) -C uSockets
-	$(CXX) -shared -fPIC -flto -O3 $(CXXFLAGS) capi/libuwebsockets.cpp capi/CAPIApp.cpp capi/CAPIAppSSL.cpp -o libuwebsockets.so $(LDFLAGS) 
-
-capi_examples:
 	$(MAKE) -C uSockets; \
 	$(CXX) -shared -fPIC -flto -O3 $(CXXFLAGS) capi/libuwebsockets.cpp capi/CAPIApp.cpp capi/CAPIAppSSL.cpp -o libuwebsockets.so $(LDFLAGS) 
-
-	for FILE in $(CAPI_EXAMPLE_FILES); do $(CXX) capi/examples/$$FILE.c -O3 -Wl,./libuwebsockets.so libuwebsockets.so -o $(CXXFLAGS) -o $$FILE & done; \
-	for FILE in $(CAPI_SSL_EXAMPLE_FILES); do $(CXX) capi/examples/$$FILE.c -O3 -Wl,./libuwebsockets.so libuwebsockets.so -o $(CXXFLAGS) -o $$FILE & done; \
+	
+.PHONY: capi_examples
+capi_examples:
+	$(MAKE) -C uSockets; \
+	$(CXX) -shared -fPIC -pthread -flto -O3 $(CXXFLAGS) capi/libuwebsockets.cpp capi/CAPIApp.cpp capi/CAPIAppSSL.cpp -o libuwebsockets.so $(LDFLAGS) 
+	for FILE in $(CAPI_EXAMPLE_FILES); do $(CXX) -pthread -flto -O3 $(CXXFLAGS) capi/examples/$$FILE.c  -Wl,./libuwebsockets.so libuwebsockets.so  -o $$FILE $(LDFLAGS) & done; \
+	for FILE in $(CAPI_SSL_EXAMPLE_FILES); do $(CXX) -pthread -flto -O3 $(CXXFLAGS) capi/examples/$$FILE.c -Wl,./libuwebsockets.so libuwebsockets.so  -o $$FILE $(LDFLAGS) & done; \
 	wait
 install:
 	mkdir -p "$(DESTDIR)$(prefix)/include/uWebSockets"

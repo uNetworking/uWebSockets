@@ -104,7 +104,7 @@ int main()
         .drain = drain_handler,
         .ping = ping_handler,
         .pong = pong_handler,
-        .close = close_handler,
+        .close = close_handler
 	});
 
     uws_app_listen(app, 9001, listen_handler);
