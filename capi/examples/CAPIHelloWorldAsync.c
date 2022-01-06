@@ -15,19 +15,29 @@ void on_res_aborted(uws_res_t *response, void* data){
 }
 
 void on_timer_done(void *data){
-    async_request_t* info = (async_request_t*)data;
-    uws_res_end(info->res, "Hello CAPI!", false);
+    async_request_t* request_data = (async_request_t*)data;
+    /* Were'nt we aborted before our async task finished? Okay, send a message! */
+    if(!request_data->aborted){
+        uws_res_end(request_data->res, "Hello CAPI!", false);
+    }
 }
 
 void get_handler(uws_res_t *res, uws_req_t *req)
 {
+
+    /* We have to attach an abort handler for us to be aware
+     * of disconnections while we perform async tasks */
     async_request_t* request_data = (async_request_t*) malloc(sizeof(async_request_t));
     request_data->res = res;
     request_data->aborted = false;
-    //simulate 5s async delay
-    uws_create_timer(5000, 0, on_timer_done, request_data);
-    //attach to abort handler
+
     uws_res_on_aborted(res, on_res_aborted, request_data);
+
+   /* Simulate checking auth for 5 seconds. This looks like crap, never write
+    * code that utilize us_timer_t like this; they are high-cost and should
+    * not be created and destroyed more than rarely!
+    * Either way, here we go!*/
+    uws_create_timer(5000, 0, on_timer_done, request_data);
 }
 
 
@@ -41,7 +51,7 @@ void listen_handler(uws_listen_socket_t *listen_socket, uws_app_listen_config_t 
 
 int main()
 {
-  	/* Overly simple hello world app */
+  	/* Overly simple hello world app with async response */
 
     uws_app_t *app = uws_create_app();
     uws_app_get(app, "/*", get_handler);
