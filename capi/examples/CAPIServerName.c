@@ -5,12 +5,12 @@ uws_listen_socket_t *globalListenSocket;
 uws_app_t *app;
 void get_handler(uws_res_t *res, uws_req_t *req)
 {
-    uws_res_end(res, "Hello CAPI!", true);
+    uws_res_end(res, "Hello CAPI!", false);
 }
 
 void exit_handler(uws_res_t *res, uws_req_t *req)
 {
-	uws_res_end(res, "Shutting down!", true);
+	uws_res_end(res, "Shutting down!", false);
     /* We use this to check graceful closedown */
     uws_socket_close(globalListenSocket, false);
 }

@@ -388,7 +388,7 @@ extern "C"
     void uws_ssl_res_end_without_body(uws_ssl_res_t *res)
     {
         uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
-        uwsRes->endWithoutBody();
+        uwsRes->endWithoutBody(0);
     }
 
     bool uws_ssl_res_write(uws_ssl_res_t *res, const char *data)

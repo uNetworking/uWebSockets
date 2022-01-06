@@ -4,7 +4,7 @@
 
 void get_handler(uws_res_t *res, uws_req_t *req)
 {
-    uws_res_end(res, "Hello CAPI!", true);
+    uws_res_end(res, "Hello CAPI!", false);
 }
 
 void listen_handler(uws_listen_socket_t *listen_socket, uws_app_listen_config_t config)
