@@ -1,6 +1,25 @@
-default:
-	rm -f *.o
+CAPI_EXAMPLE_FILES := HelloWorld HelloWorldAsync ServerName UpgradeAsync UpgradeSync EchoServer Broadcast BroadcastEchoServer
+RUST_EXAMPLE_FILES := RustHelloWorld
+LIBRARY_NAME := libuwebsockets
+capi:
+	$(MAKE) clean
 	make -C ../uSockets
-	g++ -c -O3 -std=c++17 -flto -DUWS_NO_ZLIB -I ../src -I ../uSockets/src libuwebsockets.cpp
-	$(AR) rvs libuwebsockets.a libuwebsockets.o ../uSockets/*.o
-	gcc -O3 -flto examples/CAPIHelloWorld.c *.o -lstdc++ ../uSockets/uSockets.a -o CAPIHelloWorld
+	g++ -c -O3 -std=c++17 -flto -DUWS_NO_ZLIB -I ../src -I ../uSockets/src $(LIBRARY_NAME).cpp
+	$(AR) rvs $(LIBRARY_NAME).a $(LIBRARY_NAME).o ../uSockets/*.o
+	
+default:
+	$(MAKE) capi
+	 $(CXX) -O3 -flto -I ../src -I ../uSockets/src examples/HelloWorld.c *.o -lstdc++ ../uSockets/uSockets.a -o HelloWorld
+	rustc -C link-arg=$(LIBRARY_NAME).a -C link-arg=-lstdc++ -C opt-level=3 -C lto -L all=. examples/RustHelloWorld.rs -o RustHelloWorld
+
+rust:
+	rustc -C link-arg=$(LIBRARY_NAME).a -C link-arg=-lstdc++ -C opt-level=3 -C lto -L all=. examples/RustHelloWorld.rs -o RustHelloWorld
+
+clean:
+	rm -f *.o $(CAPI_EXAMPLE_FILES) $(RUST_EXAMPLE_FILES) $(LIBRARY_NAME).a
+
+all_examples:
+	$(MAKE) capi
+	for FILE in $(CAPI_EXAMPLE_FILES); do  $(CXX) -O3 -flto -I ../src -I ../uSockets/src examples/$$FILE.c *.o -lstdc++ ../uSockets/uSockets.a -o $$FILE & done;
+	$(MAKE) rust
+	wait

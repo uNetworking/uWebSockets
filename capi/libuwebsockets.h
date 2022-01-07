@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include "libusockets.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -90,15 +91,14 @@ extern "C"
     typedef struct uws_app_s uws_app_t;
     typedef struct uws_req_s uws_req_t;
     typedef struct uws_res_s uws_res_t;
-    typedef struct uws_listen_socket_s uws_listen_socket_t;
     typedef struct uws_socket_context_s uws_socket_context_t;
     typedef struct uws_websocket_s uws_websocket_t;
    
 
     typedef void (*uws_websocket_handler)(uws_websocket_t * ws);
-    typedef void (*uws_websocket_message_handler)(uws_websocket_t * ws, const char* message, uws_opcode_t opcode);
-    typedef void (*uws_websocket_ping_pong_handler)(uws_websocket_t * ws, const char* message);
-    typedef void (*uws_websocket_close_handler)(uws_websocket_t * ws, int code, const char* message);
+    typedef void (*uws_websocket_message_handler)(uws_websocket_t * ws, const char* message, size_t length, uws_opcode_t opcode);
+    typedef void (*uws_websocket_ping_pong_handler)(uws_websocket_t * ws, const char* message, size_t length);
+    typedef void (*uws_websocket_close_handler)(uws_websocket_t * ws, int code, const char* message, size_t length);
     typedef void (*uws_websocket_upgrade_handler)(uws_res_t *response, uws_req_t *request, uws_socket_context_t* context);
 
 
@@ -129,7 +129,7 @@ extern "C"
         uws_websocket_close_handler close;
     } uws_socket_behavior_t;
     
-    typedef void (*uws_listen_handler)(uws_listen_socket_t *listen_socket, uws_app_listen_config_t config);
+    typedef void (*uws_listen_handler)(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config);
     typedef void (*uws_method_handler)(uws_res_t *response, uws_req_t *request);
     typedef void (*uws_filter_handler)(uws_res_t *response, int);
     typedef void (*uws_missing_server_handler)(const char *hostname);
@@ -150,11 +150,10 @@ extern "C"
     void uws_app_run(uws_app_t *);
 
     void uws_app_listen(uws_app_t *app, int port, uws_listen_handler handler);
-    void uws_socket_close(uws_listen_socket_t* listen_socket, bool ssl);
     void uws_app_listen_with_config(uws_app_t *app, uws_app_listen_config_t config, uws_listen_handler handler);
     bool uws_constructor_failed(uws_app_t *app);
     unsigned int uws_num_subscribers(uws_app_t *app, const char *topic);
-    bool uws_publish(uws_app_t *app, const char *topic, const char *message, uws_opcode_t opcode, bool compress);
+    bool uws_publish(uws_app_t *app, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress);
     void *uws_get_native_handle(uws_app_t *app);
     void uws_remove_server_name(uws_app_t *app, const char *hostname_pattern);
     void uws_add_server_name(uws_app_t *app, const char *hostname_pattern);
@@ -166,20 +165,20 @@ extern "C"
     void uws_ws(uws_app_t *app, const char *pattern, uws_socket_behavior_t behavior);
     void* uws_ws_get_user_data(uws_websocket_t* ws);
     void uws_ws_close(uws_websocket_t* ws);
-    uws_sendstatus_t uws_ws_send(uws_websocket_t *ws, const char *message, uws_opcode_t opcode);
-    uws_sendstatus_t uws_ws_send_with_options(uws_websocket_t* ws, const char* message, uws_opcode_t opcode, bool compress, bool fin);
-    uws_sendstatus_t uws_ws_send_fragment(uws_websocket_t* ws, const char* message, bool compress);
-    uws_sendstatus_t uws_ws_send_first_fragment(uws_websocket_t* ws, const char* message, bool compress);
-    uws_sendstatus_t uws_ws_send_first_fragment_with_opcode(uws_websocket_t* ws, const char* message, uws_opcode_t opcode, bool compress);
-    uws_sendstatus_t uws_ws_send_last_fragment(uws_websocket_t* ws, const char* message, bool compress);
-    void uws_ws_end(uws_websocket_t* ws,  int code, const char* message);
+    uws_sendstatus_t uws_ws_send(uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode);
+    uws_sendstatus_t uws_ws_send_with_options(uws_websocket_t* ws, const char* message, size_t length, uws_opcode_t opcode, bool compress, bool fin);
+    uws_sendstatus_t uws_ws_send_fragment(uws_websocket_t* ws, const char* message, size_t length, bool compress);
+    uws_sendstatus_t uws_ws_send_first_fragment(uws_websocket_t* ws, const char* message, size_t length, bool compress);
+    uws_sendstatus_t uws_ws_send_first_fragment_with_opcode(uws_websocket_t* ws, const char* message, size_t length, uws_opcode_t opcode, bool compress);
+    uws_sendstatus_t uws_ws_send_last_fragment(uws_websocket_t* ws, const char* message, size_t length, bool compress);
+    void uws_ws_end(uws_websocket_t* ws,  int code, const char* message, size_t length);
     void uws_ws_cork(uws_websocket_t* ws, void(*handler)());
-    bool uws_ws_subscribe(uws_websocket_t* ws,  const char* topic);
-    bool uws_ws_unsubscribe(uws_websocket_t* ws,  const char* topic);
-    bool uws_ws_is_subscribed(uws_websocket_t* ws,  const char* topic);
-    void uws_ws_iterate_topics(uws_websocket_t* ws,  void(*callback)(const char* topic));
-    bool uws_ws_publish(uws_websocket_t* ws,  const char* topic, const char* message);
-    bool uws_ws_publish_with_options(uws_websocket_t* ws,  const char* topic, const char* message, uws_opcode_t opcode, bool compress);
+    bool uws_ws_subscribe(uws_websocket_t* ws,  const char* topic, size_t length);
+    bool uws_ws_unsubscribe(uws_websocket_t* ws,  const char* topic, size_t length);
+    bool uws_ws_is_subscribed(uws_websocket_t* ws,  const char* topic, size_t length);
+    void uws_ws_iterate_topics(uws_websocket_t* ws,  void(*callback)(const char* topic, size_t length));
+    bool uws_ws_publish(uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length);
+    bool uws_ws_publish_with_options(uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress);
     unsigned int uws_ws_get_buffered_amount(uws_websocket_t* ws);
     const char* uws_ws_get_remote_address(uws_websocket_t* ws);
     const char* uws_ws_get_remote_address_as_text(uws_websocket_t* ws);

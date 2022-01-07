@@ -3,7 +3,6 @@
 #include <malloc.h>
 #include "App.h"
 
-
 extern "C"
 {
 
@@ -87,20 +86,14 @@ extern "C"
         config.host = nullptr;
         config.options = 0;
         uwsApp->listen(port, [handler, config](struct us_listen_socket_t *listen_socket)
-                       { handler((uws_listen_socket_t *)listen_socket, config); });
-    }
-
-    void uws_socket_close(uws_listen_socket_t *listen_socket, bool ssl)
-    {
-        struct us_listen_socket_t *globalListenSocket = (struct us_listen_socket_t *)listen_socket;
-        us_listen_socket_close(ssl, globalListenSocket);
+                       { handler((struct us_listen_socket_t *)listen_socket, config); });
     }
 
     void uws_app_listen_with_config(uws_app_t *app, uws_app_listen_config_t config, uws_listen_handler handler)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->listen(config.host, config.port, config.options, [handler, config](struct us_listen_socket_t *listen_socket)
-                       { handler((uws_listen_socket_t *)listen_socket, config); });
+                       { handler((struct us_listen_socket_t *)listen_socket, config); });
     }
 
     void uws_app_destroy(uws_app_t *app)
@@ -122,10 +115,10 @@ extern "C"
         uWS::App *uwsApp = (uWS::App *)app;
         return uwsApp->numSubscribers(topic);
     }
-    bool uws_publish(uws_app_t *app, const char *topic, const char *message, uws_opcode_t opcode, bool compress)
+    bool uws_publish(uws_app_t *app, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        return uwsApp->publish(topic, message, (unsigned char)opcode, compress);
+        return uwsApp->publish(std::string_view(topic, topic_length), std::string_view(message, message_length), (unsigned char)opcode, compress);
     }
     void *uws_get_native_handle(uws_app_t *app)
     {
@@ -197,7 +190,7 @@ extern "C"
         if (behavior.message)
             generic_handler.message = [behavior](auto *ws, auto message, auto opcode)
             {
-                behavior.message((uws_websocket_t *)ws, std::string(message).c_str(), (uws_opcode_t)opcode);
+                behavior.message((uws_websocket_t *)ws, std::string(message).c_str(), message.length(), (uws_opcode_t)opcode);
             };
         if (behavior.drain)
             generic_handler.drain = [behavior](auto *ws)
@@ -207,17 +200,17 @@ extern "C"
         if (behavior.ping)
             generic_handler.ping = [behavior](auto *ws, auto message)
             {
-                behavior.ping((uws_websocket_t *)ws, std::string(message).c_str());
+                behavior.ping((uws_websocket_t *)ws, std::string(message).c_str(), message.length());
             };
         if (behavior.pong)
             generic_handler.pong = [behavior](auto *ws, auto message)
             {
-                behavior.pong((uws_websocket_t *)ws, std::string(message).c_str());
+                behavior.pong((uws_websocket_t *)ws, std::string(message).c_str(), message.length());
             };
         if (behavior.close)
             generic_handler.close = [behavior](auto *ws, int code, auto message)
             {
-                behavior.close((uws_websocket_t *)ws, code, std::string(message).c_str());
+                behavior.close((uws_websocket_t *)ws, code, std::string(message).c_str(), message.length());
             };
         uwsApp->ws<void *>(pattern, std::move(generic_handler));
     }
@@ -234,43 +227,43 @@ extern "C"
         uws->close();
     }
 
-    uws_sendstatus_t uws_ws_send(uws_websocket_t *ws, const char *message, uws_opcode_t opcode)
+    uws_sendstatus_t uws_ws_send(uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return (uws_sendstatus_t)uws->send(message, (uWS::OpCode)(unsigned char)opcode);
+        return (uws_sendstatus_t)uws->send(std::string_view(message, length), (uWS::OpCode)(unsigned char)opcode);
     }
 
-    uws_sendstatus_t uws_ws_send_with_options(uws_websocket_t *ws, const char *message, uws_opcode_t opcode, bool compress, bool fin)
+    uws_sendstatus_t uws_ws_send_with_options(uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode, bool compress, bool fin)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return (uws_sendstatus_t)uws->send(message, (uWS::OpCode)(unsigned char)opcode, compress, fin);
+        return (uws_sendstatus_t)uws->send(std::string_view(message), (uWS::OpCode)(unsigned char)opcode, compress, fin);
     }
 
-    uws_sendstatus_t uws_ws_send_fragment(uws_websocket_t *ws, const char *message, bool compress)
+    uws_sendstatus_t uws_ws_send_fragment(uws_websocket_t *ws, const char *message, size_t length, bool compress)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return (uws_sendstatus_t)uws->sendFragment(message, compress);
+        return (uws_sendstatus_t)uws->sendFragment(std::string_view(message, length), compress);
     }
-    uws_sendstatus_t uws_ws_send_first_fragment(uws_websocket_t *ws, const char *message, bool compress)
+    uws_sendstatus_t uws_ws_send_first_fragment(uws_websocket_t *ws, const char *message, size_t length, bool compress)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return (uws_sendstatus_t)uws->sendFirstFragment(message, uWS::OpCode::BINARY, compress);
+        return (uws_sendstatus_t)uws->sendFirstFragment(std::string_view(message), uWS::OpCode::BINARY, compress);
     }
-    uws_sendstatus_t uws_ws_send_first_fragment_with_opcode(uws_websocket_t *ws, const char *message, uws_opcode_t opcode, bool compress)
+    uws_sendstatus_t uws_ws_send_first_fragment_with_opcode(uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode, bool compress)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return (uws_sendstatus_t)uws->sendFirstFragment(message, (uWS::OpCode)(unsigned char)opcode, compress);
+        return (uws_sendstatus_t)uws->sendFirstFragment(std::string_view(message, length), (uWS::OpCode)(unsigned char)opcode, compress);
     }
-    uws_sendstatus_t uws_ws_send_last_fragment(uws_websocket_t *ws, const char *message, bool compress)
+    uws_sendstatus_t uws_ws_send_last_fragment(uws_websocket_t *ws, const char *message, size_t length, bool compress)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return (uws_sendstatus_t)uws->sendLastFragment(message, compress);
+        return (uws_sendstatus_t)uws->sendLastFragment(std::string_view(message, length), compress);
     }
 
-    void uws_ws_end(uws_websocket_t *ws, int code, const char *message)
+    void uws_ws_end(uws_websocket_t *ws, int code, const char *message, size_t length)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        uws->end(code, message);
+        uws->end(code, std::string_view(message, length));
     }
 
     void uws_ws_cork(uws_websocket_t *ws, void (*handler)())
@@ -282,42 +275,42 @@ extern "C"
                       { handler(); });
         }
     }
-    bool uws_ws_subscribe(uws_websocket_t *ws, const char *topic)
+    bool uws_ws_subscribe(uws_websocket_t *ws, const char *topic, size_t length)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return uws->subscribe(topic);
+        return uws->subscribe(std::string_view(topic, length));
     }
-    bool uws_ws_unsubscribe(uws_websocket_t *ws, const char *topic)
+    bool uws_ws_unsubscribe(uws_websocket_t *ws, const char *topic, size_t length)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return uws->unsubscribe(topic);
+        return uws->unsubscribe(std::string_view(topic, length));
     }
 
-    bool uws_ws_is_subscribed(uws_websocket_t *ws, const char *topic)
+    bool uws_ws_is_subscribed(uws_websocket_t *ws, const char *topic, size_t length)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return uws->isSubscribed(topic);
+        return uws->isSubscribed(std::string_view(topic, length));
     }
-    void uws_ws_iterate_topics(uws_websocket_t *ws, void (*callback)(const char *topic))
+    void uws_ws_iterate_topics(uws_websocket_t *ws, void (*callback)(const char *topic, size_t length))
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
         if (callback)
         {
             uws->iterateTopics([callback](auto topic)
-                               { callback(std::string(topic).c_str()); });
+                               { callback(std::string(topic).c_str(), topic.length()); });
         }
     }
 
-    bool uws_ws_publish(uws_websocket_t *ws, const char *topic, const char *message)
+    bool uws_ws_publish(uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return uws->publish(topic, message);
+        return uws->publish(std::string_view(topic, topic_length), std::string_view(message, message_length));
     }
 
-    bool uws_ws_publish_with_options(uws_websocket_t *ws, const char *topic, const char *message, uws_opcode_t opcode, bool compress)
+    bool uws_ws_publish_with_options(uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return uws->publish(topic, message, (uWS::OpCode)(unsigned char)opcode, compress);
+        return uws->publish(std::string_view(topic, topic_length), std::string_view(message, message_length), (uWS::OpCode)(unsigned char)opcode, compress);
     }
 
     unsigned int uws_ws_get_buffered_amount(uws_websocket_t *ws)
@@ -335,7 +328,8 @@ extern "C"
     const char *uws_ws_get_remote_address_as_text(uws_websocket_t *ws)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return std::string(uws->getRemoteAddressAsText()).c_str();;
+        return std::string(uws->getRemoteAddressAsText()).c_str();
+        ;
     }
 
     void uws_res_end(uws_res_t *res, const char *data, size_t length, bool close_connection)
@@ -368,7 +362,7 @@ extern "C"
         uwsRes->writeStatus(std::string_view(status, length));
     }
 
-    void uws_res_write_header(uws_res_t *res, const char *key, size_t key_length, const char* value, size_t value_length)
+    void uws_res_write_header(uws_res_t *res, const char *key, size_t key_length, const char *value, size_t value_length)
     {
         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
         uwsRes->writeHeader(std::string_view(key, key_length), std::string_view(value, value_length));
@@ -416,7 +410,7 @@ extern "C"
                           { handler(res, opcional_data); });
     }
 
-    void uws_res_on_data(uws_res_t *res, void (*handler)(uws_res_t *res, const char *chunk, size_t chunk_length,  bool is_end, void *opcional_data), void *opcional_data)
+    void uws_res_on_data(uws_res_t *res, void (*handler)(uws_res_t *res, const char *chunk, size_t chunk_length, bool is_end, void *opcional_data), void *opcional_data)
     {
         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
         uwsRes->onData([handler, res, opcional_data](auto chunk, bool is_end)
@@ -457,7 +451,8 @@ extern "C"
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
 
-        return std::string(uwsReq->getHeader(std::string_view(lower_case_header, lower_case_header_length))).c_str();
+        std::string_view header = uwsReq->getHeader(std::string_view(lower_case_header, lower_case_header_length));
+        return std::string(header).c_str();
     }
 
     const char *uws_req_get_query(uws_req_t *res, const char *key, size_t key_length)
