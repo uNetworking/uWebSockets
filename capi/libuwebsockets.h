@@ -1,6 +1,6 @@
 
 #ifndef LIBUWS_CAPI_HEADER
-#define LIBUS_CAPI_HEADER
+#define LIBUWS_CAPI_HEADER
 
 #include <stddef.h>
 #include <stdbool.h>
