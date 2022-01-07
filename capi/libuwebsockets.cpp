@@ -6,8 +6,20 @@
 extern "C"
 {
 
-    uws_app_t *uws_create_app()
-    {
+    // uws_app_t *uws_create_app(int ssl, struct us_socket_context_options_t options)
+    // {
+    //     if (ssl)
+    //     {
+    //         uWS::SocketContextOptions sco;
+    //         sco.ca_file_name = options.ca_file_name;
+    //         sco.cert_file_name = options.cert_file_name;
+    //         sco.dh_params_file_name = options.dh_params_file_name;
+    //         sco.key_file_name = options.key_file_name;
+    //         sco.passphrase = options.passphrase;
+    //         sco.ssl_prefer_low_memory_usage = options.ssl_prefer_low_memory_usage;
+    //         return (uws_app_t *) new uWS::SSLApp(sco);
+    //     }
+    uws_app_t *uws_create_app(){
         return (uws_app_t *)new uWS::App();
     }
 

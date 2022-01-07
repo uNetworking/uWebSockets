@@ -1,8 +1,5 @@
 EXAMPLE_FILES := Broadcast HelloWorld ServerName EchoServer BroadcastingEchoServer UpgradeSync UpgradeAsync
-CAPI_EXAMPLE_FILES := CAPIHelloWorldAsync CAPIHelloWorld CAPIServerName CAPIUpgradeSync CAPIEchoServer CAPIUpgradeAsync CAPIUpgradeAsync CAPIBroadcast CAPIBroadcastEchoServer
-CAPI_SSL_EXAMPLE_FILES := CAPIHelloWorldSSL CAPIServerNameSSL CAPIUpgradeSyncSSL CAPIUpgradeAsyncSSL CAPIEchoServerSSL CAPIBroadcastSSL CAPIBroadcastEchoServerSSL
 THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
-CAPI_LIBRARY_NAME := libuwebsockets.so
 
 override CXXFLAGS += -lpthread -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++2a -Isrc -IuSockets/src
 override LDFLAGS += uSockets/*.o -lz
@@ -60,19 +57,6 @@ examples:
 	$(MAKE) -C uSockets; \
 	for FILE in $(EXAMPLE_FILES); do $(CXX) -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
 	for FILE in $(THREADED_EXAMPLE_FILES); do $(CXX) -pthread -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
-	wait
-
-.PHONY: capi
-capi:
-	$(MAKE) -C uSockets; \
-	$(CXX) -shared -fPIC -flto -O3 $(CXXFLAGS) capi/libuwebsockets.cpp capi/CAPIApp.cpp capi/CAPIAppSSL.cpp -o $(CAPI_LIBRARY_NAME) $(LDFLAGS) 
-
-.PHONY: capi_examples
-capi_examples:
-	$(MAKE) -C uSockets; \
-	$(CXX) -shared -fPIC -flto -O3 $(CXXFLAGS) capi/libuwebsockets.cpp capi/CAPIApp.cpp capi/CAPIAppSSL.cpp -o $(CAPI_LIBRARY_NAME) $(LDFLAGS) 
-	for FILE in $(CAPI_EXAMPLE_FILES); do $(CXX) -flto -O3 $(CXXFLAGS) capi/examples/$$FILE.c  -Wl,./$(CAPI_LIBRARY_NAME) $(CAPI_LIBRARY_NAME)  -o $$FILE $(LDFLAGS) & done; \
-	for FILE in $(CAPI_SSL_EXAMPLE_FILES); do $(CXX) -flto -O3 $(CXXFLAGS) capi/examples/$$FILE.c -Wl,./$(CAPI_LIBRARY_NAME) $(CAPI_LIBRARY_NAME)  -o $$FILE $(LDFLAGS) & done; \
 	wait
 
 install:

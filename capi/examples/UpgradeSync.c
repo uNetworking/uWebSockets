@@ -6,6 +6,7 @@
  * You may compile it with "WITH_OPENSSL=1 make" or with "make" */
 
 /* ws->getUserData returns one of these */
+
 struct PerSocketData
 {
     /* Define your user data */
