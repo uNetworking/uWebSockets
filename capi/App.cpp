@@ -21,7 +21,7 @@ extern "C" {
 
     void uws_res_end(uws_res_t *res, const char *data, size_t length) {
         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *) res;
-        uwsRes->end(data, length);
+        uwsRes->end(std::string_view(data, length));
     }
 
     void uws_app_listen(uws_app_t *app, int port, void (*handler)(void *)) {
