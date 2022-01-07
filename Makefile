@@ -68,5 +68,5 @@ all:
 	$(MAKE) -C fuzzing
 	$(MAKE) -C benchmarks
 clean:
-	rm -rf $(EXAMPLE_FILES) $(THREADED_EXAMPLE_FILES) $(CAPI_EXAMPLE_FILES) $(CAPI_SSL_EXAMPLE_FILES) $(CAPI_LIBRARY_NAME)
+	rm -rf $(EXAMPLE_FILES) $(THREADED_EXAMPLE_FILES)
 	rm -rf fuzzing/*.o benchmarks/*.o
