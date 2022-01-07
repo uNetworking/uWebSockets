@@ -4,7 +4,10 @@
 
 void get_handler(uws_res_t *res, uws_req_t *req)
 {
-    uws_res_end(res, "Hello CAPI!", false);
+    uws_res_end(res, "Hello CAPI!",11, false);
+    const char* url = uws_req_get_url(req);
+    printf("url %s\n", url);
+
 }
 
 void listen_handler(uws_listen_socket_t *listen_socket, uws_app_listen_config_t config)
