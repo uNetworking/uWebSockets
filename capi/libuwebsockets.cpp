@@ -161,17 +161,19 @@ extern "C"
         uwsApp->addServerName(hostname_pattern, sco);
     }
 
-    void uws_missing_server_name(uws_app_t *app, uws_missing_server_handler handler)
+    void uws_missing_server_name(uws_app_t *app, uws_missing_server_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->missingServerName(handler);
+        uwsApp->missingServerName([handler, user_data](auto hostname){
+            handler(hostname, user_data);
+        });
     }
-    void uws_filter(uws_app_t *app, uws_filter_handler handler)
+    void uws_filter(uws_app_t *app, uws_filter_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
 
-        uwsApp->filter([handler](auto res, auto i)
-                       { handler((uws_res_t *)res, i); });
+        uwsApp->filter([handler, user_data](auto res, auto i)
+                       { handler((uws_res_t *)res, i, user_data); });
     }
 
     void uws_ws(uws_app_t *app, const char *pattern, uws_socket_behavior_t behavior)
@@ -278,13 +280,13 @@ extern "C"
         uws->end(code, std::string_view(message, length));
     }
 
-    void uws_ws_cork(uws_websocket_t *ws, void (*handler)())
+    void uws_ws_cork(uws_websocket_t *ws, void (*handler)(void* user_data), void* user_data)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
         if (handler)
         {
-            uws->cork([handler]()
-                      { handler(); });
+            uws->cork([handler, user_data]()
+                      { handler(user_data); });
         }
     }
     bool uws_ws_subscribe(uws_websocket_t *ws, const char *topic, size_t length)
@@ -303,13 +305,13 @@ extern "C"
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
         return uws->isSubscribed(std::string_view(topic, length));
     }
-    void uws_ws_iterate_topics(uws_websocket_t *ws, void (*callback)(const char *topic, size_t length))
+    void uws_ws_iterate_topics(uws_websocket_t *ws, void (*callback)(const char *topic, size_t length, void* user_data), void* user_data)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
         if (callback)
         {
-            uws->iterateTopics([callback](auto topic)
-                               { callback(std::string(topic).c_str(), topic.length()); });
+            uws->iterateTopics([callback, user_data](auto topic)
+                               { callback(std::string(topic).c_str(), topic.length(), user_data); });
         }
     }
 

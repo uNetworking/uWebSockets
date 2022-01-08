@@ -131,8 +131,8 @@ extern "C"
     
     typedef void (*uws_listen_handler)(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config, void* user_data);
     typedef void (*uws_method_handler)(uws_res_t *response, uws_req_t *request, void* user_data);
-    typedef void (*uws_filter_handler)(uws_res_t *response, int);
-    typedef void (*uws_missing_server_handler)(const char *hostname);
+    typedef void (*uws_filter_handler)(uws_res_t *response, int,  void* user_data);
+    typedef void (*uws_missing_server_handler)(const char *hostname,  void* user_data);
     //Basic HTTP
     uws_app_t *uws_create_app();
     void uws_app_destroy(uws_app_t *app);
@@ -158,8 +158,8 @@ extern "C"
     void uws_remove_server_name(uws_app_t *app, const char *hostname_pattern);
     void uws_add_server_name(uws_app_t *app, const char *hostname_pattern);
     void uws_add_server_name_with_options(uws_app_t *app, const char *hostname_pattern, uws_socket_context_options_t options);
-    void uws_missing_server_name(uws_app_t *app, uws_missing_server_handler handler);
-    void uws_filter(uws_app_t *app, uws_filter_handler handler);
+    void uws_missing_server_name(uws_app_t *app, uws_missing_server_handler handler,  void* user_data);
+    void uws_filter(uws_app_t *app, uws_filter_handler handler,  void* user_data);
     
     //WebSocket
     void uws_ws(uws_app_t *app, const char *pattern, uws_socket_behavior_t behavior);
@@ -172,11 +172,11 @@ extern "C"
     uws_sendstatus_t uws_ws_send_first_fragment_with_opcode(uws_websocket_t* ws, const char* message, size_t length, uws_opcode_t opcode, bool compress);
     uws_sendstatus_t uws_ws_send_last_fragment(uws_websocket_t* ws, const char* message, size_t length, bool compress);
     void uws_ws_end(uws_websocket_t* ws,  int code, const char* message, size_t length);
-    void uws_ws_cork(uws_websocket_t* ws, void(*handler)());
+    void uws_ws_cork(uws_websocket_t* ws, void(*handler)( void* user_data),  void* user_data);
     bool uws_ws_subscribe(uws_websocket_t* ws,  const char* topic, size_t length);
     bool uws_ws_unsubscribe(uws_websocket_t* ws,  const char* topic, size_t length);
     bool uws_ws_is_subscribed(uws_websocket_t* ws,  const char* topic, size_t length);
-    void uws_ws_iterate_topics(uws_websocket_t* ws,  void(*callback)(const char* topic, size_t length));
+    void uws_ws_iterate_topics(uws_websocket_t* ws,  void(*callback)(const char* topic, size_t length,  void* user_data),  void* user_data);
     bool uws_ws_publish(uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length);
     bool uws_ws_publish_with_options(uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress);
     unsigned int uws_ws_get_buffered_amount(uws_websocket_t* ws);
@@ -195,7 +195,7 @@ extern "C"
     bool uws_res_write(uws_res_t *res, const char *data, size_t length);
     uintmax_t uws_res_get_write_offset(uws_res_t *res);
     bool uws_res_has_responded(uws_res_t *res);
-    void uws_res_on_writable(uws_res_t *res,  bool (*handler)(uws_res_t *res, uintmax_t, void* opcional_data), void* opcional_data);
+    void uws_res_on_writable(uws_res_t *res,  bool (*handler)(uws_res_t *res, uintmax_t, void* opcional_data), void* user_data);
     void uws_res_on_aborted(uws_res_t *res,  void (*handler)(uws_res_t *res, void* opcional_data), void* opcional_data);
     void uws_res_on_data(uws_res_t *res, void (*handler)(uws_res_t *res, const char* chunk, size_t chunk_length, bool is_end, void* opcional_data), void* opcional_data);
     void uws_res_upgrade(uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws);
@@ -211,7 +211,7 @@ extern "C"
     int uws_req_get_parameter(uws_req_t *res, unsigned short index, char* dest_buffer, size_t dest_buffer_length);
 
     //Eventing
-    uws_timer_t *uws_create_timer(int ms, int repeat_ms, void (*handler)(void *data), void *data);
+    uws_timer_t *uws_create_timer(int ms, int repeat_ms, void (*handler)(void *user_data), void *user_data);
     void uws_timer_close(uws_timer_t *timer);
 
 #ifdef __cplusplus
