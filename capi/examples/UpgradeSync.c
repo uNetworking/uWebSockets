@@ -5,7 +5,7 @@
 /* This is a simple WebSocket "sync" upgrade example.
  * You may compile it with "WITH_OPENSSL=1 make" or with "make" */
 
-/* ws->getUserData returns one of these */
+/* uws_ws_get_user_data(ws) returns one of these */
 
 struct PerSocketData
 {
@@ -33,18 +33,27 @@ void upgrade_handler(uws_res_t *response, uws_req_t *request, uws_socket_context
 
     struct PerSocketData *data = (struct PerSocketData *)malloc(sizeof(struct PerSocketData));
     data->something = 15;
-    const char *ws_key = uws_req_get_header(request, "sec-websocket-key", 17);
-    const char *ws_protocol = uws_req_get_header(request, "sec-websocket-protocol", 22);
-    const char *ws_extensions = uws_req_get_header(request, "sec-websocket-extensions", 24);
-    printf("ws_key %s\n", ws_key);
-    printf("ws_protocol %s\n", ws_protocol);
-    printf("ws_extensions %s\n", ws_extensions);
+    char* ws_key = (char*)calloc(sizeof(char), 100);
+    char* ws_protocol = (char*)calloc(sizeof(char), 100);
+    char* ws_extensions = (char*)calloc(sizeof(char), 100);
+    //better check if lenght > then buffer sizes
+    int ws_key_length = uws_req_get_header(request, "sec-websocket-key", 17, ws_key, 100);
+    int ws_protocol_length = uws_req_get_header(request, "sec-websocket-protocol", 22, ws_protocol, 100);
+    int ws_extensions_length = uws_req_get_header(request, "sec-websocket-extensions", 24, ws_extensions, 100);
+
     uws_res_upgrade(response,
                     (void *)data,
                     ws_key,
+                    ws_key_length,
                     ws_protocol,
+                    ws_protocol_length,
                     ws_extensions,
+                    ws_extensions_length,
                     context);
+
+    free(ws_key);
+    free(ws_protocol);
+    free(ws_extensions);
 }
 
 void open_handler(uws_websocket_t *ws)
@@ -60,7 +69,6 @@ void open_handler(uws_websocket_t *ws)
 
 void message_handler(uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode)
 {
-
     /* We simply echo whatever data we get */
     uws_ws_send(ws, message, length, opcode);
 }

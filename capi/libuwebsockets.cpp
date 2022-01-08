@@ -1,6 +1,5 @@
 #include "libuwebsockets.h"
 #include <string_view>
-#include <malloc.h>
 #include "App.h"
 
 extern "C"
@@ -19,7 +18,8 @@ extern "C"
     //         sco.ssl_prefer_low_memory_usage = options.ssl_prefer_low_memory_usage;
     //         return (uws_app_t *) new uWS::SSLApp(sco);
     //     }
-    uws_app_t *uws_create_app(){
+    uws_app_t *uws_create_app()
+    {
         return (uws_app_t *)new uWS::App();
     }
 
@@ -331,17 +331,35 @@ extern "C"
         return uws->getBufferedAmount();
     }
 
-    const char *uws_ws_get_remote_address(uws_websocket_t *ws)
+    int uws_ws_get_remote_address(uws_websocket_t *ws, char *dest_buffer, size_t dest_buffer_length)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return std::string(uws->getRemoteAddress()).c_str();
+
+        std::string_view value = uws->getRemoteAddress();
+        size_t length = value.length();
+
+        //return the length if dest is too small or length is zero
+        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
+            return length;
+
+        
+        std::strncat(dest_buffer, value.data(), length);
+        return length; //return the length for reference and check
     }
 
-    const char *uws_ws_get_remote_address_as_text(uws_websocket_t *ws)
+    int uws_ws_get_remote_address_as_text(uws_websocket_t *ws, char *dest_buffer, size_t dest_buffer_length)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
-        return std::string(uws->getRemoteAddressAsText()).c_str();
-        ;
+
+        std::string_view value = uws->getRemoteAddressAsText();
+        size_t length = value.length();
+
+        //return the length if dest is too small or length is zero
+        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
+            return length;
+
+        std::strncat(dest_buffer, value.data(), length);
+        return length; //return the length for reference and check
     }
 
     void uws_res_end(uws_res_t *res, const char *data, size_t length, bool close_connection)
@@ -447,36 +465,80 @@ extern "C"
         return uwsReq->setYield(yield);
     }
 
-    const char *uws_req_get_url(uws_req_t *res)
+    int uws_req_get_url(uws_req_t *res, char *dest_buffer, size_t dest_buffer_length)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
-        return std::string(uwsReq->getUrl()).c_str();
+        std::string_view value = uwsReq->getUrl();
+        size_t length = value.length();
+
+        //return the length if dest is too small or length is zero
+        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
+            return length;
+
+        
+        std::strncat(dest_buffer, value.data(), length);
+        return length; //return the length for reference and check
     }
 
-    const char *uws_req_get_method(uws_req_t *res)
+    int uws_req_get_method(uws_req_t *res, char *dest_buffer, size_t dest_buffer_length)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
-        return std::string(uwsReq->getMethod()).c_str();
+        std::string_view value = uwsReq->getMethod();
+        size_t length = value.length();
+
+        //return the length if dest is too small or length is zero
+        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
+            return length;
+
+        
+        std::strncat(dest_buffer, value.data(), length);
+        return length; //return the length for reference and check
     }
 
-    const char *uws_req_get_header(uws_req_t *res, const char *lower_case_header, size_t lower_case_header_length)
+    int uws_req_get_header(uws_req_t *res, const char *lower_case_header, size_t lower_case_header_length, char *dest_buffer, size_t dest_buffer_length)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
 
-        std::string_view header = uwsReq->getHeader(std::string_view(lower_case_header, lower_case_header_length));
-        return std::string(header).c_str();
+        std::string_view value = uwsReq->getHeader(std::string_view(lower_case_header, lower_case_header_length));
+        size_t length = value.length();
+
+        //return the length if dest is too small or length is zero
+        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
+            return length;
+
+        
+        std::strncat(dest_buffer, value.data(), length);
+        return length; //return the length for reference and check
     }
 
-    const char *uws_req_get_query(uws_req_t *res, const char *key, size_t key_length)
+    int uws_req_get_query(uws_req_t *res, const char *key, size_t key_length, char *dest_buffer, size_t dest_buffer_length)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
-        return std::string(uwsReq->getQuery(std::string_view(key, key_length))).c_str();
+
+        std::string_view value = uwsReq->getQuery(std::string_view(key, key_length));
+        size_t length = value.length();
+
+        //return the length if dest is too small or length is zero
+        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
+            return length;
+
+        
+        std::strncat(dest_buffer, value.data(), length);
+        return length; //return the length for reference and check
     }
 
-    const char *uws_req_get_parameter(uws_req_t *res, unsigned short index)
+    int uws_req_get_parameter(uws_req_t *res, unsigned short index, char *dest_buffer, size_t dest_buffer_length)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
-        return std::string(uwsReq->getParameter(index)).c_str();
+        std::string_view value = uwsReq->getParameter(index);
+        size_t length = value.length();
+        //return the length if dest is too small or length is zero
+        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
+            return length;
+
+        
+        std::strncat(dest_buffer, value.data(), length);
+        return length; //return the length for reference and check
     }
     // void uws_req_set_parameters(uws_req_t *res, int first, const char* second) {
     //     uWS::HttpRequest * uwsReq = (uWS::HttpRequest*)res;
@@ -486,14 +548,14 @@ extern "C"
     //     uwsReq->setParameters(parameters);
     // }
 
-    void uws_res_upgrade(uws_res_t *res, void *data, const char *sec_web_socket_key, const char *sec_web_socket_protocol, const char *sec_web_socket_extensions, uws_socket_context_t *ws)
+    void uws_res_upgrade(uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws)
     {
         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
 
         uwsRes->template upgrade<void *>(data ? std::move(data) : NULL,
-                                         sec_web_socket_key,
-                                         sec_web_socket_protocol,
-                                         sec_web_socket_extensions,
+                                         std::string_view(sec_web_socket_key, sec_web_socket_key_length),
+                                         std::string_view(sec_web_socket_protocol, sec_web_socket_protocol_length),
+                                         std::string_view(sec_web_socket_extensions, sec_web_socket_extensions_length),
                                          (struct us_socket_context_t *)ws);
     }
 

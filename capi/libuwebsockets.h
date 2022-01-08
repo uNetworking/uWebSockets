@@ -180,8 +180,8 @@ extern "C"
     bool uws_ws_publish(uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length);
     bool uws_ws_publish_with_options(uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress);
     unsigned int uws_ws_get_buffered_amount(uws_websocket_t* ws);
-    const char* uws_ws_get_remote_address(uws_websocket_t* ws);
-    const char* uws_ws_get_remote_address_as_text(uws_websocket_t* ws);
+    int uws_ws_get_remote_address(uws_websocket_t* ws, char* dest_buffer, size_t dest_buffer_length);
+    int uws_ws_get_remote_address_as_text(uws_websocket_t* ws, char* dest_buffer, size_t dest_buffer_length);
 
     //Response
     void uws_res_end(uws_res_t *res, const char *data, size_t length, bool close_connection);
@@ -198,17 +198,17 @@ extern "C"
     void uws_res_on_writable(uws_res_t *res,  bool (*handler)(uws_res_t *res, uintmax_t, void* opcional_data), void* opcional_data);
     void uws_res_on_aborted(uws_res_t *res,  void (*handler)(uws_res_t *res, void* opcional_data), void* opcional_data);
     void uws_res_on_data(uws_res_t *res, void (*handler)(uws_res_t *res, const char* chunk, size_t chunk_length, bool is_end, void* opcional_data), void* opcional_data);
-    void uws_res_upgrade(uws_res_t *res, void* data, const char* sec_web_socket_key, const char* sec_web_socket_protocol, const char* sec_web_socket_extensions, uws_socket_context_t* ws);
-
+    void uws_res_upgrade(uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws);
+    
     //Request
     bool uws_req_is_ancient(uws_req_t *res);
     bool uws_req_get_yield(uws_req_t *res);
     void uws_req_set_field(uws_req_t *res, bool yield);
-    const char *uws_req_get_url(uws_req_t *res);
-    const char* uws_req_get_method(uws_req_t *res);
-    const char* uws_req_get_header(uws_req_t *res, const char* lower_case_header, size_t lower_case_header_length);
-    const char* uws_req_get_query(uws_req_t *res, const char* key, size_t key_length);
-    const char* uws_req_get_parameter(uws_req_t *res, unsigned short index);
+    int uws_req_get_url(uws_req_t *res, char* dest_buffer, size_t dest_buffer_length);
+    int uws_req_get_method(uws_req_t *res, char* dest_buffer, size_t dest_buffer_length);
+    int uws_req_get_header(uws_req_t *res, const char* lower_case_header, size_t lower_case_header_length, char* dest_buffer, size_t dest_buffer_length);
+    int uws_req_get_query(uws_req_t *res, const char* key, size_t key_length, char* dest_buffer, size_t dest_buffer_length);
+    int uws_req_get_parameter(uws_req_t *res, unsigned short index, char* dest_buffer, size_t dest_buffer_length);
 
     //Eventing
     uws_timer_t *uws_create_timer(int ms, int repeat_ms, void (*handler)(void *data), void *data);

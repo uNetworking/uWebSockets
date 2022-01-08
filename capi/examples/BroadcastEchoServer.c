@@ -57,23 +57,33 @@ void upgrade_handler(uws_res_t *response, uws_req_t *request, uws_socket_context
     data->topics_quantity = 32;
     data->nr = 0;
 
-    const char *ws_key = uws_req_get_header(request, "sec-websocket-key", 17);
-    const char *ws_protocol = uws_req_get_header(request, "sec-websocket-protocol", 22);
-    const char *ws_extensions = uws_req_get_header(request, "sec-websocket-extensions", 24);
+    char *ws_key = (char *)calloc(sizeof(char), 100);
+    char *ws_protocol = (char *)calloc(sizeof(char), 100);
+    char *ws_extensions = (char *)calloc(sizeof(char), 100);
+    //better check if lenght > then buffer sizes
+    int ws_key_length = uws_req_get_header(request, "sec-websocket-key", 17, ws_key, 100);
+    int ws_protocol_length = uws_req_get_header(request, "sec-websocket-protocol", 22, ws_protocol, 100);
+    int ws_extensions_length = uws_req_get_header(request, "sec-websocket-extensions", 24, ws_extensions, 100);
 
     uws_res_upgrade(response,
                     (void *)data,
                     ws_key,
+                    ws_key_length,
                     ws_protocol,
+                    ws_protocol_length,
                     ws_extensions,
+                    ws_extensions_length,
                     context);
+
+    free(ws_key);
+    free(ws_protocol);
+    free(ws_extensions);
 }
 
 void open_handler(uws_websocket_t *ws)
 {
 
     /* Open event here, you may access  uws_ws_get_user_data(ws) which points to a PerSocketData struct */
-
     struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(ws);
     for (int i = 0; i < data->topics_quantity; i++)
     {
@@ -91,11 +101,11 @@ void open_handler(uws_websocket_t *ws)
 
 void message_handler(uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode)
 {
-
     struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(ws);
-    topic_t *topic = data->topics[(size_t)(++data->nr % 32)];
+    topic_t *topic = data->topics[(size_t)(++data->nr % data->topics_quantity)];
     uws_publish(app, topic->name, topic->length, message, length, opcode, false);
-    topic = data->topics[(size_t)(++data->nr % 32)];
+
+    topic = data->topics[(size_t)(++data->nr % data->topics_quantity)];
     uws_ws_publish(ws, topic->name, topic->length, message, length);
 }
 
@@ -108,7 +118,7 @@ void close_handler(uws_websocket_t *ws, int code, const char *message, size_t le
     {
         for (int i = 0; i < data->topics_quantity; i++)
         {
-            
+
             topic_t* topic = data->topics[i];
             free(topic->name);
             free(topic);

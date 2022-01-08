@@ -6,6 +6,12 @@
  * You may compile it with "WITH_OPENSSL=1 make" or with "make" */
 
 /* uws_ws_get_user_data(ws) returns one of these */
+
+
+typedef struct {
+    char* value;
+    size_t length;
+} header_t;
 struct PerSocketData
 {
     /* Define your user data */
@@ -14,14 +20,25 @@ struct PerSocketData
 
 struct UpgradeData
 {
-    const char *secWebSocketKey;
-    const char *secWebSocketProtocol;
-    const char *secWebSocketExtensions;
+    header_t* secWebSocketKey;
+    header_t* secWebSocketProtocol;
+    header_t* secWebSocketExtensions;
     uws_socket_context_t *context;
     uws_res_t *response;
     bool aborted;
 };
 
+header_t* create_header(size_t buffer_size){
+    header_t* header = (header_t*)malloc(sizeof(header_t));
+    header->value = (char*)calloc(sizeof(char), buffer_size);
+    header->length = 0;
+    return header;
+}
+void free_header(header_t* header){
+    
+    free(header->value);
+    free(header);
+}
 void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config)
 {
     if (listen_socket)
@@ -43,15 +60,23 @@ void on_timer_done(void *data)
 
         uws_res_upgrade(upgrade_data->response,
                         (void *)socket_data,
-                        upgrade_data->secWebSocketKey,
-                        upgrade_data->secWebSocketProtocol,
-                        upgrade_data->secWebSocketExtensions,
+                        upgrade_data->secWebSocketKey->value,
+                        upgrade_data->secWebSocketKey->length,
+                        upgrade_data->secWebSocketProtocol->value,
+                        upgrade_data->secWebSocketProtocol->length,
+                        upgrade_data->secWebSocketExtensions->value,
+                        upgrade_data->secWebSocketExtensions->length,
                         upgrade_data->context);
+
     }
     else
     {
         printf("Async task done, but the HTTP socket was closed. Skipping upgrade to WebSocket!\n");
     }
+    free_header(upgrade_data->secWebSocketKey);
+    free_header(upgrade_data->secWebSocketProtocol);
+    free_header(upgrade_data->secWebSocketExtensions);
+    free(upgrade_data);
 }
 
 void on_res_aborted(uws_res_t *response, void *data)
@@ -68,13 +93,20 @@ void upgrade_handler(uws_res_t *response, uws_req_t *request, uws_socket_context
      * we need later on while upgrading to WebSocket. You must not access req after first return.
      * Here we create a heap allocated struct holding everything we will need later on. */
 
+
+
     struct UpgradeData *data = (struct UpgradeData *)malloc(sizeof(struct UpgradeData));
     data->aborted = false;
     data->context = context;
     data->response = response;
-    data->secWebSocketKey = uws_req_get_header(request, "sec-websocket-key", 17);
-    data->secWebSocketProtocol = uws_req_get_header(request, "sec-websocket-protocol", 22);
-    data->secWebSocketExtensions = uws_req_get_header(request, "sec-websocket-extensions", 24);
+    data->secWebSocketKey = create_header(100);
+    data->secWebSocketProtocol = create_header(100);
+    data->secWebSocketExtensions = create_header(100);
+
+    //better check if lenght > then buffer sizes
+    data->secWebSocketKey->length = uws_req_get_header(request, "sec-websocket-key", 17, data->secWebSocketKey->value, 100);
+    data->secWebSocketProtocol->length = uws_req_get_header(request, "sec-websocket-protocol", 22, data->secWebSocketProtocol->value, 100);
+    data->secWebSocketExtensions->length = uws_req_get_header(request, "sec-websocket-extensions", 24, data->secWebSocketExtensions->value, 100);
 
     /* We have to attach an abort handler for us to be aware
      * of disconnections while we perform async tasks */
@@ -112,8 +144,9 @@ void close_handler(uws_websocket_t *ws, int code, const char *message, size_t le
     /* You may access uws_ws_get_user_data(ws) here, but sending or
      * doing any kind of I/O with the socket is not valid. */
     struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(ws);
-    if (data)
+    if (data){
         free(data);
+    }
 }
 
 void drain_handler(uws_websocket_t *ws)

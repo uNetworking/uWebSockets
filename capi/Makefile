@@ -1,4 +1,4 @@
-CAPI_EXAMPLE_FILES := HelloWorld HelloWorldAsync ServerName UpgradeAsync UpgradeSync EchoServer Broadcast BroadcastEchoServer
+CAPI_EXAMPLE_FILES := HelloWorld HelloWorldAsync ServerName UpgradeSync UpgradeAsync EchoServer Broadcast BroadcastEchoServer
 RUST_EXAMPLE_FILES := RustHelloWorld
 LIBRARY_NAME := libuwebsockets
 capi:
