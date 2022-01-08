@@ -23,65 +23,65 @@ extern "C"
         return (uws_app_t *)new uWS::App();
     }
 
-    void uws_app_get(uws_app_t *app, const char *pattern, uws_method_handler handler)
+    void uws_app_get(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->get(pattern, [handler](auto *res, auto *req)
-                    { handler((uws_res_t *)res, (uws_req_t *)req); });
+        uwsApp->get(pattern, [handler, user_data](auto *res, auto *req)
+                    { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_post(uws_app_t *app, const char *pattern, uws_method_handler handler)
+    void uws_app_post(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->post(pattern, [handler](auto *res, auto *req)
-                     { handler((uws_res_t *)res, (uws_req_t *)req); });
+        uwsApp->post(pattern, [handler, user_data](auto *res, auto *req)
+                     { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_options(uws_app_t *app, const char *pattern, uws_method_handler handler)
+    void uws_app_options(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->options(pattern, [handler](auto *res, auto *req)
-                        { handler((uws_res_t *)res, (uws_req_t *)req); });
+        uwsApp->options(pattern, [handler, user_data](auto *res, auto *req)
+                        { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_delete(uws_app_t *app, const char *pattern, uws_method_handler handler)
+    void uws_app_delete(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->del(pattern, [handler](auto *res, auto *req)
-                    { handler((uws_res_t *)res, (uws_req_t *)req); });
+        uwsApp->del(pattern, [handler, user_data](auto *res, auto *req)
+                    { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_patch(uws_app_t *app, const char *pattern, uws_method_handler handler)
+    void uws_app_patch(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->patch(pattern, [handler](auto *res, auto *req)
-                      { handler((uws_res_t *)res, (uws_req_t *)req); });
+        uwsApp->patch(pattern, [handler, user_data](auto *res, auto *req)
+                      { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_put(uws_app_t *app, const char *pattern, uws_method_handler handler)
+    void uws_app_put(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->put(pattern, [handler](auto *res, auto *req)
-                    { handler((uws_res_t *)res, (uws_req_t *)req); });
+        uwsApp->put(pattern, [handler, user_data](auto *res, auto *req)
+                    { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_head(uws_app_t *app, const char *pattern, uws_method_handler handler)
+    void uws_app_head(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->head(pattern, [handler](auto *res, auto *req)
-                     { handler((uws_res_t *)res, (uws_req_t *)req); });
+        uwsApp->head(pattern, [handler, user_data](auto *res, auto *req)
+                     { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_connect(uws_app_t *app, const char *pattern, uws_method_handler handler)
+    void uws_app_connect(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->connect(pattern, [handler](auto *res, auto *req)
-                        { handler((uws_res_t *)res, (uws_req_t *)req); });
+        uwsApp->connect(pattern, [handler, user_data](auto *res, auto *req)
+                        { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_trace(uws_app_t *app, const char *pattern, uws_method_handler handler)
+    void uws_app_trace(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->trace(pattern, [handler](auto *res, auto *req)
-                      { handler((uws_res_t *)res, (uws_req_t *)req); });
+        uwsApp->trace(pattern, [handler, user_data](auto *res, auto *req)
+                      { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_any(uws_app_t *app, const char *pattern, uws_method_handler handler)
+    void uws_app_any(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->any(pattern, [handler](auto *res, auto *req)
-                    { handler((uws_res_t *)res, (uws_req_t *)req); });
+        uwsApp->any(pattern, [handler, user_data](auto *res, auto *req)
+                    { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
 
     void uws_app_run(uws_app_t *app)
@@ -90,22 +90,22 @@ extern "C"
         uwsApp->run();
     }
 
-    void uws_app_listen(uws_app_t *app, int port, uws_listen_handler handler)
+    void uws_app_listen(uws_app_t *app, int port, uws_listen_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uws_app_listen_config_t config;
         config.port = port;
         config.host = nullptr;
         config.options = 0;
-        uwsApp->listen(port, [handler, config](struct us_listen_socket_t *listen_socket)
-                       { handler((struct us_listen_socket_t *)listen_socket, config); });
+        uwsApp->listen(port, [handler, config, user_data](struct us_listen_socket_t *listen_socket)
+                       { handler((struct us_listen_socket_t *)listen_socket, config,user_data); });
     }
 
-    void uws_app_listen_with_config(uws_app_t *app, uws_app_listen_config_t config, uws_listen_handler handler)
+    void uws_app_listen_with_config(uws_app_t *app, uws_app_listen_config_t config, uws_listen_handler handler, void* user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->listen(config.host, config.port, config.options, [handler, config](struct us_listen_socket_t *listen_socket)
-                       { handler((struct us_listen_socket_t *)listen_socket, config); });
+        uwsApp->listen(config.host, config.port, config.options, [handler, config, user_data](struct us_listen_socket_t *listen_socket)
+                       { handler((struct us_listen_socket_t *)listen_socket, config, user_data); });
     }
 
     void uws_app_destroy(uws_app_t *app)

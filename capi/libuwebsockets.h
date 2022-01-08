@@ -129,28 +129,28 @@ extern "C"
         uws_websocket_close_handler close;
     } uws_socket_behavior_t;
     
-    typedef void (*uws_listen_handler)(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config);
-    typedef void (*uws_method_handler)(uws_res_t *response, uws_req_t *request);
+    typedef void (*uws_listen_handler)(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config, void* user_data);
+    typedef void (*uws_method_handler)(uws_res_t *response, uws_req_t *request, void* user_data);
     typedef void (*uws_filter_handler)(uws_res_t *response, int);
     typedef void (*uws_missing_server_handler)(const char *hostname);
     //Basic HTTP
     uws_app_t *uws_create_app();
     void uws_app_destroy(uws_app_t *app);
-    void uws_app_get(uws_app_t *app, const char *pattern, uws_method_handler handler);
-    void uws_app_post(uws_app_t *app, const char *pattern, uws_method_handler handler);
-    void uws_app_options(uws_app_t *app, const char *pattern, uws_method_handler handler);
-    void uws_app_delete(uws_app_t *app, const char *pattern, uws_method_handler handler);
-    void uws_app_patch(uws_app_t *app, const char *pattern, uws_method_handler handler);
-    void uws_app_put(uws_app_t *app, const char *pattern, uws_method_handler handler);
-    void uws_app_head(uws_app_t *app, const char *pattern, uws_method_handler handler);
-    void uws_app_connect(uws_app_t *app, const char *pattern, uws_method_handler handler);
-    void uws_app_trace(uws_app_t *app, const char *pattern, uws_method_handler handler);
-    void uws_app_any(uws_app_t *app, const char *pattern, uws_method_handler handler);
+    void uws_app_get(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data);
+    void uws_app_post(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data);
+    void uws_app_options(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data);
+    void uws_app_delete(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data);
+    void uws_app_patch(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data);
+    void uws_app_put(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data);
+    void uws_app_head(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data);
+    void uws_app_connect(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data);
+    void uws_app_trace(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data);
+    void uws_app_any(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data);
 
     void uws_app_run(uws_app_t *);
 
-    void uws_app_listen(uws_app_t *app, int port, uws_listen_handler handler);
-    void uws_app_listen_with_config(uws_app_t *app, uws_app_listen_config_t config, uws_listen_handler handler);
+    void uws_app_listen(uws_app_t *app, int port, uws_listen_handler handler, void* user_data);
+    void uws_app_listen_with_config(uws_app_t *app, uws_app_listen_config_t config, uws_listen_handler handler, void* user_data);
     bool uws_constructor_failed(uws_app_t *app);
     unsigned int uws_num_subscribers(uws_app_t *app, const char *topic);
     bool uws_publish(uws_app_t *app, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress);

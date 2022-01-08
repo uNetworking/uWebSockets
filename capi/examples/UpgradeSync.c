@@ -13,7 +13,7 @@ struct PerSocketData
     int something;
 };
 
-void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config)
+void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config, void *user_data)
 {
     if (listen_socket)
     {
@@ -33,9 +33,9 @@ void upgrade_handler(uws_res_t *response, uws_req_t *request, uws_socket_context
 
     struct PerSocketData *data = (struct PerSocketData *)malloc(sizeof(struct PerSocketData));
     data->something = 15;
-    char* ws_key = (char*)calloc(sizeof(char), 100);
-    char* ws_protocol = (char*)calloc(sizeof(char), 100);
-    char* ws_extensions = (char*)calloc(sizeof(char), 100);
+    char *ws_key = (char *)calloc(sizeof(char), 100);
+    char *ws_protocol = (char *)calloc(sizeof(char), 100);
+    char *ws_extensions = (char *)calloc(sizeof(char), 100);
     //better check if lenght > then buffer sizes
     int ws_key_length = uws_req_get_header(request, "sec-websocket-key", 17, ws_key, 100);
     int ws_protocol_length = uws_req_get_header(request, "sec-websocket-protocol", 22, ws_protocol, 100);
@@ -79,7 +79,8 @@ void close_handler(uws_websocket_t *ws, int code, const char *message, size_t le
     /* You may access uws_ws_get_user_data(ws) here, but sending or
      * doing any kind of I/O with the socket is not valid. */
     struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(ws);
-    if(data) free(data);
+    if (data)
+        free(data);
 }
 
 void drain_handler(uws_websocket_t *ws)
@@ -105,7 +106,7 @@ int main()
 
     uws_ws(app, "/*", (uws_socket_behavior_t){.compression = uws_compress_options_t::SHARED_COMPRESSOR, .maxPayloadLength = 16 * 1024, .idleTimeout = 12, .maxBackpressure = 1 * 1024 * 1024, .upgrade = upgrade_handler, .open = open_handler, .message = message_handler, .drain = drain_handler, .ping = ping_handler, .pong = pong_handler, .close = close_handler});
 
-    uws_app_listen(app, 9001, listen_handler);
+    uws_app_listen(app, 9001, listen_handler, NULL);
 
     uws_app_run(app);
 }

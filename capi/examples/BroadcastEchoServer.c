@@ -34,7 +34,7 @@ int buffer_size(const char *format, ...)
     return result + 1; // safe byte for \0
 }
 
-void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config)
+void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config, void* user_data)
 {
     if (listen_socket)
     {
@@ -163,7 +163,7 @@ int main()
                           .close = close_handler,
                       });
 
-    uws_app_listen(app, 9001, listen_handler);
+    uws_app_listen(app, 9001, listen_handler, NULL);
 
     uws_app_run(app);
 }
