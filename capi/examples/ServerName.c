@@ -1,10 +1,12 @@
 #include "../libuwebsockets.h"
 #include <stdio.h>
+#include <string.h>
 
 struct us_listen_socket_t *globalListenSocket;
 uws_app_t *app;
 void get_handler(uws_res_t *res, uws_req_t *req, void* user_data)
 {
+	
     uws_res_end(res, "Hello CAPI!", 11, false);
 }
 
@@ -15,7 +17,7 @@ void exit_handler(uws_res_t *res, uws_req_t *req, void* user_data)
     us_listen_socket_close(false, globalListenSocket);
 }
 
-void missing_server_name_handler(const char *hostname){
+void missing_server_name_handler(const char *hostname,  void* user_data){
 	printf("We are missing server name: <%s>\n", hostname);
 	
 	/* Assume it is localhost, so add it */
@@ -38,7 +40,7 @@ int main()
   	/* Overly simple hello world app (SNI)*/
 
     app = uws_create_app();
-    uws_missing_server_name(app, missing_server_name_handler);
+    uws_missing_server_name(app, missing_server_name_handler, NULL);
 	uws_app_get(app, "/*", get_handler, NULL);
 	uws_app_get(app, "/exit", exit_handler, NULL);
     uws_app_listen(app, 3000, listen_handler, NULL);

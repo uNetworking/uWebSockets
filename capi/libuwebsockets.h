@@ -180,8 +180,8 @@ extern "C"
     bool uws_ws_publish(uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length);
     bool uws_ws_publish_with_options(uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress);
     unsigned int uws_ws_get_buffered_amount(uws_websocket_t* ws);
-    int uws_ws_get_remote_address(uws_websocket_t* ws, char* dest_buffer, size_t dest_buffer_length);
-    int uws_ws_get_remote_address_as_text(uws_websocket_t* ws, char* dest_buffer, size_t dest_buffer_length);
+    size_t uws_ws_get_remote_address(uws_websocket_t* ws, const char** dest);
+    size_t uws_ws_get_remote_address_as_text(uws_websocket_t* ws, const char** dest);
 
     //Response
     void uws_res_end(uws_res_t *res, const char *data, size_t length, bool close_connection);
@@ -190,6 +190,7 @@ extern "C"
     void uws_res_write_continue(uws_res_t *res);
     void uws_res_write_status(uws_res_t *res, const char *status, size_t length);
     void uws_res_write_header(uws_res_t *res, const char *key,  size_t key_length, const char* value, size_t value_length);
+
     void uws_res_write_header_int(uws_res_t *res, const char *key, size_t key_length, uint64_t value);
     void uws_res_end_without_body(uws_res_t *res);
     bool uws_res_write(uws_res_t *res, const char *data, size_t length);
@@ -204,15 +205,13 @@ extern "C"
     bool uws_req_is_ancient(uws_req_t *res);
     bool uws_req_get_yield(uws_req_t *res);
     void uws_req_set_field(uws_req_t *res, bool yield);
-    int uws_req_get_url(uws_req_t *res, char* dest_buffer, size_t dest_buffer_length);
-    int uws_req_get_method(uws_req_t *res, char* dest_buffer, size_t dest_buffer_length);
-    int uws_req_get_header(uws_req_t *res, const char* lower_case_header, size_t lower_case_header_length, char* dest_buffer, size_t dest_buffer_length);
-    int uws_req_get_query(uws_req_t *res, const char* key, size_t key_length, char* dest_buffer, size_t dest_buffer_length);
-    int uws_req_get_parameter(uws_req_t *res, unsigned short index, char* dest_buffer, size_t dest_buffer_length);
+    size_t uws_req_get_url(uws_req_t *res, const char** dest);
+    size_t uws_req_get_method(uws_req_t *res, const char** dest);
+    size_t uws_req_get_header(uws_req_t *res, const char* lower_case_header, size_t lower_case_header_length, const char** dest);
+    size_t uws_req_get_query(uws_req_t *res, const char* key, size_t key_length, const char** dest);
+    size_t uws_req_get_parameter(uws_req_t *res, unsigned short index, const char** dest);
 
-    //Eventing
-    uws_timer_t *uws_create_timer(int ms, int repeat_ms, void (*handler)(void *user_data), void *user_data);
-    void uws_timer_close(uws_timer_t *timer);
+    struct us_loop_t* uws_get_loop();
 
 #ifdef __cplusplus
 }

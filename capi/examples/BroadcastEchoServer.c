@@ -57,13 +57,13 @@ void upgrade_handler(uws_res_t *response, uws_req_t *request, uws_socket_context
     data->topics_quantity = 32;
     data->nr = 0;
 
-    char *ws_key = (char *)calloc(sizeof(char), 100);
-    char *ws_protocol = (char *)calloc(sizeof(char), 100);
-    char *ws_extensions = (char *)calloc(sizeof(char), 100);
-    //better check if lenght > then buffer sizes
-    int ws_key_length = uws_req_get_header(request, "sec-websocket-key", 17, ws_key, 100);
-    int ws_protocol_length = uws_req_get_header(request, "sec-websocket-protocol", 22, ws_protocol, 100);
-    int ws_extensions_length = uws_req_get_header(request, "sec-websocket-extensions", 24, ws_extensions, 100);
+    const char *ws_key = NULL;
+    const char *ws_protocol = NULL;
+    const char *ws_extensions = NULL;
+    
+    size_t ws_key_length = uws_req_get_header(request, "sec-websocket-key", 17, &ws_key);
+    size_t ws_protocol_length = uws_req_get_header(request, "sec-websocket-protocol", 22, &ws_protocol);
+    size_t ws_extensions_length = uws_req_get_header(request, "sec-websocket-extensions", 24, &ws_extensions);
 
     uws_res_upgrade(response,
                     (void *)data,
@@ -74,10 +74,6 @@ void upgrade_handler(uws_res_t *response, uws_req_t *request, uws_socket_context
                     ws_extensions,
                     ws_extensions_length,
                     context);
-
-    free(ws_key);
-    free(ws_protocol);
-    free(ws_extensions);
 }
 
 void open_handler(uws_websocket_t *ws)

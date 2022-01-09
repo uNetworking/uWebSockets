@@ -1,15 +1,16 @@
 #include "../libuwebsockets.h"
+#include "libusockets.h"
 #include <stdio.h>
 #include <malloc.h>
-
+#include <string.h>
 /* This is a simple WebSocket "sync" upgrade example.
  * You may compile it with "WITH_OPENSSL=1 make" or with "make" */
 
 /* uws_ws_get_user_data(ws) returns one of these */
 
-
-typedef struct {
-    char* value;
+typedef struct
+{
+    char *value;
     size_t length;
 } header_t;
 struct PerSocketData
@@ -20,31 +21,86 @@ struct PerSocketData
 
 struct UpgradeData
 {
-    header_t* secWebSocketKey;
-    header_t* secWebSocketProtocol;
-    header_t* secWebSocketExtensions;
+    header_t *secWebSocketKey;
+    header_t *secWebSocketProtocol;
+    header_t *secWebSocketExtensions;
     uws_socket_context_t *context;
     uws_res_t *response;
     bool aborted;
 };
 
-header_t* create_header(size_t buffer_size){
-    header_t* header = (header_t*)malloc(sizeof(header_t));
-    header->value = (char*)calloc(sizeof(char), buffer_size);
-    header->length = 0;
+header_t *create_header(size_t length, const char* value)
+{
+    header_t *header = (header_t *)malloc(sizeof(header_t));
+    if(length > 0){
+        header->value = (char *)calloc(sizeof(char), length);
+        header->length = length;
+        memcpy(header->value, value, length);
+    }else{
+        header->value = NULL;
+        header->length = 0;
+    }
     return header;
 }
-void free_header(header_t* header){
-    
+void free_header(header_t *header)
+{
+
     free(header->value);
     free(header);
 }
-void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config,  void* user_data)
+void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config, void *user_data)
 {
     if (listen_socket)
     {
         printf("Listening on port ws://localhost:%d\n", config.port);
     }
+}
+//Timer close helper
+void uws_timer_close(uws_timer_t *timer)
+{
+    struct us_timer_t *t = (struct us_timer_t *)timer;
+    struct timer_handler_data *data;
+    memcpy(&data, us_timer_ext(t), sizeof(struct timer_handler_data *));
+    free(data);
+    us_timer_close(t);
+}
+//Timer create helper
+uws_timer_t *uws_create_timer(int ms, int repeat_ms, void (*handler)(void *data), void *data)
+{
+    struct us_loop_t *loop = uws_get_loop();
+    struct us_timer_t *delayTimer = us_create_timer(loop, 0, sizeof(void *));
+
+    struct timer_handler_data
+    {
+        void *data;
+        void (*handler)(void *data);
+        bool repeat;
+    };
+
+    struct timer_handler_data *timer_data = (struct timer_handler_data *)malloc(sizeof(timer_handler_data));
+    timer_data->data = data;
+    timer_data->handler = handler;
+    timer_data->repeat = repeat_ms > 0;
+    memcpy(us_timer_ext(delayTimer), &timer_data, sizeof(struct timer_handler_data *));
+
+    us_timer_set(
+        delayTimer, [](struct us_timer_t *t)
+        {
+            /* We wrote the pointer to the timer's extension */
+            struct timer_handler_data *data;
+            memcpy(&data, us_timer_ext(t), sizeof(struct timer_handler_data *));
+
+            data->handler(data->data);
+
+            if (!data->repeat)
+            {
+                free(data);
+                us_timer_close(t);
+            }
+        },
+        ms, repeat_ms);
+
+    return (uws_timer_t *)delayTimer;
 }
 void on_timer_done(void *data)
 {
@@ -67,7 +123,6 @@ void on_timer_done(void *data)
                         upgrade_data->secWebSocketExtensions->value,
                         upgrade_data->secWebSocketExtensions->length,
                         upgrade_data->context);
-
     }
     else
     {
@@ -93,20 +148,23 @@ void upgrade_handler(uws_res_t *response, uws_req_t *request, uws_socket_context
      * we need later on while upgrading to WebSocket. You must not access req after first return.
      * Here we create a heap allocated struct holding everything we will need later on. */
 
-
-
     struct UpgradeData *data = (struct UpgradeData *)malloc(sizeof(struct UpgradeData));
     data->aborted = false;
     data->context = context;
     data->response = response;
-    data->secWebSocketKey = create_header(100);
-    data->secWebSocketProtocol = create_header(100);
-    data->secWebSocketExtensions = create_header(100);
+    
+    const char *ws_key = NULL;
+    const char *ws_protocol = NULL;
+    const char *ws_extensions = NULL;
+    
+    size_t ws_key_length = uws_req_get_header(request, "sec-websocket-key", 17, &ws_key);
+    size_t ws_protocol_length = uws_req_get_header(request, "sec-websocket-protocol", 22, &ws_protocol);
+    size_t ws_extensions_length = uws_req_get_header(request, "sec-websocket-extensions", 24, &ws_extensions);
 
-    //better check if lenght > then buffer sizes
-    data->secWebSocketKey->length = uws_req_get_header(request, "sec-websocket-key", 17, data->secWebSocketKey->value, 100);
-    data->secWebSocketProtocol->length = uws_req_get_header(request, "sec-websocket-protocol", 22, data->secWebSocketProtocol->value, 100);
-    data->secWebSocketExtensions->length = uws_req_get_header(request, "sec-websocket-extensions", 24, data->secWebSocketExtensions->value, 100);
+    
+    data->secWebSocketKey = create_header(ws_key_length, ws_key);
+    data->secWebSocketProtocol = create_header(ws_protocol_length, ws_protocol);
+    data->secWebSocketExtensions = create_header(ws_extensions_length, ws_extensions);
 
     /* We have to attach an abort handler for us to be aware
      * of disconnections while we perform async tasks */
@@ -144,7 +202,8 @@ void close_handler(uws_websocket_t *ws, int code, const char *message, size_t le
     /* You may access uws_ws_get_user_data(ws) here, but sending or
      * doing any kind of I/O with the socket is not valid. */
     struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(ws);
-    if (data){
+    if (data)
+    {
         free(data);
     }
 }

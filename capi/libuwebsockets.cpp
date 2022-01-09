@@ -23,61 +23,61 @@ extern "C"
         return (uws_app_t *)new uWS::App();
     }
 
-    void uws_app_get(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
+    void uws_app_get(uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->get(pattern, [handler, user_data](auto *res, auto *req)
                     { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_post(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
+    void uws_app_post(uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->post(pattern, [handler, user_data](auto *res, auto *req)
                      { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_options(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
+    void uws_app_options(uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->options(pattern, [handler, user_data](auto *res, auto *req)
                         { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_delete(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
+    void uws_app_delete(uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->del(pattern, [handler, user_data](auto *res, auto *req)
                     { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_patch(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
+    void uws_app_patch(uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->patch(pattern, [handler, user_data](auto *res, auto *req)
                       { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_put(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
+    void uws_app_put(uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->put(pattern, [handler, user_data](auto *res, auto *req)
                     { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_head(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
+    void uws_app_head(uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->head(pattern, [handler, user_data](auto *res, auto *req)
                      { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_connect(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
+    void uws_app_connect(uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->connect(pattern, [handler, user_data](auto *res, auto *req)
                         { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_trace(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
+    void uws_app_trace(uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->trace(pattern, [handler, user_data](auto *res, auto *req)
                       { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
     }
-    void uws_app_any(uws_app_t *app, const char *pattern, uws_method_handler handler, void* user_data)
+    void uws_app_any(uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->any(pattern, [handler, user_data](auto *res, auto *req)
@@ -90,7 +90,7 @@ extern "C"
         uwsApp->run();
     }
 
-    void uws_app_listen(uws_app_t *app, int port, uws_listen_handler handler, void* user_data)
+    void uws_app_listen(uws_app_t *app, int port, uws_listen_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uws_app_listen_config_t config;
@@ -98,10 +98,10 @@ extern "C"
         config.host = nullptr;
         config.options = 0;
         uwsApp->listen(port, [handler, config, user_data](struct us_listen_socket_t *listen_socket)
-                       { handler((struct us_listen_socket_t *)listen_socket, config,user_data); });
+                       { handler((struct us_listen_socket_t *)listen_socket, config, user_data); });
     }
 
-    void uws_app_listen_with_config(uws_app_t *app, uws_app_listen_config_t config, uws_listen_handler handler, void* user_data)
+    void uws_app_listen_with_config(uws_app_t *app, uws_app_listen_config_t config, uws_listen_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
         uwsApp->listen(config.host, config.port, config.options, [handler, config, user_data](struct us_listen_socket_t *listen_socket)
@@ -161,14 +161,13 @@ extern "C"
         uwsApp->addServerName(hostname_pattern, sco);
     }
 
-    void uws_missing_server_name(uws_app_t *app, uws_missing_server_handler handler, void* user_data)
+    void uws_missing_server_name(uws_app_t *app, uws_missing_server_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
-        uwsApp->missingServerName([handler, user_data](auto hostname){
-            handler(hostname, user_data);
-        });
+        uwsApp->missingServerName([handler, user_data](auto hostname)
+                                  { handler(hostname, user_data); });
     }
-    void uws_filter(uws_app_t *app, uws_filter_handler handler, void* user_data)
+    void uws_filter(uws_app_t *app, uws_filter_handler handler, void *user_data)
     {
         uWS::App *uwsApp = (uWS::App *)app;
 
@@ -204,7 +203,7 @@ extern "C"
         if (behavior.message)
             generic_handler.message = [behavior](auto *ws, auto message, auto opcode)
             {
-                behavior.message((uws_websocket_t *)ws, std::string(message).c_str(), message.length(), (uws_opcode_t)opcode);
+                behavior.message((uws_websocket_t *)ws, message.data(), message.length(), (uws_opcode_t)opcode);
             };
         if (behavior.drain)
             generic_handler.drain = [behavior](auto *ws)
@@ -214,17 +213,17 @@ extern "C"
         if (behavior.ping)
             generic_handler.ping = [behavior](auto *ws, auto message)
             {
-                behavior.ping((uws_websocket_t *)ws, std::string(message).c_str(), message.length());
+                behavior.ping((uws_websocket_t *)ws, message.data(), message.length());
             };
         if (behavior.pong)
             generic_handler.pong = [behavior](auto *ws, auto message)
             {
-                behavior.pong((uws_websocket_t *)ws, std::string(message).c_str(), message.length());
+                behavior.pong((uws_websocket_t *)ws, message.data(), message.length());
             };
         if (behavior.close)
             generic_handler.close = [behavior](auto *ws, int code, auto message)
             {
-                behavior.close((uws_websocket_t *)ws, code, std::string(message).c_str(), message.length());
+                behavior.close((uws_websocket_t *)ws, code, message.data(), message.length());
             };
         uwsApp->ws<void *>(pattern, std::move(generic_handler));
     }
@@ -280,7 +279,7 @@ extern "C"
         uws->end(code, std::string_view(message, length));
     }
 
-    void uws_ws_cork(uws_websocket_t *ws, void (*handler)(void* user_data), void* user_data)
+    void uws_ws_cork(uws_websocket_t *ws, void (*handler)(void *user_data), void *user_data)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
         if (handler)
@@ -305,13 +304,13 @@ extern "C"
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
         return uws->isSubscribed(std::string_view(topic, length));
     }
-    void uws_ws_iterate_topics(uws_websocket_t *ws, void (*callback)(const char *topic, size_t length, void* user_data), void* user_data)
+    void uws_ws_iterate_topics(uws_websocket_t *ws, void (*callback)(const char *topic, size_t length, void *user_data), void *user_data)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
         if (callback)
         {
             uws->iterateTopics([callback, user_data](auto topic)
-                               { callback(std::string(topic).c_str(), topic.length(), user_data); });
+                               { callback(topic.data(), topic.length(), user_data); });
         }
     }
 
@@ -333,35 +332,22 @@ extern "C"
         return uws->getBufferedAmount();
     }
 
-    int uws_ws_get_remote_address(uws_websocket_t *ws, char *dest_buffer, size_t dest_buffer_length)
+    size_t uws_ws_get_remote_address(uws_websocket_t *ws, const char **dest)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
 
         std::string_view value = uws->getRemoteAddress();
-        size_t length = value.length();
-
-        //return the length if dest is too small or length is zero
-        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
-            return length;
-
-        
-        std::strncat(dest_buffer, value.data(), length);
-        return length; //return the length for reference and check
+        *dest = value.data();
+        return value.length();
     }
 
-    int uws_ws_get_remote_address_as_text(uws_websocket_t *ws, char *dest_buffer, size_t dest_buffer_length)
+    size_t uws_ws_get_remote_address_as_text(uws_websocket_t *ws, const char **dest)
     {
         uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
 
         std::string_view value = uws->getRemoteAddressAsText();
-        size_t length = value.length();
-
-        //return the length if dest is too small or length is zero
-        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
-            return length;
-
-        std::strncat(dest_buffer, value.data(), length);
-        return length; //return the length for reference and check
+        *dest = value.data();
+        return value.length();
     }
 
     void uws_res_end(uws_res_t *res, const char *data, size_t length, bool close_connection)
@@ -446,7 +432,7 @@ extern "C"
     {
         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
         uwsRes->onData([handler, res, opcional_data](auto chunk, bool is_end)
-                       { handler(res, std::string(chunk).c_str(), chunk.length(), is_end, opcional_data); });
+                       { handler(res, chunk.data(), chunk.length(), is_end, opcional_data); });
     }
 
     bool uws_req_is_ancient(uws_req_t *res)
@@ -467,88 +453,47 @@ extern "C"
         return uwsReq->setYield(yield);
     }
 
-    int uws_req_get_url(uws_req_t *res, char *dest_buffer, size_t dest_buffer_length)
+    size_t uws_req_get_url(uws_req_t *res, const char **dest)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
         std::string_view value = uwsReq->getUrl();
-        size_t length = value.length();
-
-        //return the length if dest is too small or length is zero
-        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
-            return length;
-
-        
-        std::strncat(dest_buffer, value.data(), length);
-        return length; //return the length for reference and check
+        *dest = value.data();
+        return value.length();
     }
 
-    int uws_req_get_method(uws_req_t *res, char *dest_buffer, size_t dest_buffer_length)
+    size_t uws_req_get_method(uws_req_t *res, const char **dest)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
         std::string_view value = uwsReq->getMethod();
-        size_t length = value.length();
-
-        //return the length if dest is too small or length is zero
-        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
-            return length;
-
-        
-        std::strncat(dest_buffer, value.data(), length);
-        return length; //return the length for reference and check
+        *dest = value.data();
+        return value.length();
     }
 
-    int uws_req_get_header(uws_req_t *res, const char *lower_case_header, size_t lower_case_header_length, char *dest_buffer, size_t dest_buffer_length)
+    size_t uws_req_get_header(uws_req_t *res, const char *lower_case_header, size_t lower_case_header_length, const char **dest)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
 
         std::string_view value = uwsReq->getHeader(std::string_view(lower_case_header, lower_case_header_length));
-        size_t length = value.length();
-
-        //return the length if dest is too small or length is zero
-        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
-            return length;
-
-        
-        std::strncat(dest_buffer, value.data(), length);
-        return length; //return the length for reference and check
+        *dest = value.data();
+        return value.length();
     }
 
-    int uws_req_get_query(uws_req_t *res, const char *key, size_t key_length, char *dest_buffer, size_t dest_buffer_length)
+    size_t uws_req_get_query(uws_req_t *res, const char *key, size_t key_length, const char **dest)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
 
         std::string_view value = uwsReq->getQuery(std::string_view(key, key_length));
-        size_t length = value.length();
-
-        //return the length if dest is too small or length is zero
-        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
-            return length;
-
-        
-        std::strncat(dest_buffer, value.data(), length);
-        return length; //return the length for reference and check
+        *dest = value.data();
+        return value.length();
     }
 
-    int uws_req_get_parameter(uws_req_t *res, unsigned short index, char *dest_buffer, size_t dest_buffer_length)
+    size_t uws_req_get_parameter(uws_req_t *res, unsigned short index, const char **dest)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
         std::string_view value = uwsReq->getParameter(index);
-        size_t length = value.length();
-        //return the length if dest is too small or length is zero
-        if (!length || length >= dest_buffer_length || dest_buffer_length <= 0)
-            return length;
-
-        
-        std::strncat(dest_buffer, value.data(), length);
-        return length; //return the length for reference and check
+        *dest = value.data();
+        return value.length();
     }
-    // void uws_req_set_parameters(uws_req_t *res, int first, const char* second) {
-    //     uWS::HttpRequest * uwsReq = (uWS::HttpRequest*)res;
-    //     std::pair<int, std::string_view *> parameters;
-    //     parameters.first = first;
-    //     parameters.second = std::string_view(std::string(second));
-    //     uwsReq->setParameters(parameters);
-    // }
 
     void uws_res_upgrade(uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws)
     {
@@ -561,50 +506,8 @@ extern "C"
                                          (struct us_socket_context_t *)ws);
     }
 
-    void uws_timer_close(uws_timer_t *timer)
+    struct us_loop_t *uws_get_loop()
     {
-        struct us_timer_t *t = (struct us_timer_t *)timer;
-        struct timer_handler_data *data;
-        memcpy(&data, us_timer_ext(t), sizeof(struct timer_handler_data *));
-        free(data);
-        us_timer_close(t);
-    }
-
-    uws_timer_t *uws_create_timer(int ms, int repeat_ms, void (*handler)(void *data), void *data)
-    {
-        struct us_loop_t *loop = (struct us_loop_t *)uWS::Loop::get();
-        struct us_timer_t *delayTimer = us_create_timer(loop, 0, sizeof(void *));
-
-        struct timer_handler_data
-        {
-            void *data;
-            void (*handler)(void *data);
-            bool repeat;
-        };
-
-        struct timer_handler_data *timer_data = (struct timer_handler_data *)malloc(sizeof(timer_handler_data));
-        timer_data->data = data;
-        timer_data->handler = handler;
-        timer_data->repeat = repeat_ms > 0;
-        memcpy(us_timer_ext(delayTimer), &timer_data, sizeof(struct timer_handler_data *));
-
-        us_timer_set(
-            delayTimer, [](struct us_timer_t *t)
-            {
-                /* We wrote the pointer to the timer's extension */
-                struct timer_handler_data *data;
-                memcpy(&data, us_timer_ext(t), sizeof(struct timer_handler_data *));
-
-                data->handler(data->data);
-
-                if (!data->repeat)
-                {
-                    free(data);
-                    us_timer_close(t);
-                }
-            },
-            ms, repeat_ms);
-
-        return (uws_timer_t *)delayTimer;
+        return (struct us_loop_t *)uWS::Loop::get();
     }
 }
