@@ -6,7 +6,7 @@
 /* This is a simple WebSocket "sync" upgrade example.
  * You may compile it with "WITH_OPENSSL=1 make" or with "make" */
 
-/* uws_ws_get_user_data(ws) returns one of these */
+#define SSL 1
 
 typedef struct
 {
@@ -114,7 +114,8 @@ void on_timer_done(void *data)
         socket_data->something = 15;
         printf("Async task done, upgrading to WebSocket now!\n");
 
-        uws_res_upgrade(upgrade_data->response,
+        uws_res_upgrade(SSL, 
+                        upgrade_data->response,
                         (void *)socket_data,
                         upgrade_data->secWebSocketKey->value,
                         upgrade_data->secWebSocketKey->length,
@@ -169,7 +170,7 @@ void upgrade_handler(uws_res_t *response, uws_req_t *request, uws_socket_context
     /* We have to attach an abort handler for us to be aware
      * of disconnections while we perform async tasks */
 
-    uws_res_on_aborted(response, on_res_aborted, data);
+    uws_res_on_aborted(SSL, response, on_res_aborted, data);
 
     /* Simulate checking auth for 5 seconds. This looks like crap, never write
     * code that utilize us_timer_t like this; they are high-cost and should
@@ -184,7 +185,7 @@ void open_handler(uws_websocket_t *ws)
     /* Open event here, you may access uws_ws_get_user_data(ws) which points to a PerSocketData struct.
     * Here we simply validate that indeed, something == 15 as set in upgrade handler. */
 
-    struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(ws);
+    struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(SSL, ws);
     data->something = 15;
     printf("Something is: %d\n", data->something);
 }
@@ -193,7 +194,7 @@ void message_handler(uws_websocket_t *ws, const char *message, size_t length, uw
 {
 
     /* We simply echo whatever data we get */
-    uws_ws_send(ws, message, length, opcode);
+    uws_ws_send(SSL, ws, message, length, opcode);
 }
 
 void close_handler(uws_websocket_t *ws, int code, const char *message, size_t length)
@@ -201,7 +202,7 @@ void close_handler(uws_websocket_t *ws, int code, const char *message, size_t le
 
     /* You may access uws_ws_get_user_data(ws) here, but sending or
      * doing any kind of I/O with the socket is not valid. */
-    struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(ws);
+    struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(SSL, ws);
     if (data)
     {
         free(data);
@@ -227,9 +228,14 @@ void pong_handler(uws_websocket_t *ws, const char *message, size_t length)
 int main()
 {
 
-    uws_app_t *app = uws_create_app();
+    uws_app_t *app = uws_create_app(SSL, (struct us_socket_context_options_t){
+        /* There are example certificates in uWebSockets.js repo */
+	    .key_file_name = "../misc/key.pem",
+	    .cert_file_name = "../misc/cert.pem",
+	    .passphrase = "1234"
+    });
 
-    uws_ws(app, "/*", (uws_socket_behavior_t){
+    uws_ws(SSL, app, "/*", (uws_socket_behavior_t){
                           .compression = uws_compress_options_t::SHARED_COMPRESSOR,
                           .maxPayloadLength = 16 * 1024,
                           .idleTimeout = 12,
@@ -243,7 +249,7 @@ int main()
                           .close = close_handler,
                       });
 
-    uws_app_listen(app, 9001, listen_handler, NULL);
+    uws_app_listen(SSL, app, 9001, listen_handler, NULL);
 
-    uws_app_run(app);
+    uws_app_run(SSL, app);
 }

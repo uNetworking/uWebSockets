@@ -5,6 +5,9 @@
 #include <string.h>
 #include <stdarg.h>
 
+#define SSL 1
+
+
 /* This is a simple WebSocket "sync" upgrade example.
  * You may compile it with "WITH_OPENSSL=1 make" or with "make" */
 
@@ -65,7 +68,8 @@ void upgrade_handler(uws_res_t *response, uws_req_t *request, uws_socket_context
     size_t ws_protocol_length = uws_req_get_header(request, "sec-websocket-protocol", 22, &ws_protocol);
     size_t ws_extensions_length = uws_req_get_header(request, "sec-websocket-extensions", 24, &ws_extensions);
 
-    uws_res_upgrade(response,
+    uws_res_upgrade(SSL,
+                    response,
                     (void *)data,
                     ws_key,
                     ws_key_length,
@@ -80,7 +84,7 @@ void open_handler(uws_websocket_t *ws)
 {
 
     /* Open event here, you may access  uws_ws_get_user_data(ws) which points to a PerSocketData struct */
-    struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(ws);
+    struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(SSL, ws);
     for (int i = 0; i < data->topics_quantity; i++)
     {
 
@@ -91,25 +95,25 @@ void open_handler(uws_websocket_t *ws)
         new_topic->length = topic_length;
         new_topic->name = topic;
         data->topics[i] = new_topic;
-        uws_ws_subscribe(ws, topic, topic_length);
+        uws_ws_subscribe(SSL, ws, topic, topic_length);
     }
 }
 
 void message_handler(uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode)
 {
-    struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(ws);
+    struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(SSL, ws);
     topic_t *topic = data->topics[(size_t)(++data->nr % data->topics_quantity)];
-    uws_publish(app, topic->name, topic->length, message, length, opcode, false);
+    uws_publish(SSL, app, topic->name, topic->length, message, length, opcode, false);
 
     topic = data->topics[(size_t)(++data->nr % data->topics_quantity)];
-    uws_ws_publish(ws, topic->name, topic->length, message, length);
+    uws_ws_publish(SSL, ws, topic->name, topic->length, message, length);
 }
 
 void close_handler(uws_websocket_t *ws, int code, const char *message, size_t length)
 {
     /* You may access uws_ws_get_user_data(ws) here, but sending or
      * doing any kind of I/O with the socket is not valid. */
-    struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(ws);
+    struct PerSocketData *data = (struct PerSocketData *)uws_ws_get_user_data(SSL, ws);
     if (data)
     {
         for (int i = 0; i < data->topics_quantity; i++)
@@ -143,9 +147,15 @@ void pong_handler(uws_websocket_t *ws, const char *message, size_t length)
 int main()
 {
 
-    app = uws_create_app();
 
-    uws_ws(app, "/*", (uws_socket_behavior_t){
+    uws_app_t *app = uws_create_app(SSL, (struct us_socket_context_options_t){
+        /* There are example certificates in uWebSockets.js repo */
+	    .key_file_name = "../misc/key.pem",
+	    .cert_file_name = "../misc/cert.pem",
+	    .passphrase = "1234"
+    });
+
+    uws_ws(SSL, app, "/*", (uws_socket_behavior_t){
                           .compression = uws_compress_options_t::SHARED_COMPRESSOR,
                           .maxPayloadLength = 16 * 1024,
                           .idleTimeout = 12,
@@ -159,7 +169,7 @@ int main()
                           .close = close_handler,
                       });
 
-    uws_app_listen(app, 9001, listen_handler, NULL);
+    uws_app_listen(SSL, app, 9001, listen_handler, NULL);
 
-    uws_app_run(app);
+    uws_app_run(SSL, app);
 }

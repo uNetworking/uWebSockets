@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <malloc.h>
 
+#define SSL 1
+
+
 /* This is a simple WebSocket "sync" upgrade example.
  * You may compile it with "WITH_OPENSSL=1 make" or with "make" */
 
@@ -23,7 +26,7 @@ void open_handler(uws_websocket_t* ws){
 }
 
 void message_handler(uws_websocket_t* ws, const char* message, size_t length, uws_opcode_t opcode){
-    uws_ws_send(ws, message, length, opcode);
+    uws_ws_send(SSL, ws, message, length, opcode);
 }
 
 void close_handler(uws_websocket_t* ws, int code, const char* message, size_t length){
@@ -49,9 +52,15 @@ void pong_handler(uws_websocket_t* ws, const char* message, size_t length){
 int main()
 {
 
-    uws_app_t *app = uws_create_app();
 
-	uws_ws(app, "/*", (uws_socket_behavior_t){
+    uws_app_t *app = uws_create_app(SSL, (struct us_socket_context_options_t){
+        /* There are example certificates in uWebSockets.js repo */
+	    .key_file_name = "../misc/key.pem",
+	    .cert_file_name = "../misc/cert.pem",
+	    .passphrase = "1234"
+    });
+
+	uws_ws(SSL, app, "/*", (uws_socket_behavior_t){
 		.compression = uws_compress_options_t::SHARED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024,
         .idleTimeout = 12,
@@ -65,8 +74,8 @@ int main()
         .close = close_handler,
 	});
 
-    uws_app_listen(app, 9001, listen_handler, NULL);
+    uws_app_listen(SSL,app, 9001, listen_handler, NULL);
     
 
-	uws_app_run(app);
+	uws_app_run(SSL, app);
 }

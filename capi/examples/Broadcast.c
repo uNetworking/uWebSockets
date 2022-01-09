@@ -4,6 +4,9 @@
 #include <time.h>
 #include <string.h>
 #include <stdarg.h>
+#define SSL 1
+
+
 //Timer close helper
 void uws_timer_close(uws_timer_t *timer)
 {
@@ -78,7 +81,7 @@ void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_con
 void open_handler(uws_websocket_t* ws){
 
      /* Open event here, you may access uws_ws_get_user_data(WS) which points to a PerSocketData struct */
-    uws_ws_subscribe(ws, "broadcast", 9);
+    uws_ws_subscribe(SSL, ws, "broadcast", 9);
 }
 
 void message_handler(uws_websocket_t* ws, const char* message, size_t length, uws_opcode_t opcode){
@@ -116,16 +119,22 @@ void on_timer_interval(void* data){
     char* message = (char*)malloc((size_t)buffer_size("%ld", millis));
     size_t message_length = sprintf(message, "%ld", millis);
 
-    uws_publish(app, "broadcast", 9, message, message_length, uws_opcode_t::TEXT, false);
+    uws_publish(SSL, app, "broadcast", 9, message, message_length, uws_opcode_t::TEXT, false);
     free(message);
 }
 
 int main()
 {
 
-    uws_app_t *app = uws_create_app();
 
-	uws_ws(app, "/*", (uws_socket_behavior_t){
+    uws_app_t *app = uws_create_app(SSL, (struct us_socket_context_options_t){
+        /* There are example certificates in uWebSockets.js repo */
+	    .key_file_name = "../misc/key.pem",
+	    .cert_file_name = "../misc/cert.pem",
+	    .passphrase = "1234"
+    });
+
+	uws_ws(SSL, app, "/*", (uws_socket_behavior_t){
 		.compression = uws_compress_options_t::SHARED_COMPRESSOR,
         .maxPayloadLength = 16 * 1024,
         .idleTimeout = 12,
@@ -139,10 +148,10 @@ int main()
         .close = close_handler,
 	});
 
-    uws_app_listen(app, 9001, listen_handler, NULL);
+    uws_app_listen(SSL, app, 9001, listen_handler, NULL);
 
     // broadcast the unix time as millis every 8 millis
     uws_create_timer(8, 8, on_timer_interval,  app);
 
-	uws_app_run(app);
+	uws_app_run(SSL, app);
 }

@@ -5,6 +5,8 @@
 #include <malloc.h>
 #include <string.h>
 
+#define SSL 1
+
 typedef struct {
     uws_res_t* res;
     bool aborted;
@@ -69,7 +71,7 @@ void on_timer_done(void *data){
     async_request_t* request_data = (async_request_t*)data;
     /* Were'nt we aborted before our async task finished? Okay, send a message! */
     if(!request_data->aborted){
-        uws_res_end(request_data->res, "Hello CAPI!", 11, false);
+        uws_res_end(SSL, request_data->res, "Hello CAPI!", 11, false);
     }
 }
 
@@ -82,7 +84,7 @@ void get_handler(uws_res_t *res, uws_req_t *req,  void* user_data)
     request_data->res = res;
     request_data->aborted = false;
 
-    uws_res_on_aborted(res, on_res_aborted, request_data);
+    uws_res_on_aborted(SSL, res, on_res_aborted, request_data);
 
    /* Simulate checking auth for 5 seconds. This looks like crap, never write
     * code that utilize us_timer_t like this; they are high-cost and should
@@ -104,8 +106,14 @@ int main()
 {
   	/* Overly simple hello world app with async response */
 
-    uws_app_t *app = uws_create_app();
-    uws_app_get(app, "/*", get_handler, NULL);
-    uws_app_listen(app, 3000, listen_handler, NULL);
-    uws_app_run(app);
+
+    uws_app_t *app = uws_create_app(SSL, (struct us_socket_context_options_t){
+        /* There are example certificates in uWebSockets.js repo */
+	    .key_file_name = "../misc/key.pem",
+	    .cert_file_name = "../misc/cert.pem",
+	    .passphrase = "1234"
+    });
+    uws_app_get(SSL, app, "/*", get_handler, NULL);
+    uws_app_listen(SSL, app, 3000, listen_handler, NULL);
+    uws_app_run(SSL, app);
 }
