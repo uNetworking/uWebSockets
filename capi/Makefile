@@ -10,7 +10,7 @@ default:
 capi:
 	$(MAKE) clean
 	make -C ../uSockets
-	g++ -c -O3 -std=c++17 -flto -DUWS_NO_ZLIB -I ../src -I ../uSockets/src $(LIBRARY_NAME).cpp
+	g++ -c -O3 -std=c++17 -flto -fPIC -DUWS_NO_ZLIB -I ../src -I ../uSockets/src $(LIBRARY_NAME).cpp
 	$(AR) rvs $(LIBRARY_NAME).a $(LIBRARY_NAME).o ../uSockets/*.o
 	
 rust:
