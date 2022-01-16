@@ -34,13 +34,13 @@ private:
         loopData->deferMutex.lock();
         int oldDeferQueue = loopData->currentDeferQueue;
         loopData->currentDeferQueue = (loopData->currentDeferQueue + 1) % 2;
-        loopData->deferMutex.unlock();
 
         /* Drain the queue */
         for (auto &x : loopData->deferQueues[oldDeferQueue]) {
             x();
         }
         loopData->deferQueues[oldDeferQueue].clear();
+        loopData->deferMutex.unlock();
     }
 
     static void preCb(us_loop_t *loop) {
