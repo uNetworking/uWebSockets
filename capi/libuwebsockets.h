@@ -64,16 +64,6 @@ extern "C"
 
     typedef struct
     {
-        const char *key_file_name;
-        const char *cert_file_name;
-        const char *passphrase;
-        const char *dh_params_file_name;
-        const char *ca_file_name;
-        int ssl_prefer_low_memory_usage;
-    } uws_socket_context_options_t;
-
-    typedef struct
-    {
 
         int port;
         const char *host;
@@ -152,7 +142,7 @@ extern "C"
     void *uws_get_native_handle(int ssl, uws_app_t *app);
     void uws_remove_server_name(int ssl, uws_app_t *app, const char *hostname_pattern);
     void uws_add_server_name(int ssl, uws_app_t *app, const char *hostname_pattern);
-    void uws_add_server_name_with_options(int ssl, uws_app_t *app, const char *hostname_pattern, uws_socket_context_options_t options);
+    void uws_add_server_name_with_options(int ssl, uws_app_t *app, const char *hostname_pattern, struct us_socket_context_options_t options);
     void uws_missing_server_name(int ssl, uws_app_t *app, uws_missing_server_handler handler, void *user_data);
     void uws_filter(int ssl, uws_app_t *app, uws_filter_handler handler, void *user_data);
 

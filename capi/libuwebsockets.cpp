@@ -313,7 +313,7 @@ extern "C"
             uwsApp->addServerName(hostname_pattern);
         }
     }
-    void uws_add_server_name_with_options(int ssl, uws_app_t *app, const char *hostname_pattern, uws_socket_context_options_t options)
+    void uws_add_server_name_with_options(int ssl, uws_app_t *app, const char *hostname_pattern, struct us_socket_context_options_t options)
     {
         uWS::SocketContextOptions sco;
         sco.ca_file_name = options.ca_file_name;
