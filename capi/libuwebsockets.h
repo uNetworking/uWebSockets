@@ -69,7 +69,6 @@ extern "C"
         const char *host;
         int options;
     } uws_app_listen_config_t;
-    typedef struct uws_timer_s uws_timer_t;
 
     struct uws_app_s;
     struct uws_req_s;
