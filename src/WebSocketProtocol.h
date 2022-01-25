@@ -401,7 +401,7 @@ protected:
             if (isServer) {
                 /* No need to unmask if mask is 0 */
                 uint32_t nullmask = 0;
-                if (!memcmp(wState->mask, &nullmask, sizeof(uint32_t))) {
+                if (memcmp(wState->mask, &nullmask, sizeof(uint32_t))) {
                     if /*constexpr*/ (LIBUS_RECV_BUFFER_LENGTH == length) {
                         unmaskAll(src, wState->mask);
                     } else {
