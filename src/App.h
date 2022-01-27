@@ -19,6 +19,8 @@
 #define UWS_APP_H
 
 #include <string>
+#include <charconv>
+#include <string_view>
 
 namespace uWS {
     /* Type queued up when publishing */
@@ -32,6 +34,24 @@ namespace uWS {
         /*OpCode*/ int opCode;
         bool compress;
     };
+
+    inline bool hasBrokenCompression(std::string_view userAgent) {
+        size_t pos;
+        int uaVersion = 0;
+
+        if ((pos = userAgent.find(" Version/")) == std::string_view::npos) return false;
+        pos += 9;
+
+        std::string_view uaVersionStr = userAgent.substr(pos);
+        uaVersionStr = uaVersionStr.substr(0, uaVersionStr.find_first_of(". "));
+        auto result = std::from_chars(uaVersionStr.data(), uaVersionStr.data() + uaVersionStr.size(), uaVersion);
+        if (result.ec == std::errc::invalid_argument) return false;
+        if (uaVersion != 15) return false; // we target just Safari 15 - give Apple a chance ;-)
+
+        if ((pos = userAgent.find(" Safari/", pos)) == std::string_view::npos) return false;
+
+        return true;
+    }
 }
 
 /* An app is a convenience wrapper of some of the most used fuctionalities and allows a
@@ -349,11 +369,23 @@ public:
 
                 /* Emit upgrade handler */
                 if (behavior.upgrade) {
+
+                    /* Nasty, ugly Safari 15 hack */
+                    if (hasBrokenCompression(req->getHeader("user-agent"))) {
+                        std::string_view secWebSocketExtensions = req->getHeader("sec-websocket-extensions");
+                        memset((void *) secWebSocketExtensions.data(), ' ', secWebSocketExtensions.length());
+                    }
+
                     behavior.upgrade(res, req, (struct us_socket_context_t *) webSocketContext);
                 } else {
                     /* Default handler upgrades to WebSocket */
                     std::string_view secWebSocketProtocol = req->getHeader("sec-websocket-protocol");
                     std::string_view secWebSocketExtensions = req->getHeader("sec-websocket-extensions");
+
+                    /* Safari 15 hack */
+                    if (hasBrokenCompression(req->getHeader("user-agent"))) {
+                        secWebSocketExtensions = "";
+                    }
 
                     res->template upgrade<UserData>({}, secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, (struct us_socket_context_t *) webSocketContext);
                 }
