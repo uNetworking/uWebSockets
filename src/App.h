@@ -35,20 +35,24 @@ namespace uWS {
         bool compress;
     };
 
+    /* Safari 15.0 - 15.3 has a completely broken compression implementation (client_no_context_takeover not
+     * properly implemented) - so we fully disable compression for this browser :-(
+     * see https://github.com/uNetworking/uWebSockets/issues/1347 */
     inline bool hasBrokenCompression(std::string_view userAgent) {
-        size_t pos;
-        int uaVersion = 0;
+        size_t posStart = userAgent.find(" Version/15.");
+        if (posStart == std::string_view::npos) return false;
+        posStart += 12;
 
-        if ((pos = userAgent.find(" Version/")) == std::string_view::npos) return false;
-        pos += 9;
+        size_t posEnd = userAgent.find(' ', posStart);
+        if (posEnd == std::string_view::npos) return false;
 
-        std::string_view uaVersionStr = userAgent.substr(pos);
-        uaVersionStr = uaVersionStr.substr(0, uaVersionStr.find_first_of(". "));
-        auto result = std::from_chars(uaVersionStr.data(), uaVersionStr.data() + uaVersionStr.size(), uaVersion);
-        if (result.ec == std::errc::invalid_argument) return false;
-        if (uaVersion != 15) return false; // we target just Safari 15 - give Apple a chance ;-)
+        unsigned int minorVersion = 0;
+        auto result = std::from_chars(userAgent.data() + posStart, userAgent.data() + posEnd, minorVersion);
+        if (result.ec != std::errc()) return false;
+        if (result.ptr != userAgent.data() + posEnd) return false; // do not accept trailing chars
+        if (minorVersion > 3) return false; // we target just Safari 15.0 - 15.3
 
-        if ((pos = userAgent.find(" Safari/", pos)) == std::string_view::npos) return false;
+        if (userAgent.find(" Safari/", posEnd) == std::string_view::npos) return false;
 
         return true;
     }
