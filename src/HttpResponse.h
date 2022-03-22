@@ -205,6 +205,8 @@ public:
     std::string_view getProxiedRemoteAddressAsText() {
         return Super::addressAsText(getProxiedRemoteAddress());
     }
+
+
 #endif
 
     /* Manually upgrade to WebSocket. Typically called in upgrade handler. Immediately calls open handler.
@@ -501,6 +503,14 @@ public:
         HttpResponseData<SSL> *data = getHttpResponseData();
         data->inStream = std::move(handler);
     }
+
+
+    void setWriteOffset(uintmax_t offset) {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        httpResponseData->offset = offset;
+    }
+
 };
 
 }
