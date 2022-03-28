@@ -76,7 +76,6 @@ namespace uWS {
         const char *passphrase = nullptr;
         const char *dh_params_file_name = nullptr;
         const char *ca_file_name = nullptr;
-        const char *ssl_ciphers = nullptr;
         int ssl_prefer_low_memory_usage = 0;
 
         /* Conversion operator used internally */
