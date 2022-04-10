@@ -31,3 +31,15 @@ oss-fuzz:
 	$(CXX) $(CXXFLAGS) -DUWS_MOCK_ZLIB -std=c++17 -O3 PerMessageDeflate.cpp -o $(OUT)/PerMessageDeflate $(LIB_FUZZING_ENGINE)
 	$(CXX) $(CXXFLAGS) -std=c++17 -O3 TopicTree.cpp -o $(OUT)/TopicTree $(LIB_FUZZING_ENGINE)
 
+regression_test:
+	$(OUT)/EpollEchoServer seed-corpus/EpollEchoServer/regressions/*
+	$(OUT)/EpollHelloWorld seed-corpus/EpollHelloWorld/regressions/*
+	$(OUT)/EpollEchoServerPubSub seed-corpus/EpollEchoServerPubSub/regressions/*
+	# $(OUT)/Extensions seed-corpus/Extensions/regressions/*
+	# $(OUT)/QueryParser seed-corpus/QueryParser/regressions/*
+	$(OUT)/TopicTree seed-corpus/TopicTree/regressions/*
+	$(OUT)/WebSocket seed-corpus/WebSocket/regressions/*
+	$(OUT)/Http seed-corpus/Http/regressions/*
+	$(OUT)/HttpWithProxy seed-corpus/HttpWithProxy/regressions/*
+	# $(OUT)/MultipartParser seed-corpus/MultipartParser/regressions/*
+	$(OUT)/PerMessageDeflate seed-corpus/PerMessageDeflate/regressions/*

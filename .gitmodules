@@ -7,3 +7,6 @@
 [submodule "libdeflate"]
 	path = libdeflate
 	url = https://github.com/ebiggers/libdeflate
+[submodule "fuzzing/seed-corpus"]
+	path = fuzzing/seed-corpus
+	url = https://github.com/uNetworking/seed-corpus.git
