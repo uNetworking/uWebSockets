@@ -32,7 +32,7 @@ template <bool SSL>
 struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
     template <bool> friend struct HttpResponse;
     template <bool> friend struct HttpContext;
-private:
+public:
     /* Bits of status */
     enum {
         HTTP_STATUS_CALLED = 1, // used

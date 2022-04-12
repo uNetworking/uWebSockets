@@ -74,7 +74,7 @@ private:
         }
     }
 
-protected:
+public:
     /* Returns SSL pointer or FD as pointer */
     void *getNativeHandle() {
         return us_socket_get_native_handle(SSL, (us_socket_t *) this);
