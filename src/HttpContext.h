@@ -306,7 +306,7 @@ private:
 
                 /* We expect the developer to return whether or not write was successful (true).
                  * If write was never called, the developer should still return true so that we may drain. */
-                bool success = httpResponseData->onWritable(httpResponseData->offset);
+                bool success = httpResponseData->callOnWritable(httpResponseData->offset);
 
                 /* The developer indicated that their onWritable failed. */
                 if (!success) {

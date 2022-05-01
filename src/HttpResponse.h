@@ -71,16 +71,6 @@ private:
         Super::write(buf, length);
     }
 
-    /* When we are done with a response we mark it like so */
-    void markDone(HttpResponseData<SSL> *httpResponseData) {
-        httpResponseData->onAborted = nullptr;
-        /* Also remove onWritable so that we do not emit when draining behind the scenes. */
-        httpResponseData->onWritable = nullptr;
-
-        /* We are done with this request */
-        httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
-    }
-
     /* Called only once per request */
     void writeMark() {
         /* You can disable this altogether */
@@ -137,7 +127,7 @@ private:
             /* Terminating 0 chunk */
             Super::write("\r\n0\r\n\r\n", 7);
 
-            markDone(httpResponseData);
+            httpResponseData->markDone();
 
             /* tryEnd can never fail when in chunked mode, since we do not have tryWrite (yet), only write */
             Super::timeout(HTTP_TIMEOUT_S);
@@ -188,7 +178,7 @@ private:
 
             /* Remove onAborted function if we reach the end */
             if (httpResponseData->offset == totalSize) {
-                markDone(httpResponseData);
+                httpResponseData->markDone();
             }
 
             return success;
