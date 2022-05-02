@@ -4,9 +4,6 @@
 [submodule "fuzzing/libEpollFuzzer"]
 	path = fuzzing/libEpollFuzzer
 	url = https://github.com/uNetworking/libEpollFuzzer
-[submodule "libdeflate"]
-	path = libdeflate
-	url = https://github.com/ebiggers/libdeflate
 [submodule "fuzzing/seed-corpus"]
 	path = fuzzing/seed-corpus
 	url = https://github.com/uNetworking/seed-corpus.git
