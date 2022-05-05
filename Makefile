@@ -14,6 +14,7 @@ endif
 # WITH_QUIC enables experimental Http3 examples
 ifeq ($(WITH_QUIC),1)
 	override CXXFLAGS += -DLIBUS_USE_QUIC
+	override LDFLAGS += -pthread -lz -lm uSockets/lsquic/src/liblsquic/liblsquic.a
 endif
 
 # WITH_LIBDEFLATE=1 enables fast paths for SHARED_COMPRESSOR and inflation

@@ -11,7 +11,7 @@ namespace uWS {
 
         QuicApp(SocketContextOptions options = {}) {
             /* Create the http3 context */
-            http3Context = Http3Context::create((us_loop_t *)Loop::get(), options);
+            http3Context = Http3Context::create((us_loop_t *)Loop::get(), {});
         }
 
         QuicApp &listen(int port, std::function<void(void *)> cb) {
@@ -25,7 +25,7 @@ namespace uWS {
         }
 
         void run() {
-
+            uWS::Loop::get()->run();
         }
     };
 
