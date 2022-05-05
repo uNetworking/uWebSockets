@@ -11,6 +11,11 @@ ifeq ($(WITH_PROXY),1)
 	override CXXFLAGS += -DUWS_WITH_PROXY
 endif
 
+# WITH_QUIC enables experimental Http3 examples
+ifeq ($(WITH_QUIC),1)
+	override CXXFLAGS += -DLIBUS_USE_QUIC
+endif
+
 # WITH_LIBDEFLATE=1 enables fast paths for SHARED_COMPRESSOR and inflation
 ifeq ($(WITH_LIBDEFLATE),1)
 	override CXXFLAGS += -I libdeflate -DUWS_USE_LIBDEFLATE

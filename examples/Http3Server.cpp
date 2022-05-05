@@ -1,3 +1,5 @@
+#ifdef LIBUS_USE_QUIC
+
 /* Do not rely on this API, it will change */
 #include "Http3App.h"
 #include <iostream>
@@ -18,3 +20,13 @@ int main() {
 
 	std::cout << "Failed to listen on port 3000" << std::endl;
 }
+
+#else
+
+#include <stdio.h>
+
+int main() {
+    printf("Compile with WITH_QUIC=1 WITH_BORINGSSL=1 make in order to build this example\n");
+}
+
+#endif
