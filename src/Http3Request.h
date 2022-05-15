@@ -12,7 +12,7 @@ namespace uWS {
                 int name_length, value_length;
                 if (more = us_quic_socket_context_get_header(nullptr, i, &name, &name_length, &value, &value_length)) {
                     if (name_length == key.length() && !memcmp(name, key.data(), key.length())) {
-                        return {value, value_length};
+                        return {value, (size_t) value_length};
                     }
                 }
             }
