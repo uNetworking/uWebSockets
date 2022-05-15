@@ -6,18 +6,20 @@
 
 /* Tentative example of simple Http3 server */
 int main() {
-	uWS::QuicApp({
+	uWS::H3App({
 	  .key_file_name = "../misc/key.pem",
 	  .cert_file_name = "../misc/cert.pem",
 	  .passphrase = "1234"
 	}).get("/*", [](auto *res, auto *req) {
 
-		std::cout << req->getHeader(":path") << std::endl;
+		/* Printing these should obviously be disabled if doing benchmarking */
+		//std::cout << req->getHeader(":path") << std::endl;
+		//std::cout << req->getHeader(":method") << std::endl;
 
-	    res->end("Hello quic!");
-	}).listen(3000, [](auto *listen_socket) {
+	    res->end("Hello H3 from uWS!");
+	}).listen(9004, [](auto *listen_socket) {
 	    if (listen_socket) {
-			std::cout << "Listening on port " << 3000 << std::endl;
+			std::cout << "Listening on port " << 9004 << std::endl;
 	    }
 	}).run();
 

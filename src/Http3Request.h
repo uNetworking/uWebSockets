@@ -15,8 +15,8 @@ namespace uWS {
                         return {value, value_length};
                     }
                 }
-                return {nullptr, 0};
             }
+            return {nullptr, 0};
         }
     };
 }
