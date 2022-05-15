@@ -10,7 +10,10 @@ int main() {
 	  .key_file_name = "../misc/key.pem",
 	  .cert_file_name = "../misc/cert.pem",
 	  .passphrase = "1234"
-	}).get("/*", [](auto *res, auto */*req*/) {
+	}).get("/*", [](auto *res, auto *req) {
+
+		std::cout << req->getHeader(":path") << std::endl;
+
 	    res->end("Hello quic!");
 	}).listen(3000, [](auto *listen_socket) {
 	    if (listen_socket) {
