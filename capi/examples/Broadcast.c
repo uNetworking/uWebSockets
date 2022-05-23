@@ -8,7 +8,7 @@
 
 
 //Timer close helper
-void uws_timer_close(uws_timer_t *timer)
+void uws_timer_close(struct us_timer_t *timer)
 {
     struct us_timer_t *t = (struct us_timer_t *)timer;
     struct timer_handler_data *data;
@@ -17,7 +17,7 @@ void uws_timer_close(uws_timer_t *timer)
     us_timer_close(t);
 }
 //Timer create helper
-uws_timer_t *uws_create_timer(int ms, int repeat_ms, void (*handler)(void *data), void *data)
+struct us_timer_t *uws_create_timer(int ms, int repeat_ms, void (*handler)(void *data), void *data)
 {
     struct us_loop_t *loop = uws_get_loop();
     struct us_timer_t *delayTimer = us_create_timer(loop, 0, sizeof(void *));
@@ -52,7 +52,7 @@ uws_timer_t *uws_create_timer(int ms, int repeat_ms, void (*handler)(void *data)
         },
         ms, repeat_ms);
 
-    return (uws_timer_t *)delayTimer;
+    return (struct us_timer_t *)delayTimer;
 }
 
 /* This is a simple WebSocket "sync" upgrade example.
