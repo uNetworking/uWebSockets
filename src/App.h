@@ -19,6 +19,8 @@
 #define UWS_APP_H
 
 #include <string>
+#include <charconv>
+#include <string_view>
 
 namespace uWS {
     /* Type queued up when publishing */
@@ -32,6 +34,28 @@ namespace uWS {
         /*OpCode*/ int opCode;
         bool compress;
     };
+
+    /* Safari 15.0 - 15.3 has a completely broken compression implementation (client_no_context_takeover not
+     * properly implemented) - so we fully disable compression for this browser :-(
+     * see https://github.com/uNetworking/uWebSockets/issues/1347 */
+    inline bool hasBrokenCompression(std::string_view userAgent) {
+        size_t posStart = userAgent.find(" Version/15.");
+        if (posStart == std::string_view::npos) return false;
+        posStart += 12;
+
+        size_t posEnd = userAgent.find(' ', posStart);
+        if (posEnd == std::string_view::npos) return false;
+
+        unsigned int minorVersion = 0;
+        auto result = std::from_chars(userAgent.data() + posStart, userAgent.data() + posEnd, minorVersion);
+        if (result.ec != std::errc()) return false;
+        if (result.ptr != userAgent.data() + posEnd) return false; // do not accept trailing chars
+        if (minorVersion > 3) return false; // we target just Safari 15.0 - 15.3
+
+        if (userAgent.find(" Safari/", posEnd) == std::string_view::npos) return false;
+
+        return true;
+    }
 }
 
 /* An app is a convenience wrapper of some of the most used fuctionalities and allows a
@@ -52,6 +76,7 @@ namespace uWS {
         const char *passphrase = nullptr;
         const char *dh_params_file_name = nullptr;
         const char *ca_file_name = nullptr;
+        const char *ssl_ciphers = nullptr;
         int ssl_prefer_low_memory_usage = 0;
 
         /* Conversion operator used internally */
@@ -354,11 +379,23 @@ public:
 
                 /* Emit upgrade handler */
                 if (behavior.upgrade) {
+
+                    /* Nasty, ugly Safari 15 hack */
+                    if (hasBrokenCompression(req->getHeader("user-agent"))) {
+                        std::string_view secWebSocketExtensions = req->getHeader("sec-websocket-extensions");
+                        memset((void *) secWebSocketExtensions.data(), ' ', secWebSocketExtensions.length());
+                    }
+
                     behavior.upgrade(res, req, (struct us_socket_context_t *) webSocketContext);
                 } else {
                     /* Default handler upgrades to WebSocket */
                     std::string_view secWebSocketProtocol = req->getHeader("sec-websocket-protocol");
                     std::string_view secWebSocketExtensions = req->getHeader("sec-websocket-extensions");
+
+                    /* Safari 15 hack */
+                    if (hasBrokenCompression(req->getHeader("user-agent"))) {
+                        secWebSocketExtensions = "";
+                    }
 
                     res->template upgrade<UserData>({}, secWebSocketKey, secWebSocketProtocol, secWebSocketExtensions, (struct us_socket_context_t *) webSocketContext);
                 }

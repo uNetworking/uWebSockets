@@ -7,3 +7,5 @@ default:
 	./BloomFilter
 	$(CXX) -std=c++17 -fsanitize=address ExtensionsNegotiator.cpp -o ExtensionsNegotiator
 	./ExtensionsNegotiator
+	$(CXX) -std=c++17 -fsanitize=address HttpParser.cpp -o HttpParser
+	./HttpParser
