@@ -1,7 +1,7 @@
 #include "libuwebsockets.h"
 #include <string_view>
 #include "App.h"
-
+#include <optional>
 extern "C"
 {
 
@@ -804,17 +804,17 @@ extern "C"
         }
     }
 
-    void uws_res_end_without_body(int ssl, uws_res_t *res)
+    void uws_res_end_without_body(int ssl, uws_res_t *res, bool close_connection)
     {
         if (ssl)
         {
             uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
-            uwsRes->endWithoutBody(0);
+            uwsRes->endWithoutBody(std::nullopt, close_connection);
         }
         else
         {
             uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
-            uwsRes->endWithoutBody(0);
+            uwsRes->endWithoutBody(std::nullopt, close_connection);
         }
     }
 
@@ -972,5 +972,10 @@ extern "C"
     struct us_loop_t *uws_get_loop()
     {
         return (struct us_loop_t *)uWS::Loop::get();
+    }
+
+    struct us_loop_t *uws_get_loop_with_native(void* existing_native_loop)
+    {
+        return (struct us_loop_t *)uWS::Loop::get(existing_native_loop);
     }
 }
