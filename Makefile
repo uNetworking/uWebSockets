@@ -61,7 +61,7 @@ endif
 .PHONY: examples
 examples:
 	$(MAKE) -C uSockets; \
-	for FILE in $(EXAMPLE_FILES); do $(CXX) -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
+	for FILE in $(EXAMPLE_FILES); do $(CXX) -pthread  -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
 	for FILE in $(THREADED_EXAMPLE_FILES); do $(CXX) -pthread -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
 	wait
 
