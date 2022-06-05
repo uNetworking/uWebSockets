@@ -90,7 +90,7 @@ void get_handler(uws_res_t *res, uws_req_t *req,  void* user_data)
     * code that utilize us_timer_t like this; they are high-cost and should
     * not be created and destroyed more than rarely!
     * Either way, here we go!*/
-    uws_create_timer(5000, 0, on_timer_done, request_data);
+    uws_create_timer(100, 0, on_timer_done, request_data);
 }
 
 
@@ -98,7 +98,7 @@ void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_con
 {
     if (listen_socket)
     {
-        printf("Listening on port http://localhost:%d now\n", config.port);
+        printf("Listening on port https://localhost:%d now\n", config.port);
     }
 }
 

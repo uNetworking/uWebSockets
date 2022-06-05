@@ -13,7 +13,7 @@ void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_con
 {
     if (listen_socket)
     {
-        printf("Listening on port http://localhost:%d now\n", config.port);
+        printf("Listening on port https://localhost:%d now\n", config.port);
     }
 }
 

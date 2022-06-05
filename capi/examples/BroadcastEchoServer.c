@@ -41,7 +41,7 @@ void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_con
 {
     if (listen_socket)
     {
-        printf("Listening on port ws://localhost:%d\n", config.port);
+        printf("Listening on port wss://localhost:%d\n", config.port);
     }
 }
 

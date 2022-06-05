@@ -303,7 +303,7 @@ fn main() {
             res.end("Hello Rust!");
         })
         .listen(3000, |_listen_socket, config| {
-            println!("Listening on port http://127.0.0.1:{}", config.port);
+            println!("Listening on port https://127.0.0.1:{}", config.port);
         })
         .run();
 }

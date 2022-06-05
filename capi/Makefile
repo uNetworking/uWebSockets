@@ -4,21 +4,27 @@ LIBRARY_NAME := libuwebsockets
 
 default:
 	$(MAKE) capi
-	 $(CXX) -O3 -flto -I ../src -I ../uSockets/src examples/HelloWorld.c *.o -luv -lstdc++ ../uSockets/uSockets.a -o HelloWorld
-	rustc -C link-arg=$(LIBRARY_NAME).a -C link-args="-lstdc++ -luv" -C opt-level=3 -C lto -L all=. examples/RustHelloWorld.rs -o RustHelloWorld
+	$(CXX) -O3 -flto -I ../src -I ../uSockets/src examples/HelloWorld.c *.o -luv -lssl -lcrypto -lstdc++ ../uSockets/uSockets.a -o HelloWorld
 
 capi:
 	$(MAKE) clean
-	WITH_LIBUV=1 make -C ../uSockets
+	cd ../uSockets && $(CC) -pthread -DLIBUS_USE_OPENSSL -DLIBUS_USE_LIBUV -std=c11 -Isrc -flto -fPIC -O3 -c src/*.c src/eventing/*.c src/crypto/*.c
+	cd ../uSockets && $(CXX) -std=c++17 -flto -fPIC -O3 -c src/crypto/*.cpp 
+	cd ../uSockets && $(AR) rvs uSockets.a *.o
+
 	$(CXX) -c -O3 -std=c++17 -luv -flto -fPIC -DUWS_NO_ZLIB -I ../src -I ../uSockets/src $(LIBRARY_NAME).cpp
-	$(AR) rvs $(LIBRARY_NAME).a $(LIBRARY_NAME).o ../uSockets/*.o -luv
-	
+	$(AR) rvs $(LIBRARY_NAME).a $(LIBRARY_NAME).o ../uSockets/*.o 
 shared:
 	$(MAKE) clean
-	WITH_LIBUV=1 make -C ../uSockets
-	$(CXX) -c -O3 -std=c++17 -luv -flto -fPIC -DUWS_NO_ZLIB -I ../src -I ../uSockets/src $(LIBRARY_NAME).cpp
-	$(CXX) -shared -o $(LIBRARY_NAME).so  $(LIBRARY_NAME).o ../uSockets/*.o -luv
 
+	cd ../uSockets && $(CC) -pthread -DLIBUS_USE_OPENSSL -DLIBUS_USE_LIBUV -std=c11 -Isrc -flto -fPIC -O3 -c src/*.c src/eventing/*.c src/crypto/*.c
+	cd ../uSockets && $(CXX) -std=c++17 -flto -fPIC -O3 -c src/crypto/*.cpp 
+	cd ../uSockets && $(AR) rvs uSockets.a *.o
+
+	$(CXX) -c -O3 -std=c++17 -luv -flto -fPIC -DUWS_NO_ZLIB -I ../src -I ../uSockets/src $(LIBRARY_NAME).cpp 
+	$(CXX) -shared -o $(LIBRARY_NAME).so  $(LIBRARY_NAME).o ../uSockets/*.o -fPIC -luv -lssl -lcrypto
+misc:
+	mkdir -p misc && openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -passout pass:1234 -keyout ./misc/key.pem -out ./misc/cert.pem
 rust:
 	$(MAKE) capi
 	rustc -C link-arg=$(LIBRARY_NAME).a -C link-args="-lstdc++ -luv" -C opt-level=3 -C lto -L all=. examples/RustHelloWorld.rs -o RustHelloWorld

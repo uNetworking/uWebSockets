@@ -29,10 +29,10 @@ void missing_server_name_handler(const char *hostname,  void* user_data){
 void listen_handler(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config, void* user_data)
 {
     if (listen_socket){
-        printf("Listening on port http://localhost:%d\n", config.port);
+        printf("Listening on port https://localhost:%d\n", config.port);
 		globalListenSocket = listen_socket;
     }else{
-		printf("Failed to listen on port http://localhost:%d\n", config.port);
+		printf("Failed to listen on port https://localhost:%d\n", config.port);
 	}
 	
 }
