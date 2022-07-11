@@ -162,7 +162,7 @@ private:
         return unsignedIntegerValue;
     }
     
-    void *memchr_r(const char *p, const char *end) {
+    static void *memchr_r(const char *p, const char *end) {
         uint64_t mask = *(uint64_t *)"\r\r\r\r\r\r\r\r";
         if (p <= end - 8) {
             for (; p <= end - 8; p += 8) {
