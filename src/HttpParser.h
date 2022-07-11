@@ -161,6 +161,26 @@ private:
         }
         return unsignedIntegerValue;
     }
+    
+    void *memchr_r(const char *p, const char *end) {
+        uint64_t mask = *(uint64_t *)"\r\r\r\r\r\r\r\r";
+        if (p <= end - 8) {
+            for (; p <= end - 8; p += 8) {
+                uint64_t val = *(uint64_t *)p ^ mask;
+                if ((val + 0xfefefefefefefeffull) & (~val & 0x8080808080808080ull)) {
+                    break;
+                }
+            }
+        }
+
+        for (; p < end; p++) {
+            if (*(unsigned char *)p == '\r') {
+                return (void *)p;
+            }
+        }
+
+        return nullptr;
+     }
 
     static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
@@ -203,7 +223,7 @@ private:
                 headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
                 for (postPaddedBuffer++; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
                 preliminaryValue = postPaddedBuffer;
-                postPaddedBuffer = (char *) memchr(postPaddedBuffer, '\r', (size_t) (end - postPaddedBuffer));
+                postPaddedBuffer = (char *) memchr_r(postPaddedBuffer, end);
                 if (postPaddedBuffer && postPaddedBuffer[1] == '\n') {
                     headers->value = std::string_view(preliminaryValue, (size_t) (postPaddedBuffer - preliminaryValue));
                     postPaddedBuffer += 2;
