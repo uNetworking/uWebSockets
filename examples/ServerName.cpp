@@ -7,8 +7,8 @@ struct us_listen_socket_t *globalListenSocket;
 int main() {
 	/* Overly simple hello world app (SNI) */
 	uWS::SSLApp app = uWS::SSLApp({
-	  .key_file_name = "../misc/key.pem",
-	  .cert_file_name = "../misc/cert.pem",
+	  .key_file_name = "misc/key.pem",
+	  .cert_file_name = "misc/cert.pem",
 	  .passphrase = "1234"
 	}).missingServerName([&app](const char *hostname) {
 
