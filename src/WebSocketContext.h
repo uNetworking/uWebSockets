@@ -230,7 +230,7 @@ private:
                     }
 
                     /* Same here, we do not care for any particular smart allocation scheme */
-                    webSocketData->fragmentBuffer.resize(webSocketData->fragmentBuffer.length() - webSocketData->controlTipLength);
+                    webSocketData->fragmentBuffer.resize((unsigned int) webSocketData->fragmentBuffer.length() - webSocketData->controlTipLength);
                     webSocketData->controlTipLength = 0;
                 }
             }
