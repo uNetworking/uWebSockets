@@ -7,8 +7,8 @@
 /* Tentative example of simple Http3 server */
 int main() {
 	uWS::H3App({
-	  .key_file_name = "../misc/key.pem",
-	  .cert_file_name = "../misc/cert.pem",
+	  .key_file_name = "misc/key.pem",
+	  .cert_file_name = "misc/cert.pem",
 	  .passphrase = "1234"
 	}).get("/*", [](auto *res, auto *req) {
 

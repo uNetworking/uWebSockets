@@ -2,6 +2,8 @@ extern "C" {
 #include "quic.h"
 }
 
+#include "Http3ResponseData.h"
+
 namespace uWS {
 
     /* Is a quic stream */
@@ -11,9 +13,24 @@ namespace uWS {
 
         }
 
+        void writeHeader() {
+
+        }
+
+        void tryEnd() {
+
+        }
+
+        void write() {
+
+        }
+
         void end(std::string_view data) {
 
-            // Http3ResponseData *responseData = us_quic_stream_ext(this);
+            Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
+
+            printf("Wrapper responseData is %p\n", responseData);
+            printf("%s\n", responseData);
 
             // if not already written status then write status
 

@@ -10,8 +10,15 @@ namespace uWS {
         Http3Context *http3Context;
 
         H3App(SocketContextOptions options = {}) {
+            /* This conversion should not be needed */
+            us_quic_socket_context_options_t h3options = {};
+
+            h3options.key_file_name = strdup(options.key_file_name);
+            h3options.cert_file_name = strdup(options.cert_file_name);
+            h3options.passphrase = strdup(options.passphrase);
+
             /* Create the http3 context */
-            http3Context = Http3Context::create((us_loop_t *)Loop::get(), {});
+            http3Context = Http3Context::create((us_loop_t *)Loop::get(), h3options);
 
             http3Context->init();
         }
