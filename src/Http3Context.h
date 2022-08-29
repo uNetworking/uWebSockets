@@ -22,7 +22,7 @@ namespace uWS {
                 // we don't have a way to know EOF?
                 Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext(s);
                 
-                if (responseData) {
+                if (responseData->onData) {
                     responseData->onData({data, length}, true);
                 }
 
@@ -32,13 +32,18 @@ namespace uWS {
                 //printf("Stream opened!\n");
 
                 // inplace initialize Http3ResponseData here
+
+                new (us_quic_stream_ext(s)) Http3ResponseData();
             });
             us_quic_socket_context_on_close(context, [](us_quic_socket_t *s) {
                 printf("Disconnected!\n");
+
             });
             us_quic_socket_context_on_stream_writable(context, [](us_quic_stream_t *s) {
                 // Http3ResponseData *responseData = us_quic_stream_ext(s);
                 // responseData->onWritable();
+
+                
             });
             us_quic_socket_context_on_stream_headers(context, [](us_quic_stream_t *s) {
 
@@ -52,19 +57,19 @@ namespace uWS {
                 contextData->router.getUserData() = {(Http3Response *) s, (Http3Request *) nullptr};
                 contextData->router.route(upperCasedMethod, "/");
 
-
             });
             us_quic_socket_context_on_open(context, [](us_quic_socket_t *s, int is_client) {
                 printf("Connection established!\n");
             });
             us_quic_socket_context_on_stream_close(context, [](us_quic_stream_t *s) {
 
-                // Http3ResponseData *responseData = us_quic_stream_ext(s);
-                // responseData->onAborted();
+                Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext(s);
+                
+                if (responseData->onAborted) {
+                    responseData->onAborted();
+                }
 
-                //printf("Stream closed\n");
-
-                // inplace destruct Http3ResponseData here
+                responseData->~Http3ResponseData();
             });
 
             return (Http3Context *) context;

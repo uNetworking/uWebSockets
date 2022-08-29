@@ -7,8 +7,8 @@
 namespace uWS {
     struct Http3ResponseData {
 
-        MoveOnlyFunction<void()> onAborted;
-        MoveOnlyFunction<void(std::string_view, bool)> onData;
+        MoveOnlyFunction<void()> onAborted = nullptr;
+        MoveOnlyFunction<void(std::string_view, bool)> onData = nullptr;
 
         // hasWrittenStatus
 
