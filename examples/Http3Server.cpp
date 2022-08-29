@@ -8,7 +8,7 @@
  * You might be surprised to find out you can replace uWS::H3App with uWS::SSLApp and
  * serve TCP/TLS-based HTTP instead of QUIC-based HTTP, using the same very code ;) */
 int main() {
-	uWS::SSLApp({
+	uWS::H3App({
 	  .key_file_name = "misc/key.pem",
 	  .cert_file_name = "misc/cert.pem",
 	  .passphrase = "1234"
