@@ -19,10 +19,14 @@ namespace uWS {
             /* Specify application callbacks */
             us_quic_socket_context_on_stream_data(context, [](us_quic_stream_t *s, char *data, int length) {
 
-                // Http3ResponseData *responseData = us_quic_stream_ext(s);
-                // responseData->onData(data, length);
+                // we don't have a way to know EOF?
+                Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext(s);
+                
+                if (responseData) {
+                    responseData->onData({data, length}, true);
+                }
 
-                printf("Body length is: %d\n", length);
+                //printf("Body length is: %d\n", length);
             });
             us_quic_socket_context_on_stream_open(context, [](us_quic_stream_t *s, int is_client) {
                 //printf("Stream opened!\n");

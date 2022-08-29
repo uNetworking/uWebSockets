@@ -29,8 +29,8 @@ namespace uWS {
 
             Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
 
-            printf("Wrapper responseData is %p\n", responseData);
-            printf("%s\n", responseData);
+            //printf("Wrapper responseData is %p\n", responseData);
+            //printf("%s\n", responseData);
 
             // if not already written status then write status
 
@@ -45,6 +45,22 @@ namespace uWS {
 
             /* Every request has its own stream, so we conceptually serve requests like in HTTP 1.0 */
             us_quic_stream_shutdown((us_quic_stream_t *) this); 
+        }
+
+
+        /* Attach handler for aborted HTTP request */
+        Http3Response *onAborted(MoveOnlyFunction<void()> &&handler) {
+            Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
+
+            responseData->onAborted = std::move(handler);
+            return this;
+        }
+
+        /* Attach a read handler for data sent. Will be called with FIN set true if last segment. */
+        void onData(MoveOnlyFunction<void(std::string_view, bool)> &&handler) {
+            Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
+
+            responseData->onData = std::move(handler);
         }
     };
 
