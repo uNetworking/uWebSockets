@@ -14,7 +14,7 @@ namespace uWS {
         HttpRouter<RouterData> router;
 
         Http3ContextData() {
-            printf("Constructing http3contextdata: %p\n", this);
+            //printf("Constructing http3contextdata: %p\n", this);
         }
     };
     

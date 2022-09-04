@@ -3,27 +3,55 @@
 /* Do not rely on this API, it will change */
 #include "Http3App.h"
 #include <iostream>
+#include <fstream>
 
-/* Example of simple Http3 server handling both GET with headers and POST with body.
- * You might be surprised to find out you can replace uWS::H3App with uWS::SSLApp and
- * serve TCP/TLS-based HTTP instead of QUIC-based HTTP, using the same very code ;) */
+/* This is an example serving a video over HTTP3, and echoing posted data back */
+/* Todo: use onWritable and tryEnd instead of end */
 int main() {
+
+	/* Read video file to memory */
+	std::ifstream file("video.mp4", std::ios::binary | std::ios::ate);
+	std::streamsize size = file.tellg();
+	file.seekg(0, std::ios::beg);
+
+	std::vector<char> buffer(size);
+	if (!file.read(buffer.data(), size)) {
+		std::cout << "Failed to load video.mp4" << std::endl;
+		return 0;
+	}
+
+	/* We need a bootstrapping server that instructs
+	 * the web browser to use HTTP3 */
+	(*new uWS::SSLApp({
+	  .key_file_name = "misc/key.pem",
+	  .cert_file_name = "misc/cert.pem",
+	  .passphrase = "1234"
+	})).get("/video.mp4", [&buffer](auto *res, auto *req) {
+		res->writeHeader("Alt-Svc", "h3=\":9004\"");
+		res->writeHeader("Alternative-Protocol", "quic:9004");
+	    res->end({"This is not HTTP3!", 18});
+	}).listen(9004, [](auto *listen_socket) {
+	    if (listen_socket) {
+			std::cout << "Bootstrapping server Listening on port " << 9004 << std::endl;
+	    }
+	});
+
+	/* And we serve the video over HTTP3 */
 	uWS::H3App({
 	  .key_file_name = "misc/key.pem",
 	  .cert_file_name = "misc/cert.pem",
 	  .passphrase = "1234"
-	}).get("/*", [](auto *res, auto *req) {
+	}).get("/video.mp4", [&buffer](auto *res, auto *req) {
+		/* Send back a video */
+	    res->end({&buffer[0], buffer.size()});
+	}).post("/*", [](auto *res, auto *req) {
 
-		/* Printing these should obviously be disabled if doing benchmarking */
-		std::cout << req->getHeader(":path") << std::endl;
-		std::cout << req->getHeader(":method") << std::endl;
-
-	    res->end("Hello H3 from uWS!");
-	}).post("/*", [](auto *res, auto */*req*/) {
+		std::cout << "Got POST request at " << req->getHeader(":path") << std::endl;
 
 		/* You also need to set onAborted if receiving data */
 		res->onData([res, bodyBuffer = (std::string *)nullptr](std::string_view chunk, bool isLast) mutable {
 			if (isLast) {
+				std::cout << "Sending back posted body now" << std::endl;
 				if (bodyBuffer) {
 					/* Send back the (chunked) body we got, as response */
 					bodyBuffer->append(chunk);
@@ -52,11 +80,11 @@ int main() {
 		});
 	}).listen(9004, [](auto *listen_socket) {
 	    if (listen_socket) {
-			std::cout << "Listening on port " << 9004 << std::endl;
+			std::cout << "HTTP/3 server Listening on port " << 9004 << std::endl;
 	    }
 	}).run();
 
-	std::cout << "Failed to listen on port 3000" << std::endl;
+	std::cout << "Failed to listen on port 9004" << std::endl;
 }
 
 #else

@@ -38,12 +38,12 @@ namespace uWS {
             us_quic_socket_context_send_headers(nullptr, (us_quic_stream_t *) this, 1, 1);
 
             /* Write body and shutdown (unknown if content-length must be present?) */
-            int written = us_quic_stream_write((us_quic_stream_t *) this, (char *) data.data(), data.length());
+            int written = us_quic_stream_write((us_quic_stream_t *) this, (char *) data.data(), (int) data.length());
 
             printf("Wrote %d bytes out of %ld\n", written, data.length());
 
             /* Buffer up remains */
-            if (written != data.length()) {
+            if (written != (int) data.length()) {
                 responseData->buffer.clear();
                 responseData->bufferOffset = written;
                 responseData->buffer.append(data);

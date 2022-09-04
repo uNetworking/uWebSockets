@@ -9,60 +9,63 @@ extern "C" {
 namespace uWS {
     struct Http3Context {
         static Http3Context *create(us_loop_t *loop, us_quic_socket_context_options_t options) {
-            //return nullptr;
-
-            printf("Creating context now\n");
 
             /* Create quic socket context (assumes h3 for now) */
-            auto *context = us_create_quic_socket_context(loop, options, sizeof(Http3ContextData)); // sizeof(Http3ContextData)
+            auto *context = us_create_quic_socket_context(loop, options, sizeof(Http3ContextData));
 
             /* Specify application callbacks */
             us_quic_socket_context_on_stream_data(context, [](us_quic_stream_t *s, char *data, int length) {
 
-                // we don't have a way to know EOF?
                 Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext(s);
                 
+                /* We never emit FIN here */
                 if (responseData->onData) {
-                    responseData->onData({data, length}, true);
+                    responseData->onData({data, (size_t) length}, false);
+                }
+            });
+            us_quic_socket_context_on_stream_end(context, [](us_quic_stream_t *s) {
+
+                Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext(s);
+                
+                /* Emit FIN to app */
+                if (responseData->onData) {
+                    responseData->onData({nullptr, 0}, true);
                 }
 
-                //printf("Body length is: %d\n", length);
+                /* Have we written our entire backpressure, if any? */
+                if (responseData->buffer.length() && (responseData->bufferOffset == (int) responseData->buffer.length())) {
+                    printf("We got FIN and we have no backpressure, closing stream now!\n");
+                    us_quic_stream_close(s);
+                } else {
+                    printf("We got FIN but we have data to write, so keeping connection half-closed!\n");
+                }
+
             });
             us_quic_socket_context_on_stream_open(context, [](us_quic_stream_t *s, int is_client) {
-                //printf("Stream opened!\n");
 
-                // inplace initialize Http3ResponseData here
-
+                /* Inplace init our per stream data */
                 new (us_quic_stream_ext(s)) Http3ResponseData();
             });
             us_quic_socket_context_on_close(context, [](us_quic_socket_t *s) {
-                printf("Disconnected from on_close in uws!\n");
-
+                printf("QUIC socket disconnected!\n");
             });
             us_quic_socket_context_on_stream_writable(context, [](us_quic_stream_t *s) {
                 Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext(s);
-                // responseData->onWritable();
 
-                int written = us_quic_stream_write(s, responseData->buffer.data() + responseData->bufferOffset, responseData->buffer.length() - responseData->bufferOffset);
+                int written = us_quic_stream_write(s, responseData->buffer.data() + responseData->bufferOffset, (int) responseData->buffer.length() - responseData->bufferOffset);
+                responseData->bufferOffset += written;
 
-                //printf("wrote %d bytes in writable callback\n", written);
+                //printf("remaingin bytes: %ld\n", responseData->buffer.length() - responseData->bufferOffset);
 
-                // this whole thing should use the BackpressureBuffer class
-                responseData->bufferOffset += written;//responseData->buffer.substr(written);
-
-                printf("remaingin bytes: %ld\n", responseData->buffer.length() - responseData->bufferOffset);
-
-                if (responseData->buffer.length() - responseData->bufferOffset == 0) {
+                if ((int) responseData->buffer.length() - responseData->bufferOffset == 0) {
                     printf("wrote until end, shutting down now!\n");
                     us_quic_stream_shutdown(s);
                     us_quic_stream_close(s);
                 }
-
-                //printf("stream is now writable!\n");
-                
             });
             us_quic_socket_context_on_stream_headers(context, [](us_quic_stream_t *s) {
 
+                /* This is the main place of start for requests */
                 Http3ContextData *contextData = (Http3ContextData *) us_quic_socket_context_ext(us_quic_socket_context(us_quic_stream_socket(s)));
 
                 Http3Request *req = nullptr;
@@ -75,7 +78,7 @@ namespace uWS {
 
             });
             us_quic_socket_context_on_open(context, [](us_quic_socket_t *s, int is_client) {
-                printf("Connection established!\n");
+                printf("QUIC socket connected!\n");
             });
             us_quic_socket_context_on_stream_close(context, [](us_quic_stream_t *s) {
 
@@ -84,6 +87,8 @@ namespace uWS {
                 if (responseData->onAborted) {
                     responseData->onAborted();
                 }
+
+                printf("Freeing per stream data in on_stream_close in uws!\n");
 
                 responseData->~Http3ResponseData();
             });
@@ -97,7 +102,7 @@ namespace uWS {
             /* The listening socket is the actual UDP socket used */
             us_quic_listen_socket_t *listen_socket = us_quic_socket_context_listen((us_quic_socket_context_t *) this, "::", 9004, sizeof(Http3ResponseData));
 
-            printf("Listen socket is: %p\n", listen_socket);
+            //printf("Listen socket is: %p\n", listen_socket);
 
             return listen_socket;
         }
@@ -109,7 +114,7 @@ namespace uWS {
 
             Http3ContextData *contextData = (Http3ContextData *) us_quic_socket_context_ext((us_quic_socket_context_t *) this);
 
-            printf("init: %p\n", contextData);
+            //printf("init: %p\n", contextData);
 
             new (contextData) Http3ContextData();
 
