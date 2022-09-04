@@ -29,9 +29,6 @@ namespace uWS {
 
             Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
 
-            //printf("Wrapper responseData is %p\n", responseData);
-            //printf("%s\n", responseData);
-
             // if not already written status then write status
 
             /* Write headers */
@@ -41,12 +38,20 @@ namespace uWS {
             us_quic_socket_context_send_headers(nullptr, (us_quic_stream_t *) this, 1, 1);
 
             /* Write body and shutdown (unknown if content-length must be present?) */
-            us_quic_stream_write((us_quic_stream_t *) this, (char *) data.data(), data.length());
+            int written = us_quic_stream_write((us_quic_stream_t *) this, (char *) data.data(), data.length());
 
-            /* Every request has its own stream, so we conceptually serve requests like in HTTP 1.0 */
-            us_quic_stream_shutdown((us_quic_stream_t *) this); 
+            printf("Wrote %d bytes out of %ld\n", written, data.length());
+
+            /* Buffer up remains */
+            if (written != data.length()) {
+                responseData->buffer.clear();
+                responseData->bufferOffset = written;
+                responseData->buffer.append(data);
+            } else {
+                /* Every request has its own stream, so we conceptually serve requests like in HTTP 1.0 */
+                us_quic_stream_shutdown((us_quic_stream_t *) this);
+            }
         }
-
 
         /* Attach handler for aborted HTTP request */
         Http3Response *onAborted(MoveOnlyFunction<void()> &&handler) {

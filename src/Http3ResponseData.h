@@ -12,6 +12,9 @@ namespace uWS {
 
         // hasWrittenStatus
 
+        std::string buffer;
+        int bufferOffset = 0;
+
     };
 }
 

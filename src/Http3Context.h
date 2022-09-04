@@ -36,13 +36,29 @@ namespace uWS {
                 new (us_quic_stream_ext(s)) Http3ResponseData();
             });
             us_quic_socket_context_on_close(context, [](us_quic_socket_t *s) {
-                printf("Disconnected!\n");
+                printf("Disconnected from on_close in uws!\n");
 
             });
             us_quic_socket_context_on_stream_writable(context, [](us_quic_stream_t *s) {
-                // Http3ResponseData *responseData = us_quic_stream_ext(s);
+                Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext(s);
                 // responseData->onWritable();
 
+                int written = us_quic_stream_write(s, responseData->buffer.data() + responseData->bufferOffset, responseData->buffer.length() - responseData->bufferOffset);
+
+                //printf("wrote %d bytes in writable callback\n", written);
+
+                // this whole thing should use the BackpressureBuffer class
+                responseData->bufferOffset += written;//responseData->buffer.substr(written);
+
+                printf("remaingin bytes: %ld\n", responseData->buffer.length() - responseData->bufferOffset);
+
+                if (responseData->buffer.length() - responseData->bufferOffset == 0) {
+                    printf("wrote until end, shutting down now!\n");
+                    us_quic_stream_shutdown(s);
+                    us_quic_stream_close(s);
+                }
+
+                //printf("stream is now writable!\n");
                 
             });
             us_quic_socket_context_on_stream_headers(context, [](us_quic_stream_t *s) {
@@ -52,10 +68,10 @@ namespace uWS {
                 Http3Request *req = nullptr;
 
                 std::string_view upperCasedMethod = req->getHeader(":method");
-                //std::transform(lowerCasedMethod.begin(), lowerCasedMethod.end(), lowerCasedMethod.begin(), ::tolower);
-
+                std::string_view path = req->getHeader(":path");
+                
                 contextData->router.getUserData() = {(Http3Response *) s, (Http3Request *) nullptr};
-                contextData->router.route(upperCasedMethod, "/");
+                contextData->router.route(upperCasedMethod, path);
 
             });
             us_quic_socket_context_on_open(context, [](us_quic_socket_t *s, int is_client) {
@@ -79,7 +95,9 @@ namespace uWS {
 
         us_quic_listen_socket_t *listen() {
             /* The listening socket is the actual UDP socket used */
-            us_quic_listen_socket_t *listen_socket = us_quic_socket_context_listen((us_quic_socket_context_t *) this, "::1", 9004, sizeof(Http3ResponseData)); // sizeof(Http3ResponseData)
+            us_quic_listen_socket_t *listen_socket = us_quic_socket_context_listen((us_quic_socket_context_t *) this, "::", 9004, sizeof(Http3ResponseData));
+
+            printf("Listen socket is: %p\n", listen_socket);
 
             return listen_socket;
         }
