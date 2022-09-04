@@ -26,10 +26,10 @@ int main() {
 	  .key_file_name = "misc/key.pem",
 	  .cert_file_name = "misc/cert.pem",
 	  .passphrase = "1234"
-	})).get("/video.mp4", [&buffer](auto *res, auto *req) {
+	})).get("/*", [&buffer](auto *res, auto *req) {
 		res->writeHeader("Alt-Svc", "h3=\":9004\"");
 		res->writeHeader("Alternative-Protocol", "quic:9004");
-	    res->end({"This is not HTTP3!", 18});
+	    res->end("<html><h1>This is not HTTP3! Try refreshing (works in Firefox!)</h1></html>");
 	}).listen(9004, [](auto *listen_socket) {
 	    if (listen_socket) {
 			std::cout << "Bootstrapping server Listening on port " << 9004 << std::endl;
@@ -41,6 +41,8 @@ int main() {
 	  .key_file_name = "misc/key.pem",
 	  .cert_file_name = "misc/cert.pem",
 	  .passphrase = "1234"
+	}).get("/*", [&buffer](auto *res, auto *req) {
+	    res->end("<html><h1>Welcome to HTTP3! <a href=\"video.mp4\">Go see a movie</a></html></h1>");
 	}).get("/video.mp4", [&buffer](auto *res, auto *req) {
 		/* Send back a video */
 	    res->end({&buffer[0], buffer.size()});
