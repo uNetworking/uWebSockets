@@ -43,6 +43,9 @@ private:
     /* Maximum delay allowed until an HTTP connection is terminated due to outstanding request or rejected data (slow loris protection) */
     static const int HTTP_IDLE_TIMEOUT_S = 10;
 
+    /* Minimum allowed receive throughput per second (clients uploading less than 16kB/sec get dropped) */
+    static const int HTTP_RECEIVE_THROUGHPUT_BYTES = 16 * 1024;
+
     us_socket_context_t *getSocketContext() {
         return (us_socket_context_t *) this;
     }
@@ -205,7 +208,12 @@ private:
                         us_socket_timeout(SSL, (struct us_socket_t *) user, 0);
                     } else {
                         /* We still have some more data coming in later, so reset timeout */
-                        us_socket_timeout(SSL, (struct us_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
+                        /* Only reset timeout if we got enough bytes (16kb/sec) since last time we reset here */
+                        httpResponseData->received_bytes_per_timeout += (unsigned int) data.length();
+                        if (httpResponseData->received_bytes_per_timeout >= HTTP_RECEIVE_THROUGHPUT_BYTES * HTTP_IDLE_TIMEOUT_S) {
+                            us_socket_timeout(SSL, (struct us_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
+                            httpResponseData->received_bytes_per_timeout = 0;
+                        }
                     }
 
                     /* We might respond in the handler, so do not change timeout after this */

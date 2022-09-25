@@ -490,6 +490,9 @@ public:
     void onData(MoveOnlyFunction<void(std::string_view, bool)> &&handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();
         data->inStream = std::move(handler);
+
+        /* Always reset this counter here */
+        data->received_bytes_per_timeout = 0;
     }
 };
 
