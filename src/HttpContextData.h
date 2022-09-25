@@ -42,6 +42,10 @@ private:
         HttpRequest *httpRequest;
     };
 
+    /* This is the currently browsed-to router when using SNI */
+    HttpRouter<RouterData> *currentRouter = &router;
+
+    /* This is the default router for default SNI or non-SSL */
     HttpRouter<RouterData> router;
     void *upgradedWebSocket = nullptr;
     bool isParsingHttp = false;

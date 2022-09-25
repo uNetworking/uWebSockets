@@ -104,7 +104,10 @@ public:
     /* Server name */
     TemplatedApp &&addServerName(std::string hostname_pattern, SocketContextOptions options = {}) {
 
-        us_socket_context_add_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str(), options);
+        /* First we create a new router for this domain */
+        auto *domainRouter = new HttpRouter<typename HttpContextData<SSL>::RouterData>();
+
+        us_socket_context_add_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str(), options, domainRouter);
         return std::move(*this);
     }
 
@@ -404,6 +407,22 @@ public:
                 req->setYield(true);
             }
         }, true);
+        return std::move(*this);
+    }
+
+    /* Browse to a server name, changing the router to this domain */
+    TemplatedApp &&domain(std::string serverName) {
+        HttpContextData<SSL> *httpContextData = httpContext->getSocketContextData();
+
+        void *domainRouter = us_socket_context_find_server_name_userdata(SSL, (struct us_socket_context_t *) httpContext, serverName.c_str());
+        if (domainRouter) {
+            std::cout << "Browsed to SNI: " << serverName << std::endl;
+            httpContextData->currentRouter = (decltype(httpContextData->currentRouter)) domainRouter;
+        } else {
+            std::cout << "Cannot browse to SNI: " << serverName << std::endl;
+            httpContextData->currentRouter = &httpContextData->router;
+        }
+    
         return std::move(*this);
     }
 

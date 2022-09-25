@@ -159,9 +159,18 @@ private:
                     httpResponseData->state |= HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE;
                 }
 
+                /* Select the router based on SNI (only possible for SSL) */
+                auto *selectedRouter = &httpContextData->router;
+                if constexpr (SSL) {
+                    void *domainRouter = us_socket_server_name_userdata(SSL, (struct us_socket_t *) s);
+                    if (domainRouter) {
+                        selectedRouter = (decltype(selectedRouter)) domainRouter;
+                    }
+                }
+
                 /* Route the method and URL */
-                httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
-                if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
+                selectedRouter->getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
+                if (!selectedRouter->route(httpRequest->getMethod(), httpRequest->getUrl())) {
                     /* We have to force close this socket as we have no handler for it */
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
@@ -406,12 +415,12 @@ public:
         /* Todo: This is ugly, fix */
         std::vector<std::string> methods;
         if (method == "*") {
-            methods = httpContextData->router.methods;
+            methods = httpContextData->currentRouter->methods;
         } else {
             methods = {method};
         }
 
-        httpContextData->router.add(methods, pattern, [handler = std::move(handler)](auto *r) mutable {
+        httpContextData->currentRouter->add(methods, pattern, [handler = std::move(handler)](auto *r) mutable {
             auto user = r->getUserData();
             user.httpRequest->setYield(false);
             user.httpRequest->setParameters(r->getParameters());
@@ -429,7 +438,7 @@ public:
                 return false;
             }
             return true;
-        }, method == "*" ? httpContextData->router.LOW_PRIORITY : (upgrade ? httpContextData->router.HIGH_PRIORITY : httpContextData->router.MEDIUM_PRIORITY));
+        }, method == "*" ? httpContextData->currentRouter->LOW_PRIORITY : (upgrade ? httpContextData->currentRouter->HIGH_PRIORITY : httpContextData->currentRouter->MEDIUM_PRIORITY));
     }
 
     /* Listen to port using this HttpContext */
