@@ -445,6 +445,11 @@ public:
     us_listen_socket_t *listen(const char *host, int port, int options) {
         return us_socket_context_listen(SSL, getSocketContext(), host, port, options, sizeof(HttpResponseData<SSL>));
     }
+
+    /* Listen to unix domain socket using this HttpContext */
+    us_listen_socket_t *listen(const char *path, int options) {
+        return us_socket_context_listen_unix(SSL, getSocketContext(), path, options, sizeof(HttpResponseData<SSL>));
+    }
 };
 
 }
