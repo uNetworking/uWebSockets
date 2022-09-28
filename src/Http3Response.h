@@ -9,6 +9,15 @@ namespace uWS {
     /* Is a quic stream */
     struct Http3Response {
 
+        // this one is AsyncSocket, so it has to translate to the stream - abrupt stream termination
+        void close() {
+            //us_quic_stream_close((us_quic_stream_t *) this);
+        }
+
+        void endWithoutBody(std::optional<size_t> reportedContentLength = std::nullopt, bool closeConnection = false) {
+
+        }
+
         Http3Response *writeStatus(std::string_view status) {
             Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
 
