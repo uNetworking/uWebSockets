@@ -116,7 +116,7 @@ public:
         /* This will do for now, would be better if us_socket_context_remove_server_name returned the user data */
         auto *domainRouter = us_socket_context_find_server_name_userdata(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str());
         if (domainRouter) {
-            delete domainRouter;
+            delete (HttpRouter<typename HttpContextData<SSL>::RouterData>) domainRouter;
         }
 
         us_socket_context_remove_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str());

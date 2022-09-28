@@ -9,44 +9,75 @@ namespace uWS {
     /* Is a quic stream */
     struct Http3Response {
 
-        void writeStatus() {
+        Http3Response *writeStatus(std::string_view status) {
+            Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
 
+            /* Nothing is done if status already written */
+            if (responseData->headerOffset == 0) {
+                us_quic_socket_context_set_header(nullptr, 0, (char *) ":status", 7, status.data(), status.length());
+                responseData->headerOffset = 1;
+            }
+
+            return this;
         }
 
-        void writeHeader() {
+        Http3Response *writeHeader(std::string_view key, std::string_view value) {
+            Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
 
+            writeStatus("200 OK");
+
+            us_quic_socket_context_set_header(nullptr, responseData->headerOffset++, key.data(), key.length(), value.data(), value.length());
+
+            return this;
         }
 
-        void tryEnd() {
+        std::pair<bool, bool> tryEnd(std::string_view data, uintmax_t totalSize = 0) {
+            Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
 
+            writeStatus("200 OK");
+
+            us_quic_socket_context_send_headers(nullptr, (us_quic_stream_t *) this, responseData->headerOffset, data.length() > 0);
+
+
+            unsigned int written = us_quic_stream_write((us_quic_stream_t *) this, (char *) data.data(), (int) data.length());
+
+            if (written == data.length()) {
+                return {true, true};
+            } else {
+
+                responseData->offset = written;
+
+                return {true, false};
+            }
+
+
+            return {true, true};
         }
 
-        void write() {
+        /* Idnetical */
+        Http3Response *write(std::string_view data) {
 
+
+            return this;
         }
 
-        void end(std::string_view data) {
+        /* Identical */
+        void end(std::string_view data = {}, bool closeConnection = false) {
 
             Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
 
-            // if not already written status then write status
-
-            /* Write headers */
-            us_quic_socket_context_set_header(nullptr, 0, (char *) ":status", 7, "200", 3);
-            //us_quic_socket_context_set_header(context, 1, "content-length", 14, "11", 2);
-            //us_quic_socket_context_set_header(context, 2, "content-type", 12, "text/html", 9);
-            us_quic_socket_context_send_headers(nullptr, (us_quic_stream_t *) this, 1, 1);
+            /* If not already written */
+            writeStatus("200 OK");
+            
+            // has body is determined by the ending so this is perfect here
+            us_quic_socket_context_send_headers(nullptr, (us_quic_stream_t *) this, responseData->headerOffset, data.length() > 0);
 
             /* Write body and shutdown (unknown if content-length must be present?) */
-            int written = us_quic_stream_write((us_quic_stream_t *) this, (char *) data.data(), (int) data.length());
-
-            printf("Wrote %d bytes out of %ld\n", written, data.length());
+            unsigned int written = us_quic_stream_write((us_quic_stream_t *) this, (char *) data.data(), (int) data.length());
 
             /* Buffer up remains */
-            if (written != (int) data.length()) {
-                responseData->buffer.clear();
-                responseData->bufferOffset = written;
-                responseData->buffer.append(data);
+            if (written != data.length()) {
+                responseData->backpressure.append(data.data() + written, data.length() - written);
             } else {
                 /* Every request has its own stream, so we conceptually serve requests like in HTTP 1.0 */
                 us_quic_stream_shutdown((us_quic_stream_t *) this);
@@ -62,10 +93,18 @@ namespace uWS {
         }
 
         /* Attach a read handler for data sent. Will be called with FIN set true if last segment. */
-        void onData(MoveOnlyFunction<void(std::string_view, bool)> &&handler) {
+        Http3Response *onData(MoveOnlyFunction<void(std::string_view, bool)> &&handler) {
             Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
 
             responseData->onData = std::move(handler);
+            return this;
+        }
+
+        Http3Response *onWritable(MoveOnlyFunction<bool(uintmax_t)> &&handler) {
+            Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext((us_quic_stream_t *) this);
+
+            responseData->onWritable = std::move(handler);
+            return this;
         }
     };
 

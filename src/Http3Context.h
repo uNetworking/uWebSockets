@@ -33,15 +33,17 @@ namespace uWS {
                 }
 
                 /* Have we written our entire backpressure, if any? */
-                if (responseData->buffer.length() && (responseData->bufferOffset == (int) responseData->buffer.length())) {
-                    printf("We got FIN and we have no backpressure, closing stream now!\n");
-                    us_quic_stream_close(s);
-                } else {
-                    printf("We got FIN but we have data to write, so keeping connection half-closed!\n");
-                }
+                // if (responseData->buffer.length() && (responseData->bufferOffset == (int) responseData->buffer.length())) {
+                //     printf("We got FIN and we have no backpressure, closing stream now!\n");
+                //     //us_quic_stream_close(s);
+                // } else {
+                //     //printf("We got FIN but we have data to write, so keeping connection half-closed!\n");
+                // }
 
             });
             us_quic_socket_context_on_stream_open(context, [](us_quic_stream_t *s, int is_client) {
+
+                printf("Stream open!\n");
 
                 /* Inplace init our per stream data */
                 new (us_quic_stream_ext(s)) Http3ResponseData();
@@ -52,15 +54,18 @@ namespace uWS {
             us_quic_socket_context_on_stream_writable(context, [](us_quic_stream_t *s) {
                 Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext(s);
 
-                int written = us_quic_stream_write(s, responseData->buffer.data() + responseData->bufferOffset, (int) responseData->buffer.length() - responseData->bufferOffset);
-                responseData->bufferOffset += written;
+                /* Either we handle the streaming or we let the application handle it */
+                if (responseData->onWritable) {
+                    responseData->onWritable(responseData->offset);
+                } else {
+                    int written = us_quic_stream_write(s, (char *) responseData->backpressure.data(), responseData->backpressure.length());
+                    responseData->backpressure.erase(written);
 
-                //printf("remaingin bytes: %ld\n", responseData->buffer.length() - responseData->bufferOffset);
-
-                if ((int) responseData->buffer.length() - responseData->bufferOffset == 0) {
-                    printf("wrote until end, shutting down now!\n");
-                    us_quic_stream_shutdown(s);
-                    us_quic_stream_close(s);
+                    if (responseData->backpressure.length() == 0) {
+                        printf("wrote until end, shutting down now!\n");
+                        us_quic_stream_shutdown(s);
+                        us_quic_stream_close(s);
+                    }
                 }
             });
             us_quic_socket_context_on_stream_headers(context, [](us_quic_stream_t *s) {
@@ -82,13 +87,17 @@ namespace uWS {
             });
             us_quic_socket_context_on_stream_close(context, [](us_quic_stream_t *s) {
 
+                printf("Stream closed!\n");
+
+                //lsquic_stream_has_unacked_data
+
                 Http3ResponseData *responseData = (Http3ResponseData *) us_quic_stream_ext(s);
                 
                 if (responseData->onAborted) {
                     responseData->onAborted();
                 }
 
-                printf("Freeing per stream data in on_stream_close in uws!\n");
+                //printf("Freeing per stream data in on_stream_close in uws!\n");
 
                 responseData->~Http3ResponseData();
             });
