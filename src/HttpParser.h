@@ -164,7 +164,7 @@ private:
     
     /* Find carriage return will scan forever. But we "fence" the end margin part of the receive buffer,
      * by putting a CR there in case one isn't found before it, so this optimizing assumption is fine. */
-    void *find_cr(const char *p) {
+    static inline void *find_cr(const char *p) {
         for (uint64_t mask = 0x0d0d0d0d0d0d0d0d; true; p += 8) {
             uint64_t val = *(uint64_t *)p ^ mask;
             if ((val + 0xfefefefefefefeffull) & (~val & 0x8080808080808080ull)) {
