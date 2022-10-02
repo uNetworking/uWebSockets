@@ -141,8 +141,8 @@ void test() {
         });
 
         /* Trigger some context functions */
-        app.addServerName("", {});
-        app.removeServerName("");
+        app.addServerName("servername", {});
+        app.removeServerName("servername");
         app.missingServerName(nullptr);
         app.getNativeHandle();
 

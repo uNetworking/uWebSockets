@@ -162,26 +162,19 @@ private:
         return unsignedIntegerValue;
     }
     
-    static void *memchr_r(const char *p, const char *end) {
-        uint64_t mask = *(uint64_t *)"\r\r\r\r\r\r\r\r";
-        if (p <= end - 8) {
-            for (; p <= end - 8; p += 8) {
-                uint64_t val = *(uint64_t *)p ^ mask;
-                if ((val + 0xfefefefefefefeffull) & (~val & 0x8080808080808080ull)) {
-                    break;
-                }
-            }
-        }
-
-        for (; p < end; p++) {
-            if (*(unsigned char *)p == '\r') {
+    /* Find carriage return will scan forever. But we "fence" the end margin part of the receive buffer,
+     * by putting a CR there in case one isn't found before it, so this optimizing assumption is fine. */
+    static inline void *find_cr(char *p, char */*end*/) {
+        for (uint64_t mask = 0x0d0d0d0d0d0d0d0d; true; p += 8) {
+            uint64_t val = *(uint64_t *)p ^ mask;
+            if ((val + 0xfefefefefefefeffull) & (~val & 0x8080808080808080ull)) {
+                while (*(unsigned char *)p != 0x0d) p++;
                 return (void *)p;
             }
         }
+    }
 
-        return nullptr;
-     }
-
+    /* End is only used for the proxy parser. The HTTP parser recognizes "\ra" as invalid "\r\n" scan and breaks. */
     static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
 
@@ -210,29 +203,45 @@ private:
          * for PROXY means we can end up succeeding, yet leaving bytes in the fallback buffer
          * which is then removed, and our counters to flip due to overflow and we end up with a crash */
 
-        for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS; i++) {
-            for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') & (*(unsigned char *)postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
-            if (*postPaddedBuffer == '\r') {
-                if ((postPaddedBuffer != end) & (postPaddedBuffer[1] == '\n') & (i > 0)) {
-                    headers->key = std::string_view(nullptr, 0);
-                    return (unsigned int) ((postPaddedBuffer + 2) - start);
-                } else {
-                    return 0;
+        for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS - 1; i++) {
+            /* Lower case and short scan until ':', or stop at \r (from previous scan) */
+            for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') && (*(unsigned char *)postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
+            headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
+            /* Assume colon, space follows (this is fine as we have at least 2 bytes past) */
+            if (postPaddedBuffer[0] == ':' && postPaddedBuffer[1] == ' ') {
+                postPaddedBuffer += 2;
+            } else {
+                /* Trim until value starts */
+                for (; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
+            }
+            preliminaryValue = postPaddedBuffer;
+            /* The goal of this call is to find next "\r\n", fast */
+            postPaddedBuffer = (char *) find_cr(postPaddedBuffer, end);
+            /* We fence end[0] with \r, followed by end[1] being something that is "not \n", to signify "not found".
+                * This way we can have this one single check to see if we found \r\n WITHIN our allowed search space. */
+            if (postPaddedBuffer[1] == '\n') {
+                /* Store this header, it is valid */
+                headers->value = std::string_view(preliminaryValue, (size_t) (postPaddedBuffer - preliminaryValue));
+                postPaddedBuffer += 2;
+                headers++;
+
+                /* We definitely have at least one header (or request line), so check if we are done */
+                if (*postPaddedBuffer == '\r') {
+                    if (postPaddedBuffer[1] == '\n') {
+                        /* This cann take the very last header space */
+                        headers->key = std::string_view(nullptr, 0);
+                        return (unsigned int) ((postPaddedBuffer + 2) - start);
+                    } else {
+                        /* \r\n\r plus non-\n letter is malformed request, or simply out of search space */
+                        return 0;
+                    }
                 }
             } else {
-                headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
-                for (postPaddedBuffer++; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
-                preliminaryValue = postPaddedBuffer;
-                postPaddedBuffer = (char *) memchr_r(postPaddedBuffer, end);
-                if (postPaddedBuffer && postPaddedBuffer[1] == '\n') {
-                    headers->value = std::string_view(preliminaryValue, (size_t) (postPaddedBuffer - preliminaryValue));
-                    postPaddedBuffer += 2;
-                    headers++;
-                } else {
-                    return 0;
-                }
+                /* We are either out of search space or this is a malformed request */
+                return 0;
             }
         }
+        /* We ran out of header space, too large request */
         return 0;
     }
 
@@ -243,8 +252,10 @@ private:
         /* How much data we CONSUMED (to throw away) */
         unsigned int consumedTotal = 0;
 
-        /* Fence one byte past end of our buffer (buffer has post padded margins) */
+        /* Fence two bytes past end of our buffer (buffer has post padded margins).
+         * This is to always catch scan for \r but not for \r\n. */
         data[length] = '\r';
+        data[length + 1] = 'a'; /* Anything that is not \n, to trigger "invalid request" */
 
         for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers, reserved)); ) {
             data += consumed;

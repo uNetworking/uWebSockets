@@ -44,12 +44,14 @@ private:
 
 public:
     bool mightHave(std::string_view key) {
-        return filter.test(hash1(key)) && filter.test(hash2(key)) && (key.length() < 2 || filter.test(hash3(key)));
+        return !key.length() || (filter.test(hash1(key)) && filter.test(hash2(key)) && (key.length() < 2 || filter.test(hash3(key))));
     }
 
     void add(std::string_view key) {
-        filter.set(hash1(key));
-        filter.set(hash2(key));
+        if (key.length()) {
+            filter.set(hash1(key));
+            filter.set(hash2(key));
+        }
         if (key.length() >= 2) {
             filter.set(hash3(key));
         }
