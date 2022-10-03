@@ -104,10 +104,14 @@ public:
     /* Server name */
     TemplatedApp &&addServerName(std::string hostname_pattern, SocketContextOptions options = {}) {
 
-        /* First we create a new router for this domain */
-        auto *domainRouter = new HttpRouter<typename HttpContextData<SSL>::RouterData>();
+        /* Do nothing if not even on SSL */
+        if constexpr (SSL) {
+            /* First we create a new router for this domain */
+            auto *domainRouter = new HttpRouter<typename HttpContextData<SSL>::RouterData>();
 
-        us_socket_context_add_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str(), options, domainRouter);
+            us_socket_context_add_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str(), options, domainRouter);
+        }
+
         return std::move(*this);
     }
 
