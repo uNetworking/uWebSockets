@@ -9,15 +9,15 @@ It comes with built-in pub/sub support, URL routing, TLS 1.3, SNI, IPv6, permess
 
 ### Standards compliant
 
-Unlike other "pub/sub brokers", µWS does not assume or push any particular application protocol but only operates over raw, standard WebSockets. You need nothing but a standards compliant web browser and a handful of standards compliant JavaScript to communicate with it. No particular client library is needed or enforced - this unlike inadequate solutions like Socket.IO where you end up locked to a set of proprietary non-standard protocols with horrible performance.
+Unlike other "pub/sub brokers", µWS does not assume or push any particular application protocol but only operates over raw, standard WebSockets. You need nothing but a standards compliant web browser and a handful of standards compliant JavaScript to communicate with it. No particular client library is needed or enforced - this is opposed to inadequate solutions like Socket.IO where you end up locked to a set of proprietary non-standard protocols with horrible performance.
 
 ### Performant
 The implementation is header-only C++17 (but examples use C++20 features for brevity and elegance!), cross-platform and compiles down to a tiny binary of a handful kilobytes.
 It depends on µSockets, which is a standard C project for Linux, macOS & Windows.
 
-Performance wise you can expect to outperform, or equal, just about anything similar out there, that's the fundamental goal of the project. I can show small-message cases where µWS **with SSL** significantly outperforms the fastest Golang servers running **non-SSL**. You get the SSL for free in a sense (shown to be true for messaging with up to 4 kB per message).
+You can expect to out-perform anything similar out there, and I can show small-message cases where µWS **with SSL** significantly outperforms the fastest Golang servers running **non-SSL**. You get the SSL for free in a sense (shown to be true for messaging with up to 4 kB per message).
 
-We've [openly presented](https://medium.com/swlh/100k-secure-websockets-with-raspberry-pi-4-1ba5d2127a23) detailed cases where a single Raspberry Pi 4 can serve more than 100k very active TLS 1.3 WebSockets, simultaneously, with excellent stability. This is entirely impossible with the vast majority of alternative solutions. Most solutions cramp up and become unreliable at a tiny fraction of this load, on such a limited hardware. We also have measurements where we [serve 12x the HTTP requests per second](https://levelup.gitconnected.com/serving-100k-requests-second-from-a-fanless-raspberry-pi-4-over-ethernet-fdd2c2e05a1e) as compared to Node.js.
+We've [openly presented](https://medium.com/swlh/100k-secure-websockets-with-raspberry-pi-4-1ba5d2127a23) detailed cases where a single Raspberry Pi 4 can serve more than 100k very active TLS 1.3 WebSockets, simultaneously, with excellent stability. This is impossible with the vast majority of alternative solutions. Most solutions cramp up and become unreliable at a tiny fraction of this load, on such a limited hardware. We also have measurements where we [serve 12x the HTTP requests per second](https://levelup.gitconnected.com/serving-100k-requests-second-from-a-fanless-raspberry-pi-4-over-ethernet-fdd2c2e05a1e) as compared to Node.js.
 
 ### Simple to use
 Another goal of the project is minimalism, simplicity and elegance.
