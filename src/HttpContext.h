@@ -420,6 +420,14 @@ public:
             methods = {method};
         }
 
+        uint32_t priority = method == "*" ? httpContextData->currentRouter->LOW_PRIORITY : (upgrade ? httpContextData->currentRouter->HIGH_PRIORITY : httpContextData->currentRouter->MEDIUM_PRIORITY);
+
+        /* If we are passed nullptr then remove this */
+        if (!handler) {
+            httpContextData->currentRouter->remove(methods[0], pattern, priority);
+            return;
+        }
+
         httpContextData->currentRouter->add(methods, pattern, [handler = std::move(handler)](auto *r) mutable {
             auto user = r->getUserData();
             user.httpRequest->setYield(false);
@@ -438,7 +446,7 @@ public:
                 return false;
             }
             return true;
-        }, method == "*" ? httpContextData->currentRouter->LOW_PRIORITY : (upgrade ? httpContextData->currentRouter->HIGH_PRIORITY : httpContextData->currentRouter->MEDIUM_PRIORITY));
+        }, priority);
     }
 
     /* Listen to port using this HttpContext */
