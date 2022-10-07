@@ -1,4 +1,6 @@
 default:
+	$(CXX) -std=c++20 -fsanitize=address -g ChunkedEncoding.cpp -o ChunkedEncoding
+	./ChunkedEncoding
 	$(CXX) -std=c++17 -fsanitize=address TopicTree.cpp -o TopicTree
 	./TopicTree
 	$(CXX) -std=c++17 -fsanitize=address HttpRouter.cpp -o HttpRouter
