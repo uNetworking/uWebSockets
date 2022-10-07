@@ -28,7 +28,7 @@ void runTest(unsigned int maxConsume) {
 
         // every null chunk is followed by an empty trailer
         if (chunk.length() == 0) {
-            //ss << "\r\n";
+            ss << "\r\n";
         }
     }
 

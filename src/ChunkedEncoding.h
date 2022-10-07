@@ -81,9 +81,29 @@ namespace uWS {
 
         while (data.length()) {
 
+            // if in "drop trailer mode", just drop up to what we have as size
+            if ((state & STATE_IS_CHUNKED) && hasChunkSize(state) && chunkSize(state)) {
+
+                while(data.length() && chunkSize(state)) {
+                    //printf("dropping 1 byte of trailer\n");
+                    data.remove_prefix(1);
+                    decChunkSize(state, 1);
+
+                    if (chunkSize(state) == 0) {
+                        //printf("dropped the whole trailer\n");
+                        state = 0;
+                    }
+                }
+                continue;
+            }
+
             if (!hasChunkSize(state)) {
                 consumeHexNumber(data, state);
                 if (hasChunkSize(state) && chunkSize(state) == 2) {
+
+                    // set trailer state and increase size to 4
+                    state = 4 | STATE_IS_CHUNKED | STATE_HAS_SIZE;
+
                     cb(std::string_view(nullptr, 0));
                 }
                 continue;
