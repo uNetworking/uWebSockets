@@ -80,6 +80,11 @@ namespace uWS {
         return state & STATE_HAS_SIZE;
     }
 
+    /* Are we in the middle of parsing chunked encoding? */
+    bool isParsingChunkedEncoding(unsigned int state) {
+        return state & ~STATE_SIZE_MASK;
+    }
+
     /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
     std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state) {
 
