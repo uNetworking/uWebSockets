@@ -60,7 +60,7 @@ void runTest(unsigned int maxConsume) {
                 std::abort();
             }
 
-            if (chunks[chunkOffset].starts_with(chunk)) {
+            if (chunks[chunkOffset].substr(0, chunk.length()) == chunk /*starts_with(chunk)*/) {
                 chunks[chunkOffset].remove_prefix(chunk.length());
                 if (!chunks[chunkOffset].length()) {
                     chunkOffset++;
