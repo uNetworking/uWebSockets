@@ -43,7 +43,12 @@ namespace uWS {
                 digit -= ('a' - '9') - 1;
             }
 
-            state = state * 16u + ((unsigned int) digit - (unsigned int) '0');
+            // extract state bits
+            unsigned int bits = /*state &*/ STATE_IS_CHUNKED;
+
+            state = (state & STATE_SIZE_MASK) * 16u + ((unsigned int) digit - (unsigned int) '0');
+
+            state |= bits;
             data.remove_prefix(1);
         }
         /* Consume everything not /n */
@@ -53,7 +58,7 @@ namespace uWS {
         /* Now we stand on \n so consume it and enable size */
         if (data.length()) {
             state += 2; // include the two last /r/n
-            state |= STATE_HAS_SIZE;
+            state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
             data.remove_prefix(1);
         }
     }
@@ -63,7 +68,12 @@ namespace uWS {
     }
 
     void decChunkSize(unsigned int &state, unsigned int by) {
+
+        //unsigned int bits = state & STATE_IS_CHUNKED;
+
         state = (state & ~STATE_SIZE_MASK) | (chunkSize(state) - by);
+
+        //state |= bits;
     }
 
     bool hasChunkSize(unsigned int state) {
@@ -76,13 +86,17 @@ namespace uWS {
         while (data.length()) {
 
             // if in "drop trailer mode", just drop up to what we have as size
-            if ((state & STATE_IS_CHUNKED) && hasChunkSize(state) && chunkSize(state)) {
+            if (((state & STATE_IS_CHUNKED) == 0) && hasChunkSize(state) && chunkSize(state)) {
+
+                //printf("Parsing trailer now\n");
 
                 while(data.length() && chunkSize(state)) {
                     data.remove_prefix(1);
                     decChunkSize(state, 1);
 
                     if (chunkSize(state) == 0) {
+
+                        /* This is an actual place where we need 0 as state */
                         state = 0;
 
                         /* The parser MUST stop consuming here */
@@ -96,8 +110,10 @@ namespace uWS {
                 consumeHexNumber(data, state);
                 if (hasChunkSize(state) && chunkSize(state) == 2) {
 
+                    //printf("Setting state to trailer-parsing and emitting empty chunk\n");
+
                     // set trailer state and increase size to 4
-                    state = 4 | STATE_IS_CHUNKED | STATE_HAS_SIZE;
+                    state = 4 /*| STATE_IS_CHUNKED*/ | STATE_HAS_SIZE;
 
                     return std::string_view(nullptr, 0);
                 }
@@ -115,7 +131,7 @@ namespace uWS {
                     shouldEmit = true;
                 }
                 data.remove_prefix(chunkSize(state));
-                state = 0;
+                state = STATE_IS_CHUNKED;
                 if (shouldEmit) {
                     return emitSoon;
                 }
@@ -133,6 +149,7 @@ namespace uWS {
                     }
                 }
                 decChunkSize(state, data.length());
+                state |= STATE_IS_CHUNKED;
                 // new: decrease data by its size (bug)
                 data.remove_prefix(data.length()); // ny bug fix för getNextChunk
                 if (emitSoon.length()) {

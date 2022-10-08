@@ -88,9 +88,9 @@ void runTest(unsigned int maxConsume) {
 }
 
 int main() {
-    //for (int i = 1; i < 1000; i++) {
-        runTest(1);
-    //}
+    for (int i = 1; i < 1000; i++) {
+        runTest(i);
+    }
 
     std::cout << "ALL BRUTEFORCE DONE" << std::endl;
 }
