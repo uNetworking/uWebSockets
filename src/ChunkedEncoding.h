@@ -84,6 +84,9 @@ namespace uWS {
 
                     if (chunkSize(state) == 0) {
                         state = 0;
+
+                        /* The parser MUST stop consuming here */
+                        return std::nullopt;
                     }
                 }
                 continue;
@@ -146,15 +149,12 @@ namespace uWS {
     /* This is really just a wrapper for convenience */
     struct ChunkIterator {
 
-        std::string_view data;
+        std::string_view *data;
         std::optional<std::string_view> chunk;
         unsigned int *state;
 
-        ChunkIterator(std::string_view data, unsigned int *state) : data(data), state(state) {
-            chunk = uWS::getNextChunk(this->data, *state);
-            if (!chunk && this->data.length()) {
-                std::abort();
-            }
+        ChunkIterator(std::string_view *data, unsigned int *state) : data(data), state(state) {
+            chunk = uWS::getNextChunk(*data, *state);
         }
 
         ChunkIterator() {
@@ -181,10 +181,7 @@ namespace uWS {
         }
 
         ChunkIterator &operator++() {
-            chunk = uWS::getNextChunk(data, *state);
-            if (!chunk && this->data.length()) {
-                std::abort();
-            }
+            chunk = uWS::getNextChunk(*data, *state);
             return *this;
         }
 

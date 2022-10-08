@@ -30,18 +30,28 @@ void runTest(unsigned int maxConsume) {
         }
     }
     std::string buffer = ss.str();
+
+    /* Since we have 2 chunked bodies in our buffer, the parser must stop with state == 0 exactly 2 times */
+    unsigned int stoppedWithClearState = 0;
     
     /* Begin with a clear state and the full data */
     unsigned int state = 0;
     unsigned int chunkOffset = 0;
     std::string_view chunkEncoded = buffer;
+
+    // this while should be more like if original size or "is parsing chunked" (which tests the uWS::wantsChunkedParsing(state))
     while (chunkEncoded.length()) {
         /* Parse a small part of the given data */
         std::string_view data = chunkEncoded.substr(0, std::min<size_t>(maxConsume, chunkEncoded.length()));
-        chunkEncoded.remove_prefix(data.length());
+        
+
+        unsigned int data_length_before_parsing = data.length();
+        
+
 
         /* Whatever chunk we emit, or part of chunk, it must match the expected one */
-        for (auto chunk : uWS::ChunkIterator(data, &state)) {
+        //std::cout << "Calling parser now" << std::endl;
+        for (auto chunk : uWS::ChunkIterator(&data, &state)) {
             std::cout << "<" << chunk << ">" << std::endl;
 
             /* Run check here */
@@ -60,13 +70,27 @@ void runTest(unsigned int maxConsume) {
                 std::abort();                
             }
         }
+
+        /* The parser returtned, okay count the times it has state == 0, it should be 2 per the whole buffer always */
+        if (state == 0) {
+            printf("Parser stopped with no state set!\n");
+            stoppedWithClearState++;
+        }
+
+        /* Only remove that which was consumed */
+        chunkEncoded.remove_prefix(data_length_before_parsing - data.length());
+    }
+
+    if (stoppedWithClearState != 2) {
+        std::cerr << "Error: The parser stopped with no state " << stoppedWithClearState << " times!" << std::endl;
+        std::abort();
     }
 }
 
 int main() {
-    for (int i = 1; i < 1000; i++) {
-        runTest(i);
-    }
+    //for (int i = 1; i < 1000; i++) {
+        runTest(1);
+    //}
 
     std::cout << "ALL BRUTEFORCE DONE" << std::endl;
 }
