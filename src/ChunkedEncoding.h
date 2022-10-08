@@ -52,7 +52,6 @@ namespace uWS {
         }
         /* Now we stand on \n so consume it and enable size */
         if (data.length()) {
-            //printf("size of chunk is %d\n", state);
             state += 2; // include the two last /r/n
             state |= STATE_HAS_SIZE;
             data.remove_prefix(1);
@@ -71,13 +70,8 @@ namespace uWS {
         return state & STATE_HAS_SIZE;
     }
 
-    // bättre interface
-    std::optional<std::string_view> getNextChunk(std::string_view data, unsigned int &state);
-
-    /* Consumes as much as possible, emitting chunks using cb. Changes passed state for later resumption. Returns number of bytes consumed. */
-    inline unsigned int consumeChunkedEncoding(std::string_view data, unsigned int &state, MoveOnlyFunction<void(std::string_view)> cb) {
-
-        std::string_view originalData = data;
+    /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
+    std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state) {
 
         while (data.length()) {
 
@@ -85,12 +79,10 @@ namespace uWS {
             if ((state & STATE_IS_CHUNKED) && hasChunkSize(state) && chunkSize(state)) {
 
                 while(data.length() && chunkSize(state)) {
-                    //printf("dropping 1 byte of trailer\n");
                     data.remove_prefix(1);
                     decChunkSize(state, 1);
 
                     if (chunkSize(state) == 0) {
-                        //printf("dropped the whole trailer\n");
                         state = 0;
                     }
                 }
@@ -104,7 +96,7 @@ namespace uWS {
                     // set trailer state and increase size to 4
                     state = 4 | STATE_IS_CHUNKED | STATE_HAS_SIZE;
 
-                    cb(std::string_view(nullptr, 0));
+                    return std::string_view(nullptr, 0);
                 }
                 continue;
             }
@@ -113,29 +105,90 @@ namespace uWS {
             if (data.length() >= chunkSize(state)) {
                 // emit all but 2 bytes then reset state to 0 and goto beginning
                 // not fin
+                std::string_view emitSoon;
+                bool shouldEmit = false;
                 if (chunkSize(state) > 2) {
-                    cb(std::string_view(data.data(), chunkSize(state) - 2));
+                    emitSoon = std::string_view(data.data(), chunkSize(state) - 2);
+                    shouldEmit = true;
                 }
                 data.remove_prefix(chunkSize(state));
                 state = 0;
+                if (shouldEmit) {
+                    return emitSoon;
+                }
                 continue;
             } else {
                 /* We will consume all our input data */
+                std::string_view emitSoon;
                 if (chunkSize(state) > 2) {
                     unsigned int maximalAppEmit = chunkSize(state) - 2;
                     if (data.length() > maximalAppEmit) {
-                        cb(data.substr(0, maximalAppEmit));
+                        emitSoon = data.substr(0, maximalAppEmit);
                     } else {
-                        cb(data);
+                        //cb(data);
+                        emitSoon = data;
                     }
                 }
                 decChunkSize(state, data.length());
-                return originalData.length();
+                // new: decrease data by its size (bug)
+                data.remove_prefix(data.length()); // ny bug fix för getNextChunk
+                if (emitSoon.length()) {
+                    return emitSoon;
+                } else {
+                    return std::nullopt;
+                }
             }
         }
 
-        return originalData.length() - data.length();
+        return std::nullopt;
     }
+
+    /* This is really just a wrapper for convenience */
+    struct ChunkIterator {
+
+        std::string_view data;
+        std::optional<std::string_view> chunk;
+        unsigned int *state;
+
+        ChunkIterator(std::string_view data, unsigned int *state) : data(data), state(state) {
+            chunk = uWS::getNextChunk(this->data, *state);
+            if (!chunk && this->data.length()) {
+                std::abort();
+            }
+        }
+
+        ChunkIterator() {
+
+        }
+
+        ChunkIterator begin() {
+            return *this;
+        }
+
+        ChunkIterator end() {
+            return ChunkIterator();
+        }
+
+        std::string_view operator*() {
+            if (!chunk.has_value()) {
+                std::abort();
+            }
+            return chunk.value();
+        }
+
+        bool operator!=(const ChunkIterator &other) const {
+            return other.chunk.has_value() != chunk.has_value();
+        }
+
+        ChunkIterator &operator++() {
+            chunk = uWS::getNextChunk(data, *state);
+            if (!chunk && this->data.length()) {
+                std::abort();
+            }
+            return *this;
+        }
+
+    };
 }
 
 #endif // UWS_CHUNKEDENCODING_H
