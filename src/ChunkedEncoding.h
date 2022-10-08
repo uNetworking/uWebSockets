@@ -38,7 +38,7 @@ namespace uWS {
         /* Consume everything higher than 32 */
         while (data.length() && data.data()[0] > 32) {
 
-            unsigned char digit = data.data()[0];
+            unsigned char digit = (unsigned char)data.data()[0];
             if (digit >= 'a') {
                 digit -= ('a' - '9') - 1;
             }
@@ -153,7 +153,7 @@ namespace uWS {
                         emitSoon = data;
                     }
                 }
-                decChunkSize(state, data.length());
+                decChunkSize(state, (unsigned int) data.length());
                 state |= STATE_IS_CHUNKED;
                 // new: decrease data by its size (bug)
                 data.remove_prefix(data.length()); // ny bug fix för getNextChunk

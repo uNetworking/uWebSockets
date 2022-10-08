@@ -5,6 +5,10 @@
  * be hashed with crc32 and sent back in the response. This example also shows how to deal with
  * aborted requests. */
 
+/* curl -H "Transfer-Encoding: chunked" --data-binary @video.mp4 http://localhost:3000 */
+/* curl --data-binary @video.mp4 http://localhost:3000 */
+/* crc32 video.mp4 */
+
 /* Note that uWS::SSLApp({options}) is the same as uWS::App() when compiled without SSL support */
 
 #include <zlib.h>

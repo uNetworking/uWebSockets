@@ -26,6 +26,7 @@
 #include <cstring>
 #include <algorithm>
 #include "MoveOnlyFunction.h"
+#include "ChunkedEncoding.h"
 
 #include "BloomFilter.h"
 #include "ProxyParser.h"
@@ -150,108 +151,10 @@ struct HttpParser {
 
 private:
     std::string fallback;
+    /* This guy really has only 30 bits since we reserve two highest bits to chunked encoding parsing state */
     unsigned int remainingStreamingBytes = 0;
 
-    /* This guy should be encoded in remainingStreamingBytes as highest bit */
-    //bool chunked = false;
-
-    /* We do not support any trailer other than empty ones for now */
-    unsigned int consumeTrailer(char *data, unsigned int length) {
-        if (length >= 2) {
-            if (data[0] == '\r' && data[1] == '\n') {
-                return 2;
-            }
-        }
-        return 0;
-    }
-
-    /* Returns [bytes consumed, chunk to emit, isFin] */
-    std::tuple<unsigned int, std::string_view, bool> consumeChunked(char *data, unsigned int length) { 
-        char *start = data;
-        char *end = data + length;
-        
-        /* Can't consume nothing */
-        if (!length) {
-            return {0, std::string_view(), false};
-        }
-
-        /* If first byte is CR, then skip two bytes */
-        if (data[0] == '\r') {
-            if (length > 2) {
-                data += 2;
-            } else {
-                /* We must have at least 3 bytes */
-                return {0, std::string_view(), false};
-            }
-        }
-
-        /* Find next \r */
-        char *numberEnd = data;
-        while (numberEnd < end && *numberEnd != '\r') numberEnd++;
-        /* Break if we cannot find \r */
-        if (numberEnd == end) {
-            return {0, std::string_view(), false};
-        }
-
-        unsigned int toEmit = 0;
-        if (&numberEnd[1] != end && numberEnd[1] == '\n') {
-            /* The following cannot fail */
-            toEmit = toUnsignedIntegerHex(std::string_view(data, (unsigned int)(numberEnd - data)));
-            data = numberEnd + 2;
-
-            /* Skip reading data if we got the null chunk */
-            if (toEmit == 0) {
-                /* Consume trailer then as well */
-                data += consumeTrailer(data, (unsigned int)(end - data));
-
-                /* Emit the empty chunk with fin = true */
-                return {data - start, std::string_view(nullptr, 0), true};
-            }
-
-            /* We cannot emit everything and must return what we have without knowing if it is fin or not */
-            if (data + toEmit >= end) {
-                // todo: set remainingBytesStream and chunked
-                // todo: emit what we can and enter slow path
-                return {0, std::string_view(), false};
-            }
-
-            /* Emit everything now */
-            std::string_view emittableChunk(data, toEmit);
-            data += toEmit;
-            bool fin = false;
-
-            /* Consume the two \r\n following the whole chunk */
-            data += 2;
-            if (data >= end) {
-                /* We could emit the data still here, only without knowing if it is fin */
-                return {0, std::string_view(), false};
-            }
-
-            /* Check if this is fin */
-            if ((data + 3 < end) && !memcmp(data, "0\r\n", 3)) {
-                fin = true;
-                data += 3;
-
-                /* Consume trailer then as well */
-                data += consumeTrailer(data, (unsigned int)(end - data));
-            }
-
-            /* Finally emit this chunk */
-            return {data - start, emittableChunk, fin};
-        }
-
-        return {0, std::string_view(), false};
-    }
-
     const size_t MAX_FALLBACK_SIZE = 1024 * 4;
-
-    static unsigned int toUnsignedIntegerHex(std::string_view str) {
-        unsigned int unsignedIntegerValue = 0;
-        for (char c : str) {
-            unsignedIntegerValue = unsignedIntegerValue * 16u + ((unsigned int) c - (unsigned int) '0');
-        }
-        return unsignedIntegerValue;
-    }
 
     static unsigned int toUnsignedInteger(std::string_view str) {
         unsigned int unsignedIntegerValue = 0;
@@ -403,24 +306,18 @@ private:
                     }
                 } else {
                     /* We are not GET and we have no content-length, so assume transfer-encoding: chunked */
-                    /* Todo: care about consume minimally */
-                    while (true) {
-                        auto [consumed, chunk, fin] = consumeChunked(data, length);
-                        if (!consumed) {
-                            break;
+                    remainingStreamingBytes = STATE_IS_CHUNKED;
+                    /* If consume minimally, we do not want to consume anything but we want to mark this as being chunked */
+                    if (!CONSUME_MINIMALLY) {
+                        /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
+                        std::string_view dataToConsume(data, length);
+                        for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                            dataHandler(user, chunk, chunk.length() == 0);
                         }
-                        /* If we consumed something and we either have fin to report, or a chunk, then emit to app */
-                        if (consumed && (chunk.length() || fin)) {
-                            dataHandler(user, chunk, fin);
-                        }
-
-                        data += consumed;
-                        length -= consumed;
+                        unsigned int consumed = (length - (unsigned int) dataToConsume.length());
+                        data = (char *) dataToConsume.data();
+                        length = (unsigned int) dataToConsume.length();
                         consumedTotal += consumed;
-
-                        if (fin) {
-                            break;
-                        }
                     }
                 }
             } else {
@@ -444,22 +341,32 @@ public:
 
         if (remainingStreamingBytes) {
 
-            // this is exactly the same as below!
-            // todo: refactor this
-            if (remainingStreamingBytes >= length) {
-                void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
-                remainingStreamingBytes -= length;
-                return returnedUser;
+            /* It's either chunked or with a content-length */
+            if (isParsingChunkedEncoding(remainingStreamingBytes)) {
+                std::string_view dataToConsume(data, length);
+                for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                    dataHandler(user, chunk, chunk.length() == 0);
+                }
+                data = (char *) dataToConsume.data();
+                length = (unsigned int) dataToConsume.length();
             } else {
-                void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
-
-                data += remainingStreamingBytes;
-                length -= remainingStreamingBytes;
-
-                remainingStreamingBytes = 0;
-
-                if (returnedUser != user) {
+                // this is exactly the same as below!
+                // todo: refactor this
+                if (remainingStreamingBytes >= length) {
+                    void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
+                    remainingStreamingBytes -= length;
                     return returnedUser;
+                } else {
+                    void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
+
+                    data += remainingStreamingBytes;
+                    length -= remainingStreamingBytes;
+
+                    remainingStreamingBytes = 0;
+
+                    if (returnedUser != user) {
+                        return returnedUser;
+                    }
                 }
             }
 
