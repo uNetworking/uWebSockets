@@ -37,7 +37,7 @@ namespace uWS {
             if (!host.length()) {
                 return listen(port, std::move(handler));
             }
-            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(port) : nullptr);
+            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(host.c_str(), port) : nullptr);
             return std::move(*this);
         }
 
@@ -46,19 +46,19 @@ namespace uWS {
             if (!host.length()) {
                 return listen(port, options, std::move(handler));
             }
-            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(port) : nullptr);
+            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(host.c_str(), port) : nullptr);
             return std::move(*this);
         }
 
         /* Port, callback */
         H3App &&listen(int port, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
-            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(port) : nullptr);
+            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(nullptr, port) : nullptr);
             return std::move(*this);
         }
 
         /* Port, options, callback */
         H3App &&listen(int port, int options, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
-            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(port) : nullptr);
+            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(nullptr, port) : nullptr);
             return std::move(*this);
         }
 

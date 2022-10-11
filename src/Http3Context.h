@@ -107,9 +107,9 @@ namespace uWS {
             // call init here after setting the ext to Http3ContextData
         }
 
-        us_quic_listen_socket_t *listen(int port) {
+        us_quic_listen_socket_t *listen(const char *host, int port) {
             /* The listening socket is the actual UDP socket used */
-            us_quic_listen_socket_t *listen_socket = us_quic_socket_context_listen((us_quic_socket_context_t *) this, "::", port, sizeof(Http3ResponseData));
+            us_quic_listen_socket_t *listen_socket = us_quic_socket_context_listen((us_quic_socket_context_t *) this, host, port, sizeof(Http3ResponseData));
 
             //printf("Listen socket is: %p\n", listen_socket);
 
