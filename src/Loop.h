@@ -74,7 +74,19 @@ private:
     }
 
     static Loop *create(void *hint) {
-        return ((Loop *) us_create_loop(hint, wakeupCb, preCb, postCb, sizeof(LoopData)))->init();
+        Loop *loop = ((Loop *) us_create_loop(hint, wakeupCb, preCb, postCb, sizeof(LoopData)))->init();
+
+        /* We also need some timers (should live off the one 4 second timer rather) */
+        LoopData *loopData = (LoopData *) us_loop_ext((struct us_loop_t *) loop);
+        loopData->dateTimer = us_create_timer((struct us_loop_t *) loop, 1, sizeof(LoopData *));
+        memcpy(us_timer_ext(loopData->dateTimer), &loopData, sizeof(LoopData *));
+        us_timer_set(loopData->dateTimer, [](struct us_timer_t *t) {
+            LoopData *loopData;
+            memcpy(&loopData, us_timer_ext(t), sizeof(LoopData *));
+            loopData->updateDate();
+        }, 1000, 1000);
+
+        return loop;
     }
 
     /* What to do with loops created with existingNativeLoop? */
@@ -115,6 +127,10 @@ public:
     /* Freeing the default loop should be done once */
     void free() {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
+
+        /* Stop and free dateTimer first */
+        us_timer_close(loopData->dateTimer);
+
         loopData->~LoopData();
         /* uSockets will track whether this loop is owned by us or a borrowed alien loop */
         us_loop_free((us_loop_t *) this);
