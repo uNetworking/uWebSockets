@@ -305,19 +305,24 @@ private:
                         consumedTotal += emittable;
                     }
                 } else {
-                    /* We are not GET and we have no content-length, so assume transfer-encoding: chunked */
-                    remainingStreamingBytes = STATE_IS_CHUNKED;
-                    /* If consume minimally, we do not want to consume anything but we want to mark this as being chunked */
-                    if (!CONSUME_MINIMALLY) {
-                        /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
-                        std::string_view dataToConsume(data, length);
-                        for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
-                            dataHandler(user, chunk, chunk.length() == 0);
+                    /* We are not GET and we have no content-length */
+                    if (req->getHeader("transfer-encoding").find("chunked") != std::string_view::npos) {
+                        remainingStreamingBytes = STATE_IS_CHUNKED;
+                        /* If consume minimally, we do not want to consume anything but we want to mark this as being chunked */
+                        if (!CONSUME_MINIMALLY) {
+                            /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
+                            std::string_view dataToConsume(data, length);
+                            for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                                dataHandler(user, chunk, chunk.length() == 0);
+                            }
+                            unsigned int consumed = (length - (unsigned int) dataToConsume.length());
+                            data = (char *) dataToConsume.data();
+                            length = (unsigned int) dataToConsume.length();
+                            consumedTotal += consumed;
                         }
-                        unsigned int consumed = (length - (unsigned int) dataToConsume.length());
-                        data = (char *) dataToConsume.data();
-                        length = (unsigned int) dataToConsume.length();
-                        consumedTotal += consumed;
+                    } else {
+                        /* We have no content-length and no transfer-encoding: chunked */
+                        dataHandler(user, {}, true);
                     }
                 }
             } else {
