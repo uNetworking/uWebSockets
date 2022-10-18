@@ -34,7 +34,7 @@ namespace uWS {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
 
         for (unsigned int i = 0; i < MAX_HEADERS; i++) {
-            for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') & (*postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
+            for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') & (*(unsigned char *)postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
             if (*postPaddedBuffer == '\r') {
                 if ((postPaddedBuffer != end) & (postPaddedBuffer[1] == '\n') /* & (i > 0) */) { // multipart does not require any headers like http does
                     headers->first = std::string_view(nullptr, 0);
@@ -44,7 +44,7 @@ namespace uWS {
                 }
             } else {
                 headers->first = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
-                for (postPaddedBuffer++; (*postPaddedBuffer == ':' || *postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
+                for (postPaddedBuffer++; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
                 preliminaryValue = postPaddedBuffer;
                 postPaddedBuffer = (char *) memchr(postPaddedBuffer, '\r', end - postPaddedBuffer);
                 if (postPaddedBuffer && postPaddedBuffer[1] == '\n') {

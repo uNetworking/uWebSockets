@@ -71,16 +71,6 @@ public:
         Super::write(buf, length);
     }
 
-    /* When we are done with a response we mark it like so */
-    void markDone(HttpResponseData<SSL> *httpResponseData) {
-        httpResponseData->onAborted = nullptr;
-        /* Also remove onWritable so that we do not emit when draining behind the scenes. */
-        httpResponseData->onWritable = nullptr;
-
-        /* We are done with this request */
-        httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
-    }
-
     /* Called only once per request */
     void writeMark() {
         /* Date is always written */
@@ -140,7 +130,7 @@ public:
             /* Terminating 0 chunk */
             Super::write("\r\n0\r\n\r\n", 7);
 
-            markDone(httpResponseData);
+            httpResponseData->markDone();
 
             /* tryEnd can never fail when in chunked mode, since we do not have tryWrite (yet), only write */
             Super::timeout(HTTP_TIMEOUT_S);
@@ -191,7 +181,7 @@ public:
 
             /* Remove onAborted function if we reach the end */
             if (httpResponseData->offset == totalSize) {
-                markDone(httpResponseData);
+                httpResponseData->markDone();
             }
 
             return success;
@@ -505,6 +495,9 @@ public:
     void onData(MoveOnlyFunction<void(std::string_view, bool)> &&handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();
         data->inStream = std::move(handler);
+
+        /* Always reset this counter here */
+        data->received_bytes_per_timeout = 0;
     }
 
 

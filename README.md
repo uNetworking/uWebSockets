@@ -18,6 +18,8 @@ Furthermore, we partake in Google's OSS-Fuzz with a ~95% daily fuzzing coverage<
 ### :arrow_forward: Rapid scripting
 µWebSockets is written entirely in C & C++ but has a seamless integration for Node.js backends. This allows for rapid scripting of powerful apps, using widespread competence. See <a href="https://github.com/uNetworking/uWebSockets.js">µWebSockets.js</a>.
 
+Besides this Node.js integration, you can also [use Bun](https://bun.sh) where µWebSockets is the built-in web server.
+
 ### :crossed_swords: Battle proven
 We've been fully standards compliant with a perfect Autobahn|Testsuite score since 2016<sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">2</a></sup>. µWebSockets powers many of the biggest crypto exchanges in the world, handling trade volumes of multiple billions of USD every day. If you trade crypto, chances are you do so via µWebSockets.
 
@@ -60,11 +62,9 @@ uWS::SSLApp({
 ### :briefcase: Commercially supported
 <a href="https://github.com/uNetworking">uNetworking AB</a> is a Swedish consulting & contracting company dealing with anything related to µWebSockets; development, support and customer success.
 
-Don't hesitate <a href="mailto:alexhultman@gmail.com">sending a mail</a> if you're building something large, in need of advice or having other business inquiries in mind. We'll figure out what's best for both parties and make sure you're not stepping into one of the many common pitfalls.
+Don't hesitate <a href="mailto:alexhultman@gmail.com">sending a mail</a> if you're building something large, in need of advice or having other business inquiries in mind. We'll figure out what's best for both parties and make sure you're not falling into common pitfalls.
 
-Special thanks to BitMEX, Bitfinex, Google, Coinbase, Bitwyre and deepstreamHub for allowing the project itself to thrive on GitHub since 2016 - this project would not be possible without these beautiful companies.
-
-<img src="https://github.com/uNetworking/uWebSockets/raw/master/misc/2018.png" />
+Special thanks to BitMEX, Bitfinex, Google, Coinbase, Bitwyre, AppDrag and deepstreamHub for allowing the project itself to thrive on GitHub since 2016 - this project would not be possible without these beautiful companies.
 
 ### :wrench: Customizable architecture
 µWebSockets builds on <a href="https://github.com/uNetworking/uSockets">µSockets</a>, a foundation library implementing eventing, networking and cryptography in three different layers. Every layer has multiple implementations and you control the compiled composition with flags. There are currently five event-loop integrations; libuv, ASIO, GCD and raw epoll/kqueue.

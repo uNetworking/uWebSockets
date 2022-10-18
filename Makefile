@@ -1,4 +1,4 @@
-EXAMPLE_FILES := Broadcast HelloWorld ServerName EchoServer BroadcastingEchoServer UpgradeSync UpgradeAsync
+EXAMPLE_FILES := Http3Server Broadcast HelloWorld Crc32 ServerName EchoServer BroadcastingEchoServer UpgradeSync UpgradeAsync
 THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
 override CXXFLAGS += -lpthread -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++2a -Isrc -IuSockets/src
 override LDFLAGS += uSockets/*.o -lz
@@ -9,6 +9,12 @@ prefix ?= /usr/local
 # WITH_PROXY enables PROXY Protocol v2 support
 ifeq ($(WITH_PROXY),1)
 	override CXXFLAGS += -DUWS_WITH_PROXY
+endif
+
+# WITH_QUIC enables experimental Http3 examples
+ifeq ($(WITH_QUIC),1)
+	override CXXFLAGS += -DLIBUS_USE_QUIC
+	override LDFLAGS += -pthread -lz -lm uSockets/lsquic/src/liblsquic/liblsquic.a
 endif
 
 # WITH_LIBDEFLATE=1 enables fast paths for SHARED_COMPRESSOR and inflation

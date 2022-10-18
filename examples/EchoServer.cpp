@@ -14,9 +14,15 @@ int main() {
      * You may swap to using uWS:App() if you don't need SSL */
     uWS::App({
         /* There are example certificates in uWebSockets.js repo */
+<<<<<<< HEAD
 	    // .key_file_name = "../misc/key.pem",
 	    // .cert_file_name = "../misc/cert.pem",
 	    // .passphrase = "1234"
+=======
+	    .key_file_name = "misc/key.pem",
+	    .cert_file_name = "misc/cert.pem",
+	    .passphrase = "1234"
+>>>>>>> upstream/master
 	}).ws<PerSocketData>("/*", {
         /* Settings */
         .compression = uWS::CompressOptions(uWS::DEDICATED_COMPRESSOR_4KB | uWS::DEDICATED_DECOMPRESSOR),
