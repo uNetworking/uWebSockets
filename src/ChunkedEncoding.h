@@ -29,9 +29,9 @@
 
 namespace uWS {
 
-    uint32_t STATE_HAS_SIZE = 0x80000000;
-    uint32_t STATE_IS_CHUNKED = 0x40000000;
-    uint32_t STATE_SIZE_MASK = 0x3FFFFFFF;
+    constexpr uint32_t STATE_HAS_SIZE = 0x80000000;
+    constexpr uint32_t STATE_IS_CHUNKED = 0x40000000;
+    constexpr uint32_t STATE_SIZE_MASK = 0x3FFFFFFF;
 
     /* Reads hex number until CR or out of data to consume. Updates state. Returns bytes consumed. */
     void consumeHexNumber(std::string_view &data, unsigned int &state) {
@@ -81,12 +81,12 @@ namespace uWS {
     }
 
     /* Are we in the middle of parsing chunked encoding? */
-    bool isParsingChunkedEncoding(unsigned int state) {
+    inline bool isParsingChunkedEncoding(unsigned int state) {
         return state & ~STATE_SIZE_MASK;
     }
 
     /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
-    std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state) {
+    static std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state) {
 
         while (data.length()) {
 
