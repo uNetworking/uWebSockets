@@ -86,7 +86,7 @@ namespace uWS {
     }
 
     /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
-    std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state) {
+    std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state, bool trailer = false) {
 
         while (data.length()) {
 
@@ -118,7 +118,11 @@ namespace uWS {
                     //printf("Setting state to trailer-parsing and emitting empty chunk\n");
 
                     // set trailer state and increase size to 4
-                    state = 4 /*| STATE_IS_CHUNKED*/ | STATE_HAS_SIZE;
+                    if (trailer) {
+                        state = 4 /*| STATE_IS_CHUNKED*/ | STATE_HAS_SIZE;
+                    } else {
+                        state = 2 /*| STATE_IS_CHUNKED*/ | STATE_HAS_SIZE;
+                    }
 
                     return std::string_view(nullptr, 0);
                 }
@@ -174,9 +178,10 @@ namespace uWS {
         std::string_view *data;
         std::optional<std::string_view> chunk;
         unsigned int *state;
+        bool trailer;
 
-        ChunkIterator(std::string_view *data, unsigned int *state) : data(data), state(state) {
-            chunk = uWS::getNextChunk(*data, *state);
+        ChunkIterator(std::string_view *data, unsigned int *state, bool trailer = false) : data(data), state(state), trailer(trailer) {
+            chunk = uWS::getNextChunk(*data, *state, trailer);
         }
 
         ChunkIterator() {
@@ -203,7 +208,7 @@ namespace uWS {
         }
 
         ChunkIterator &operator++() {
-            chunk = uWS::getNextChunk(*data, *state);
+            chunk = uWS::getNextChunk(*data, *state, trailer);
             return *this;
         }
 
