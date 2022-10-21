@@ -246,6 +246,17 @@ private:
         /* We ran out of header space, too large request */
         return 0;
     }
+    
+    /* Doing a deep scan to determine in a standards-compliant way whether this request is chunked or not.
+     * This is going to be the place where obfuscated transfer-encoding shananigans are found. */
+    bool isChunkedBody(std::string_view transferEncodingString, HttpRequest */*req*/) {
+        return transferEncodingString.find("chunked") != std::string_view::npos;
+
+
+        /*for (HttpRequest::Header *h = req->headers; (++h)->key.length(); ) {
+
+        }*/
+    }
 
     // the only caller of getHeaders
     template <int CONSUME_MINIMALLY>
@@ -289,47 +300,47 @@ private:
                 return {consumedTotal, returnedUser};
             }
 
+            /* Highest priority is always transfer-encoding: chunked */
+            std::string_view transferEncodingString = req->getHeader("transfer-encoding");
+            if (transferEncodingString.length() && isChunkedBody(transferEncodingString, req)) {
+                remainingStreamingBytes = STATE_IS_CHUNKED;
+                /* If consume minimally, we do not want to consume anything but we want to mark this as being chunked */
+                if (!CONSUME_MINIMALLY) {
+                    /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
+                    std::string_view dataToConsume(data, length);
+                    for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                        dataHandler(user, chunk, chunk.length() == 0);
+                    }
+                    unsigned int consumed = (length - (unsigned int) dataToConsume.length());
+                    data = (char *) dataToConsume.data();
+                    length = (unsigned int) dataToConsume.length();
+                    consumedTotal += consumed;
+                }
+
+                /* Do not try anything else */
+                continue;
+            }
             
-            if (req->getMethod() != "get") {
-                std::string_view contentLengthString = req->getHeader("content-length");
-                if (contentLengthString.length()) {
-                    remainingStreamingBytes = toUnsignedInteger(contentLengthString);
+            /* Second priority is content-length */
+            std::string_view contentLengthString = req->getHeader("content-length");
+            if (contentLengthString.length()) {
+                remainingStreamingBytes = toUnsignedInteger(contentLengthString);
 
-                    if (!CONSUME_MINIMALLY) {
-                        unsigned int emittable = std::min<unsigned int>(remainingStreamingBytes, length);
-                        dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
-                        remainingStreamingBytes -= emittable;
+                if (!CONSUME_MINIMALLY) {
+                    unsigned int emittable = std::min<unsigned int>(remainingStreamingBytes, length);
+                    dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
+                    remainingStreamingBytes -= emittable;
 
-                        data += emittable;
-                        length -= emittable;
-                        consumedTotal += emittable;
-                    }
-                } else {
-                    /* We are not GET and we have no content-length */
-                    if (req->getHeader("transfer-encoding").find("chunked") != std::string_view::npos) {
-                        remainingStreamingBytes = STATE_IS_CHUNKED;
-                        /* If consume minimally, we do not want to consume anything but we want to mark this as being chunked */
-                        if (!CONSUME_MINIMALLY) {
-                            /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
-                            std::string_view dataToConsume(data, length);
-                            for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
-                                dataHandler(user, chunk, chunk.length() == 0);
-                            }
-                            unsigned int consumed = (length - (unsigned int) dataToConsume.length());
-                            data = (char *) dataToConsume.data();
-                            length = (unsigned int) dataToConsume.length();
-                            consumedTotal += consumed;
-                        }
-                    } else {
-                        /* We have no content-length and no transfer-encoding: chunked */
-                        dataHandler(user, {}, true);
-                    }
+                    data += emittable;
+                    length -= emittable;
+                    consumedTotal += emittable;
                 }
             } else {
-                /* Still emit an empty data chunk to signal no data */
+                /* If we came here without a body; emit an empty data chunk to signal no data */
                 dataHandler(user, {}, true);
             }
 
+            /* Consume minimally should break as easrly as possible */
             if (CONSUME_MINIMALLY) {
                 break;
             }
