@@ -36,6 +36,7 @@ namespace uWS {
 
 /* We require at least this much post padding */
 static const unsigned int MINIMUM_HTTP_POST_PADDING = 32;
+static void *FULLPTR = (void *)~(uintptr_t)0;
 
 struct HttpRequest {
 
@@ -156,9 +157,19 @@ private:
 
     const size_t MAX_FALLBACK_SIZE = 1024 * 4;
 
+    /* Returns UINT_MAX on error. Maximum 999999999 is allowed. */
     static unsigned int toUnsignedInteger(std::string_view str) {
+        /* We assume at least 32-bit integer giving us safely 999999999 (9 number of 9s) */
+        if (str.length() > 9) {
+            return UINT_MAX;
+        }
+
         unsigned int unsignedIntegerValue = 0;
         for (char c : str) {
+            /* As long as the letter is 0-9 we cannot overflow. */
+            if (c < '0' || c > '9') {
+                return UINT_MAX;
+            }
             unsignedIntegerValue = unsignedIntegerValue * 10u + ((unsigned int) c - (unsigned int) '0');
         }
         return unsignedIntegerValue;
@@ -247,7 +258,10 @@ private:
         return 0;
     }
 
-    // the only caller of getHeaders
+    /* This is the only caller of getHeaders and is thus the deepest part of the parser.
+     * From here we return either [consumed, user] for "keep going",
+      * or [consumed, nullptr] for "break; I am closed or upgraded to websocket"
+      * or [whatever, fullptr] for "break and close me, I am a parser error!" */
     template <int CONSUME_MINIMALLY>
     std::pair<unsigned int, void *> fenceAndConsumePostPadded(char *data, unsigned int length, void *user, void *reserved, HttpRequest *req, MoveOnlyFunction<void *(void *, HttpRequest *)> &requestHandler, MoveOnlyFunction<void *(void *, std::string_view, bool)> &dataHandler) {
 
@@ -276,6 +290,18 @@ private:
                 req->bf.add(h->key);
             }
 
+            /* RFC 9112 6.3
+            * If a message is received with both a Transfer-Encoding and a Content-Length header field,
+            * the Transfer-Encoding overrides the Content-Length. Such a message might indicate an attempt
+            * to perform request smuggling (Section 11.2) or response splitting (Section 11.1) and
+            * ought to be handled as an error. */
+            std::string_view transferEncodingString = req->getHeader("transfer-encoding");
+            std::string_view contentLengthString = req->getHeader("content-length");
+            if (transferEncodingString.length() && contentLengthString.length()) {
+                /* Returning fullptr is the same as calling the errorHandler */
+                return {0, FULLPTR};
+            }
+
             /* Parse query */
             const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());
             req->querySeparator = (unsigned int) ((querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data());
@@ -298,21 +324,11 @@ private:
             /* RFC 9112 6.3
              * If a message is received with both a Transfer-Encoding and a Content-Length header field,
              * the Transfer-Encoding overrides the Content-Length. */
-            std::string_view transferEncodingString = req->getHeader("transfer-encoding");
-            std::string_view contentLengthString = req->getHeader("content-length");
-
             if (transferEncodingString.length()) {
 
                 /* If a proxy sent us the transfer-encoding header that 100% means it must be chunked or else the proxy is
                  * not RFC 9112 compliant. Therefore it is always better to assume this is the case, since that entirely eliminates 
                  * all forms of transfer-encoding obfuscation tricks. We just rely on the header. */
-
-                /* RFC 9112 6.3
-                 * [...] Such a message might indicate an attempt to perform request smuggling
-                 * (Section 11.2) or response splitting (Section 11.1) and ought to be handled as an error. */
-                if (contentLengthString.length()) {
-                    return {0, nullptr};
-                }
 
                 /* RFC 9112 6.3
                  * If a Transfer-Encoding header field is present in a request and the chunked transfer coding is not the
@@ -337,6 +353,10 @@ private:
                 }
             } else if (contentLengthString.length()) {
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
+                if (remainingStreamingBytes == UINT_MAX) {
+                    /* Parser error */
+                    return {0, FULLPTR};
+                }
 
                 if (!CONSUME_MINIMALLY) {
                     unsigned int emittable = std::min<unsigned int>(remainingStreamingBytes, length);

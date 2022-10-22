@@ -254,6 +254,14 @@ private:
             /* Mark that we are no longer parsing Http */
             httpContextData->isParsingHttp = false;
 
+            /* If we got fullptr that means the parser wants us to close the socket from error (same as calling the errorHandler) */
+            if (returnedSocket == FULLPTR) {
+                /* Close any socket on HTTP errors */
+                us_socket_close(SSL, s, 0, nullptr);
+                /* This just makes the following code act as if the socket was closed from error inside the parser. */
+                returnedSocket = nullptr;
+            }
+
             /* We need to uncork in all cases, except for nullptr (closed socket, or upgraded socket) */
             if (returnedSocket != nullptr) {
                 /* Timeout on uncork failure */
