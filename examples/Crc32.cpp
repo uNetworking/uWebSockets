@@ -37,7 +37,7 @@ int main() {
 
 			if (isFin && !*isAborted) {
 				std::stringstream s;
-    			s << std::hex << crc;
+    			s << std::hex << crc << std::endl;
 				res->end(s.str());
 			}
 		});

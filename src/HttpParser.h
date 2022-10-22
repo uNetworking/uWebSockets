@@ -246,17 +246,6 @@ private:
         /* We ran out of header space, too large request */
         return 0;
     }
-    
-    /* Doing a deep scan to determine in a standards-compliant way whether this request is chunked or not.
-     * This is going to be the place where obfuscated transfer-encoding shananigans are found. */
-    bool isChunkedBody(std::string_view transferEncodingString, HttpRequest */*req*/) {
-        return transferEncodingString.find("chunked") != std::string_view::npos;
-
-
-        /*for (HttpRequest::Header *h = req->headers; (++h)->key.length(); ) {
-
-        }*/
-    }
 
     // the only caller of getHeaders
     template <int CONSUME_MINIMALLY>
@@ -300,9 +289,39 @@ private:
                 return {consumedTotal, returnedUser};
             }
 
-            /* Highest priority is always transfer-encoding: chunked */
+            /* The rules at play here according to RFC 9112 for requests are essentially:
+             * If both content-length and transfer-encoding then invalid message; must break.
+             * If has transfer-encoding then must be chunked regardless of value.
+             * If content-length then fixed length even if 0.
+             * If none of the above then fixed length is 0. */
+
+            /* RFC 9112 6.3
+             * If a message is received with both a Transfer-Encoding and a Content-Length header field,
+             * the Transfer-Encoding overrides the Content-Length. */
             std::string_view transferEncodingString = req->getHeader("transfer-encoding");
-            if (transferEncodingString.length() && isChunkedBody(transferEncodingString, req)) {
+            std::string_view contentLengthString = req->getHeader("content-length");
+
+            if (transferEncodingString.length()) {
+
+                /* If a proxy sent us the transfer-encoding header that 100% means it must be chunked or else the proxy is
+                 * not RFC 9112 compliant. Therefore it is always better to assume this is the case, since that entirely eliminates 
+                 * all forms of transfer-encoding obfuscation tricks. We just rely on the header. */
+
+                /* RFC 9112 6.3
+                 * [...] Such a message might indicate an attempt to perform request smuggling
+                 * (Section 11.2) or response splitting (Section 11.1) and ought to be handled as an error. */
+                if (contentLengthString.length()) {
+                    return {0, nullptr};
+                }
+
+                /* RFC 9112 6.3
+                 * If a Transfer-Encoding header field is present in a request and the chunked transfer coding is not the
+                 * final encoding, the message body length cannot be determined reliably; the server MUST respond with the
+                 * 400 (Bad Request) status code and then close the connection. */
+
+                /* In this case we fail later by having the wrong interpretation (assuming chunked).
+                 * This could be made stricter but makes no difference either way, unless forwarding the identical message as a proxy. */
+
                 remainingStreamingBytes = STATE_IS_CHUNKED;
                 /* If consume minimally, we do not want to consume anything but we want to mark this as being chunked */
                 if (!CONSUME_MINIMALLY) {
@@ -316,14 +335,7 @@ private:
                     length = (unsigned int) dataToConsume.length();
                     consumedTotal += consumed;
                 }
-
-                /* Do not try anything else */
-                continue;
-            }
-            
-            /* Second priority is content-length */
-            std::string_view contentLengthString = req->getHeader("content-length");
-            if (contentLengthString.length()) {
+            } else if (contentLengthString.length()) {
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
 
                 if (!CONSUME_MINIMALLY) {
