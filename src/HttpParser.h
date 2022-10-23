@@ -25,6 +25,7 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
+#include <climits>
 #include "MoveOnlyFunction.h"
 #include "ChunkedEncoding.h"
 
@@ -281,6 +282,11 @@ private:
             /* Store HTTP version (ancient 1.0 or 1.1) */
             req->ancientHttp = req->headers->value.length() && (req->headers->value[req->headers->value.length() - 1] == '0');
 
+            /* We do not support ancient HTTP versions! */
+            if (req->isAncient()) {
+                return {0, FULLPTR};
+            }
+
             /* Strip away tail of first "header value" aka URL */
             req->headers->value = std::string_view(req->headers->value.data(), (size_t) std::max<int>(0, (int) req->headers->value.length() - 9));
 
@@ -299,6 +305,8 @@ private:
             std::string_view contentLengthString = req->getHeader("content-length");
             if (transferEncodingString.length() && contentLengthString.length()) {
                 /* Returning fullptr is the same as calling the errorHandler */
+                /* We could be smart and set an error in the context along with this, to indicate what 
+                 * http error response we might want to return */
                 return {0, FULLPTR};
             }
 
