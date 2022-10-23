@@ -24,14 +24,14 @@ Besides this Node.js integration, you can also [use Bun](https://bun.sh) where �
 We've been fully standards compliant with a perfect Autobahn|Testsuite score since 2016<sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">2</a></sup>. µWebSockets powers many of the biggest crypto exchanges in the world, handling trade volumes of multiple billions of USD every day. If you trade crypto, chances are you do so via µWebSockets.
 
 ### :battery: Batteries included
-Designed around a convenient URL router with wildcard & parameter support - paired with efficient pub/sub features inspired by MQTT. µWebSockets should be the obvious, complete starting point for any real-time web project with high demands.
+Designed around a convenient URL router with wildcard & parameter support - paired with efficient pub/sub features for WebSockets. µWebSockets should be the obvious, complete starting point for any real-time web project with high demands.
 
-Start building your Http & WebSocket apps in a swift; <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">read the user manual</a> and <a href="https://github.com/uNetworking/uWebSockets/tree/master/examples">see examples</a>. You can browse our <a href="https://unetworking.github.io/uWebSockets.js/generated/">TypeDoc</a> for a quick overview.
+Start building your Http & WebSocket apps in no time; <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">read the user manual</a> and <a href="https://github.com/uNetworking/uWebSockets/tree/master/examples">see examples</a>. You can browse our <a href="https://unetworking.github.io/uWebSockets.js/generated/">TypeDoc</a> for a quick overview.
 
 ```c++
 uWS::SSLApp({
 
-    /* There are tons of SSL options, see uSockets */
+    /* These are the most common options, fullchain and key. See uSockets for more options. */
     .cert_file_name = "cert.pem",
     .key_file_name = "key.pem"
     
@@ -44,8 +44,7 @@ uWS::SSLApp({
 
     /* Just a few of the available handlers */
     .open = [](auto *ws) {
-        /* MQTT syntax */
-        ws->subscribe("sensors/+/house");
+        ws->subscribe("oh_interesting_subject");
     },
     .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
         ws->send(message, opCode);
@@ -55,6 +54,8 @@ uWS::SSLApp({
 
     if (listenSocket) {
         std::cout << "Listening on port " << 9001 << std::endl;
+    } else {
+        std::cout << "Failed to load certs or to bind to port" << std::endl;
     }
     
 }).run();
