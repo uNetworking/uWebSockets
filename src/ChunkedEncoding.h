@@ -29,12 +29,12 @@
 
 namespace uWS {
 
-    uint32_t STATE_HAS_SIZE = 0x80000000;
-    uint32_t STATE_IS_CHUNKED = 0x40000000;
-    uint32_t STATE_SIZE_MASK = 0x3FFFFFFF;
+    constexpr uint32_t STATE_HAS_SIZE = 0x80000000;
+    constexpr uint32_t STATE_IS_CHUNKED = 0x40000000;
+    constexpr uint32_t STATE_SIZE_MASK = 0x3FFFFFFF;
 
     /* Reads hex number until CR or out of data to consume. Updates state. Returns bytes consumed. */
-    void consumeHexNumber(std::string_view &data, unsigned int &state) {
+    inline void consumeHexNumber(std::string_view &data, unsigned int &state) {
         /* Consume everything higher than 32 */
         while (data.length() && data.data()[0] > 32) {
 
@@ -63,11 +63,11 @@ namespace uWS {
         }
     }
 
-    unsigned int chunkSize(unsigned int state) {
+    inline unsigned int chunkSize(unsigned int state) {
         return state & STATE_SIZE_MASK;
     }
 
-    void decChunkSize(unsigned int &state, unsigned int by) {
+    inline void decChunkSize(unsigned int &state, unsigned int by) {
 
         //unsigned int bits = state & STATE_IS_CHUNKED;
 
@@ -76,17 +76,17 @@ namespace uWS {
         //state |= bits;
     }
 
-    bool hasChunkSize(unsigned int state) {
+    inline bool hasChunkSize(unsigned int state) {
         return state & STATE_HAS_SIZE;
     }
 
     /* Are we in the middle of parsing chunked encoding? */
-    bool isParsingChunkedEncoding(unsigned int state) {
+    inline bool isParsingChunkedEncoding(unsigned int state) {
         return state & ~STATE_SIZE_MASK;
     }
 
     /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
-    std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state, bool trailer = false) {
+    static std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state, bool trailer = false) {
 
         while (data.length()) {
 

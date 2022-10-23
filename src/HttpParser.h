@@ -113,6 +113,10 @@ public:
         return std::string_view(headers->value.data(), querySeparator);
     }
 
+    std::string_view getFullUrl() {
+        return std::string_view(headers->value.data(), headers->value.length());
+    }
+
     std::string_view getMethod() {
         return std::string_view(headers->key.data(), headers->key.length());
     }
