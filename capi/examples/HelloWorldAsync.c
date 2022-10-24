@@ -5,7 +5,7 @@
 #include <malloc.h>
 #include <string.h>
 
-#define SSL 1
+#define SSL 0
 
 typedef struct {
     uws_res_t* res;
@@ -67,11 +67,15 @@ void on_res_aborted(uws_res_t *response, void* data){
     request_data->aborted = true;
 }
 
+void on_res_corked(uws_res_t *response, void* data){
+    uws_res_end(SSL, response, "Hello CAPI!", 11, false);
+}
 void on_timer_done(void *data){
     async_request_t* request_data = (async_request_t*)data;
     /* Were'nt we aborted before our async task finished? Okay, send a message! */
     if(!request_data->aborted){
-        uws_res_end(SSL, request_data->res, "Hello CAPI!", 11, false);
+
+        uws_res_cork(SSL, request_data->res,on_res_corked, request_data);
     }
 }
 
@@ -90,7 +94,7 @@ void get_handler(uws_res_t *res, uws_req_t *req,  void* user_data)
     * code that utilize us_timer_t like this; they are high-cost and should
     * not be created and destroyed more than rarely!
     * Either way, here we go!*/
-    uws_create_timer(100, 0, on_timer_done, request_data);
+    uws_create_timer(1, 0, on_timer_done, request_data);
 }
 
 

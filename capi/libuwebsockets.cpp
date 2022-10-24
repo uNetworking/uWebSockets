@@ -720,6 +720,48 @@ extern "C"
         }
     }
 
+   uws_try_end_result_t uws_res_try_end(int ssl, uws_res_t *res, const char *data, size_t length, uintmax_t total_size){
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            // uwsRes->end(std::string_view(data, length), close_connection);
+            std::pair<bool,bool> result = uwsRes->tryEnd(std::string_view(data, length), total_size);
+            return uws_try_end_result_t {
+                .ok = result.first,
+                .has_responded = result.second,
+            };
+        }
+        else
+        {
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+            std::pair<bool,bool> result = uwsRes->tryEnd(std::string_view(data, length), total_size);
+            return uws_try_end_result_t {
+                .ok = result.first,
+                .has_responded = result.second,
+            };
+        }
+    }
+
+
+    void uws_res_cork(int ssl, uws_res_t *res,void(*callback)(uws_res_t *res, void* user_data) ,void* user_data)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            uwsRes->cork([=](){
+                callback(res, user_data);
+            });
+        }
+        else
+        {
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+              uwsRes->cork([=](){
+                callback(res, user_data);
+            });
+        }
+    }
+
+
     void uws_res_pause(int ssl, uws_res_t *res)
     {
         if (ssl)

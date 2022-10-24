@@ -70,6 +70,11 @@ extern "C"
         int options;
     } uws_app_listen_config_t;
 
+    typedef struct {
+        bool ok;
+        bool has_responded;
+    } uws_try_end_result_t;
+
     struct uws_app_s;
     struct uws_req_s;
     struct uws_res_s;
@@ -168,6 +173,8 @@ extern "C"
 
     //Response
     void uws_res_end(int ssl, uws_res_t *res, const char *data, size_t length, bool close_connection);
+    uws_try_end_result_t uws_res_try_end(int ssl, uws_res_t *res, const char *data, size_t length, uintmax_t total_size);
+    void uws_res_cork(int ssl, uws_res_t *res, void(*callback)(uws_res_t *res, void* user_data) ,void* user_data);
     void uws_res_pause(int ssl, uws_res_t *res);
     void uws_res_resume(int ssl, uws_res_t *res);
     void uws_res_write_continue(int ssl, uws_res_t *res);
@@ -183,7 +190,7 @@ extern "C"
     void uws_res_on_aborted(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, void *opcional_data), void *opcional_data);
     void uws_res_on_data(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, const char *chunk, size_t chunk_length, bool is_end, void *opcional_data), void *opcional_data);
     void uws_res_upgrade(int ssl, uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws);
-
+    
     //Request
     bool uws_req_is_ancient(uws_req_t *res);
     bool uws_req_get_yield(uws_req_t *res);
