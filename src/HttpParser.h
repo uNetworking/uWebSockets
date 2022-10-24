@@ -229,6 +229,10 @@ private:
             if (postPaddedBuffer[0] == ':' && postPaddedBuffer[1] == ' ') {
                 postPaddedBuffer += 2;
             } else {
+                /* We should not accept whitespace between key and colon */
+                if (postPaddedBuffer[0] != ':') {
+                    return 0;
+                }
                 /* Trim until value starts */
                 for (; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
             }
