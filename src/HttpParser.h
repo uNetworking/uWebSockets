@@ -191,6 +191,19 @@ private:
             }
         }
     }
+    
+    static inline bool hasLess(uint64_t word) {
+        return word - ~0UL / 255 * 32 & ~word & ~0UL / 255 * 128;
+    }
+
+    static inline void *find_less(char *p, char */*end*/) {
+        for (; true; p += 8) {
+            if (hasLess(*(uint64_t *)p)) {
+                while (*(unsigned char *)p > 31) p++;
+                return (void *)p;
+            }
+        }
+    }
 
     /* End is only used for the proxy parser. The HTTP parser recognizes "\ra" as invalid "\r\n" scan and breaks. */
     static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved) {
@@ -238,7 +251,17 @@ private:
             }
             preliminaryValue = postPaddedBuffer;
             /* The goal of this call is to find next "\r\n", fast */
-            postPaddedBuffer = (char *) find_cr(postPaddedBuffer, end);
+            retry:
+            postPaddedBuffer = (char *) find_less(postPaddedBuffer, end);
+            /* If this is not CR then we caught some stinky invalid char on the way */
+            if (postPaddedBuffer[0] != '\r') {
+                /* If TAB then keep searching */
+                if (postPaddedBuffer[0] == '\t') {
+                    postPaddedBuffer++;
+                    goto retry;
+                }
+                return 0;
+            }
             /* We fence end[0] with \r, followed by end[1] being something that is "not \n", to signify "not found".
                 * This way we can have this one single check to see if we found \r\n WITHIN our allowed search space. */
             if (postPaddedBuffer[1] == '\n') {
