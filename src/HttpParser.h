@@ -196,7 +196,7 @@ private:
         return (word - ~0UL / 255 * 32) & ~word & ~0UL / 255 * 128;
     }
 
-    /* RFC 9110: 5.5 Field Values
+    /* RFC 9110: 5.5 Field Values (TLDR; anything above 31 is allowed; htab (9) is also allowed)
      * Field values are usually constrained to the range of US-ASCII characters [...]
      * Field values containing CR, LF, or NUL characters are invalid and dangerous [...]
      * Field values containing other CTL characters are also invalid. */
