@@ -193,7 +193,7 @@ private:
     }
     
     static inline bool hasLess(uint64_t word) {
-        return word - ~0UL / 255 * 32 & ~word & ~0UL / 255 * 128;
+        return (word - ~0UL / 255 * 32) & ~word & ~0UL / 255 * 128;
     }
 
     static inline void *find_less(char *p, char */*end*/) {
@@ -242,8 +242,8 @@ private:
             if (postPaddedBuffer[0] == ':' && postPaddedBuffer[1] == ' ') {
                 postPaddedBuffer += 2;
             } else {
-                /* We should not accept whitespace between key and colon */
-                if (postPaddedBuffer[0] != ':') {
+                /* We should not accept whitespace between key and colon (unless on request line) */
+                if (i && postPaddedBuffer[0] != ':') {
                     return 0;
                 }
                 /* Trim until value starts */
