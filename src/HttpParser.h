@@ -299,6 +299,11 @@ private:
             for (HttpRequest::Header *h = req->headers; (++h)->key.length(); ) {
                 req->bf.add(h->key);
             }
+            
+            /* Break if no host header */
+            if (!req->getHeader("host").length()) {
+                return {0, FULLPTR};
+            }
 
             /* RFC 9112 6.3
             * If a message is received with both a Transfer-Encoding and a Content-Length header field,
