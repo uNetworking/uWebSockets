@@ -196,6 +196,10 @@ private:
         return (word - ~0UL / 255 * 32) & ~word & ~0UL / 255 * 128;
     }
 
+    /* RFC 9110: 5.5 Field Values
+     * Field values are usually constrained to the range of US-ASCII characters [...]
+     * Field values containing CR, LF, or NUL characters are invalid and dangerous [...]
+     * Field values containing other CTL characters are also invalid. */
     static inline void *find_less(char *p, char */*end*/) {
         for (; true; p += 8) {
             if (hasLess(*(uint64_t *)p)) {
