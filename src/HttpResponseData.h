@@ -79,6 +79,9 @@ private:
     /* Outgoing offset */
     uintmax_t offset = 0;
 
+    /* Let's track number of bytes since last timeout reset in data handler */
+    unsigned int received_bytes_per_timeout = 0;
+
     /* Current state (content-length sent, status sent, write called, etc */
     int state = 0;
 

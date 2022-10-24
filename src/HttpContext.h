@@ -43,6 +43,9 @@ private:
     /* Maximum delay allowed until an HTTP connection is terminated due to outstanding request or rejected data (slow loris protection) */
     static const int HTTP_IDLE_TIMEOUT_S = 10;
 
+    /* Minimum allowed receive throughput per second (clients uploading less than 16kB/sec get dropped) */
+    static const int HTTP_RECEIVE_THROUGHPUT_BYTES = 16 * 1024;
+
     us_socket_context_t *getSocketContext() {
         return (us_socket_context_t *) this;
     }
@@ -156,9 +159,18 @@ private:
                     httpResponseData->state |= HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE;
                 }
 
+                /* Select the router based on SNI (only possible for SSL) */
+                auto *selectedRouter = &httpContextData->router;
+                if constexpr (SSL) {
+                    void *domainRouter = us_socket_server_name_userdata(SSL, (struct us_socket_t *) s);
+                    if (domainRouter) {
+                        selectedRouter = (decltype(selectedRouter)) domainRouter;
+                    }
+                }
+
                 /* Route the method and URL */
-                httpContextData->router.getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
-                if (!httpContextData->router.route(httpRequest->getMethod(), httpRequest->getUrl())) {
+                selectedRouter->getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
+                if (!selectedRouter->route(httpRequest->getMethod(), httpRequest->getUrl())) {
                     /* We have to force close this socket as we have no handler for it */
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
@@ -205,7 +217,12 @@ private:
                         us_socket_timeout(SSL, (struct us_socket_t *) user, 0);
                     } else {
                         /* We still have some more data coming in later, so reset timeout */
-                        us_socket_timeout(SSL, (struct us_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
+                        /* Only reset timeout if we got enough bytes (16kb/sec) since last time we reset here */
+                        httpResponseData->received_bytes_per_timeout += (unsigned int) data.length();
+                        if (httpResponseData->received_bytes_per_timeout >= HTTP_RECEIVE_THROUGHPUT_BYTES * HTTP_IDLE_TIMEOUT_S) {
+                            us_socket_timeout(SSL, (struct us_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
+                            httpResponseData->received_bytes_per_timeout = 0;
+                        }
                     }
 
                     /* We might respond in the handler, so do not change timeout after this */
@@ -236,6 +253,14 @@ private:
 
             /* Mark that we are no longer parsing Http */
             httpContextData->isParsingHttp = false;
+
+            /* If we got fullptr that means the parser wants us to close the socket from error (same as calling the errorHandler) */
+            if (returnedSocket == FULLPTR) {
+                /* Close any socket on HTTP errors */
+                us_socket_close(SSL, s, 0, nullptr);
+                /* This just makes the following code act as if the socket was closed from error inside the parser. */
+                returnedSocket = nullptr;
+            }
 
             /* We need to uncork in all cases, except for nullptr (closed socket, or upgraded socket) */
             if (returnedSocket != nullptr) {
@@ -398,12 +423,20 @@ public:
         /* Todo: This is ugly, fix */
         std::vector<std::string> methods;
         if (method == "*") {
-            methods = httpContextData->router.methods;
+            methods = httpContextData->currentRouter->methods;
         } else {
             methods = {method};
         }
 
-        httpContextData->router.add(methods, pattern, [handler = std::move(handler)](auto *r) mutable {
+        uint32_t priority = method == "*" ? httpContextData->currentRouter->LOW_PRIORITY : (upgrade ? httpContextData->currentRouter->HIGH_PRIORITY : httpContextData->currentRouter->MEDIUM_PRIORITY);
+
+        /* If we are passed nullptr then remove this */
+        if (!handler) {
+            httpContextData->currentRouter->remove(methods[0], pattern, priority);
+            return;
+        }
+
+        httpContextData->currentRouter->add(methods, pattern, [handler = std::move(handler)](auto *r) mutable {
             auto user = r->getUserData();
             user.httpRequest->setYield(false);
             user.httpRequest->setParameters(r->getParameters());
@@ -421,12 +454,17 @@ public:
                 return false;
             }
             return true;
-        }, method == "*" ? httpContextData->router.LOW_PRIORITY : (upgrade ? httpContextData->router.HIGH_PRIORITY : httpContextData->router.MEDIUM_PRIORITY));
+        }, priority);
     }
 
     /* Listen to port using this HttpContext */
     us_listen_socket_t *listen(const char *host, int port, int options) {
         return us_socket_context_listen(SSL, getSocketContext(), host, port, options, sizeof(HttpResponseData<SSL>));
+    }
+
+    /* Listen to unix domain socket using this HttpContext */
+    us_listen_socket_t *listen(const char *path, int options) {
+        return us_socket_context_listen_unix(SSL, getSocketContext(), path, options, sizeof(HttpResponseData<SSL>));
     }
 };
 

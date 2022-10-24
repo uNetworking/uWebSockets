@@ -73,6 +73,9 @@ private:
 
     /* Called only once per request */
     void writeMark() {
+        /* Date is always written */
+        writeHeader("Date", std::string_view(((LoopData *) us_loop_ext(us_socket_context_loop(SSL, (us_socket_context(SSL, (us_socket_t *) this)))))->date, 29));
+
         /* You can disable this altogether */
 #ifndef UWS_HTTPRESPONSE_NO_WRITEMARK
         if (!Super::getLoopData()->noMark) {
@@ -398,8 +401,8 @@ public:
 
     /* Try and end the response. Returns [true, true] on success.
      * Starts a timeout in some cases. Returns [ok, hasResponded] */
-    std::pair<bool, bool> tryEnd(std::string_view data, uintmax_t totalSize = 0) {
-        return {internalEnd(data, totalSize, true), hasResponded()};
+    std::pair<bool, bool> tryEnd(std::string_view data, uintmax_t totalSize = 0, bool closeConnection = false) {
+        return {internalEnd(data, totalSize, true, true, closeConnection), hasResponded()};
     }
 
     /* Write parts of the response in chunking fashion. Starts timeout if failed. */
@@ -440,6 +443,13 @@ public:
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         return httpResponseData->offset;
+    }
+
+    /* If you are messing around with sendfile you might want to override the offset. */
+    void overrideWriteOffset(uintmax_t offset) {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        httpResponseData->offset = offset;
     }
 
     /* Checking if we have fully responded and are ready for another request */
@@ -490,6 +500,9 @@ public:
     void onData(MoveOnlyFunction<void(std::string_view, bool)> &&handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();
         data->inStream = std::move(handler);
+
+        /* Always reset this counter here */
+        data->received_bytes_per_timeout = 0;
     }
 };
 

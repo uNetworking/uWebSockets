@@ -23,10 +23,12 @@
 #include <vector>
 #include <mutex>
 #include <map>
+#include <time.h>
 
 #include "PerMessageDeflate.h"
-
 #include "MoveOnlyFunction.h"
+
+struct us_timer_t;
 
 namespace uWS {
 
@@ -43,6 +45,10 @@ private:
     std::map<void *, MoveOnlyFunction<void(Loop *)>> postHandlers, preHandlers;
 
 public:
+    LoopData() {
+        updateDate();
+    }
+
     ~LoopData() {
         /* If we have had App.ws called with compression we need to clear this */
         if (zlibContext) {
@@ -52,6 +58,15 @@ public:
         }
         delete [] corkBuffer;
     }
+
+    void updateDate() {
+        time_t now = time(0);
+        struct tm tstruct;
+        tstruct = *gmtime(&now);
+        strftime(date, 32, "%a, %d %b %Y %X GMT", &tstruct);
+    }
+
+    char date[32];
 
     /* Be silent */
     bool noMark = false;
@@ -68,6 +83,8 @@ public:
     ZlibContext *zlibContext = nullptr;
     InflationStream *inflationStream = nullptr;
     DeflationStream *deflationStream = nullptr;
+
+    us_timer_t *dateTimer;
 };
 
 }

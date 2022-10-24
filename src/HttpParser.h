@@ -25,7 +25,9 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
+#include <climits>
 #include "MoveOnlyFunction.h"
+#include "ChunkedEncoding.h"
 
 #include "BloomFilter.h"
 #include "ProxyParser.h"
@@ -35,6 +37,7 @@ namespace uWS {
 
 /* We require at least this much post padding */
 static const unsigned int MINIMUM_HTTP_POST_PADDING = 32;
+static void *FULLPTR = (void *)~(uintptr_t)0;
 
 struct HttpRequest {
 
@@ -110,6 +113,10 @@ public:
         return std::string_view(headers->value.data(), querySeparator);
     }
 
+    std::string_view getFullUrl() {
+        return std::string_view(headers->value.data(), headers->value.length());
+    }
+
     std::string_view getMethod() {
         return std::string_view(headers->key.data(), headers->key.length());
     }
@@ -150,18 +157,42 @@ struct HttpParser {
 
 private:
     std::string fallback;
+    /* This guy really has only 30 bits since we reserve two highest bits to chunked encoding parsing state */
     unsigned int remainingStreamingBytes = 0;
 
     const size_t MAX_FALLBACK_SIZE = 1024 * 4;
 
+    /* Returns UINT_MAX on error. Maximum 999999999 is allowed. */
     static unsigned int toUnsignedInteger(std::string_view str) {
+        /* We assume at least 32-bit integer giving us safely 999999999 (9 number of 9s) */
+        if (str.length() > 9) {
+            return UINT_MAX;
+        }
+
         unsigned int unsignedIntegerValue = 0;
         for (char c : str) {
+            /* As long as the letter is 0-9 we cannot overflow. */
+            if (c < '0' || c > '9') {
+                return UINT_MAX;
+            }
             unsignedIntegerValue = unsignedIntegerValue * 10u + ((unsigned int) c - (unsigned int) '0');
         }
         return unsignedIntegerValue;
     }
+    
+    /* Find carriage return will scan forever. But we "fence" the end margin part of the receive buffer,
+     * by putting a CR there in case one isn't found before it, so this optimizing assumption is fine. */
+    static inline void *find_cr(char *p, char */*end*/) {
+        for (uint64_t mask = 0x0d0d0d0d0d0d0d0d; true; p += 8) {
+            uint64_t val = *(uint64_t *)p ^ mask;
+            if ((val + 0xfefefefefefefeffull) & (~val & 0x8080808080808080ull)) {
+                while (*(unsigned char *)p != 0x0d) p++;
+                return (void *)p;
+            }
+        }
+    }
 
+    /* End is only used for the proxy parser. The HTTP parser recognizes "\ra" as invalid "\r\n" scan and breaks. */
     static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
 
@@ -190,41 +221,62 @@ private:
          * for PROXY means we can end up succeeding, yet leaving bytes in the fallback buffer
          * which is then removed, and our counters to flip due to overflow and we end up with a crash */
 
-        for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS; i++) {
-            for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') & (*(unsigned char *)postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
-            if (*postPaddedBuffer == '\r') {
-                if ((postPaddedBuffer != end) & (postPaddedBuffer[1] == '\n') & (i > 0)) {
-                    headers->key = std::string_view(nullptr, 0);
-                    return (unsigned int) ((postPaddedBuffer + 2) - start);
-                } else {
-                    return 0;
+        for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS - 1; i++) {
+            /* Lower case and short scan until ':', or stop at \r (from previous scan) */
+            for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') && (*(unsigned char *)postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
+            headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
+            /* Assume colon, space follows (this is fine as we have at least 2 bytes past) */
+            if (postPaddedBuffer[0] == ':' && postPaddedBuffer[1] == ' ') {
+                postPaddedBuffer += 2;
+            } else {
+                /* Trim until value starts */
+                for (; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
+            }
+            preliminaryValue = postPaddedBuffer;
+            /* The goal of this call is to find next "\r\n", fast */
+            postPaddedBuffer = (char *) find_cr(postPaddedBuffer, end);
+            /* We fence end[0] with \r, followed by end[1] being something that is "not \n", to signify "not found".
+                * This way we can have this one single check to see if we found \r\n WITHIN our allowed search space. */
+            if (postPaddedBuffer[1] == '\n') {
+                /* Store this header, it is valid */
+                headers->value = std::string_view(preliminaryValue, (size_t) (postPaddedBuffer - preliminaryValue));
+                postPaddedBuffer += 2;
+                headers++;
+
+                /* We definitely have at least one header (or request line), so check if we are done */
+                if (*postPaddedBuffer == '\r') {
+                    if (postPaddedBuffer[1] == '\n') {
+                        /* This cann take the very last header space */
+                        headers->key = std::string_view(nullptr, 0);
+                        return (unsigned int) ((postPaddedBuffer + 2) - start);
+                    } else {
+                        /* \r\n\r plus non-\n letter is malformed request, or simply out of search space */
+                        return 0;
+                    }
                 }
             } else {
-                headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
-                for (postPaddedBuffer++; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
-                preliminaryValue = postPaddedBuffer;
-                postPaddedBuffer = (char *) memchr(postPaddedBuffer, '\r', (size_t) (end - postPaddedBuffer));
-                if (postPaddedBuffer && postPaddedBuffer[1] == '\n') {
-                    headers->value = std::string_view(preliminaryValue, (size_t) (postPaddedBuffer - preliminaryValue));
-                    postPaddedBuffer += 2;
-                    headers++;
-                } else {
-                    return 0;
-                }
+                /* We are either out of search space or this is a malformed request */
+                return 0;
             }
         }
+        /* We ran out of header space, too large request */
         return 0;
     }
 
-    // the only caller of getHeaders
+    /* This is the only caller of getHeaders and is thus the deepest part of the parser.
+     * From here we return either [consumed, user] for "keep going",
+      * or [consumed, nullptr] for "break; I am closed or upgraded to websocket"
+      * or [whatever, fullptr] for "break and close me, I am a parser error!" */
     template <int CONSUME_MINIMALLY>
     std::pair<unsigned int, void *> fenceAndConsumePostPadded(char *data, unsigned int length, void *user, void *reserved, HttpRequest *req, MoveOnlyFunction<void *(void *, HttpRequest *)> &requestHandler, MoveOnlyFunction<void *(void *, std::string_view, bool)> &dataHandler) {
 
         /* How much data we CONSUMED (to throw away) */
         unsigned int consumedTotal = 0;
 
-        /* Fence one byte past end of our buffer (buffer has post padded margins) */
+        /* Fence two bytes past end of our buffer (buffer has post padded margins).
+         * This is to always catch scan for \r but not for \r\n. */
         data[length] = '\r';
+        data[length + 1] = 'a'; /* Anything that is not \n, to trigger "invalid request" */
 
         for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers, reserved)); ) {
             data += consumed;
@@ -234,6 +286,11 @@ private:
             /* Store HTTP version (ancient 1.0 or 1.1) */
             req->ancientHttp = req->headers->value.length() && (req->headers->value[req->headers->value.length() - 1] == '0');
 
+            /* We do not support ancient HTTP versions! */
+            if (req->isAncient()) {
+                return {0, FULLPTR};
+            }
+
             /* Strip away tail of first "header value" aka URL */
             req->headers->value = std::string_view(req->headers->value.data(), (size_t) std::max<int>(0, (int) req->headers->value.length() - 9));
 
@@ -241,6 +298,20 @@ private:
             req->bf.reset();
             for (HttpRequest::Header *h = req->headers; (++h)->key.length(); ) {
                 req->bf.add(h->key);
+            }
+
+            /* RFC 9112 6.3
+            * If a message is received with both a Transfer-Encoding and a Content-Length header field,
+            * the Transfer-Encoding overrides the Content-Length. Such a message might indicate an attempt
+            * to perform request smuggling (Section 11.2) or response splitting (Section 11.1) and
+            * ought to be handled as an error. */
+            std::string_view transferEncodingString = req->getHeader("transfer-encoding");
+            std::string_view contentLengthString = req->getHeader("content-length");
+            if (transferEncodingString.length() && contentLengthString.length()) {
+                /* Returning fullptr is the same as calling the errorHandler */
+                /* We could be smart and set an error in the context along with this, to indicate what 
+                 * http error response we might want to return */
+                return {0, FULLPTR};
             }
 
             /* Parse query */
@@ -256,11 +327,48 @@ private:
                 return {consumedTotal, returnedUser};
             }
 
-            // todo: do not check this for GET (get should not have a body)
-            // todo: also support reading chunked streams
-            std::string_view contentLengthString = req->getHeader("content-length");
-            if (contentLengthString.length()) {
+            /* The rules at play here according to RFC 9112 for requests are essentially:
+             * If both content-length and transfer-encoding then invalid message; must break.
+             * If has transfer-encoding then must be chunked regardless of value.
+             * If content-length then fixed length even if 0.
+             * If none of the above then fixed length is 0. */
+
+            /* RFC 9112 6.3
+             * If a message is received with both a Transfer-Encoding and a Content-Length header field,
+             * the Transfer-Encoding overrides the Content-Length. */
+            if (transferEncodingString.length()) {
+
+                /* If a proxy sent us the transfer-encoding header that 100% means it must be chunked or else the proxy is
+                 * not RFC 9112 compliant. Therefore it is always better to assume this is the case, since that entirely eliminates 
+                 * all forms of transfer-encoding obfuscation tricks. We just rely on the header. */
+
+                /* RFC 9112 6.3
+                 * If a Transfer-Encoding header field is present in a request and the chunked transfer coding is not the
+                 * final encoding, the message body length cannot be determined reliably; the server MUST respond with the
+                 * 400 (Bad Request) status code and then close the connection. */
+
+                /* In this case we fail later by having the wrong interpretation (assuming chunked).
+                 * This could be made stricter but makes no difference either way, unless forwarding the identical message as a proxy. */
+
+                remainingStreamingBytes = STATE_IS_CHUNKED;
+                /* If consume minimally, we do not want to consume anything but we want to mark this as being chunked */
+                if (!CONSUME_MINIMALLY) {
+                    /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
+                    std::string_view dataToConsume(data, length);
+                    for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                        dataHandler(user, chunk, chunk.length() == 0);
+                    }
+                    unsigned int consumed = (length - (unsigned int) dataToConsume.length());
+                    data = (char *) dataToConsume.data();
+                    length = (unsigned int) dataToConsume.length();
+                    consumedTotal += consumed;
+                }
+            } else if (contentLengthString.length()) {
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
+                if (remainingStreamingBytes == UINT_MAX) {
+                    /* Parser error */
+                    return {0, FULLPTR};
+                }
 
                 if (!CONSUME_MINIMALLY) {
                     unsigned int emittable = std::min<unsigned int>(remainingStreamingBytes, length);
@@ -272,10 +380,11 @@ private:
                     consumedTotal += emittable;
                 }
             } else {
-                /* Still emit an empty data chunk to signal no data */
+                /* If we came here without a body; emit an empty data chunk to signal no data */
                 dataHandler(user, {}, true);
             }
 
+            /* Consume minimally should break as easrly as possible */
             if (CONSUME_MINIMALLY) {
                 break;
             }
@@ -292,22 +401,32 @@ public:
 
         if (remainingStreamingBytes) {
 
-            // this is exactly the same as below!
-            // todo: refactor this
-            if (remainingStreamingBytes >= length) {
-                void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
-                remainingStreamingBytes -= length;
-                return returnedUser;
+            /* It's either chunked or with a content-length */
+            if (isParsingChunkedEncoding(remainingStreamingBytes)) {
+                std::string_view dataToConsume(data, length);
+                for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                    dataHandler(user, chunk, chunk.length() == 0);
+                }
+                data = (char *) dataToConsume.data();
+                length = (unsigned int) dataToConsume.length();
             } else {
-                void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
-
-                data += remainingStreamingBytes;
-                length -= remainingStreamingBytes;
-
-                remainingStreamingBytes = 0;
-
-                if (returnedUser != user) {
+                // this is exactly the same as below!
+                // todo: refactor this
+                if (remainingStreamingBytes >= length) {
+                    void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
+                    remainingStreamingBytes -= length;
                     return returnedUser;
+                } else {
+                    void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
+
+                    data += remainingStreamingBytes;
+                    length -= remainingStreamingBytes;
+
+                    remainingStreamingBytes = 0;
+
+                    if (returnedUser != user) {
+                        return returnedUser;
+                    }
                 }
             }
 

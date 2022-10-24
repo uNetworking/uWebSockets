@@ -10,8 +10,15 @@ namespace uWS {
         Http3Context *http3Context;
 
         H3App(SocketContextOptions options = {}) {
+            /* This conversion should not be needed */
+            us_quic_socket_context_options_t h3options = {};
+
+            h3options.key_file_name = strdup(options.key_file_name);
+            h3options.cert_file_name = strdup(options.cert_file_name);
+            h3options.passphrase = strdup(options.passphrase);
+
             /* Create the http3 context */
-            http3Context = Http3Context::create((us_loop_t *)Loop::get(), {});
+            http3Context = Http3Context::create((us_loop_t *)Loop::get(), h3options);
 
             http3Context->init();
         }
@@ -30,8 +37,7 @@ namespace uWS {
             if (!host.length()) {
                 return listen(port, std::move(handler));
             }
-            http3Context->listen();
-            //handler(httpContext ? httpContext->listen(host.c_str(), port, 0) : nullptr);
+            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(host.c_str(), port) : nullptr);
             return std::move(*this);
         }
 
@@ -40,22 +46,19 @@ namespace uWS {
             if (!host.length()) {
                 return listen(port, options, std::move(handler));
             }
-            http3Context->listen();
-            //handler(httpContext ? httpContext->listen(host.c_str(), port, options) : nullptr);
+            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(host.c_str(), port) : nullptr);
             return std::move(*this);
         }
 
         /* Port, callback */
         H3App &&listen(int port, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
-            http3Context->listen();
-            //handler(httpContext ? httpContext->listen(nullptr, port, 0) : nullptr);
+            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(nullptr, port) : nullptr);
             return std::move(*this);
         }
 
         /* Port, options, callback */
         H3App &&listen(int port, int options, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
-            http3Context->listen();
-            //handler(http3Context ? http3Context->listen(nullptr, port, options) : nullptr);
+            handler(http3Context ? (us_listen_socket_t *) http3Context->listen(nullptr, port) : nullptr);
             return std::move(*this);
         }
 
