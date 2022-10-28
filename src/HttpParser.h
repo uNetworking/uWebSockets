@@ -191,6 +191,23 @@ private:
             }
         }
     }
+    
+    static inline bool hasLess(uint64_t word) {
+        return (word - ~0UL / 255 * 32) & ~word & ~0UL / 255 * 128;
+    }
+
+    /* RFC 9110: 5.5 Field Values (TLDR; anything above 31 is allowed; htab (9) is also allowed)
+     * Field values are usually constrained to the range of US-ASCII characters [...]
+     * Field values containing CR, LF, or NUL characters are invalid and dangerous [...]
+     * Field values containing other CTL characters are also invalid. */
+    static inline void *find_less(char *p, char */*end*/) {
+        for (; true; p += 8) {
+            if (hasLess(*(uint64_t *)p)) {
+                while (*(unsigned char *)p > 31) p++;
+                return (void *)p;
+            }
+        }
+    }
 
     /* End is only used for the proxy parser. The HTTP parser recognizes "\ra" as invalid "\r\n" scan and breaks. */
     static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved) {
@@ -229,12 +246,26 @@ private:
             if (postPaddedBuffer[0] == ':' && postPaddedBuffer[1] == ' ') {
                 postPaddedBuffer += 2;
             } else {
+                /* We should not accept whitespace between key and colon (unless on request line) */
+                if (i && postPaddedBuffer[0] != ':') {
+                    return 0;
+                }
                 /* Trim until value starts */
                 for (; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
             }
             preliminaryValue = postPaddedBuffer;
             /* The goal of this call is to find next "\r\n", fast */
-            postPaddedBuffer = (char *) find_cr(postPaddedBuffer, end);
+            retry:
+            postPaddedBuffer = (char *) find_less(postPaddedBuffer, end);
+            /* If this is not CR then we caught some stinky invalid char on the way */
+            if (postPaddedBuffer[0] != '\r') {
+                /* If TAB then keep searching */
+                if (postPaddedBuffer[0] == '\t') {
+                    postPaddedBuffer++;
+                    goto retry;
+                }
+                return 0;
+            }
             /* We fence end[0] with \r, followed by end[1] being something that is "not \n", to signify "not found".
                 * This way we can have this one single check to see if we found \r\n WITHIN our allowed search space. */
             if (postPaddedBuffer[1] == '\n') {
@@ -298,6 +329,11 @@ private:
             req->bf.reset();
             for (HttpRequest::Header *h = req->headers; (++h)->key.length(); ) {
                 req->bf.add(h->key);
+            }
+            
+            /* Break if no host header */
+            if (!req->getHeader("host").length()) {
+                return {0, FULLPTR};
             }
 
             /* RFC 9112 6.3
