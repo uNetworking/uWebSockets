@@ -1034,12 +1034,69 @@ extern "C"
                                          (struct us_socket_context_t *)ws);
     }
 
+    // void uws_res_prepare_for_sendfile(int ssl, uws_res_t *res)
+    // {
+    //     if (ssl)
+    //     {
+    //         uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+    //         auto pair = uwsRes->getSendBuffer(2);
+    //         char *ptr = pair.first;
+    //         ptr[0] = '\r';
+    //         ptr[1] = '\n';
+    //         uwsRes->uncork();
+    //     }
+    //     else
+    //     {
+    //         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+    //         auto pair = uwsRes->getSendBuffer(2);
+    //         char *ptr = pair.first;
+    //         ptr[0] = '\r';
+    //         ptr[1] = '\n';
+    //         uwsRes->uncork();
+    //     }
+    // }
+
+    /*
+    HTTP_STATUS_CALLED = 1,
+    HTTP_WRITE_CALLED = 2,
+    HTTP_END_CALLED = 4,
+    HTTP_RESPONSE_PENDING = 8,
+    HTTP_CONNECTION_CLOSE = 16,
+    */
+    // int uws_res_state(int ssl, uws_res_t *res)
+    // {
+    //     if (ssl)
+    //     {
+    //         uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+    //         return uwsRes->getHttpResponseData()->state;
+    //     }
+    //     else
+    //     {
+    //         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+    //         return uwsRes->getHttpResponseData()->state;
+    //     }
+    // }
+
+    void *uws_res_get_native_handle(int ssl, uws_res_t *res)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            return uwsRes->getNativeHandle();
+        }
+        else
+        {
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+            return uwsRes->getNativeHandle();
+        }
+    }
+
     struct us_loop_t *uws_get_loop()
     {
         return (struct us_loop_t *)uWS::Loop::get();
     }
 
-    struct us_loop_t *uws_get_loop_with_native(void* existing_native_loop)
+    struct us_loop_t *uws_get_loop_with_native(void *existing_native_loop)
     {
         return (struct us_loop_t *)uWS::Loop::get(existing_native_loop);
     }

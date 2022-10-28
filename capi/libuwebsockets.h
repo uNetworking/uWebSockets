@@ -192,7 +192,17 @@ extern "C"
     void uws_res_on_aborted(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, void *opcional_data), void *opcional_data);
     void uws_res_on_data(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, const char *chunk, size_t chunk_length, bool is_end, void *opcional_data), void *opcional_data);
     void uws_res_upgrade(int ssl, uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws);
-    
+    // void uws_res_prepare_for_sendfile(int ssl, uws_res_t *res);
+     /*
+    HTTP_STATUS_CALLED = 1,
+    HTTP_WRITE_CALLED = 2,
+    HTTP_END_CALLED = 4,
+    HTTP_RESPONSE_PENDING = 8,
+    HTTP_CONNECTION_CLOSE = 16,
+    */
+    // int uws_res_state(int ssl, uws_res_t *res);
+    void *uws_res_get_native_handle(int ssl, uws_res_t *res);
+
     //Request
     bool uws_req_is_ancient(uws_req_t *res);
     bool uws_req_get_yield(uws_req_t *res);
