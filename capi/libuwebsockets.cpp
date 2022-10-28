@@ -257,15 +257,15 @@ extern "C"
         return uwsApp->constructorFailed();
     }
 
-    unsigned int uws_num_subscribers(int ssl, uws_app_t *app, const char *topic)
+    unsigned int uws_num_subscribers(int ssl, uws_app_t *app, const char *topic, size_t topic_length)
     {
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
-            return uwsApp->numSubscribers(topic);
+            return uwsApp->numSubscribers(std::string_view(topic, topic_length));
         }
         uWS::App *uwsApp = (uWS::App *)app;
-        return uwsApp->numSubscribers(topic);
+        return uwsApp->numSubscribers(std::string_view(topic, topic_length));
     }
     bool uws_publish(int ssl, uws_app_t *app, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress)
     {
@@ -720,12 +720,12 @@ extern "C"
         }
     }
 
-   uws_try_end_result_t uws_res_try_end(int ssl, uws_res_t *res, const char *data, size_t length, uintmax_t total_size){
+   uws_try_end_result_t uws_res_try_end(int ssl, uws_res_t *res, const char *data, size_t length, uintmax_t total_size,  bool close_connection){
         if (ssl)
         {
             uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
             // uwsRes->end(std::string_view(data, length), close_connection);
-            std::pair<bool,bool> result = uwsRes->tryEnd(std::string_view(data, length), total_size);
+            std::pair<bool,bool> result = uwsRes->tryEnd(std::string_view(data, length), total_size, close_connection);
             return uws_try_end_result_t {
                 .ok = result.first,
                 .has_responded = result.second,
@@ -880,7 +880,15 @@ extern "C"
         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
         return uwsRes->getWriteOffset();
     }
-
+    void uws_res_override_write_offset(int ssl, uws_res_t *res, uintmax_t offset){
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            uwsRes->overrideWriteOffset(offset);
+        }
+        uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+        uwsRes->overrideWriteOffset(offset);
+    }
     bool uws_res_has_responded(int ssl, uws_res_t *res)
     {
         if (ssl)
@@ -966,12 +974,27 @@ extern "C"
         return value.length();
     }
 
+     size_t uws_req_get_full_url(uws_req_t *res, const char **dest)
+    {
+        uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
+        std::string_view value = uwsReq->getFullUrl();
+        *dest = value.data();
+        return value.length();
+    }
+
     size_t uws_req_get_method(uws_req_t *res, const char **dest)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
         std::string_view value = uwsReq->getMethod();
         *dest = value.data();
         return value.length();
+    }
+
+    void uws_req_for_each_header(uws_req_t *res, uws_get_headers_server_handler handler, void *user_data){
+        uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
+        for (auto header : *uwsReq) {
+            handler(header.first.data(), header.first.length(), header.second.data(), header.second.length(), user_data);
+        }
     }
 
     size_t uws_req_get_header(uws_req_t *res, const char *lower_case_header, size_t lower_case_header_length, const char **dest)

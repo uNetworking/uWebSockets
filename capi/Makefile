@@ -4,7 +4,7 @@ LIBRARY_NAME := libuwebsockets
 
 default:
 	$(MAKE) capi
-	$(CXX) -O3 -flto -I ../src -I ../uSockets/src examples/HelloWorldAsync.c *.o -lz -luv -lssl -lcrypto -lstdc++ ../uSockets/uSockets.a -o HelloWorldAsync
+	$(CXX) -O3 -flto -I ../src -I ../uSockets/src examples/HelloWorld.c *.o -lz -luv -lssl -lcrypto -lstdc++ ../uSockets/uSockets.a -o HelloWorld
 
 capi:
 	$(MAKE) clean
@@ -33,7 +33,6 @@ clean:
 	rm -f *.o $(CAPI_EXAMPLE_FILES) $(RUST_EXAMPLE_FILES) $(LIBRARY_NAME).a $(LIBRARY_NAME).so
 
 all:
-	$(MAKE) rust
 	for FILE in $(CAPI_EXAMPLE_FILES); do  $(CXX) -O3 -flto -I ../src -I ../uSockets/src examples/$$FILE.c *.o -luv -lstdc++ ../uSockets/uSockets.a -o $$FILE & done; \
 	wait
 	
