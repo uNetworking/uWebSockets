@@ -32,7 +32,6 @@
 #include "WebSocketContextData.h"
 
 #include "MoveOnlyFunction.h"
-#include <iostream>
 /* todo: tryWrite is missing currently, only send smaller segments with write */
 
 namespace uWS {
@@ -473,9 +472,6 @@ public:
                 Super::timeout(HTTP_TIMEOUT_S);
             }
         } else {
-            if(!Super::isCorked() && !Super::canCork()){
-                std::cout << "Failed cork :c " << std::endl;
-            }
             /* We are already corked, or can't cork so let's just call the handler */
             handler();
         }
