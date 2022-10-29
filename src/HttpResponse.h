@@ -509,12 +509,6 @@ namespace uWS
             httpResponseData->offset = offset;
         }
 
-        int getState()
-        {
-            HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
-            return httpResponseData->state;
-        }
-
         /* Checking if we have fully responded and are ready for another request */
         bool hasResponded()
         {
@@ -523,30 +517,6 @@ namespace uWS
             return !(httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING);
         }
 
-        /* It's highly error prone using corkUnsafe (but useful on C integrations) */
-        HttpResponse *corkUnsafe()
-        {
-            if (!Super::isCorked() && Super::canCork())
-            {
-                Super::cork();
-            }
-            return this;
-        }
-        /* It's highly error prone using ucorkUnsafe (but useful on C integrations) */
-        HttpResponse *uncorkUnsafe()
-        {
-            if (Super::isCorked())
-            {
-                auto [written, failed] = Super::uncork();
-                if (failed)
-                {
-                    /* For now we only have one single timeout so let's use it */
-                    /* This behavior should equal the behavior in HttpContext when uncorking fails */
-                    Super::timeout(HTTP_TIMEOUT_S);
-                }
-            }
-            return this;
-        }
         /* Corks the response if possible. Leaves already corked socket be. */
         HttpResponse *cork(MoveOnlyFunction<void()> &&handler)
         {

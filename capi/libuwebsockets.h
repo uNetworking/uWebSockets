@@ -168,9 +168,6 @@ extern "C"
     void uws_ws_end(int ssl, uws_websocket_t *ws, int code, const char *message, size_t length);
     void uws_ws_cork(int ssl, uws_websocket_t *ws, void (*handler)(void *user_data), void *user_data);
 
-    void uws_ws_cork_unsafe(int ssl, uws_websocket_t *ws);
-    void uws_ws_uncork_unsafe(int ssl, uws_websocket_t *ws);
-
     bool uws_ws_subscribe(int ssl, uws_websocket_t *ws, const char *topic, size_t length);
     bool uws_ws_unsubscribe(int ssl, uws_websocket_t *ws, const char *topic, size_t length);
     bool uws_ws_is_subscribed(int ssl, uws_websocket_t *ws, const char *topic, size_t length);
@@ -201,17 +198,7 @@ extern "C"
     void uws_res_on_aborted(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, void *opcional_data), void *opcional_data);
     void uws_res_on_data(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, const char *chunk, size_t chunk_length, bool is_end, void *opcional_data), void *opcional_data);
     void uws_res_upgrade(int ssl, uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws);
-    void uws_res_cork_unsafe(int ssl, uws_res_t *res);
-    void uws_res_uncork_unsafe(int ssl, uws_res_t *res);
-    void uws_res_prepare_for_sendfile(int ssl, uws_res_t *res);
-     /*
-    HTTP_STATUS_CALLED = 1,
-    HTTP_WRITE_CALLED = 2,
-    HTTP_END_CALLED = 4,
-    HTTP_RESPONSE_PENDING = 8,
-    HTTP_CONNECTION_CLOSE = 16,
-    */
-    int uws_res_state(int ssl, uws_res_t *res);
+     
     void *uws_res_get_native_handle(int ssl, uws_res_t *res);
 
     //Request
