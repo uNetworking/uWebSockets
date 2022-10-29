@@ -732,6 +732,35 @@ extern "C"
         }
     }
 
+    void uws_ws_cork_unsafe(int ssl, uws_websocket_t *ws)
+    {
+        if (ssl)
+        {
+            uWS::WebSocket<true, true, void *> *uws = (uWS::WebSocket<true, true, void *> *)ws;
+            uws->corkUnsafe();
+        }
+        else
+        {
+            uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;   
+            uws->corkUnsafe();
+        }
+    }
+
+    void uws_ws_uncork_unsafe(int ssl, uws_websocket_t *ws)
+    {
+        if (ssl)
+        {
+            uWS::WebSocket<true, true, void *> *uws = (uWS::WebSocket<true, true, void *> *)ws;
+            uws->uncorkUnsafe();
+        }
+        else
+        {
+            uWS::WebSocket<false, true, void *> *uws = (uWS::WebSocket<false, true, void *> *)ws;
+
+            uws->uncorkUnsafe();
+        }
+    }
+
     void uws_ws_cork(int ssl, uws_websocket_t *ws, void (*handler)(void *user_data), void *user_data)
     {
         if (ssl)
@@ -896,6 +925,34 @@ extern "C"
                 .ok = result.first,
                 .has_responded = result.second,
             };
+        }
+    }
+
+    void uws_res_cork_unsafe(int ssl, uws_res_t *res)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            uwsRes->corkUnsafe();
+        }
+        else
+        {
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+            uwsRes->corkUnsafe();
+        }
+    }
+
+    void uws_res_uncork_unsafe(int ssl, uws_res_t *res)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            uwsRes->uncorkUnsafe();
+        }
+        else
+        {
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+            uwsRes->uncorkUnsafe();
         }
     }
 
@@ -1190,28 +1247,6 @@ extern "C"
                                          (struct us_socket_context_t *)ws);
     }
 
-    // void uws_res_prepare_for_sendfile(int ssl, uws_res_t *res)
-    // {
-    //     if (ssl)
-    //     {
-    //         uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
-    //         auto pair = uwsRes->getSendBuffer(2);
-    //         char *ptr = pair.first;
-    //         ptr[0] = '\r';
-    //         ptr[1] = '\n';
-    //         uwsRes->uncork();
-    //     }
-    //     else
-    //     {
-    //         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
-    //         auto pair = uwsRes->getSendBuffer(2);
-    //         char *ptr = pair.first;
-    //         ptr[0] = '\r';
-    //         ptr[1] = '\n';
-    //         uwsRes->uncork();
-    //     }
-    // }
-
     /*
     HTTP_STATUS_CALLED = 1,
     HTTP_WRITE_CALLED = 2,
@@ -1219,19 +1254,19 @@ extern "C"
     HTTP_RESPONSE_PENDING = 8,
     HTTP_CONNECTION_CLOSE = 16,
     */
-    // int uws_res_state(int ssl, uws_res_t *res)
-    // {
-    //     if (ssl)
-    //     {
-    //         uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
-    //         return uwsRes->getHttpResponseData()->state;
-    //     }
-    //     else
-    //     {
-    //         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
-    //         return uwsRes->getHttpResponseData()->state;
-    //     }
-    // }
+    int uws_res_state(int ssl, uws_res_t *res)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            return uwsRes->getState();
+        }
+        else
+        {
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+            return uwsRes->getState();
+        }
+    }
 
     void *uws_res_get_native_handle(int ssl, uws_res_t *res)
     {

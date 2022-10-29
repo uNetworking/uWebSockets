@@ -220,6 +220,25 @@ public:
         }
     }
 
+      /* It's highly error prone using corkUnsafe (but useful on C integrations) */ 
+        void corkUnsafe()
+        {
+            if (!Super::isCorked() && Super::canCork())
+            {
+                Super::cork();
+            }
+        }
+        /* It's highly error prone using ucorkUnsafe (but useful on C integrations) */
+        void uncorkUnsafe()
+        {
+            if (Super::isCorked())
+            {
+            /* There is no timeout when failing to uncork for WebSockets,
+             * as that is handled by idleTimeout */
+               auto [written, failed] =  Super::uncork();
+            }
+        }
+
     /* Subscribe to a topic according to MQTT rules and syntax. Returns success */
     bool subscribe(std::string_view topic, bool = false) {
         WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
