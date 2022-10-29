@@ -152,12 +152,7 @@ public:
     void filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         httpContext->filter(std::move(filterHandler));
     }
-      /* Publishes a message to all websocket contexts - conceptually as if publishing to the one single
-     * TopicTree of this app (technically there are many TopicTrees, however the concept is that one
-     * app has one conceptual Topic tree) */
-    bool publish(std::string_view topic, std::string_view message, unsigned char opCode, bool compress = false) {
-        return this->publish(topic, message, (OpCode)opCode, compress);
-    }
+
     /* Publishes a message to all websocket contexts - conceptually as if publishing to the one single
      * TopicTree of this app (technically there are many TopicTrees, however the concept is that one
      * app has one conceptual Topic tree) */
@@ -511,8 +506,6 @@ public:
         }
         return std::move(*this);
     }
-
-
 
     /* Host, port, callback */
     TemplatedApp &&listen(std::string host, int port, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {

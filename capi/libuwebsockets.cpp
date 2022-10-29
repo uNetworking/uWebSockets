@@ -428,10 +428,10 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
-            return uwsApp->publish(std::string_view(topic, topic_length), std::string_view(message, message_length), (unsigned char)opcode, compress);
+            return uwsApp->publish(std::string_view(topic, topic_length), std::string_view(message, message_length), (uWS::OpCode)(unsigned char)opcode, compress);
         }
         uWS::App *uwsApp = (uWS::App *)app;
-        return uwsApp->publish(std::string_view(topic, topic_length), std::string_view(message, message_length), (unsigned char)opcode, compress);
+        return uwsApp->publish(std::string_view(topic, topic_length), std::string_view(message, message_length), (uWS::OpCode)(unsigned char)opcode, compress);
     }
     void *uws_get_native_handle(int ssl, uws_app_t *app)
     {
