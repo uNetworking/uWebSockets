@@ -27,12 +27,22 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->get(pattern, nullptr);
+                return;
+            }
             uwsApp->get(pattern, [handler, user_data](auto *res, auto *req)
                         { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
         else
         {
             uWS::App *uwsApp = (uWS::App *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->get(pattern, nullptr);
+                return;
+            }
             uwsApp->get(pattern, [handler, user_data](auto *res, auto *req)
                         { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
@@ -43,12 +53,22 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->post(pattern, nullptr);
+                return;
+            }
             uwsApp->post(pattern, [handler, user_data](auto *res, auto *req)
                          { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
         else
         {
             uWS::App *uwsApp = (uWS::App *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->post(pattern, nullptr);
+                return;
+            }
             uwsApp->post(pattern, [handler, user_data](auto *res, auto *req)
                          { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
@@ -58,12 +78,22 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->options(pattern, nullptr);
+                return;
+            }
             uwsApp->options(pattern, [handler, user_data](auto *res, auto *req)
                             { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
         else
         {
             uWS::App *uwsApp = (uWS::App *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->options(pattern, nullptr);
+                return;
+            }
             uwsApp->options(pattern, [handler, user_data](auto *res, auto *req)
                             { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
@@ -73,12 +103,22 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->del(pattern, nullptr);
+                return;
+            }
             uwsApp->del(pattern, [handler, user_data](auto *res, auto *req)
                         { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
         else
         {
             uWS::App *uwsApp = (uWS::App *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->del(pattern, nullptr);
+                return;
+            }
             uwsApp->del(pattern, [handler, user_data](auto *res, auto *req)
                         { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
@@ -88,12 +128,22 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->patch(pattern, nullptr);
+                return;
+            }
             uwsApp->patch(pattern, [handler, user_data](auto *res, auto *req)
                           { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
         else
         {
             uWS::App *uwsApp = (uWS::App *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->patch(pattern, nullptr);
+                return;
+            }
             uwsApp->patch(pattern, [handler, user_data](auto *res, auto *req)
                           { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
@@ -103,12 +153,22 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->put(pattern, nullptr);
+                return;
+            }
             uwsApp->put(pattern, [handler, user_data](auto *res, auto *req)
                         { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
         else
         {
             uWS::App *uwsApp = (uWS::App *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->put(pattern, nullptr);
+                return;
+            }
             uwsApp->put(pattern, [handler, user_data](auto *res, auto *req)
                         { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
@@ -118,12 +178,22 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->head(pattern, nullptr);
+                return;
+            }
             uwsApp->head(pattern, [handler, user_data](auto *res, auto *req)
                          { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
         else
         {
             uWS::App *uwsApp = (uWS::App *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->head(pattern, nullptr);
+                return;
+            }
             uwsApp->head(pattern, [handler, user_data](auto *res, auto *req)
                          { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
@@ -133,12 +203,22 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->connect(pattern, nullptr);
+                return;
+            }
             uwsApp->connect(pattern, [handler, user_data](auto *res, auto *req)
                             { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
         else
         {
             uWS::App *uwsApp = (uWS::App *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->connect(pattern, nullptr);
+                return;
+            }
             uwsApp->connect(pattern, [handler, user_data](auto *res, auto *req)
                             { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
@@ -149,12 +229,22 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->trace(pattern, nullptr);
+                return;
+            }
             uwsApp->trace(pattern, [handler, user_data](auto *res, auto *req)
                           { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
         else
         {
             uWS::App *uwsApp = (uWS::App *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->trace(pattern, nullptr);
+                return;
+            }
             uwsApp->trace(pattern, [handler, user_data](auto *res, auto *req)
                           { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
@@ -164,12 +254,22 @@ extern "C"
         if (ssl)
         {
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->any(pattern, nullptr);
+                return;
+            }
             uwsApp->any(pattern, [handler, user_data](auto *res, auto *req)
                         { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
         else
         {
             uWS::App *uwsApp = (uWS::App *)app;
+            if (handler == nullptr)
+            {
+                uwsApp->any(pattern, nullptr);
+                return;
+            }
             uwsApp->any(pattern, [handler, user_data](auto *res, auto *req)
                         { handler((uws_res_t *)res, (uws_req_t *)req, user_data); });
         }
@@ -227,6 +327,62 @@ extern "C"
         }
     }
 
+    /* callback, path to unix domain socket */
+    void uws_app_listen_domain(int ssl, uws_app_t *app, const char *domain, uws_listen_domain_handler handler, void *user_data)
+    {
+
+        if (ssl)
+        {
+            uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            uwsApp->listen([handler, domain, user_data](struct us_listen_socket_t *listen_socket)
+                           { handler((struct us_listen_socket_t *)listen_socket, domain, 0, user_data); },
+                           domain);
+        }
+        else
+        {
+            uWS::App *uwsApp = (uWS::App *)app;
+
+            uwsApp->listen([handler, domain, user_data](struct us_listen_socket_t *listen_socket)
+                           { handler((struct us_listen_socket_t *)listen_socket, domain, 0, user_data); },
+                           domain);
+        }
+    }
+
+    /* callback, path to unix domain socket */
+    void uws_app_listen_domain_with_options(int ssl, uws_app_t *app, const char *domain, int options, uws_listen_domain_handler handler, void *user_data)
+    {
+
+        if (ssl)
+        {
+            uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            uwsApp->listen(
+                options, [handler, domain, options, user_data](struct us_listen_socket_t *listen_socket)
+                { handler((struct us_listen_socket_t *)listen_socket, domain, options, user_data); },
+                domain);
+        }
+        else
+        {
+            uWS::App *uwsApp = (uWS::App *)app;
+
+            uwsApp->listen(
+                options, [handler, domain, options, user_data](struct us_listen_socket_t *listen_socket)
+                { handler((struct us_listen_socket_t *)listen_socket, domain, options, user_data); },
+                domain);
+        }
+    }
+    void uws_app_domain(int ssl, uws_app_t *app, const char *server_name)
+    {
+        if (ssl)
+        {
+            uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            uwsApp->domain(server_name);
+        }
+        else
+        {
+            uWS::App *uwsApp = (uWS::App *)app;
+            uwsApp->domain(server_name);
+        }
+    }
     void uws_app_destroy(int ssl, uws_app_t *app)
     {
         if (ssl)
@@ -720,47 +876,44 @@ extern "C"
         }
     }
 
-   uws_try_end_result_t uws_res_try_end(int ssl, uws_res_t *res, const char *data, size_t length, uintmax_t total_size,  bool close_connection){
-        if (ssl)
-        {
-            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
-            // uwsRes->end(std::string_view(data, length), close_connection);
-            std::pair<bool,bool> result = uwsRes->tryEnd(std::string_view(data, length), total_size, close_connection);
-            return uws_try_end_result_t {
-                .ok = result.first,
-                .has_responded = result.second,
-            };
-        }
-        else
-        {
-            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
-            std::pair<bool,bool> result = uwsRes->tryEnd(std::string_view(data, length), total_size);
-            return uws_try_end_result_t {
-                .ok = result.first,
-                .has_responded = result.second,
-            };
-        }
-    }
-
-
-    void uws_res_cork(int ssl, uws_res_t *res,void(*callback)(uws_res_t *res, void* user_data) ,void* user_data)
+    uws_try_end_result_t uws_res_try_end(int ssl, uws_res_t *res, const char *data, size_t length, uintmax_t total_size, bool close_connection)
     {
         if (ssl)
         {
             uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
-            uwsRes->cork([=](){
-                callback(res, user_data);
-            });
+            // uwsRes->end(std::string_view(data, length), close_connection);
+            std::pair<bool, bool> result = uwsRes->tryEnd(std::string_view(data, length), total_size, close_connection);
+            return uws_try_end_result_t{
+                .ok = result.first,
+                .has_responded = result.second,
+            };
         }
         else
         {
             uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
-              uwsRes->cork([=](){
-                callback(res, user_data);
-            });
+            std::pair<bool, bool> result = uwsRes->tryEnd(std::string_view(data, length), total_size);
+            return uws_try_end_result_t{
+                .ok = result.first,
+                .has_responded = result.second,
+            };
         }
     }
 
+    void uws_res_cork(int ssl, uws_res_t *res, void (*callback)(uws_res_t *res, void *user_data), void *user_data)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            uwsRes->cork([=]()
+                         { callback(res, user_data); });
+        }
+        else
+        {
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+            uwsRes->cork([=]()
+                         { callback(res, user_data); });
+        }
+    }
 
     void uws_res_pause(int ssl, uws_res_t *res)
     {
@@ -880,7 +1033,8 @@ extern "C"
         uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
         return uwsRes->getWriteOffset();
     }
-    void uws_res_override_write_offset(int ssl, uws_res_t *res, uintmax_t offset){
+    void uws_res_override_write_offset(int ssl, uws_res_t *res, uintmax_t offset)
+    {
         if (ssl)
         {
             uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
@@ -974,7 +1128,7 @@ extern "C"
         return value.length();
     }
 
-     size_t uws_req_get_full_url(uws_req_t *res, const char **dest)
+    size_t uws_req_get_full_url(uws_req_t *res, const char **dest)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
         std::string_view value = uwsReq->getFullUrl();
@@ -990,9 +1144,11 @@ extern "C"
         return value.length();
     }
 
-    void uws_req_for_each_header(uws_req_t *res, uws_get_headers_server_handler handler, void *user_data){
+    void uws_req_for_each_header(uws_req_t *res, uws_get_headers_server_handler handler, void *user_data)
+    {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
-        for (auto header : *uwsReq) {
+        for (auto header : *uwsReq)
+        {
             handler(header.first.data(), header.first.length(), header.second.data(), header.second.length(), user_data);
         }
     }
