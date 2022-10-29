@@ -1,6 +1,5 @@
 EXAMPLE_FILES := Http3Server Broadcast HelloWorld Crc32 ServerName EchoServer BroadcastingEchoServer UpgradeSync UpgradeAsync
 THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
-
 override CXXFLAGS += -lpthread -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++2a -Isrc -IuSockets/src
 override LDFLAGS += uSockets/*.o -lz
 
@@ -61,9 +60,15 @@ endif
 .PHONY: examples
 examples:
 	$(MAKE) -C uSockets; \
-	for FILE in $(EXAMPLE_FILES); do $(CXX) -pthread  -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
+	for FILE in $(EXAMPLE_FILES); do $(CXX) -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
 	for FILE in $(THREADED_EXAMPLE_FILES); do $(CXX) -pthread -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
 	wait
+
+.PHONY: capi
+capi:
+	$(MAKE) -C uSockets
+	$(CXX) -shared -fPIC -flto -O3 $(CXXFLAGS) capi/App.cpp -o capi.so $(LDFLAGS)
+	$(CXX) capi/example.c -O3 capi.so -o example
 
 install:
 	mkdir -p "$(DESTDIR)$(prefix)/include/uWebSockets"
