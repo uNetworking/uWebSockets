@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2019.
+ * Authored by Alex Hultman, 2018-2022.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,8 +18,8 @@
 #ifndef UWS_BLOOMFILTER_H
 #define UWS_BLOOMFILTER_H
 
-/* This filter has a decently low amount of false positives for the
- * standard and non-standard common request headers */
+/* This filter has no false positives or collisions for the standard
+ * and non-standard common request headers */
 
 #include <string_view>
 #include <bitset>
@@ -28,32 +28,47 @@ namespace uWS {
 
 struct BloomFilter {
 private:
-    std::bitset<512> filter;
-
-    unsigned int hash1(std::string_view key) {
-        return ((size_t)key[key.length() - 1] - (key.length() << 3)) & 511;
+    std::bitset<256> filter;
+    static inline uint32_t perfectHash(uint32_t features) {
+        return features *= 1843993368;
     }
 
-    unsigned int hash2(std::string_view key) {
-        return (((size_t)key[0] + (key.length() << 4)) & 511);
-    }
+    union ScrambleArea {
+        unsigned char p[4];
+        uint32_t val;
+    };
 
-    unsigned int hash3(std::string_view key) {
-        return ((unsigned int)key[key.length() - 2] - 97 - (key.length() << 5)) & 511;
+    ScrambleArea getFeatures(std::string_view key) {
+        ScrambleArea s;
+        s.p[0] = key[0];
+        s.p[1] = key[key.length() - 1];
+        s.p[2] = key[key.length() - 2];
+        s.p[3] = key[key.length() >> 1];
+        return s;
     }
 
 public:
     bool mightHave(std::string_view key) {
-        return !key.length() || (filter.test(hash1(key)) && filter.test(hash2(key)) && (key.length() < 2 || filter.test(hash3(key))));
+        if (key.length() < 2) {
+            return true;
+        }
+    
+        ScrambleArea s = getFeatures(key);
+        s.val = perfectHash(s.val);
+        return filter.test(s.p[0]) &
+        filter.test(s.p[1]) &
+        filter.test(s.p[2]) &
+        filter.test(s.p[3]);
     }
 
     void add(std::string_view key) {
-        if (key.length()) {
-            filter.set(hash1(key));
-            filter.set(hash2(key));
-        }
         if (key.length() >= 2) {
-            filter.set(hash3(key));
+            ScrambleArea s = getFeatures(key);
+            s.val = perfectHash(s.val);
+            filter.set(s.p[0]);
+            filter.set(s.p[1]);
+            filter.set(s.p[2]);
+            filter.set(s.p[3]);
         }
     }
 
