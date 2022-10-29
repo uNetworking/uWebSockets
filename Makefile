@@ -81,4 +81,3 @@ all:
 clean:
 	rm -rf $(EXAMPLE_FILES) $(THREADED_EXAMPLE_FILES)
 	rm -rf fuzzing/*.o benchmarks/*.o
-	
