@@ -239,7 +239,7 @@ private:
      * Field values containing other CTL characters are also invalid. */
     static inline void *tryConsumeFieldValue(char *p) {
         for (; true; p += 8) {
-            if (hasLess(*(uint64_t *)p), 32) {
+            if (hasLess(*(uint64_t *)p, 32) {
                 while (*(unsigned char *)p > 31) p++;
                 return (void *)p;
             }
