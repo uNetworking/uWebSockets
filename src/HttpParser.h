@@ -203,17 +203,43 @@ private:
         ((x > 96) & (x < '{'));
     }
     
-    static inline bool hasLess(uint64_t word) {
-        return (word - ~0UL / 255 * 32) & ~word & ~0UL / 255 * 128;
+    static inline uint64_t hasLess(uint64_t x, uint64_t n) {
+        return (((x)-~0UL/255*(n))&~(x)&~0UL/255*128);
+    }
+
+    static inline uint64_t hasMore(uint64_t x, uint64_t n) {
+        return (((x)+~0UL/255*(127-(n))|(x))&~0UL/255*128);
+    }
+
+    static inline uint64_t hasBetween(uint64_t x, uint64_t m, uint64_t n) {
+        return ((~0UL/255*(127+(n))-((x)&~0UL/255*127)&~(x)&((x)&~0UL/255*127)+~0UL/255*(127-(m)))&~0UL/255*128);
+    }
+
+    static inline bool notFieldNameWord(uint64_t x) {
+        return hasLess(x, '-') |
+        hasBetween(x, '-', '0') |
+        hasBetween(x, '9', 'A') |
+        hasBetween(x, 'Z', 'a') |
+        hasMore(x, 'z');
+    }
+    
+    static inline void *consumeFieldName(char *p) {
+        for (; true; p += 8) {
+            if (notFieldNameWord(*(uint64_t *)p)) {
+                while (isFieldNameByte(*(unsigned char *)p)) p++;
+                return (void *)p;
+            }
+            (*(uint64_t *)p) |= 0x2020202020202020ull;
+        }
     }
 
     /* RFC 9110: 5.5 Field Values (TLDR; anything above 31 is allowed; htab (9) is also allowed)
      * Field values are usually constrained to the range of US-ASCII characters [...]
      * Field values containing CR, LF, or NUL characters are invalid and dangerous [...]
      * Field values containing other CTL characters are also invalid. */
-    static inline void *find_less(char *p, char */*end*/) {
+    static inline void *tryConsumeFieldValue(char *p) {
         for (; true; p += 8) {
-            if (hasLess(*(uint64_t *)p)) {
+            if (hasLess(*(uint64_t *)p), 32) {
                 while (*(unsigned char *)p > 31) p++;
                 return (void *)p;
             }
@@ -250,9 +276,11 @@ private:
          * which is then removed, and our counters to flip due to overflow and we end up with a crash */
 
         for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS - 1; i++) {
-            /* Lower case and short scan until ':', or stop at \r (from previous scan) */
-            for (preliminaryKey = postPaddedBuffer; isFieldNameByte(*postPaddedBuffer); *(postPaddedBuffer++) |= 32);
+            /* Lower case and consume the field name */
+            preliminaryKey = postPaddedBuffer;
+            postPaddedBuffer = (char *) consumeFieldName(postPaddedBuffer);
             headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
+            
             /* Assume colon, space follows (this is fine as we have at least 2 bytes past) */
             if (postPaddedBuffer[0] == ':' && postPaddedBuffer[1] == ' ') {
                 postPaddedBuffer += 2;
@@ -265,9 +293,9 @@ private:
                 for (; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
             }
             preliminaryValue = postPaddedBuffer;
-            /* The goal of this call is to find next "\r\n", fast */
+            /* The goal of this call is to find next "\r\n", or any invalid field value chars, fast */
             retry:
-            postPaddedBuffer = (char *) find_less(postPaddedBuffer, end);
+            postPaddedBuffer = (char *) tryConsumeFieldValue(postPaddedBuffer);
             /* If this is not CR then we caught some stinky invalid char on the way */
             if (postPaddedBuffer[0] != '\r') {
                 /* If TAB then keep searching */
