@@ -192,6 +192,17 @@ private:
         }
     }
     
+    /* RFC 9110 16.3.1 Field Name Registry (TLDR; alnum + hyphen is allowed)
+     * [...] It MUST conform to the field-name syntax defined in Section 5.1,
+     * and it SHOULD be restricted to just letters, digits,
+     * and hyphen ('-') characters, with the first character being a letter. */
+    static inline bool isFieldNameByte(unsigned char x) {
+        return (x == '-') |
+        ((x > '/') & (x < ':')) |
+        ((x > '@') & (x < '[')) |
+        ((x > 96) & (x < '{'));
+    }
+    
     static inline bool hasLess(uint64_t word) {
         return (word - ~0UL / 255 * 32) & ~word & ~0UL / 255 * 128;
     }
@@ -240,7 +251,7 @@ private:
 
         for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS - 1; i++) {
             /* Lower case and short scan until ':', or stop at \r (from previous scan) */
-            for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') && (*(unsigned char *)postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
+            for (preliminaryKey = postPaddedBuffer; isFieldNameByte(*postPaddedBuffer); *(postPaddedBuffer++) |= 32);
             headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
             /* Assume colon, space follows (this is fine as we have at least 2 bytes past) */
             if (postPaddedBuffer[0] == ':' && postPaddedBuffer[1] == ' ') {
