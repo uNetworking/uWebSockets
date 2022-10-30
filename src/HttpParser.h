@@ -226,7 +226,9 @@ private:
     static inline void *consumeFieldName(char *p) {
         for (; true; p += 8) {
             if (notFieldNameWord(*(uint64_t *)p)) {
-                while (isFieldNameByte(*(unsigned char *)p)) p++;
+                while (isFieldNameByte(*(unsigned char *)p)) {
+                    *(p++) |= 0x20;
+                }
                 return (void *)p;
             }
             (*(uint64_t *)p) |= 0x2020202020202020ull;
