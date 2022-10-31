@@ -286,7 +286,7 @@ private:
     }
 
     /* End is only used for the proxy parser. The HTTP parser recognizes "\ra" as invalid "\r\n" scan and breaks. */
-    static unsigned int getHeaders(char *postPaddedBuffer, struct HttpRequest::Header *headers, void *reserved) {
+    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
 
         #ifdef UWS_WITH_PROXY
@@ -307,6 +307,7 @@ private:
         #else
             /* This one is unused */
             (void) reserved;
+            (void) end;
         #endif
 
         /* It is critical for fallback buffering logic that we only return with success
@@ -403,7 +404,7 @@ private:
         data[length] = '\r';
         data[length + 1] = 'a'; /* Anything that is not \n, to trigger "invalid request" */
 
-        for (unsigned int consumed; length && (consumed = getHeaders(data, req->headers, reserved)); ) {
+        for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers, reserved)); ) {
             data += consumed;
             length -= consumed;
             consumedTotal += consumed;
