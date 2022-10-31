@@ -32,6 +32,12 @@ namespace uWS {
     constexpr uint32_t STATE_HAS_SIZE = 0x80000000;
     constexpr uint32_t STATE_IS_CHUNKED = 0x40000000;
     constexpr uint32_t STATE_SIZE_MASK = 0x3FFFFFFF;
+    constexpr uint32_t STATE_IS_ERROR = 0xFFFFFFFF;
+    constexpr uint32_t STATE_SIZE_OVERFLOW = 0x0F000000;
+
+    inline unsigned int chunkSize(unsigned int state) {
+        return state & STATE_SIZE_MASK;
+    }
 
     /* Reads hex number until CR or out of data to consume. Updates state. Returns bytes consumed. */
     inline void consumeHexNumber(std::string_view &data, unsigned int &state) {
@@ -45,10 +51,17 @@ namespace uWS {
                 digit = (unsigned char) (digit - ('A' - ':'));
             }
 
+            unsigned int number = ((unsigned int) digit - (unsigned int) '0');
+
+            if (number > 16 || (chunkSize(state) & STATE_SIZE_OVERFLOW)) {
+                state = STATE_IS_ERROR;
+                return;
+            }
+
             // extract state bits
             unsigned int bits = /*state &*/ STATE_IS_CHUNKED;
 
-            state = (state & STATE_SIZE_MASK) * 16u + ((unsigned int) digit - (unsigned int) '0');
+            state = (state & STATE_SIZE_MASK) * 16u + number;
 
             state |= bits;
             data.remove_prefix(1);
@@ -63,10 +76,6 @@ namespace uWS {
             state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
             data.remove_prefix(1);
         }
-    }
-
-    inline unsigned int chunkSize(unsigned int state) {
-        return state & STATE_SIZE_MASK;
     }
 
     inline void decChunkSize(unsigned int &state, unsigned int by) {
@@ -85,6 +94,10 @@ namespace uWS {
     /* Are we in the middle of parsing chunked encoding? */
     inline bool isParsingChunkedEncoding(unsigned int state) {
         return state & ~STATE_SIZE_MASK;
+    }
+
+    inline bool isParsingInvalidChunkedEncoding(unsigned int state) {
+        return state == STATE_IS_ERROR;
     }
 
     /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
@@ -115,6 +128,9 @@ namespace uWS {
 
             if (!hasChunkSize(state)) {
                 consumeHexNumber(data, state);
+                if (isParsingInvalidChunkedEncoding(state)) {
+                    return std::nullopt;
+                }
                 if (hasChunkSize(state) && chunkSize(state) == 2) {
 
                     //printf("Setting state to trailer-parsing and emitting empty chunk\n");
