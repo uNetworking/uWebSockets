@@ -333,6 +333,7 @@ private:
                 /* Error: invalid chars in field name */
                 return 0;
             }
+            postPaddedBuffer++;
 
             preliminaryValue = postPaddedBuffer;
             /* The goal of this call is to find next "\r\n", or any invalid field value chars, fast */
