@@ -40,7 +40,9 @@ namespace uWS {
 
             unsigned char digit = (unsigned char)data.data()[0];
             if (digit >= 'a') {
-                digit -= ('a' - '9') - 1;
+                digit = (unsigned char) (digit - ('a' - ':'));
+            } else if (digit >= 'A') {
+                digit = (unsigned char) (digit - ('A' - ':'));
             }
 
             // extract state bits
