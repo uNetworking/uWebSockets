@@ -40,10 +40,10 @@ private:
 
     ScrambleArea getFeatures(std::string_view key) {
         ScrambleArea s;
-        s.p[0] = key[0];
-        s.p[1] = key[key.length() - 1];
-        s.p[2] = key[key.length() - 2];
-        s.p[3] = key[key.length() >> 1];
+        s.p[0] = reinterpret_cast<const unsigned char&>(key[0]);
+        s.p[1] = reinterpret_cast<const unsigned char&>(key[key.length() - 1]);
+        s.p[2] = reinterpret_cast<const unsigned char&>(key[key.length() - 2]);
+        s.p[3] = reinterpret_cast<const unsigned char&>(key[key.length() >> 1]);
         return s;
     }
 
@@ -55,20 +55,20 @@ public:
     
         ScrambleArea s = getFeatures(key);
         s.val = perfectHash(s.val);
-        return filter.test(s.p[0]) &
-        filter.test(s.p[1]) &
-        filter.test(s.p[2]) &
-        filter.test(s.p[3]);
+        return filter[s.p[0]] &&
+        filter[s.p[1]] &&
+        filter[s.p[2]] &&
+        filter[s.p[3]];
     }
 
     void add(std::string_view key) {
         if (key.length() >= 2) {
             ScrambleArea s = getFeatures(key);
             s.val = perfectHash(s.val);
-            filter.set(s.p[0]);
-            filter.set(s.p[1]);
-            filter.set(s.p[2]);
-            filter.set(s.p[3]);
+            filter[s.p[0]] = 1;
+            filter[s.p[1]] = 1;
+            filter[s.p[2]] = 1;
+            filter[s.p[3]] = 1;
         }
     }
 
