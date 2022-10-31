@@ -117,7 +117,17 @@ public:
         return std::string_view(headers->value.data(), headers->value.length());
     }
 
+    /* Hack: this should be getMethod */
+    std::string_view getCaseSensitiveMethod() {
+        return std::string_view(headers->key.data(), headers->key.length());
+    }
+
     std::string_view getMethod() {
+        /* Compatibility hack: lower case method (todo: remove when major version bumps) */
+        for (unsigned int i = 0; i < headers->key.length(); i++) {
+            ((char *) headers->key.data())[i] |= 32;
+        }
+
         return std::string_view(headers->key.data(), headers->key.length());
     }
 
@@ -208,11 +218,11 @@ private:
     }
 
     static inline uint64_t hasMore(uint64_t x, uint64_t n) {
-        return (((x)+~0UL/255*(127-(n))|(x))&~0UL/255*128);
+        return (( ((x)+~0UL/255*(127-(n))) |(x))&~0UL/255*128);
     }
 
     static inline uint64_t hasBetween(uint64_t x, uint64_t m, uint64_t n) {
-        return ((~0UL/255*(127+(n))-((x)&~0UL/255*127)&~(x)&((x)&~0UL/255*127)+~0UL/255*(127-(m)))&~0UL/255*128);
+        return (( (~0UL/255*(127+(n))-((x)&~0UL/255*127)) &~(x)& (((x)&~0UL/255*127)+~0UL/255*(127-(m))) )&~0UL/255*128);
     }
 
     static inline bool notFieldNameWord(uint64_t x) {
@@ -235,6 +245,33 @@ private:
         }
     }
 
+    /* Puts method as key, target as value and returns non-null (or nullptr on error). */
+    static inline char *consumeRequestLine(char *data, HttpRequest::Header &header) {
+        /* Scan until single SP, assume next is / (origin request) */
+        char *start = data;
+        /* This catches the post padded CR and fails */
+        while (data[0] > 32) data++;
+        if (data[0] == 32 && data[1] == '/') {
+            header.key = {start, (size_t) (data - start)};
+            data++;
+            /* Scan for less than 33 (catches post padded CR and fails) */
+            start = data;
+            for (; true; data += 8) {
+                if (hasLess(*(uint64_t *)data, 33)) {
+                    while (*(unsigned char *)data > 32) data++;
+                    /* Now we stand on space */
+                    header.value = {start, (size_t) (data - start)};
+                    /* Check that the following is http 1.1 */
+                    if (memcmp(" HTTP/1.1\r\n", data, 11) == 0) {
+                        return data + 11;
+                    }
+                    return nullptr;
+                }
+            }
+        }
+        return nullptr;
+    }
+
     /* RFC 9110: 5.5 Field Values (TLDR; anything above 31 is allowed; htab (9) is also allowed)
      * Field values are usually constrained to the range of US-ASCII characters [...]
      * Field values containing CR, LF, or NUL characters are invalid and dangerous [...]
@@ -249,7 +286,7 @@ private:
     }
 
     /* End is only used for the proxy parser. The HTTP parser recognizes "\ra" as invalid "\r\n" scan and breaks. */
-    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved) {
+    static unsigned int getHeaders(char *postPaddedBuffer, struct HttpRequest::Header *headers, void *reserved) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
 
         #ifdef UWS_WITH_PROXY
@@ -277,35 +314,40 @@ private:
          * for PROXY means we can end up succeeding, yet leaving bytes in the fallback buffer
          * which is then removed, and our counters to flip due to overflow and we end up with a crash */
 
-        for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS - 1; i++) {
+        /* The request line is different from the field names / field values */
+        if (!(postPaddedBuffer = consumeRequestLine(postPaddedBuffer, headers[0]))) {
+            /* Error - invalid request line */
+            return 0;
+        }
+        headers++;
+
+        for (unsigned int i = 1; i < HttpRequest::MAX_HEADERS - 1; i++) {
             /* Lower case and consume the field name */
             preliminaryKey = postPaddedBuffer;
             postPaddedBuffer = (char *) consumeFieldName(postPaddedBuffer);
             headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
-            
-            /* Assume colon, space follows (this is fine as we have at least 2 bytes past) */
-            if (postPaddedBuffer[0] == ':' && postPaddedBuffer[1] == ' ') {
-                postPaddedBuffer += 2;
-            } else {
-                /* We should not accept whitespace between key and colon (unless on request line) */
-                if (i && postPaddedBuffer[0] != ':') {
-                    return 0;
-                }
-                /* Trim until value starts */
-                for (; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
+
+            /* We should not accept whitespace between key and colon, so colon must foloow immediately */
+            if (postPaddedBuffer[0] != ':') {
+                /* Error: invalid chars in field name */
+                return 0;
             }
+
             preliminaryValue = postPaddedBuffer;
             /* The goal of this call is to find next "\r\n", or any invalid field value chars, fast */
-            retry:
-            postPaddedBuffer = (char *) tryConsumeFieldValue(postPaddedBuffer);
-            /* If this is not CR then we caught some stinky invalid char on the way */
-            if (postPaddedBuffer[0] != '\r') {
-                /* If TAB then keep searching */
-                if (postPaddedBuffer[0] == '\t') {
-                    postPaddedBuffer++;
-                    goto retry;
+            while (true) {
+                postPaddedBuffer = (char *) tryConsumeFieldValue(postPaddedBuffer);
+                /* If this is not CR then we caught some stinky invalid char on the way */
+                if (postPaddedBuffer[0] != '\r') {
+                    /* If TAB then keep searching */
+                    if (postPaddedBuffer[0] == '\t') {
+                        postPaddedBuffer++;
+                        continue;
+                    }
+                    /* Error - invalid chars in field value */
+                    return 0;
                 }
-                return 0;
+                break;
             }
             /* We fence end[0] with \r, followed by end[1] being something that is "not \n", to signify "not found".
                 * This way we can have this one single check to see if we found \r\n WITHIN our allowed search space. */
@@ -313,6 +355,17 @@ private:
                 /* Store this header, it is valid */
                 headers->value = std::string_view(preliminaryValue, (size_t) (postPaddedBuffer - preliminaryValue));
                 postPaddedBuffer += 2;
+
+                /* Trim trailing whitespace (SP, HTAB) */
+                while (headers->value.length() && headers->value.back() < 33) {
+                    headers->value.remove_suffix(1);
+                }
+
+                /* Trim initial whitespace (SP, HTAB) */
+                while (headers->value.length() && headers->value.front() < 33) {
+                    headers->value.remove_prefix(1);
+                }
+                
                 headers++;
 
                 /* We definitely have at least one header (or request line), so check if we are done */
@@ -350,21 +403,13 @@ private:
         data[length] = '\r';
         data[length + 1] = 'a'; /* Anything that is not \n, to trigger "invalid request" */
 
-        for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers, reserved)); ) {
+        for (unsigned int consumed; length && (consumed = getHeaders(data, req->headers, reserved)); ) {
             data += consumed;
             length -= consumed;
             consumedTotal += consumed;
 
             /* Store HTTP version (ancient 1.0 or 1.1) */
-            req->ancientHttp = req->headers->value.length() && (req->headers->value[req->headers->value.length() - 1] == '0');
-
-            /* We do not support ancient HTTP versions! */
-            if (req->isAncient()) {
-                return {0, FULLPTR};
-            }
-
-            /* Strip away tail of first "header value" aka URL */
-            req->headers->value = std::string_view(req->headers->value.data(), (size_t) std::max<int>(0, (int) req->headers->value.length() - 9));
+            req->ancientHttp = false;
 
             /* Add all headers to bloom filter */
             req->bf.reset();
@@ -372,8 +417,8 @@ private:
                 req->bf.add(h->key);
             }
             
-            /* Break if no host header */
-            if (!req->getHeader("host").length()) {
+            /* Break if no host header (but we can have empty string which is different from nullptr) */
+            if (!req->getHeader("host").data()) {
                 return {0, FULLPTR};
             }
 

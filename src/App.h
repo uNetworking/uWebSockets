@@ -379,7 +379,7 @@ public:
         /* Calculate idleTimeoutCompnents */
         webSocketContext->getExt()->calculateIdleTimeoutCompnents(behavior.idleTimeout);
 
-        httpContext->onHttp("get", pattern, [webSocketContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
+        httpContext->onHttp("GET", pattern, [webSocketContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
 
             /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
@@ -438,63 +438,63 @@ public:
 
     TemplatedApp &&get(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("get", pattern, std::move(handler));
+            httpContext->onHttp("GET", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&post(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("post", pattern, std::move(handler));
+            httpContext->onHttp("POST", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&options(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("options", pattern, std::move(handler));
+            httpContext->onHttp("OPTIONS", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&del(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("delete", pattern, std::move(handler));
+            httpContext->onHttp("DELETE", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&patch(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("patch", pattern, std::move(handler));
+            httpContext->onHttp("PATCH", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&put(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("put", pattern, std::move(handler));
+            httpContext->onHttp("PUT", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&head(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("head", pattern, std::move(handler));
+            httpContext->onHttp("HEAD", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&connect(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("connect", pattern, std::move(handler));
+            httpContext->onHttp("CONNECT", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&trace(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("trace", pattern, std::move(handler));
+            httpContext->onHttp("TRACE", pattern, std::move(handler));
         }
         return std::move(*this);
     }

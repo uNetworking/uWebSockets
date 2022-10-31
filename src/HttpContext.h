@@ -170,7 +170,7 @@ private:
 
                 /* Route the method and URL */
                 selectedRouter->getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
-                if (!selectedRouter->route(httpRequest->getMethod(), httpRequest->getUrl())) {
+                if (!selectedRouter->route(httpRequest->getCaseSensitiveMethod(), httpRequest->getUrl())) {
                     /* We have to force close this socket as we have no handler for it */
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
@@ -423,7 +423,7 @@ public:
         /* Todo: This is ugly, fix */
         std::vector<std::string> methods;
         if (method == "*") {
-            methods = httpContextData->currentRouter->methods;
+            methods = httpContextData->currentRouter->upperCasedMethods;
         } else {
             methods = {method};
         }
