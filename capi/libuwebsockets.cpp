@@ -1,8 +1,5 @@
 /*
- * Authored by Ciro Spaciari, 2022.
- * Intellectual property of third-party.
- * 
- *  Licensed under the terms of the MIT license.
+ * Copyright 2022 Ciro Spaciari
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
