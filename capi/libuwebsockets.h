@@ -1,3 +1,24 @@
+/*
+ * Copyright 2022 Ciro Spaciari
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
 #ifndef LIBUWS_CAPI_HEADER
 #define LIBUWS_CAPI_HEADER
@@ -208,6 +229,8 @@ extern "C"
     size_t uws_req_get_url(uws_req_t *res, const char **dest);
     size_t uws_req_get_full_url(uws_req_t *res, const char **dest);
     size_t uws_req_get_method(uws_req_t *res, const char **dest);
+    size_t uws_req_get_case_sensitive_method(uws_req_t *res, const char **dest);
+
     size_t uws_req_get_header(uws_req_t *res, const char *lower_case_header, size_t lower_case_header_length, const char **dest);
     void uws_req_for_each_header(uws_req_t *res, uws_get_headers_server_handler handler, void *user_data);
     size_t uws_req_get_query(uws_req_t *res, const char *key, size_t key_length, const char **dest);
