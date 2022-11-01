@@ -14,5 +14,6 @@ default:
 
 smoke:
 	../Crc32 &
-	deno run --allow-net smoke.mjs
+	sleep 1
+	~/.deno/bin/deno run --allow-net smoke.mjs
 	pkill Crc32
