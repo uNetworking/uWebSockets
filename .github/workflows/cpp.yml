@@ -14,6 +14,8 @@ jobs:
       run: make -C uWebSockets
     - name: List binaries
       run: ls uWebSockets
+    - name: Install Deno
+      run: curl -fsSL https://deno.land/x/install/install.sh | sh
     - name: Build tests
       run: make -C uWebSockets/tests smoke
       
