@@ -15,7 +15,7 @@ jobs:
     - name: List binaries
       run: ls uWebSockets
     - name: Build tests
-      run: make -C uWebSockets/tests
+      run: make -C uWebSockets/tests smoke
       
   build_osx:
 
