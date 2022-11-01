@@ -149,8 +149,10 @@ public:
     }
 
     /* Attaches a "filter" function to track socket connections/disconnections */
-    void filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
+    TemplatedApp &&filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         httpContext->filter(std::move(filterHandler));
+
+        return std::move(*this);
     }
 
     /* Publishes a message to all websocket contexts - conceptually as if publishing to the one single
