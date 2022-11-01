@@ -16,8 +16,12 @@ int main() {
 
         std::cout << httpRequest->getMethod() << std::endl;
 
-        // This fails on anything other than Linux?
-        assert(httpRequest->getHeader("utf8").length());
+        for (auto [key, value] : *httpRequest) {
+			std::cout << key << ": " << value << std::endl;
+		}
+
+        /* Since we did proper whitespace trimming this thing is there, but empty */
+        assert(httpRequest->getHeader("utf8").data());
 
         /* Return ok */
         return s;
