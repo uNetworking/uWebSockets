@@ -208,6 +208,8 @@ extern "C"
     size_t uws_req_get_url(uws_req_t *res, const char **dest);
     size_t uws_req_get_full_url(uws_req_t *res, const char **dest);
     size_t uws_req_get_method(uws_req_t *res, const char **dest);
+    size_t uws_req_get_case_sensitive_method(uws_req_t *res, const char **dest);
+
     size_t uws_req_get_header(uws_req_t *res, const char *lower_case_header, size_t lower_case_header_length, const char **dest);
     void uws_req_for_each_header(uws_req_t *res, uws_get_headers_server_handler handler, void *user_data);
     size_t uws_req_get_query(uws_req_t *res, const char *key, size_t key_length, const char **dest);
