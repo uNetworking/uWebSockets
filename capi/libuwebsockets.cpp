@@ -1145,6 +1145,14 @@ extern "C"
         return value.length();
     }
 
+    size_t uws_req_get_case_sensitive_method(uws_req_t *res, const char **dest)
+    {
+        uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
+        std::string_view value = uwsReq->getCaseSensitiveMethod();
+        *dest = value.data();
+        return value.length();
+    }
+
     void uws_req_for_each_header(uws_req_t *res, uws_get_headers_server_handler handler, void *user_data)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
