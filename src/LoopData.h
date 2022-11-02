@@ -62,7 +62,12 @@ public:
     void updateDate() {
         time_t now = time(0);
         struct tm tstruct;
-        gmtime_s(&now, &tstruct);
+#ifdef _WIN32
+        /* Micro, fucking soft never follows spec. */
+        gmtime_s(&tstruct, &now);
+#else
+        gmtime_r(&now, &tstruct);
+#endif
         strftime(date, 32, "%a, %d %b %Y %X GMT", &tstruct);
     }
 
