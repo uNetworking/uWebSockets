@@ -28,7 +28,7 @@ jobs:
           make -C tests
           make
           ls
-          .\Crc32 &
+          Start-Process -NoNewWindow Crc32
           sleep 1
           deno run --allow-net tests\smoke.mjs
           Stop-Process -Name Crc32
