@@ -5,8 +5,14 @@ int main() {
     char *CXXFLAGS = strcpy(calloc(1024, 1), maybe(getenv("CXXFLAGS")));
     char *CFLAGS = strcpy(calloc(1024, 1), maybe(getenv("CFLAGS")));
     char *LDFLAGS = strcpy(calloc(1024, 1), maybe(getenv("LDFLAGS")));
-    char *CC = strcpy(calloc(1024, 1), or_else(getenv("CC"), "clang"));
-    char *CXX = strcpy(calloc(1024, 1), or_else(getenv("CXX"), "clang++"));
+    char *CC = strcpy(calloc(1024, 1), or_else(getenv("CC"), "cc"));
+    char *CXX = strcpy(calloc(1024, 1), or_else(getenv("CXX"), "g++"));
+
+    char *EXAMPLE_FILES[] = {"Http3Server", "Broadcast", "HelloWorld", "Crc32", "ServerName",
+    "EchoServer", "BroadcastingEchoServer", "UpgradeSync", "UpgradeAsync"};
+
+    strcat(CXXFLAGS, " -O3 -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++2a -Isrc -IuSockets/src");
+    strcat(LDFLAGS, " uSockets/*.o");
 
     // By default we use LTO, but Windows does not support it
     if (!env_is("WITH_LTO", "0")) {
@@ -34,7 +40,7 @@ int main() {
     // Heavily prefer boringssl over openssl
     if (env_is("WITH_BORINGSSL", "1")) {
         strcat(CFLAGS, " -I uSockets/boringssl/include -pthread -DLIBUS_USE_OPENSSL");
-        strcat("LDFLAGS", " -pthread uSockets/boringssl/build/ssl/libssl.a uSockets/boringssl/build/crypto/libcrypto.a");
+        strcat(LDFLAGS, " -pthread uSockets/boringssl/build/ssl/libssl.a uSockets/boringssl/build/crypto/libcrypto.a");
     } else {
         // WITH_OPENSSL=1 enables OpenSSL 1.1+ support
         if (env_is("WITH_OPENSSL", "1")) {
@@ -65,5 +71,7 @@ int main() {
         strcat(LDFLAGS, " -lasan");
     }
 
-    run("%s%s%s", CXX, CXXFLAGS, LDFLAGS);
+    for (int i = 0; i < sizeof(EXAMPLE_FILES) / sizeof(char *); i++) {
+        run("%s%s examples/%s.cpp %s -o %s", CXX, CXXFLAGS, EXAMPLE_FILES[i], LDFLAGS, EXAMPLE_FILES[i]);
+    }
 }
