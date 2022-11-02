@@ -1,0 +1,3 @@
+default:
+	$(CC) build.c
+	./a.out || build.exe || a.exe
