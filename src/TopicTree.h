@@ -356,6 +356,18 @@ public:
     }
 };
 
+/* Type queued up when publishing */
+struct TopicTreeMessage {
+    std::string message;
+    /*OpCode*/ int opCode;
+    bool compress;
+};
+struct TopicTreeBigMessage {
+    std::string_view message;
+    /*OpCode*/ int opCode;
+    bool compress;
+};
+
 }
 
 #endif
