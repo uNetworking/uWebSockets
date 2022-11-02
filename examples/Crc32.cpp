@@ -11,8 +11,24 @@
 
 /* Note that uWS::SSLApp({options}) is the same as uWS::App() when compiled without SSL support */
 
-#include <zlib.h>
 #include <sstream>
+#include <cstdint>
+#include <cstddef>
+
+uint32_t crc32(const char *s,size_t n, uint32_t crc=0xFFFFFFFF) {
+	
+	for(size_t i=0;i<n;i++) {
+		char ch=s[i];
+		for(size_t j=0;j<8;j++) {
+			uint32_t b=(ch^crc)&1;
+			crc>>=1;
+			if(b) crc=crc^0xEDB88320;
+			ch>>=1;
+		}
+	}
+	
+	return crc;
+}
 
 int main() {
 
@@ -29,15 +45,15 @@ int main() {
 		}
 
 		auto isAborted = std::make_shared<bool>(false);
-		uLong crc = crc32(0L, Z_NULL, 0);
+		uint32_t crc = 0xFFFFFFFF;
 		res->onData([res, isAborted, crc](std::string_view chunk, bool isFin) mutable {
 			if (chunk.length()) {
-				crc = crc32(crc, (const Bytef *) chunk.data(), (uInt) chunk.length());
+				crc = crc32(chunk.data(), chunk.length(), crc);
 			}
 
 			if (isFin && !*isAborted) {
 				std::stringstream s;
-    			s << std::hex << crc << std::endl;
+    			s << std::hex << (~crc) << std::endl;
 				res->end(s.str());
 			}
 		});
