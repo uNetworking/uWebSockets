@@ -29,8 +29,8 @@ jobs:
           make
           ls
           .\Crc32 &
-	        sleep 1
-	        deno run --allow-net tests\smoke.mjs
+          sleep 1
+          deno run --allow-net tests\smoke.mjs
           Stop-Process -Name Crc32
 
 
