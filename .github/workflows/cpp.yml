@@ -9,11 +9,14 @@ jobs:
     steps:
       - name: Clone source
         run: git clone --recursive https://github.com/uNetworking/uWebSockets.git
+      - name: Install Deno
+        run: iwr https://deno.land/x/install/install.ps1 -useb | iex
+      - name: Install libuv
+        run: vcpkg install libuv:x64-windows
       - uses: ilammy/msvc-dev-cmd@v1
-      - name: Build hammer_test
+      - name: Set env
         run: |
           cd uWebSockets
-          vcpkg install libuv:x64-windows
           cp C:\vcpkg\installed\x64-windows\bin\uv.dll uv.dll
           $Env:CFLAGS='-D WIN32_LEAN_AND_MEAN -I C:/vcpkg/packages/libuv_x64-windows/include'
           $Env:LDFLAGS='-L C:/vcpkg/packages/libuv_x64-windows/lib'
@@ -23,10 +26,15 @@ jobs:
           $Env:EXEC_SUFFIX='.exe'
           $Env:WITH_ZLIB='0'
           $Env:WITH_LTO='0'
-          make -C tests
+      - name: Run unit tests
+        run: make -C tests
+      - name: Build examples
+        run: |
           make -C uSockets
           nmake -f shim
           ls
+      - name: Run smoke test
+        run: |
           Start-Process -NoNewWindow .\Crc32
           sleep 1
           deno run --allow-net tests\smoke.mjs
