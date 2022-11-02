@@ -14,7 +14,7 @@ jobs:
       - name: Install libuv
         run: vcpkg install libuv:x64-windows
       - uses: ilammy/msvc-dev-cmd@v1
-      - name: Set env
+      - name: Build examples
         run: |
           cd uWebSockets
           cp C:\vcpkg\installed\x64-windows\bin\uv.dll uv.dll
@@ -26,15 +26,14 @@ jobs:
           $Env:EXEC_SUFFIX='.exe'
           $Env:WITH_ZLIB='0'
           $Env:WITH_LTO='0'
-      - name: Run unit tests
-        run: make -C tests
-      - name: Build examples
-        run: |
           make -C uSockets
           nmake -f shim
           ls
+      - name: Run unit tests
+        run: make -C uWebSockets/tests
       - name: Run smoke test
         run: |
+          cd uWebSockets
           Start-Process -NoNewWindow .\Crc32
           sleep 1
           deno run --allow-net tests\smoke.mjs
