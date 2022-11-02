@@ -26,14 +26,14 @@ jobs:
           make -C tests
           make
           ls
-          # .\HelloWorld.exe &
-          # sleep 1
-          # curl.exe -v http://localhost:3000/
-          # curl.exe -v http://localhost:3000/
-          # curl.exe -v http://localhost:3000/
-          # curl.exe -v http://localhost:3000/
-          # curl.exe -v http://localhost:3000/
-          # Stop-Process -Name HelloWorld
+          .\HelloWorld.exe &
+          sleep 1
+          curl.exe -v http://localhost:3000/
+          curl.exe -v http://localhost:3000/
+          curl.exe -v http://localhost:3000/
+          curl.exe -v http://localhost:3000/
+          curl.exe -v http://localhost:3000/
+          Stop-Process -Name HelloWorld
 
 
   build_linux:
