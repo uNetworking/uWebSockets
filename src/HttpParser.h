@@ -214,15 +214,15 @@ private:
     }
     
     static inline uint64_t hasLess(uint64_t x, uint64_t n) {
-        return (((x)-~0UL/255*(n))&~(x)&~0UL/255*128);
+        return (((x)-~0ULL/255*(n))&~(x)&~0ULL/255*128);
     }
 
     static inline uint64_t hasMore(uint64_t x, uint64_t n) {
-        return (( ((x)+~0UL/255*(127-(n))) |(x))&~0UL/255*128);
+        return (( ((x)+~0ULL/255*(127-(n))) |(x))&~0ULL/255*128);
     }
 
     static inline uint64_t hasBetween(uint64_t x, uint64_t m, uint64_t n) {
-        return (( (~0UL/255*(127+(n))-((x)&~0UL/255*127)) &~(x)& (((x)&~0UL/255*127)+~0UL/255*(127-(m))) )&~0UL/255*128);
+        return (( (~0ULL/255*(127+(n))-((x)&~0ULL/255*127)) &~(x)& (((x)&~0ULL/255*127)+~0ULL/255*(127-(m))) )&~0ULL/255*128);
     }
 
     static inline bool notFieldNameWord(uint64_t x) {
