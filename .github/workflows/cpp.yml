@@ -28,10 +28,10 @@ jobs:
           make -C tests
           make
           ls
-          .\HelloWorld.exe &
-          sleep 1
-          curl.exe http://localhost:3000/
-          Stop-Process -Name HelloWorld
+          .\Crc32 &
+	        sleep 1
+	        deno run --allow-net tests\smoke.mjs
+          Stop-Process -Name Crc32
 
 
   build_linux:
