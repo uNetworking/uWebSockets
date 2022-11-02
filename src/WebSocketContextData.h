@@ -32,6 +32,8 @@
 namespace uWS {
 
 template <bool, bool, typename> struct WebSocket;
+struct TopicTreeMessage;
+struct TopicTreeBigMessage;
 
 /* todo: this looks identical to WebSocketBehavior, why not just std::move that entire thing in? */
 
