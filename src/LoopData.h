@@ -62,7 +62,7 @@ public:
     void updateDate() {
         time_t now = time(0);
         struct tm tstruct;
-        tstruct = *gmtime(&now);
+        gmtime_s(&now, &tstruct);
         strftime(date, 32, "%a, %d %b %Y %X GMT", &tstruct);
     }
 
