@@ -29,7 +29,7 @@ jobs:
           nmake -f shim
           ls
       - name: Run unit tests
-        run: $Env:CC='clang'; $Env:CXX='clang++'; make -C uWebSockets/tests
+        run: $Env:CC='clang'; $Env:CXX='clang++'; cd uWebSockets/tests; nmake
       - name: Run smoke test
         run: |
           cd uWebSockets
