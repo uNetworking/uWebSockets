@@ -29,6 +29,7 @@
 #include <string_view>
 #include <functional>
 #include <set>
+#include <string>
 
 namespace uWS {
 
