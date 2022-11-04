@@ -7,6 +7,7 @@ int main(int argc, char **argv) {
     char *LDFLAGS = strcpy(calloc(1024, 1), maybe(getenv("LDFLAGS")));
     char *CC = strcpy(calloc(1024, 1), or_else(getenv("CC"), "cc"));
     char *CXX = strcpy(calloc(1024, 1), or_else(getenv("CXX"), "g++"));
+    char *EXEC_SUFFIX = strcpy(calloc(1024, 1), maybe(getenv("EXEC_SUFFIX")));
 
     char *EXAMPLE_FILES[] = {"Http3Server", "Broadcast", "HelloWorld", "Crc32", "ServerName",
     "EchoServer", "BroadcastingEchoServer", "UpgradeSync", "UpgradeAsync"};
@@ -73,7 +74,7 @@ int main(int argc, char **argv) {
 
     if (!strcmp(argv[1], "examples")) {
         for (int i = 0; i < sizeof(EXAMPLE_FILES) / sizeof(char *); i++) {
-            if (run("%s%s examples/%s.cpp %s -o %s", CXX, CXXFLAGS, EXAMPLE_FILES[i], LDFLAGS, EXAMPLE_FILES[i])) {
+            if (run("%s%s examples/%s.cpp %s -o %s%s", CXX, CXXFLAGS, EXAMPLE_FILES[i], LDFLAGS, EXAMPLE_FILES[i], EXEC_SUFFIX)) {
                 return -1;
             }
         }
