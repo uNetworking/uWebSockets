@@ -25,8 +25,7 @@ jobs:
           $Env:EXEC_SUFFIX='.exe'
           $Env:WITH_ZLIB='0'
           $Env:WITH_LTO='0'
-          make -C uSockets
-          nmake -f shim
+          nmake
           ls
       - name: Run unit tests
         run: $Env:CC='clang'; $Env:CXX='clang++'; make -C uWebSockets/tests
