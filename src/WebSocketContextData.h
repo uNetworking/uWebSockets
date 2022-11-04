@@ -31,6 +31,18 @@
 
 namespace uWS {
 
+/* Type queued up when publishing */
+struct TopicTreeMessage {
+    std::string message;
+    /*OpCode*/ int opCode;
+    bool compress;
+};
+struct TopicTreeBigMessage {
+    std::string_view message;
+    /*OpCode*/ int opCode;
+    bool compress;
+};
+
 template <bool, bool, typename> struct WebSocket;
 
 /* todo: this looks identical to WebSocketBehavior, why not just std::move that entire thing in? */
