@@ -13,5 +13,5 @@ all: default
 	.\build.exe all || .\a.exe all
 
 default:
-	$(MAKE) -C uSockets
+	make -C uSockets
 	$(CC) build.c
