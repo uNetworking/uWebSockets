@@ -17,15 +17,10 @@ jobs:
       - name: Build examples
         run: |
           cd uWebSockets
-          $Env:CFLAGS='-D WIN32_LEAN_AND_MEAN -I C:/vcpkg/packages/libuv_x64-windows/include'
-          $Env:LDFLAGS='-L C:/vcpkg/packages/libuv_x64-windows/lib'
-          $Env:CC='clang'
-          $Env:CXX='clang++'
-          $Env:WITH_LIBUV='1'
-          $Env:EXEC_SUFFIX='.exe'
-          $Env:WITH_ZLIB='0'
-          $Env:WITH_LTO='0'
-          nmake
+          $Env:WITH_ZLIB='0'; $ENV:WITH_LTO='0'; $Env:CC='clang';
+          $ENV:CFLAGS='-I C:\vcpkg\installed\x64-windows\include';
+          $ENV:LDFLAGS='-L C:\vcpkg\installed\x64-windows\lib';
+          $ENV:CXX='clang++'; $ENV:EXEC_SUFFIX='.exe'; $ENV:WITH_LIBUV='1'; nmake
           ls
       - name: Run unit tests
         run: $Env:CC='clang'; $Env:CXX='clang++'; make -C uWebSockets/tests
@@ -37,7 +32,6 @@ jobs:
           sleep 1
           deno run --allow-net tests\smoke.mjs
           Stop-Process -Name Crc32
-
 
   build_linux:
 
