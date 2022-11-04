@@ -189,19 +189,7 @@ private:
         }
         return unsignedIntegerValue;
     }
-    
-    /* Find carriage return will scan forever. But we "fence" the end margin part of the receive buffer,
-     * by putting a CR there in case one isn't found before it, so this optimizing assumption is fine. */
-    static inline void *find_cr(char *p, char */*end*/) {
-        for (uint64_t mask = 0x0d0d0d0d0d0d0d0d; true; p += 8) {
-            uint64_t val = *(uint64_t *)p ^ mask;
-            if ((val + 0xfefefefefefefeffull) & (~val & 0x8080808080808080ull)) {
-                while (*(unsigned char *)p != 0x0d) p++;
-                return (void *)p;
-            }
-        }
-    }
-    
+   
     /* RFC 9110 16.3.1 Field Name Registry (TLDR; alnum + hyphen is allowed)
      * [...] It MUST conform to the field-name syntax defined in Section 5.1,
      * and it SHOULD be restricted to just letters, digits,
@@ -235,13 +223,16 @@ private:
     
     static inline void *consumeFieldName(char *p) {
         for (; true; p += 8) {
-            if (notFieldNameWord(*(uint64_t *)p)) {
+            uint64_t word;
+            memcpy(&word, p, sizeof(uint64_t));
+            if (notFieldNameWord(word)) {
                 while (isFieldNameByte(*(unsigned char *)p)) {
                     *(p++) |= 0x20;
                 }
                 return (void *)p;
             }
-            (*(uint64_t *)p) |= 0x2020202020202020ull;
+            word |= 0x2020202020202020ull;
+            memcpy(p, &word, sizeof(uint64_t));
         }
     }
 
@@ -257,7 +248,9 @@ private:
             /* Scan for less than 33 (catches post padded CR and fails) */
             start = data;
             for (; true; data += 8) {
-                if (hasLess(*(uint64_t *)data, 33)) {
+                uint64_t word;
+                memcpy(&word, data, sizeof(uint64_t));
+                if (hasLess(word, 33)) {
                     while (*(unsigned char *)data > 32) data++;
                     /* Now we stand on space */
                     header.value = {start, (size_t) (data - start)};
@@ -278,7 +271,9 @@ private:
      * Field values containing other CTL characters are also invalid. */
     static inline void *tryConsumeFieldValue(char *p) {
         for (; true; p += 8) {
-            if (hasLess(*(uint64_t *)p, 32)) {
+            uint64_t word;
+            memcpy(&word, p, sizeof(uint64_t));
+            if (hasLess(word, 32)) {
                 while (*(unsigned char *)p > 31) p++;
                 return (void *)p;
             }
