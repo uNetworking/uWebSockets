@@ -1,6 +1,6 @@
 #include "build.h"
 
-int main() {
+int main(int argc, char **argv) {
     /* Some variables we need */
     char *CXXFLAGS = strcpy(calloc(1024, 1), maybe(getenv("CXXFLAGS")));
     char *CFLAGS = strcpy(calloc(1024, 1), maybe(getenv("CFLAGS")));
@@ -71,7 +71,20 @@ int main() {
         strcat(LDFLAGS, " -lasan");
     }
 
-    for (int i = 0; i < sizeof(EXAMPLE_FILES) / sizeof(char *); i++) {
-        run("%s%s examples/%s.cpp %s -o %s", CXX, CXXFLAGS, EXAMPLE_FILES[i], LDFLAGS, EXAMPLE_FILES[i]);
+    if (!strcmp(argv[1], "examples")) {
+        for (int i = 0; i < sizeof(EXAMPLE_FILES) / sizeof(char *); i++) {
+            if (run("%s%s examples/%s.cpp %s -o %s", CXX, CXXFLAGS, EXAMPLE_FILES[i], LDFLAGS, EXAMPLE_FILES[i])) {
+                return -1;
+            }
+        }
+    } else if (!strcmp(argv[1], "capi")) {
+        printf("capi target does nothing yet\n");
+    } else if (!strcmp(argv[1], "clean")) {
+        printf("clean target does nothing yet\n");
+    } else if (!strcmp(argv[1], "install")) {
+        // install target is not even supposed to be cross platform
+        printf("install target does nothing yet\n");
+    } else if (!strcmp(argv[1], "all")) {
+        printf("all target does nothing yet\n");
     }
 }
