@@ -23,18 +23,6 @@
 #include <string_view>
 
 namespace uWS {
-    /* Type queued up when publishing */
-    struct TopicTreeMessage {
-        std::string message;
-        /*OpCode*/ int opCode;
-        bool compress;
-    };
-    struct TopicTreeBigMessage {
-        std::string_view message;
-        /*OpCode*/ int opCode;
-        bool compress;
-    };
-
     /* Safari 15.0 - 15.3 has a completely broken compression implementation (client_no_context_takeover not
      * properly implemented) - so we fully disable compression for this browser :-(
      * see https://github.com/uNetworking/uWebSockets/issues/1347 */
