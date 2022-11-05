@@ -32,8 +32,13 @@
 extern "C"
 {
 #endif
+#ifdef _WIN32
+#  define DLL_EXPORT __declspec( dllexport )
+#else
+#  define DLL_EXPORT
+#endif
 
-    typedef enum
+    DLL_EXPORT typedef enum
     {
         /* These are not actual compression options */
         _COMPRESSOR_MASK = 0x00FF,
@@ -66,7 +71,7 @@ extern "C"
         DEDICATED_COMPRESSOR = 15 << 4 | 8
     } uws_compress_options_t;
 
-    typedef enum
+    DLL_EXPORT typedef enum
     {
         CONTINUATION = 0,
         TEXT = 1,
@@ -76,14 +81,14 @@ extern "C"
         PONG = 10
     } uws_opcode_t;
 
-    typedef enum
+    DLL_EXPORT typedef enum
     {
         BACKPRESSURE,
         SUCCESS,
         DROPPED
     } uws_sendstatus_t;
 
-    typedef struct
+    DLL_EXPORT typedef struct
     {
 
         int port;
@@ -91,29 +96,29 @@ extern "C"
         int options;
     } uws_app_listen_config_t;
 
-    typedef struct {
+    DLL_EXPORT typedef struct {
         bool ok;
         bool has_responded;
     } uws_try_end_result_t;
 
-    struct uws_app_s;
-    struct uws_req_s;
-    struct uws_res_s;
-    struct uws_websocket_s;
-    struct uws_header_iterator_s;
-    typedef struct uws_app_s uws_app_t;
-    typedef struct uws_req_s uws_req_t;
-    typedef struct uws_res_s uws_res_t;
-    typedef struct uws_socket_context_s uws_socket_context_t;
-    typedef struct uws_websocket_s uws_websocket_t;
+    DLL_EXPORT struct uws_app_s;
+    DLL_EXPORT struct uws_req_s;
+    DLL_EXPORT struct uws_res_s;
+    DLL_EXPORT struct uws_websocket_s;
+    DLL_EXPORT struct uws_header_iterator_s;
+    DLL_EXPORT typedef struct uws_app_s uws_app_t;
+    DLL_EXPORT typedef struct uws_req_s uws_req_t;
+    DLL_EXPORT typedef struct uws_res_s uws_res_t;
+    DLL_EXPORT typedef struct uws_socket_context_s uws_socket_context_t;
+    DLL_EXPORT typedef struct uws_websocket_s uws_websocket_t;
 
-    typedef void (*uws_websocket_handler)(uws_websocket_t *ws);
-    typedef void (*uws_websocket_message_handler)(uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode);
-    typedef void (*uws_websocket_ping_pong_handler)(uws_websocket_t *ws, const char *message, size_t length);
-    typedef void (*uws_websocket_close_handler)(uws_websocket_t *ws, int code, const char *message, size_t length);
-    typedef void (*uws_websocket_upgrade_handler)(uws_res_t *response, uws_req_t *request, uws_socket_context_t *context);
+    DLL_EXPORT typedef void (*uws_websocket_handler)(uws_websocket_t *ws);
+    DLL_EXPORT typedef void (*uws_websocket_message_handler)(uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode);
+    DLL_EXPORT typedef void (*uws_websocket_ping_pong_handler)(uws_websocket_t *ws, const char *message, size_t length);
+    DLL_EXPORT typedef void (*uws_websocket_close_handler)(uws_websocket_t *ws, int code, const char *message, size_t length);
+    DLL_EXPORT typedef void (*uws_websocket_upgrade_handler)(uws_res_t *response, uws_req_t *request, uws_socket_context_t *context);
 
-    typedef struct
+    DLL_EXPORT typedef struct
     {
         uws_compress_options_t compression;
         /* Maximum message size we can receive */
@@ -138,106 +143,106 @@ extern "C"
         uws_websocket_close_handler close;
     } uws_socket_behavior_t;
 
-    typedef void (*uws_listen_handler)(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config, void *user_data);
-    typedef void (*uws_listen_domain_handler)(struct us_listen_socket_t *listen_socket, const char* domain, int options, void *user_data);
-    typedef void (*uws_method_handler)(uws_res_t *response, uws_req_t *request, void *user_data);
-    typedef void (*uws_filter_handler)(uws_res_t *response, int, void *user_data);
-    typedef void (*uws_missing_server_handler)(const char *hostname, void *user_data);
-    typedef void (*uws_get_headers_server_handler)(const char *header_name, size_t header_name_size, const char *header_value, size_t header_value_size, void *user_data);
+    DLL_EXPORT typedef void (*uws_listen_handler)(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config, void *user_data);
+    DLL_EXPORT typedef void (*uws_listen_domain_handler)(struct us_listen_socket_t *listen_socket, const char* domain, int options, void *user_data);
+    DLL_EXPORT typedef void (*uws_method_handler)(uws_res_t *response, uws_req_t *request, void *user_data);
+    DLL_EXPORT typedef void (*uws_filter_handler)(uws_res_t *response, int, void *user_data);
+    DLL_EXPORT typedef void (*uws_missing_server_handler)(const char *hostname, void *user_data);
+    DLL_EXPORT typedef void (*uws_get_headers_server_handler)(const char *header_name, size_t header_name_size, const char *header_value, size_t header_value_size, void *user_data);
     //Basic HTTP
-    uws_app_t *uws_create_app(int ssl, struct us_socket_context_options_t options);
-    void uws_app_destroy(int ssl, uws_app_t *app);
-    void uws_app_get(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
-    void uws_app_post(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
-    void uws_app_options(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
-    void uws_app_delete(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
-    void uws_app_patch(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
-    void uws_app_put(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
-    void uws_app_head(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
-    void uws_app_connect(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
-    void uws_app_trace(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
-    void uws_app_any(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
+    DLL_EXPORT uws_app_t *uws_create_app(int ssl, struct us_socket_context_options_t options);
+    DLL_EXPORT void uws_app_destroy(int ssl, uws_app_t *app);
+    DLL_EXPORT void uws_app_get(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_post(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_options(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_delete(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_patch(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_put(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_head(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_connect(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_trace(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_any(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
 
-    void uws_app_run(int ssl, uws_app_t *);
+    DLL_EXPORT void uws_app_run(int ssl, uws_app_t *);
 
-    void uws_app_domain(int ssl, uws_app_t *app, const char* server_name);
-    void uws_app_listen(int ssl, uws_app_t *app, int port, uws_listen_handler handler, void *user_data);
-    void uws_app_listen_with_config(int ssl, uws_app_t *app, uws_app_listen_config_t config, uws_listen_handler handler, void *user_data);
-    void uws_app_listen_domain(int ssl, uws_app_t *app, const char *domain, uws_listen_domain_handler handler, void *user_data);
-    void uws_app_listen_domain_with_options(int ssl, uws_app_t *app, const char *domain, int options, uws_listen_domain_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_listen(int ssl, uws_app_t *app, int port, uws_listen_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_listen_with_config(int ssl, uws_app_t *app, uws_app_listen_config_t config, uws_listen_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_listen_domain(int ssl, uws_app_t *app, const char *domain, uws_listen_domain_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_listen_domain_with_options(int ssl, uws_app_t *app, const char *domain, int options, uws_listen_domain_handler handler, void *user_data);
+    DLL_EXPORT void uws_app_domain(int ssl, uws_app_t *app, const char* server_name);
 
-    bool uws_constructor_failed(int ssl, uws_app_t *app);
-    unsigned int uws_num_subscribers(int ssl, uws_app_t *app, const char *topic, size_t topic_length);
-    bool uws_publish(int ssl, uws_app_t *app, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress);
-    void *uws_get_native_handle(int ssl, uws_app_t *app);
-    void uws_remove_server_name(int ssl, uws_app_t *app, const char *hostname_pattern);
-    void uws_add_server_name(int ssl, uws_app_t *app, const char *hostname_pattern);
-    void uws_add_server_name_with_options(int ssl, uws_app_t *app, const char *hostname_pattern, struct us_socket_context_options_t options);
-    void uws_missing_server_name(int ssl, uws_app_t *app, uws_missing_server_handler handler, void *user_data);
-    void uws_filter(int ssl, uws_app_t *app, uws_filter_handler handler, void *user_data);
+    DLL_EXPORT bool uws_constructor_failed(int ssl, uws_app_t *app);
+    DLL_EXPORT unsigned int uws_num_subscribers(int ssl, uws_app_t *app, const char *topic, size_t topic_length);
+    DLL_EXPORT bool uws_publish(int ssl, uws_app_t *app, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress);
+    DLL_EXPORT void *uws_get_native_handle(int ssl, uws_app_t *app);
+    DLL_EXPORT void uws_remove_server_name(int ssl, uws_app_t *app, const char *hostname_pattern);
+    DLL_EXPORT void uws_add_server_name(int ssl, uws_app_t *app, const char *hostname_pattern);
+    DLL_EXPORT void uws_add_server_name_with_options(int ssl, uws_app_t *app, const char *hostname_pattern, struct us_socket_context_options_t options);
+    DLL_EXPORT void uws_missing_server_name(int ssl, uws_app_t *app, uws_missing_server_handler handler, void *user_data);
+    DLL_EXPORT void uws_filter(int ssl, uws_app_t *app, uws_filter_handler handler, void *user_data);
 
     //WebSocket
-    void uws_ws(int ssl, uws_app_t *app, const char *pattern, uws_socket_behavior_t behavior);
-    void *uws_ws_get_user_data(int ssl, uws_websocket_t *ws);
-    void uws_ws_close(int ssl, uws_websocket_t *ws);
-    uws_sendstatus_t uws_ws_send(int ssl, uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode);
-    uws_sendstatus_t uws_ws_send_with_options(int ssl, uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode, bool compress, bool fin);
-    uws_sendstatus_t uws_ws_send_fragment(int ssl, uws_websocket_t *ws, const char *message, size_t length, bool compress);
-    uws_sendstatus_t uws_ws_send_first_fragment(int ssl, uws_websocket_t *ws, const char *message, size_t length, bool compress);
-    uws_sendstatus_t uws_ws_send_first_fragment_with_opcode(int ssl, uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode, bool compress);
-    uws_sendstatus_t uws_ws_send_last_fragment(int ssl, uws_websocket_t *ws, const char *message, size_t length, bool compress);
-    void uws_ws_end(int ssl, uws_websocket_t *ws, int code, const char *message, size_t length);
-    void uws_ws_cork(int ssl, uws_websocket_t *ws, void (*handler)(void *user_data), void *user_data);
+    DLL_EXPORT void uws_ws(int ssl, uws_app_t *app, const char *pattern, uws_socket_behavior_t behavior);
+    DLL_EXPORT void *uws_ws_get_user_data(int ssl, uws_websocket_t *ws);
+    DLL_EXPORT void uws_ws_close(int ssl, uws_websocket_t *ws);
+    DLL_EXPORT uws_sendstatus_t uws_ws_send(int ssl, uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode);
+    DLL_EXPORT uws_sendstatus_t uws_ws_send_with_options(int ssl, uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode, bool compress, bool fin);
+    DLL_EXPORT uws_sendstatus_t uws_ws_send_fragment(int ssl, uws_websocket_t *ws, const char *message, size_t length, bool compress);
+    DLL_EXPORT uws_sendstatus_t uws_ws_send_first_fragment(int ssl, uws_websocket_t *ws, const char *message, size_t length, bool compress);
+    DLL_EXPORT uws_sendstatus_t uws_ws_send_first_fragment_with_opcode(int ssl, uws_websocket_t *ws, const char *message, size_t length, uws_opcode_t opcode, bool compress);
+    DLL_EXPORT uws_sendstatus_t uws_ws_send_last_fragment(int ssl, uws_websocket_t *ws, const char *message, size_t length, bool compress);
+    DLL_EXPORT void uws_ws_end(int ssl, uws_websocket_t *ws, int code, const char *message, size_t length);
+    DLL_EXPORT void uws_ws_cork(int ssl, uws_websocket_t *ws, void (*handler)(void *user_data), void *user_data);
 
-    bool uws_ws_subscribe(int ssl, uws_websocket_t *ws, const char *topic, size_t length);
-    bool uws_ws_unsubscribe(int ssl, uws_websocket_t *ws, const char *topic, size_t length);
-    bool uws_ws_is_subscribed(int ssl, uws_websocket_t *ws, const char *topic, size_t length);
-    void uws_ws_iterate_topics(int ssl, uws_websocket_t *ws, void (*callback)(const char *topic, size_t length, void *user_data), void *user_data);
-    bool uws_ws_publish(int ssl, uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length);
-    bool uws_ws_publish_with_options(int ssl, uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress);
-    unsigned int uws_ws_get_buffered_amount(int ssl, uws_websocket_t *ws);
-    size_t uws_ws_get_remote_address(int ssl, uws_websocket_t *ws, const char **dest);
-    size_t uws_ws_get_remote_address_as_text(int ssl, uws_websocket_t *ws, const char **dest);
+    DLL_EXPORT bool uws_ws_subscribe(int ssl, uws_websocket_t *ws, const char *topic, size_t length);
+    DLL_EXPORT bool uws_ws_unsubscribe(int ssl, uws_websocket_t *ws, const char *topic, size_t length);
+    DLL_EXPORT bool uws_ws_is_subscribed(int ssl, uws_websocket_t *ws, const char *topic, size_t length);
+    DLL_EXPORT void uws_ws_iterate_topics(int ssl, uws_websocket_t *ws, void (*callback)(const char *topic, size_t length, void *user_data), void *user_data);
+    DLL_EXPORT bool uws_ws_publish(int ssl, uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length);
+    DLL_EXPORT bool uws_ws_publish_with_options(int ssl, uws_websocket_t *ws, const char *topic, size_t topic_length, const char *message, size_t message_length, uws_opcode_t opcode, bool compress);
+    DLL_EXPORT unsigned int uws_ws_get_buffered_amount(int ssl, uws_websocket_t *ws);
+    DLL_EXPORT size_t uws_ws_get_remote_address(int ssl, uws_websocket_t *ws, const char **dest);
+    DLL_EXPORT size_t uws_ws_get_remote_address_as_text(int ssl, uws_websocket_t *ws, const char **dest);
 
     //Response
-    void uws_res_end(int ssl, uws_res_t *res, const char *data, size_t length, bool close_connection);
-    uws_try_end_result_t uws_res_try_end(int ssl, uws_res_t *res, const char *data, size_t length, uintmax_t total_size, bool close_connection);
-    void uws_res_cork(int ssl, uws_res_t *res, void(*callback)(uws_res_t *res, void* user_data) ,void* user_data);
-    void uws_res_pause(int ssl, uws_res_t *res);
-    void uws_res_resume(int ssl, uws_res_t *res);
-    void uws_res_write_continue(int ssl, uws_res_t *res);
-    void uws_res_write_status(int ssl, uws_res_t *res, const char *status, size_t length);
-    void uws_res_write_header(int ssl, uws_res_t *res, const char *key, size_t key_length, const char *value, size_t value_length);
+    DLL_EXPORT void uws_res_end(int ssl, uws_res_t *res, const char *data, size_t length, bool close_connection);
+    DLL_EXPORT uws_try_end_result_t uws_res_try_end(int ssl, uws_res_t *res, const char *data, size_t length, uintmax_t total_size, bool close_connection);
+    DLL_EXPORT void uws_res_cork(int ssl, uws_res_t *res, void(*callback)(uws_res_t *res, void* user_data) ,void* user_data);
+    DLL_EXPORT void uws_res_pause(int ssl, uws_res_t *res);
+    DLL_EXPORT void uws_res_resume(int ssl, uws_res_t *res);
+    DLL_EXPORT void uws_res_write_continue(int ssl, uws_res_t *res);
+    DLL_EXPORT void uws_res_write_status(int ssl, uws_res_t *res, const char *status, size_t length);
+    DLL_EXPORT void uws_res_write_header(int ssl, uws_res_t *res, const char *key, size_t key_length, const char *value, size_t value_length);
 
-    void uws_res_write_header_int(int ssl, uws_res_t *res, const char *key, size_t key_length, uint64_t value);
-    void uws_res_end_without_body(int ssl, uws_res_t *res, bool close_connection);
-    bool uws_res_write(int ssl, uws_res_t *res, const char *data, size_t length);
-    uintmax_t uws_res_get_write_offset(int ssl, uws_res_t *res);
-    void uws_res_override_write_offset(int ssl, uws_res_t *res, uintmax_t offset);
-    bool uws_res_has_responded(int ssl, uws_res_t *res);
-    void uws_res_on_writable(int ssl, uws_res_t *res, bool (*handler)(uws_res_t *res, uintmax_t, void *opcional_data), void *user_data);
-    void uws_res_on_aborted(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, void *opcional_data), void *opcional_data);
-    void uws_res_on_data(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, const char *chunk, size_t chunk_length, bool is_end, void *opcional_data), void *opcional_data);
-    void uws_res_upgrade(int ssl, uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws);
+    DLL_EXPORT void uws_res_write_header_int(int ssl, uws_res_t *res, const char *key, size_t key_length, uint64_t value);
+    DLL_EXPORT void uws_res_end_without_body(int ssl, uws_res_t *res, bool close_connection);
+    DLL_EXPORT bool uws_res_write(int ssl, uws_res_t *res, const char *data, size_t length);
+    DLL_EXPORT uintmax_t uws_res_get_write_offset(int ssl, uws_res_t *res);
+    DLL_EXPORT void uws_res_override_write_offset(int ssl, uws_res_t *res, uintmax_t offset);
+    DLL_EXPORT bool uws_res_has_responded(int ssl, uws_res_t *res);
+    DLL_EXPORT void uws_res_on_writable(int ssl, uws_res_t *res, bool (*handler)(uws_res_t *res, uintmax_t, void *opcional_data), void *user_data);
+    DLL_EXPORT void uws_res_on_aborted(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, void *opcional_data), void *opcional_data);
+    DLL_EXPORT void uws_res_on_data(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, const char *chunk, size_t chunk_length, bool is_end, void *opcional_data), void *opcional_data);
+    DLL_EXPORT void uws_res_upgrade(int ssl, uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws);
      
-    void *uws_res_get_native_handle(int ssl, uws_res_t *res);
+    DLL_EXPORT void *uws_res_get_native_handle(int ssl, uws_res_t *res);
 
     //Request
-    bool uws_req_is_ancient(uws_req_t *res);
-    bool uws_req_get_yield(uws_req_t *res);
-    void uws_req_set_field(uws_req_t *res, bool yield);
-    size_t uws_req_get_url(uws_req_t *res, const char **dest);
-    size_t uws_req_get_full_url(uws_req_t *res, const char **dest);
-    size_t uws_req_get_method(uws_req_t *res, const char **dest);
-    size_t uws_req_get_case_sensitive_method(uws_req_t *res, const char **dest);
+    DLL_EXPORT bool uws_req_is_ancient(uws_req_t *res);
+    DLL_EXPORT bool uws_req_get_yield(uws_req_t *res);
+    DLL_EXPORT void uws_req_set_field(uws_req_t *res, bool yield);
+    DLL_EXPORT size_t uws_req_get_url(uws_req_t *res, const char **dest);
+    DLL_EXPORT size_t uws_req_get_full_url(uws_req_t *res, const char **dest);
+    DLL_EXPORT size_t uws_req_get_method(uws_req_t *res, const char **dest);
+    DLL_EXPORT size_t uws_req_get_case_sensitive_method(uws_req_t *res, const char **dest);
 
-    size_t uws_req_get_header(uws_req_t *res, const char *lower_case_header, size_t lower_case_header_length, const char **dest);
-    void uws_req_for_each_header(uws_req_t *res, uws_get_headers_server_handler handler, void *user_data);
-    size_t uws_req_get_query(uws_req_t *res, const char *key, size_t key_length, const char **dest);
-    size_t uws_req_get_parameter(uws_req_t *res, unsigned short index, const char **dest);
+    DLL_EXPORT size_t uws_req_get_header(uws_req_t *res, const char *lower_case_header, size_t lower_case_header_length, const char **dest);
+    DLL_EXPORT void uws_req_for_each_header(uws_req_t *res, uws_get_headers_server_handler handler, void *user_data);
+    DLL_EXPORT size_t uws_req_get_query(uws_req_t *res, const char *key, size_t key_length, const char **dest);
+    DLL_EXPORT size_t uws_req_get_parameter(uws_req_t *res, unsigned short index, const char **dest);
 
-    struct us_loop_t *uws_get_loop();
-    struct us_loop_t *uws_get_loop_with_native(void* existing_native_loop);
+    DLL_EXPORT struct us_loop_t *uws_get_loop();
+    DLL_EXPORT struct us_loop_t *uws_get_loop_with_native(void* existing_native_loop);
 
 #ifdef __cplusplus
 }
