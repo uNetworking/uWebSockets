@@ -73,7 +73,7 @@ public:
 
     /* There needs to be a maxBackpressure which will force close everything over that limit */
     size_t maxBackpressure = 0;
-    bool closeOnBackpressureLimit;
+    unsigned char closeOnBackpressureLimit; /* 0, 1 (or 2 internally) */
     bool resetIdleTimeoutOnSend;
     bool sendPingsAutomatically;
 

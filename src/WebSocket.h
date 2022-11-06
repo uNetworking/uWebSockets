@@ -94,11 +94,17 @@ public:
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
 
+        /* If we already reached the max backpressure and started a deferred close, reject all sends */
+        if (webSocketContextData->closeOnBackpressureLimit == 2) {
+            return DROPPED;
+        }
+
         /* Skip sending and report success if we are over the limit of maxBackpressure */
         if (webSocketContextData->maxBackpressure && webSocketContextData->maxBackpressure < getBufferedAmount()) {
             /* Also defer a close if we should */
-            if (webSocketContextData->closeOnBackpressureLimit) {
+            if (webSocketContextData->closeOnBackpressureLimit == 1) {
                 us_socket_shutdown_read(SSL, (us_socket_t *) this);
+                webSocketContextData->closeOnBackpressureLimit = 2;
             }
             return DROPPED;
         }
