@@ -132,6 +132,21 @@ private:
 
             httpResponseData->markDone();
 
+            /* We need to check if we should close this socket here now */
+            if (!Super::isCorked()) {
+                if (httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) {
+                    if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
+                        if (((AsyncSocket<SSL> *) this)->getBufferedAmount() == 0) {
+                            ((AsyncSocket<SSL> *) this)->shutdown();
+                            /* We need to force close after sending FIN since we want to hinder
+                                * clients from keeping to send their huge data */
+                            ((AsyncSocket<SSL> *) this)->close();
+                            return true;
+                        }
+                    }
+                }
+            }
+
             /* tryEnd can never fail when in chunked mode, since we do not have tryWrite (yet), only write */
             Super::timeout(HTTP_TIMEOUT_S);
             return true;
@@ -182,6 +197,20 @@ private:
             /* Remove onAborted function if we reach the end */
             if (httpResponseData->offset == totalSize) {
                 httpResponseData->markDone();
+
+                /* We need to check if we should close this socket here now */
+                if (!Super::isCorked()) {
+                    if (httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) {
+                        if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
+                            if (((AsyncSocket<SSL> *) this)->getBufferedAmount() == 0) {
+                                ((AsyncSocket<SSL> *) this)->shutdown();
+                                /* We need to force close after sending FIN since we want to hinder
+                                * clients from keeping to send their huge data */
+                                ((AsyncSocket<SSL> *) this)->close();
+                            }
+                        }
+                    }
+                }
             }
 
             return success;
@@ -471,6 +500,19 @@ public:
                 /* For now we only have one single timeout so let's use it */
                 /* This behavior should equal the behavior in HttpContext when uncorking fails */
                 Super::timeout(HTTP_TIMEOUT_S);
+            }
+
+            /* If we have no backbuffer and we are connection close and we responded fully then close */
+            HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+            if (httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) {
+                if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
+                    if (((AsyncSocket<SSL> *) this)->getBufferedAmount() == 0) {
+                        ((AsyncSocket<SSL> *) this)->shutdown();
+                        /* We need to force close after sending FIN since we want to hinder
+                        * clients from keeping to send their huge data */
+                        ((AsyncSocket<SSL> *) this)->close();
+                    }
+                }
             }
         } else {
             /* We are already corked, or can't cork so let's just call the handler */
