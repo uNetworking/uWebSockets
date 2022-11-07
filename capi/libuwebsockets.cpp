@@ -851,6 +851,7 @@ extern "C"
         return uws->getBufferedAmount();
     }
 
+
     size_t uws_ws_get_remote_address(int ssl, uws_websocket_t *ws, const char **dest)
     {
         if (ssl)
@@ -898,6 +899,70 @@ extern "C"
         }
     }
 
+    size_t uws_res_get_remote_address(int ssl, uws_res_t *res, const char **dest)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            std::string_view value = uwsRes->getRemoteAddress();
+            *dest = value.data();
+            return value.length();
+        }
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+
+        std::string_view value = uwsRes->getRemoteAddress();
+        *dest = value.data();
+        return value.length();
+    }
+
+    size_t uws_res_get_remote_address_as_text(int ssl, uws_res_t *res, const char **dest)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            std::string_view value = uwsRes->getRemoteAddressAsText();
+            *dest = value.data();
+            return value.length();
+        }
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+
+        std::string_view value = uwsRes->getRemoteAddressAsText();
+        *dest = value.data();
+        return value.length();
+    }
+#ifdef UWS_WITH_PROXY
+    size_t uws_res_get_proxied_remote_address(int ssl, uws_res_t *res, const char **dest)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            std::string_view value = uwsRes->getProxiedRemoteAddress();
+            *dest = value.data();
+            return value.length();
+        }
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+
+        std::string_view value = uwsRes->getProxiedRemoteAddress();
+        *dest = value.data();
+        return value.length();
+    }
+
+    size_t uws_res_get_proxied_remote_address_as_text(int ssl, uws_res_t *res, const char **dest)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            std::string_view value = uwsRes->getProxiedRemoteAddressAsText();
+            *dest = value.data();
+            return value.length();
+        }
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+
+        std::string_view value = uwsRes->getProxiedRemoteAddressAsText();
+        *dest = value.data();
+        return value.length();
+    }
+#endif
     uws_try_end_result_t uws_res_try_end(int ssl, uws_res_t *res, const char *data, size_t length, uintmax_t total_size, bool close_connection)
     {
         if (ssl)
