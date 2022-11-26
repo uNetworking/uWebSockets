@@ -9,7 +9,7 @@ int main(int argc, char **argv) {
     char *CXX = strcpy(calloc(1024, 1), or_else(getenv("CXX"), "g++"));
     char *EXEC_SUFFIX = strcpy(calloc(1024, 1), maybe(getenv("EXEC_SUFFIX")));
 
-    char *EXAMPLE_FILES[] = {"Http3Server", "Broadcast", "HelloWorld", "Crc32", "ServerName",
+    char *EXAMPLE_FILES[] = {"Client", "Http3Server", "Broadcast", "HelloWorld", "Crc32", "ServerName",
     "EchoServer", "BroadcastingEchoServer", "UpgradeSync", "UpgradeAsync"};
 
     strcat(CXXFLAGS, " -O3 -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++2a -Isrc -IuSockets/src");
