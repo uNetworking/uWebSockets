@@ -1,16 +1,20 @@
-#include "Client.h"
+#include "ClientApp.h"
 #include <iostream>
 
 int main() {
-    uWS::Client({
-    .open = [](/*auto *ws*/) {
-        std::cout << "Hello and welcome to client" << std::endl;
-    },
-    .message = [](/*auto *ws, auto message*/) {
+    uWS::ClientApp app({
+        .open = [](/*auto *ws*/) {
+            std::cout << "Hello and welcome to client" << std::endl;
+        },
+        .message = [](/*auto *ws, auto message*/) {
 
-    },
-    .close = [](/*auto *ws*/) {
-        std::cout << "bye" << std::endl;
-    }
-    }).connect("ws://localhost:3000").run();
+        },
+        .close = [](/*auto *ws*/) {
+            std::cout << "bye" << std::endl;
+        }
+    });
+    
+    app.connect("ws://localhost:3000", "protocol");
+    
+    app.run();
 }
