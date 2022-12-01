@@ -75,7 +75,7 @@ public:
             "Jan", "Feb", "Mar", "Apr", "May", "Jun",
             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
         };
-        sprintf(date, "%.3s, %.2d %.3s %d %.2d:%.2d:%.2d GMT",
+        snprintf(date, 32, "%.3s, %.2d %.3s %d %.2d:%.2d:%.2d GMT",
             wday_name[tstruct.tm_wday],
             tstruct.tm_mday,
             mon_name[tstruct.tm_mon],
