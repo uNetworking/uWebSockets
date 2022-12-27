@@ -76,6 +76,7 @@ public:
     bool closeOnBackpressureLimit;
     bool resetIdleTimeoutOnSend;
     bool sendPingsAutomatically;
+    unsigned short maxLifetime;
 
     /* These are calculated on creation */
     std::pair<unsigned short, unsigned short> idleTimeoutComponents;

@@ -261,8 +261,14 @@ public:
             std::terminate();
         }
 
-        if (behavior.idleTimeout % 4) {
-            std::cerr << "Warning: idleTimeout should be a multiple of 4!" << std::endl;
+        /* Maximum idleTimeout is ≈17 minutes */
+        if (behavior.idleTimeout % 4 || behavior.idleTimeout >= 254 * 4) {
+            std::cerr << "Warning: idleTimeout should be a multiple of 4 and must be less than or equal to 1016 seconds!" << std::endl;
+        }
+
+        /* Maximum maxLifetime is ≈4 hours */
+        if (behavior.maxLifetime % 60 || behavior.maxLifetime > 254 * 60) {
+            std::cerr << "Warning: maxLifetime should be a multiple of 60 and must be less than or equal to 15240 seconds!" << std::endl;
         }
 
         /* If we don't have a TopicTree yet, create one now */
@@ -366,6 +372,7 @@ public:
         webSocketContext->getExt()->closeOnBackpressureLimit = behavior.closeOnBackpressureLimit;
         webSocketContext->getExt()->resetIdleTimeoutOnSend = behavior.resetIdleTimeoutOnSend;
         webSocketContext->getExt()->sendPingsAutomatically = behavior.sendPingsAutomatically;
+        webSocketContext->getExt()->maxLifetime = behavior.maxLifetime;
         webSocketContext->getExt()->compression = behavior.compression;
 
         /* Calculate idleTimeoutCompnents */
