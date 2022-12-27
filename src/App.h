@@ -233,7 +233,7 @@ public:
         bool resetIdleTimeoutOnSend = false;
         /* A good default, esp. for newcomers */
         bool sendPingsAutomatically = true;
-        /* Maximum socket lifetime in seconds before forced closure (defaults to disabled) */
+        /* Maximum socket lifetime in minutes before forced closure (defaults to disabled) */
         unsigned short maxLifetime = 0;
         MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> open = nullptr;
