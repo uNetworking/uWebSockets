@@ -261,14 +261,16 @@ public:
             std::terminate();
         }
 
-        /* Maximum idleTimeout is ≈17 minutes */
-        if (behavior.idleTimeout % 4 || behavior.idleTimeout >= 254 * 4) {
-            std::cerr << "Warning: idleTimeout should be a multiple of 4 and must be less than or equal to 1016 seconds!" << std::endl;
+        /* Maximum idleTimeout is 16 minutes */
+        if (behavior.idleTimeout > 240 * 4) {
+            std::cerr << "Error: idleTimeout must not be greater than 960 seconds!" << std::endl;
+            std::terminate();
         }
 
-        /* Maximum maxLifetime is ≈4 hours */
-        if (behavior.maxLifetime % 60 || behavior.maxLifetime > 254 * 60) {
-            std::cerr << "Warning: maxLifetime should be a multiple of 60 and must be less than or equal to 15240 seconds!" << std::endl;
+        /* Maximum maxLifetime is 4 hours */
+        if (behavior.maxLifetime > 240) {
+            std::cerr << "Error: maxLifetime must not be greater than 240 minutes!" << std::endl;
+            std::terminate();
         }
 
         /* If we don't have a TopicTree yet, create one now */
