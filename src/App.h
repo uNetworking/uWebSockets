@@ -85,6 +85,8 @@ private:
     /* WebSocketContexts are of differing type, but we as owners and creators must delete them correctly */
     std::vector<MoveOnlyFunction<void()>> webSocketContextDeleters;
 
+    std::vector<void *> webSocketContexts;
+
 public:
 
     TopicTree<TopicTreeMessage, TopicTreeBigMessage> *topicTree = nullptr;
@@ -205,6 +207,8 @@ public:
         /* Move webSocketContextDeleters */
         webSocketContextDeleters = std::move(other.webSocketContextDeleters);
 
+        webSocketContexts = std::move(other.webSocketContexts);
+
         /* Move TopicTree */
         topicTree = other.topicTree;
         other.topicTree = nullptr;
@@ -244,6 +248,14 @@ public:
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view, int, int)> subscription = nullptr;
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, int, std::string_view)> close = nullptr;
     };
+
+    /* Closes all sockets. Does not close listen sockets. */
+    TemplatedApp &&closeSockets() {
+        us_socket_context_close(SSL, httpContext);
+        for (void *webSocketContext : webSocketContexts) {
+            us_socket_context_close(SSL, webSocketContext);
+        }
+    }
 
     template <typename UserData>
     TemplatedApp &&ws(std::string pattern, WebSocketBehavior<UserData> &&behavior) {
@@ -334,6 +346,9 @@ public:
         webSocketContextDeleters.push_back([webSocketContext]() {
             webSocketContext->free();
         });
+
+        /* We also keep this list for easy closing */
+        webSocketContexts.push_back((void *)webSocketContext);
 
         /* Quick fix to disable any compression if set */
 #ifdef UWS_NO_ZLIB
