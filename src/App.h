@@ -249,12 +249,14 @@ public:
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, int, std::string_view)> close = nullptr;
     };
 
-    /* Closes all sockets. Does not close listen sockets. */
-    TemplatedApp &&closeSockets() {
-        us_socket_context_close(SSL, httpContext);
+    /* Closes all sockets including listen sockets. */
+    TemplatedApp &&close() {
+        us_socket_context_close(SSL, (struct us_socket_context_t *) httpContext);
         for (void *webSocketContext : webSocketContexts) {
-            us_socket_context_close(SSL, webSocketContext);
+            us_socket_context_close(SSL, (struct us_socket_context_t *) webSocketContext);
         }
+
+        return std::move(*this);
     }
 
     template <typename UserData>
