@@ -196,7 +196,7 @@ public:
         Super::timeout(webSocketContextData->idleTimeoutComponents.second);
 
         /* At this point we iterate all currently held subscriptions and emit an event for all of them */
-        if (webSocketContextData->subscriptionHandler) {
+        if (webSocketData->subscriber && webSocketContextData->subscriptionHandler) {
             for (Topic *t : webSocketData->subscriber->topics) {
                 webSocketContextData->subscriptionHandler(this, t->name, (int) t->size() - 1, (int) t->size());
             }
