@@ -117,6 +117,7 @@ extern "C"
     DLL_EXPORT typedef void (*uws_websocket_ping_pong_handler)(uws_websocket_t *ws, const char *message, size_t length, void* user_data);
     DLL_EXPORT typedef void (*uws_websocket_close_handler)(uws_websocket_t *ws, int code, const char *message, size_t length, void* user_data);
     DLL_EXPORT typedef void (*uws_websocket_upgrade_handler)(uws_res_t *response, uws_req_t *request, uws_socket_context_t *context, void* user_data);
+    DLL_EXPORT typedef void (*uws_websocket_subscription_handler)(uws_websocket_t *ws, const char *topic_name, size_t topic_name_length, int new_number_of_subscriber, int old_number_of_subscriber, void* user_data);
 
     DLL_EXPORT typedef struct
     {
@@ -141,6 +142,7 @@ extern "C"
         uws_websocket_ping_pong_handler ping;
         uws_websocket_ping_pong_handler pong;
         uws_websocket_close_handler close;
+        uws_websocket_subscription_handler subscription;
     } uws_socket_behavior_t;
 
     DLL_EXPORT typedef void (*uws_listen_handler)(struct us_listen_socket_t *listen_socket, uws_app_listen_config_t config, void *user_data);
