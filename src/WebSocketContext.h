@@ -371,6 +371,12 @@ private:
             return s;
         });
 
+        us_socket_context_on_long_timeout(SSL, getSocketContext(), [](auto *s) {
+            ((WebSocket<SSL, isServer, USERDATA> *) s)->end(1000, "please reconnect");
+
+            return s;
+        });
+
         /* Handle socket timeouts, simply close them so to not confuse client with FIN */
         us_socket_context_on_timeout(SSL, getSocketContext(), [](auto *s) {
 

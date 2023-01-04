@@ -4,6 +4,28 @@ on: [push]
 
 jobs:
 
+  short_fuzzing:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Build fuzzers
+      id: build
+      uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
+      with:
+        oss-fuzz-project-name: 'uwebsockets'
+        language: c++
+    - name: Run fuzzers
+      uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
+      with:
+        oss-fuzz-project-name: 'uwebsockets'
+        language: c++
+        fuzz-seconds: 600
+    - name: Upload crash
+      uses: actions/upload-artifact@v3
+      if: failure() && steps.build.outcome == 'success'
+      with:
+        name: artifacts
+        path: ./out/artifacts
+
   build_windows:
     runs-on: windows-latest
     steps:

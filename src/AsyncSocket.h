@@ -50,6 +50,7 @@ struct AsyncSocket {
     template <bool> friend struct TemplatedApp;
     template <bool, typename> friend struct WebSocketContextData;
     template <typename, typename> friend struct TopicTree;
+    template <bool> friend struct HttpResponse;
 
 private:
     /* Helper, do not use directly (todo: move to uSockets or de-crazify) */

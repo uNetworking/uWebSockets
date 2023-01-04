@@ -158,7 +158,7 @@ public:
     }
 
     /* Subscribe fails if we already are subscribed */
-    bool subscribe(Subscriber *s, std::string_view topic) {
+    Topic *subscribe(Subscriber *s, std::string_view topic) {
         /* Notify user that they are doing something wrong here */
         checkIteratingSubscriber(s);
 
@@ -173,16 +173,16 @@ public:
         /* Insert us in topic, insert topic in us */
         auto [it, inserted] = s->topics.insert(topicPtr);
         if (!inserted) {
-            return false;
+            return nullptr;
         }
         topicPtr->insert(s);
 
         /* Success */
-        return true;
+        return topicPtr;
     }
 
-    /* Returns ok, last */
-    std::pair<bool, bool> unsubscribe(Subscriber *s, std::string_view topic) {
+    /* Returns ok, last, newCount */
+    std::tuple<bool, bool, int> unsubscribe(Subscriber *s, std::string_view topic) {
         /* Notify user that they are doing something wrong here */
         checkIteratingSubscriber(s);
 
@@ -190,16 +190,18 @@ public:
         Topic *topicPtr = lookupTopic(topic);
         if (!topicPtr) {
             /* If the topic doesn't exist we are assumed to still be subscribers of something */
-            return {false, false};
+            return {false, false, -1};
         }
 
         /* Erase from our list first */
         if (s->topics.erase(topicPtr) == 0) {
-            return {false, false};
+            return {false, false, -1};
         }
 
         /* Remove us from topic */
         topicPtr->erase(s);
+
+        int newCount = topicPtr->size();
 
         /* If there is no subscriber to this topic, remove it */
         if (!topicPtr->size()) {
@@ -208,7 +210,7 @@ public:
         }
 
         /* If we don't hold any topics we are to be freed altogether */
-        return {true, topics.size() == 0};
+        return {true, s->topics.size() == 0, newCount};
     }
 
     /* Factory function for creating a Subscriber */
