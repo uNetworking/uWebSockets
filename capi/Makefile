@@ -8,20 +8,20 @@ default:
 
 capi:
 	$(MAKE) clean
-	cd ../uSockets && $(CC) -pthread -DLIBUS_USE_OPENSSL -DLIBUS_USE_LIBUV -std=c11 -Isrc -flto -fPIC -O3 -c src/*.c src/eventing/*.c src/crypto/*.c
+	cd ../uSockets && $(CC) -pthread -DUWS_WITH_PROXY -DLIBUS_USE_OPENSSL -DLIBUS_USE_LIBUV -std=c11 -Isrc -flto -fPIC -O3 -c src/*.c src/eventing/*.c src/crypto/*.c
 	cd ../uSockets && $(CXX) -std=c++17 -flto -fPIC -O3 -c src/crypto/*.cpp 
 	cd ../uSockets && $(AR) rvs uSockets.a *.o
 
-	$(CXX) -c -O3 -std=c++17 -lz -luv -flto -fPIC -I ../src -I ../uSockets/src $(LIBRARY_NAME).cpp
+	$(CXX) -DUWS_WITH_PROXY -c -O3 -std=c++17 -lz -luv -flto -fPIC -I ../src -I ../uSockets/src $(LIBRARY_NAME).cpp
 	$(AR) rvs $(LIBRARY_NAME).a $(LIBRARY_NAME).o ../uSockets/uSockets.a
 shared:
 	$(MAKE) clean
 
-	cd ../uSockets && $(CC) -pthread -DLIBUS_USE_OPENSSL -DLIBUS_USE_LIBUV -std=c11 -Isrc -flto -fPIC -O3 -c src/*.c src/eventing/*.c src/crypto/*.c
+	cd ../uSockets && $(CC) -pthread -DUWS_WITH_PROXY  -DLIBUS_USE_OPENSSL -DLIBUS_USE_LIBUV -std=c11 -Isrc -flto -fPIC -O3 -c src/*.c src/eventing/*.c src/crypto/*.c
 	cd ../uSockets && $(CXX) -std=c++17 -flto -fPIC -O3 -c src/crypto/*.cpp 
 	cd ../uSockets && $(AR) rvs uSockets.a *.o
 
-	$(CXX) -c -O3 -std=c++17 -lz -luv -flto -fPIC -I ../src -I ../uSockets/src $(LIBRARY_NAME).cpp 
+	$(CXX) -DUWS_WITH_PROXY  -c -O3 -std=c++17 -lz -luv -flto -fPIC -I ../src -I ../uSockets/src $(LIBRARY_NAME).cpp 
 	$(CXX) -shared -o $(LIBRARY_NAME).so  $(LIBRARY_NAME).o ../uSockets/uSockets.a -fPIC  -lz -luv -lssl -lcrypto
 misc:
 	mkdir -p ../misc && openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -passout pass:1234 -keyout ../misc/key.pem -out ../misc/cert.pem
