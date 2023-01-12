@@ -165,9 +165,17 @@ All given WebSocket pointers are guaranteed to live from open event (where you g
 Message events will never emit outside of open/close. Calling WebSocket.close or WebSocket.end will immediately call the close handler.
 
 #### Backpressure in websockets
-Similarly to for Http, methods such as ws.send(...) can cause backpressure. Make sure to check ws.getBufferedAmount() before sending, and check the return value of ws.send before sending any more data. WebSockets do not have .onWritable, but instead make use of the .drain handler of the websocket route handler.
+Similarly to for Http, methods such as ws.send(...) can cause backpressure. Make sure to check ws.getBufferedAmount() before sending any data, and check the return value of ws.send before sending any more data. WebSockets do not have .onWritable, but instead make use of the .drain handler of the websocket route handler.
 
 Inside of .drain event you should check ws.getBufferedAmount(), it might have drained, or even increased. Most likely drained but don't assume that it has, .drain event is only a hint that it has changed.
+
+##### Checking buffered amount
+
+The ws.getBufferedAmount() function returns the number of bytes of data that have been queued but not yet sent to the client. This can be useful for monitoring the health of a WebSocket connection, as it can indicate whether the connection is experiencing high latency or a high rate of packet loss.
+
+It can be useful to check the buffered amount before sending a new message to the client. If the amount is high, it could mean the client is not receiving data as fast as the server is sending it, and you might consider slowing down the rate at which you send data or adding some flow control mechanism.
+
+This is a read-only property, it only returns the amount of data that is buffered but not yet sent, it doesn't take any parameters as input, and it returns a non-negative integer representing the number of bytes that are currently buffered.
 
 #### Ping/pongs "heartbeats"
 The library will automatically send pings to clients according to the `idleTimeout` specified. If you set idleTimeout = 120 seconds a ping will go out a few seconds before this timeout unless the client has sent something to the server recently. If the client responds to the ping, the socket will stay open. When client fails to respond in time, the socket will be forcefully closed and the close event will trigger. On disconnect all resources are freed, including subscriptions to topics and any backpressure. You can easily let the browser reconnect using 3-lines-or-so of JavaScript if you want to.
