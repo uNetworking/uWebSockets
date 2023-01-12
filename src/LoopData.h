@@ -23,7 +23,8 @@
 #include <vector>
 #include <mutex>
 #include <map>
-#include <time.h>
+#include <ctime>
+#include <cstdint>
 
 #include "PerMessageDeflate.h"
 #include "MoveOnlyFunction.h"
@@ -61,7 +62,7 @@ public:
 
     void updateDate() {
         time_t now = time(0);
-        struct tm tstruct;
+        struct tm tstruct = {0};
 #ifdef _WIN32
         /* Micro, fucking soft never follows spec. */
         gmtime_s(&tstruct, &now);
@@ -75,7 +76,7 @@ public:
             "Jan", "Feb", "Mar", "Apr", "May", "Jun",
             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
         };
-        snprintf(date, 32, "%.3s, %.2d %.3s %d %.2d:%.2d:%.2d GMT",
+        snprintf(date, INT8_MAX, "%s, %.2d %s %d %.2d:%.2d:%.2d GMT",
             wday_name[tstruct.tm_wday],
             tstruct.tm_mday,
             mon_name[tstruct.tm_mon],
