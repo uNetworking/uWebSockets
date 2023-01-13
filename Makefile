@@ -1,83 +1,20 @@
-EXAMPLE_FILES := Http3Server Broadcast HelloWorld Crc32 ServerName EchoServer BroadcastingEchoServer UpgradeSync UpgradeAsync
-THREADED_EXAMPLE_FILES := HelloWorldThreaded EchoServerThreaded
-override CXXFLAGS += -lpthread -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++2a -Isrc -IuSockets/src
-override LDFLAGS += uSockets/*.o -lz
+# This is the NMake shim for Windows (WIP)
+# Example: $Env:WITH_ZLIB='0'; $ENV:WITH_LTO='0'; $Env:CC='clang'; $ENV:CFLAGS='-I C:\vcpkg\installed\x64-windows\include'; $ENV:LDFLAGS='-L C:\vcpkg\installed\x64-windows\lib'; $ENV:CXX='clang++'; $ENV:EXEC_SUFFIX='.exe'; $ENV:WITH_LIBUV='1'; nmake
 
-DESTDIR ?=
-prefix ?= /usr/local
+examples: default
+	.\build.exe examples || .\a.exe examples
 
-# WITH_PROXY enables PROXY Protocol v2 support
-ifeq ($(WITH_PROXY),1)
-	override CXXFLAGS += -DUWS_WITH_PROXY
-endif
+clean: default
+	.\build.exe clean || .\a.exe clean
 
-# WITH_QUIC enables experimental Http3 examples
-ifeq ($(WITH_QUIC),1)
-	override CXXFLAGS += -DLIBUS_USE_QUIC
-	override LDFLAGS += -pthread -lz -lm uSockets/lsquic/src/liblsquic/liblsquic.a
-endif
+capi: default
+	.\build.exe capi || .\a.exe capi
 
-# WITH_LIBDEFLATE=1 enables fast paths for SHARED_COMPRESSOR and inflation
-ifeq ($(WITH_LIBDEFLATE),1)
-	override CXXFLAGS += -I libdeflate -DUWS_USE_LIBDEFLATE
-	override LDFLAGS += libdeflate/libdeflate.a
-endif
+all: default
+	.\build.exe all || .\a.exe all
 
-# Heavily prefer boringssl over openssl
-ifeq ($(WITH_BORINGSSL),1)
-	override CFLAGS += -I uSockets/boringssl/include -pthread -DLIBUS_USE_OPENSSL
-	override LDFLAGS += -pthread uSockets/boringssl/build/ssl/libssl.a uSockets/boringssl/build/crypto/libcrypto.a
-else
-	# WITH_OPENSSL=1 enables OpenSSL 1.1+ support
-	ifeq ($(WITH_OPENSSL),1)
-		# With problems on macOS, make sure to pass needed LDFLAGS required to find these
-		override LDFLAGS += -lssl -lcrypto
-	else
-		# WITH_WOLFSSL=1 enables WolfSSL 4.2.0 support (mutually exclusive with OpenSSL)
-		ifeq ($(WITH_WOLFSSL),1)
-			override LDFLAGS += -L/usr/local/lib -lwolfssl
-		endif
-	endif
-endif
-
-# WITH_LIBUV=1 builds with libuv as event-loop
-ifeq ($(WITH_LIBUV),1)
-	override LDFLAGS += -luv
-endif
-
-# WITH_ASIO=1 builds with ASIO as event-loop
-ifeq ($(WITH_ASIO),1)
-	override CXXFLAGS += -pthread
-	override LDFLAGS += -lpthread
-endif
-
-# WITH_ASAN builds with sanitizers
-ifeq ($(WITH_ASAN),1)
-	override CXXFLAGS += -fsanitize=address -g
-	override LDFLAGS += -lasan
-endif
-
-.PHONY: examples
-examples:
-	$(MAKE) -C uSockets; \
-	for FILE in $(EXAMPLE_FILES); do $(CXX) -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
-	for FILE in $(THREADED_EXAMPLE_FILES); do $(CXX) -pthread -flto -O3 $(CXXFLAGS) examples/$$FILE.cpp -o $$FILE $(LDFLAGS) & done; \
-	wait
-
-.PHONY: capi
-capi:
-	$(MAKE) -C uSockets
-	$(CXX) -shared -fPIC -flto -O3 $(CXXFLAGS) capi/App.cpp -o capi.so $(LDFLAGS)
-	$(CXX) capi/example.c -O3 capi.so -o example
-
-install:
-	mkdir -p "$(DESTDIR)$(prefix)/include/uWebSockets"
-	cp -r src/* "$(DESTDIR)$(prefix)/include/uWebSockets"
-
-all:
-	$(MAKE) examples
-	$(MAKE) -C fuzzing
-	$(MAKE) -C benchmarks
-clean:
-	rm -rf $(EXAMPLE_FILES) $(THREADED_EXAMPLE_FILES)
-	rm -rf fuzzing/*.o benchmarks/*.o
+default:
+	cd uSockets
+	$(CC) $(CFLAGS) -DLIBUS_NO_SSL -std=c11 -Isrc -O3 -c src/*.c src/eventing/*.c src/crypto/*.c
+	cd ..
+	$(CC) build.c

@@ -4,7 +4,7 @@
 <i>Simple, secure</i><sup><a href="https://github.com/uNetworking/uWebSockets/tree/master/fuzzing#fuzz-testing-of-various-parsers-and-mocked-examples">1</a></sup><i> & standards compliant</i><sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">2</a></sup><i> web server for the most demanding</i><sup><a href="https://github.com/uNetworking/uWebSockets/tree/master/benchmarks#benchmark-driven-development">3</a></sup><i> of applications.</i> <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">Read more...</a>
 <br><br>
 
-<a href="https://github.com/uNetworking/uWebSockets/releases"><img src="https://img.shields.io/github/v/release/uNetworking/uWebSockets"></a> <a href="https://lgtm.com/projects/g/uNetworking/uWebSockets/context:cpp"><img alt="Language grade: C/C++" src="https://img.shields.io/lgtm/grade/cpp/g/uNetworking/uWebSockets.svg?logo=lgtm&logoWidth=18"/></a> <a href="https://osv.dev/list?q=uwebsockets&affected_only=true&page=1&ecosystem=OSS-Fuzz"><img src="https://oss-fuzz-build-logs.storage.googleapis.com/badges/uwebsockets.svg" /></a> <img src="https://img.shields.io/badge/downloads-65%20million-pink" />
+<a href="https://github.com/uNetworking/uWebSockets/releases"><img src="https://img.shields.io/github/v/release/uNetworking/uWebSockets"></a> <a href="https://osv.dev/list?q=uwebsockets&affected_only=true&page=1&ecosystem=OSS-Fuzz"><img src="https://oss-fuzz-build-logs.storage.googleapis.com/badges/uwebsockets.svg" /></a> <img src="https://img.shields.io/badge/downloads-70%20million-pink" />
 
 </div>
 <br><br>
@@ -24,14 +24,14 @@ Besides this Node.js integration, you can also [use Bun](https://bun.sh) where �
 We've been fully standards compliant with a perfect Autobahn|Testsuite score since 2016<sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">2</a></sup>. µWebSockets powers many of the biggest crypto exchanges in the world, handling trade volumes of multiple billions of USD every day. If you trade crypto, chances are you do so via µWebSockets.
 
 ### :battery: Batteries included
-Designed around a convenient URL router with wildcard & parameter support - paired with efficient pub/sub features inspired by MQTT. µWebSockets should be the obvious, complete starting point for any real-time web project with high demands.
+Designed around a convenient URL router with wildcard & parameter support - paired with efficient pub/sub features for WebSockets. µWebSockets should be the obvious, complete starting point for any real-time web project with high demands.
 
-Start building your Http & WebSocket apps in a swift; <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">read the user manual</a> and <a href="https://github.com/uNetworking/uWebSockets/tree/master/examples">see examples</a>. You can browse our <a href="https://unetworking.github.io/uWebSockets.js/generated/">TypeDoc</a> for a quick overview.
+Start building your Http & WebSocket apps in no time; <a href="https://github.com/uNetworking/uWebSockets/blob/master/misc/READMORE.md">read the user manual</a> and <a href="https://github.com/uNetworking/uWebSockets/tree/master/examples">see examples</a>. You can browse our <a href="https://unetworking.github.io/uWebSockets.js/generated/">TypeDoc</a> for a quick overview.
 
 ```c++
 uWS::SSLApp({
 
-    /* There are tons of SSL options, see uSockets */
+    /* These are the most common options, fullchain and key. See uSockets for more options. */
     .cert_file_name = "cert.pem",
     .key_file_name = "key.pem"
     
@@ -44,8 +44,7 @@ uWS::SSLApp({
 
     /* Just a few of the available handlers */
     .open = [](auto *ws) {
-        /* MQTT syntax */
-        ws->subscribe("sensors/+/house");
+        ws->subscribe("oh_interesting_subject");
     },
     .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
         ws->send(message, opCode);
@@ -55,6 +54,8 @@ uWS::SSLApp({
 
     if (listenSocket) {
         std::cout << "Listening on port " << 9001 << std::endl;
+    } else {
+        std::cout << "Failed to load certs or to bind to port" << std::endl;
     }
     
 }).run();

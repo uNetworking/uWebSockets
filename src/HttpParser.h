@@ -25,6 +25,7 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
+#include <climits>
 #include "MoveOnlyFunction.h"
 #include "ChunkedEncoding.h"
 
@@ -36,6 +37,7 @@ namespace uWS {
 
 /* We require at least this much post padding */
 static const unsigned int MINIMUM_HTTP_POST_PADDING = 32;
+static void *FULLPTR = (void *)~(uintptr_t)0;
 
 struct HttpRequest {
 
@@ -115,7 +117,17 @@ public:
         return std::string_view(headers->value.data(), headers->value.length());
     }
 
+    /* Hack: this should be getMethod */
+    std::string_view getCaseSensitiveMethod() {
+        return std::string_view(headers->key.data(), headers->key.length());
+    }
+
     std::string_view getMethod() {
+        /* Compatibility hack: lower case method (todo: remove when major version bumps) */
+        for (unsigned int i = 0; i < headers->key.length(); i++) {
+            ((char *) headers->key.data())[i] |= 32;
+        }
+
         return std::string_view(headers->key.data(), headers->key.length());
     }
 
@@ -160,21 +172,109 @@ private:
 
     const size_t MAX_FALLBACK_SIZE = 1024 * 4;
 
+    /* Returns UINT_MAX on error. Maximum 999999999 is allowed. */
     static unsigned int toUnsignedInteger(std::string_view str) {
+        /* We assume at least 32-bit integer giving us safely 999999999 (9 number of 9s) */
+        if (str.length() > 9) {
+            return UINT_MAX;
+        }
+
         unsigned int unsignedIntegerValue = 0;
         for (char c : str) {
+            /* As long as the letter is 0-9 we cannot overflow. */
+            if (c < '0' || c > '9') {
+                return UINT_MAX;
+            }
             unsignedIntegerValue = unsignedIntegerValue * 10u + ((unsigned int) c - (unsigned int) '0');
         }
         return unsignedIntegerValue;
     }
+   
+    /* RFC 9110 16.3.1 Field Name Registry (TLDR; alnum + hyphen is allowed)
+     * [...] It MUST conform to the field-name syntax defined in Section 5.1,
+     * and it SHOULD be restricted to just letters, digits,
+     * and hyphen ('-') characters, with the first character being a letter. */
+    static inline bool isFieldNameByte(unsigned char x) {
+        return (x == '-') |
+        ((x > '/') & (x < ':')) |
+        ((x > '@') & (x < '[')) |
+        ((x > 96) & (x < '{'));
+    }
     
-    /* Find carriage return will scan forever. But we "fence" the end margin part of the receive buffer,
-     * by putting a CR there in case one isn't found before it, so this optimizing assumption is fine. */
-    static inline void *find_cr(char *p, char */*end*/) {
-        for (uint64_t mask = 0x0d0d0d0d0d0d0d0d; true; p += 8) {
-            uint64_t val = *(uint64_t *)p ^ mask;
-            if ((val + 0xfefefefefefefeffull) & (~val & 0x8080808080808080ull)) {
-                while (*(unsigned char *)p != 0x0d) p++;
+    static inline uint64_t hasLess(uint64_t x, uint64_t n) {
+        return (((x)-~0ULL/255*(n))&~(x)&~0ULL/255*128);
+    }
+
+    static inline uint64_t hasMore(uint64_t x, uint64_t n) {
+        return (( ((x)+~0ULL/255*(127-(n))) |(x))&~0ULL/255*128);
+    }
+
+    static inline uint64_t hasBetween(uint64_t x, uint64_t m, uint64_t n) {
+        return (( (~0ULL/255*(127+(n))-((x)&~0ULL/255*127)) &~(x)& (((x)&~0ULL/255*127)+~0ULL/255*(127-(m))) )&~0ULL/255*128);
+    }
+
+    static inline bool notFieldNameWord(uint64_t x) {
+        return hasLess(x, '-') |
+        hasBetween(x, '-', '0') |
+        hasBetween(x, '9', 'A') |
+        hasBetween(x, 'Z', 'a') |
+        hasMore(x, 'z');
+    }
+    
+    static inline void *consumeFieldName(char *p) {
+        for (; true; p += 8) {
+            uint64_t word;
+            memcpy(&word, p, sizeof(uint64_t));
+            if (notFieldNameWord(word)) {
+                while (isFieldNameByte(*(unsigned char *)p)) {
+                    *(p++) |= 0x20;
+                }
+                return (void *)p;
+            }
+            word |= 0x2020202020202020ull;
+            memcpy(p, &word, sizeof(uint64_t));
+        }
+    }
+
+    /* Puts method as key, target as value and returns non-null (or nullptr on error). */
+    static inline char *consumeRequestLine(char *data, HttpRequest::Header &header) {
+        /* Scan until single SP, assume next is / (origin request) */
+        char *start = data;
+        /* This catches the post padded CR and fails */
+        while (data[0] > 32) data++;
+        if (data[0] == 32 && data[1] == '/') {
+            header.key = {start, (size_t) (data - start)};
+            data++;
+            /* Scan for less than 33 (catches post padded CR and fails) */
+            start = data;
+            for (; true; data += 8) {
+                uint64_t word;
+                memcpy(&word, data, sizeof(uint64_t));
+                if (hasLess(word, 33)) {
+                    while (*(unsigned char *)data > 32) data++;
+                    /* Now we stand on space */
+                    header.value = {start, (size_t) (data - start)};
+                    /* Check that the following is http 1.1 */
+                    if (memcmp(" HTTP/1.1\r\n", data, 11) == 0) {
+                        return data + 11;
+                    }
+                    return nullptr;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    /* RFC 9110: 5.5 Field Values (TLDR; anything above 31 is allowed; htab (9) is also allowed)
+     * Field values are usually constrained to the range of US-ASCII characters [...]
+     * Field values containing CR, LF, or NUL characters are invalid and dangerous [...]
+     * Field values containing other CTL characters are also invalid. */
+    static inline void *tryConsumeFieldValue(char *p) {
+        for (; true; p += 8) {
+            uint64_t word;
+            memcpy(&word, p, sizeof(uint64_t));
+            if (hasLess(word, 32)) {
+                while (*(unsigned char *)p > 31) p++;
                 return (void *)p;
             }
         }
@@ -202,6 +302,7 @@ private:
         #else
             /* This one is unused */
             (void) reserved;
+            (void) end;
         #endif
 
         /* It is critical for fallback buffering logic that we only return with success
@@ -209,26 +310,59 @@ private:
          * for PROXY means we can end up succeeding, yet leaving bytes in the fallback buffer
          * which is then removed, and our counters to flip due to overflow and we end up with a crash */
 
-        for (unsigned int i = 0; i < HttpRequest::MAX_HEADERS - 1; i++) {
-            /* Lower case and short scan until ':', or stop at \r (from previous scan) */
-            for (preliminaryKey = postPaddedBuffer; (*postPaddedBuffer != ':') && (*(unsigned char *)postPaddedBuffer > 32); *(postPaddedBuffer++) |= 32);
+        /* The request line is different from the field names / field values */
+        if (!(postPaddedBuffer = consumeRequestLine(postPaddedBuffer, headers[0]))) {
+            /* Error - invalid request line */
+            return 0;
+        }
+        headers++;
+
+        for (unsigned int i = 1; i < HttpRequest::MAX_HEADERS - 1; i++) {
+            /* Lower case and consume the field name */
+            preliminaryKey = postPaddedBuffer;
+            postPaddedBuffer = (char *) consumeFieldName(postPaddedBuffer);
             headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
-            /* Assume colon, space follows (this is fine as we have at least 2 bytes past) */
-            if (postPaddedBuffer[0] == ':' && postPaddedBuffer[1] == ' ') {
-                postPaddedBuffer += 2;
-            } else {
-                /* Trim until value starts */
-                for (; (*postPaddedBuffer == ':' || *(unsigned char *)postPaddedBuffer < 33) && *postPaddedBuffer != '\r'; postPaddedBuffer++);
+
+            /* We should not accept whitespace between key and colon, so colon must foloow immediately */
+            if (postPaddedBuffer[0] != ':') {
+                /* Error: invalid chars in field name */
+                return 0;
             }
+            postPaddedBuffer++;
+
             preliminaryValue = postPaddedBuffer;
-            /* The goal of this call is to find next "\r\n", fast */
-            postPaddedBuffer = (char *) find_cr(postPaddedBuffer, end);
+            /* The goal of this call is to find next "\r\n", or any invalid field value chars, fast */
+            while (true) {
+                postPaddedBuffer = (char *) tryConsumeFieldValue(postPaddedBuffer);
+                /* If this is not CR then we caught some stinky invalid char on the way */
+                if (postPaddedBuffer[0] != '\r') {
+                    /* If TAB then keep searching */
+                    if (postPaddedBuffer[0] == '\t') {
+                        postPaddedBuffer++;
+                        continue;
+                    }
+                    /* Error - invalid chars in field value */
+                    return 0;
+                }
+                break;
+            }
             /* We fence end[0] with \r, followed by end[1] being something that is "not \n", to signify "not found".
                 * This way we can have this one single check to see if we found \r\n WITHIN our allowed search space. */
             if (postPaddedBuffer[1] == '\n') {
                 /* Store this header, it is valid */
                 headers->value = std::string_view(preliminaryValue, (size_t) (postPaddedBuffer - preliminaryValue));
                 postPaddedBuffer += 2;
+
+                /* Trim trailing whitespace (SP, HTAB) */
+                while (headers->value.length() && headers->value.back() < 33) {
+                    headers->value.remove_suffix(1);
+                }
+
+                /* Trim initial whitespace (SP, HTAB) */
+                while (headers->value.length() && headers->value.front() < 33) {
+                    headers->value.remove_prefix(1);
+                }
+                
                 headers++;
 
                 /* We definitely have at least one header (or request line), so check if we are done */
@@ -251,7 +385,10 @@ private:
         return 0;
     }
 
-    // the only caller of getHeaders
+    /* This is the only caller of getHeaders and is thus the deepest part of the parser.
+     * From here we return either [consumed, user] for "keep going",
+      * or [consumed, nullptr] for "break; I am closed or upgraded to websocket"
+      * or [whatever, fullptr] for "break and close me, I am a parser error!" */
     template <int CONSUME_MINIMALLY>
     std::pair<unsigned int, void *> fenceAndConsumePostPadded(char *data, unsigned int length, void *user, void *reserved, HttpRequest *req, MoveOnlyFunction<void *(void *, HttpRequest *)> &requestHandler, MoveOnlyFunction<void *(void *, std::string_view, bool)> &dataHandler) {
 
@@ -269,15 +406,31 @@ private:
             consumedTotal += consumed;
 
             /* Store HTTP version (ancient 1.0 or 1.1) */
-            req->ancientHttp = req->headers->value.length() && (req->headers->value[req->headers->value.length() - 1] == '0');
-
-            /* Strip away tail of first "header value" aka URL */
-            req->headers->value = std::string_view(req->headers->value.data(), (size_t) std::max<int>(0, (int) req->headers->value.length() - 9));
+            req->ancientHttp = false;
 
             /* Add all headers to bloom filter */
             req->bf.reset();
             for (HttpRequest::Header *h = req->headers; (++h)->key.length(); ) {
                 req->bf.add(h->key);
+            }
+            
+            /* Break if no host header (but we can have empty string which is different from nullptr) */
+            if (!req->getHeader("host").data()) {
+                return {0, FULLPTR};
+            }
+
+            /* RFC 9112 6.3
+            * If a message is received with both a Transfer-Encoding and a Content-Length header field,
+            * the Transfer-Encoding overrides the Content-Length. Such a message might indicate an attempt
+            * to perform request smuggling (Section 11.2) or response splitting (Section 11.1) and
+            * ought to be handled as an error. */
+            std::string_view transferEncodingString = req->getHeader("transfer-encoding");
+            std::string_view contentLengthString = req->getHeader("content-length");
+            if (transferEncodingString.length() && contentLengthString.length()) {
+                /* Returning fullptr is the same as calling the errorHandler */
+                /* We could be smart and set an error in the context along with this, to indicate what 
+                 * http error response we might want to return */
+                return {0, FULLPTR};
             }
 
             /* Parse query */
@@ -293,47 +446,67 @@ private:
                 return {consumedTotal, returnedUser};
             }
 
-            
-            if (req->getMethod() != "get") {
-                std::string_view contentLengthString = req->getHeader("content-length");
-                if (contentLengthString.length()) {
-                    remainingStreamingBytes = toUnsignedInteger(contentLengthString);
+            /* The rules at play here according to RFC 9112 for requests are essentially:
+             * If both content-length and transfer-encoding then invalid message; must break.
+             * If has transfer-encoding then must be chunked regardless of value.
+             * If content-length then fixed length even if 0.
+             * If none of the above then fixed length is 0. */
 
-                    if (!CONSUME_MINIMALLY) {
-                        unsigned int emittable = std::min<unsigned int>(remainingStreamingBytes, length);
-                        dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
-                        remainingStreamingBytes -= emittable;
+            /* RFC 9112 6.3
+             * If a message is received with both a Transfer-Encoding and a Content-Length header field,
+             * the Transfer-Encoding overrides the Content-Length. */
+            if (transferEncodingString.length()) {
 
-                        data += emittable;
-                        length -= emittable;
-                        consumedTotal += emittable;
+                /* If a proxy sent us the transfer-encoding header that 100% means it must be chunked or else the proxy is
+                 * not RFC 9112 compliant. Therefore it is always better to assume this is the case, since that entirely eliminates 
+                 * all forms of transfer-encoding obfuscation tricks. We just rely on the header. */
+
+                /* RFC 9112 6.3
+                 * If a Transfer-Encoding header field is present in a request and the chunked transfer coding is not the
+                 * final encoding, the message body length cannot be determined reliably; the server MUST respond with the
+                 * 400 (Bad Request) status code and then close the connection. */
+
+                /* In this case we fail later by having the wrong interpretation (assuming chunked).
+                 * This could be made stricter but makes no difference either way, unless forwarding the identical message as a proxy. */
+
+                remainingStreamingBytes = STATE_IS_CHUNKED;
+                /* If consume minimally, we do not want to consume anything but we want to mark this as being chunked */
+                if (!CONSUME_MINIMALLY) {
+                    /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
+                    std::string_view dataToConsume(data, length);
+                    for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                        dataHandler(user, chunk, chunk.length() == 0);
                     }
-                } else {
-                    /* We are not GET and we have no content-length */
-                    if (req->getHeader("transfer-encoding").find("chunked") != std::string_view::npos) {
-                        remainingStreamingBytes = STATE_IS_CHUNKED;
-                        /* If consume minimally, we do not want to consume anything but we want to mark this as being chunked */
-                        if (!CONSUME_MINIMALLY) {
-                            /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
-                            std::string_view dataToConsume(data, length);
-                            for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
-                                dataHandler(user, chunk, chunk.length() == 0);
-                            }
-                            unsigned int consumed = (length - (unsigned int) dataToConsume.length());
-                            data = (char *) dataToConsume.data();
-                            length = (unsigned int) dataToConsume.length();
-                            consumedTotal += consumed;
-                        }
-                    } else {
-                        /* We have no content-length and no transfer-encoding: chunked */
-                        dataHandler(user, {}, true);
+                    if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
+                        return {0, FULLPTR};
                     }
+                    unsigned int consumed = (length - (unsigned int) dataToConsume.length());
+                    data = (char *) dataToConsume.data();
+                    length = (unsigned int) dataToConsume.length();
+                    consumedTotal += consumed;
+                }
+            } else if (contentLengthString.length()) {
+                remainingStreamingBytes = toUnsignedInteger(contentLengthString);
+                if (remainingStreamingBytes == UINT_MAX) {
+                    /* Parser error */
+                    return {0, FULLPTR};
+                }
+
+                if (!CONSUME_MINIMALLY) {
+                    unsigned int emittable = std::min<unsigned int>(remainingStreamingBytes, length);
+                    dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
+                    remainingStreamingBytes -= emittable;
+
+                    data += emittable;
+                    length -= emittable;
+                    consumedTotal += emittable;
                 }
             } else {
-                /* Still emit an empty data chunk to signal no data */
+                /* If we came here without a body; emit an empty data chunk to signal no data */
                 dataHandler(user, {}, true);
             }
 
+            /* Consume minimally should break as easrly as possible */
             if (CONSUME_MINIMALLY) {
                 break;
             }
@@ -355,6 +528,9 @@ public:
                 std::string_view dataToConsume(data, length);
                 for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
                     dataHandler(user, chunk, chunk.length() == 0);
+                }
+                if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
+                    return FULLPTR;
                 }
                 data = (char *) dataToConsume.data();
                 length = (unsigned int) dataToConsume.length();

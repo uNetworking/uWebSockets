@@ -105,5 +105,5 @@ int main() {
 
     /* It is totally fine to have a few false positives */
     std::cout << "Total false positives: " << totalFalsePositives << std::endl;
-    assert(totalFalsePositives == 1);
+    assert(totalFalsePositives == 0);
 }

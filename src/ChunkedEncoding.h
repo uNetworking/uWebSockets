@@ -32,21 +32,36 @@ namespace uWS {
     constexpr uint32_t STATE_HAS_SIZE = 0x80000000;
     constexpr uint32_t STATE_IS_CHUNKED = 0x40000000;
     constexpr uint32_t STATE_SIZE_MASK = 0x3FFFFFFF;
+    constexpr uint32_t STATE_IS_ERROR = 0xFFFFFFFF;
+    constexpr uint32_t STATE_SIZE_OVERFLOW = 0x0F000000;
+
+    inline unsigned int chunkSize(unsigned int state) {
+        return state & STATE_SIZE_MASK;
+    }
 
     /* Reads hex number until CR or out of data to consume. Updates state. Returns bytes consumed. */
-    static void consumeHexNumber(std::string_view &data, unsigned int &state) {
+    inline void consumeHexNumber(std::string_view &data, unsigned int &state) {
         /* Consume everything higher than 32 */
         while (data.length() && data.data()[0] > 32) {
 
             unsigned char digit = (unsigned char)data.data()[0];
             if (digit >= 'a') {
-                digit -= ('a' - '9') - 1;
+                digit = (unsigned char) (digit - ('a' - ':'));
+            } else if (digit >= 'A') {
+                digit = (unsigned char) (digit - ('A' - ':'));
+            }
+
+            unsigned int number = ((unsigned int) digit - (unsigned int) '0');
+
+            if (number > 16 || (chunkSize(state) & STATE_SIZE_OVERFLOW)) {
+                state = STATE_IS_ERROR;
+                return;
             }
 
             // extract state bits
             unsigned int bits = /*state &*/ STATE_IS_CHUNKED;
 
-            state = (state & STATE_SIZE_MASK) * 16u + ((unsigned int) digit - (unsigned int) '0');
+            state = (state & STATE_SIZE_MASK) * 16u + number;
 
             state |= bits;
             data.remove_prefix(1);
@@ -61,10 +76,6 @@ namespace uWS {
             state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
             data.remove_prefix(1);
         }
-    }
-
-    inline unsigned int chunkSize(unsigned int state) {
-        return state & STATE_SIZE_MASK;
     }
 
     inline void decChunkSize(unsigned int &state, unsigned int by) {
@@ -85,9 +96,12 @@ namespace uWS {
         return state & ~STATE_SIZE_MASK;
     }
 
-    /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
-    static std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state) {
+    inline bool isParsingInvalidChunkedEncoding(unsigned int state) {
+        return state == STATE_IS_ERROR;
+    }
 
+    /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
+    static std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state, bool trailer = false) {
         while (data.length()) {
 
             // if in "drop trailer mode", just drop up to what we have as size
@@ -113,12 +127,19 @@ namespace uWS {
 
             if (!hasChunkSize(state)) {
                 consumeHexNumber(data, state);
+                if (isParsingInvalidChunkedEncoding(state)) {
+                    return std::nullopt;
+                }
                 if (hasChunkSize(state) && chunkSize(state) == 2) {
 
                     //printf("Setting state to trailer-parsing and emitting empty chunk\n");
 
                     // set trailer state and increase size to 4
-                    state = 4 /*| STATE_IS_CHUNKED*/ | STATE_HAS_SIZE;
+                    if (trailer) {
+                        state = 4 /*| STATE_IS_CHUNKED*/ | STATE_HAS_SIZE;
+                    } else {
+                        state = 2 /*| STATE_IS_CHUNKED*/ | STATE_HAS_SIZE;
+                    }
 
                     return std::string_view(nullptr, 0);
                 }
@@ -174,9 +195,10 @@ namespace uWS {
         std::string_view *data;
         std::optional<std::string_view> chunk;
         unsigned int *state;
+        bool trailer;
 
-        ChunkIterator(std::string_view *data, unsigned int *state) : data(data), state(state) {
-            chunk = uWS::getNextChunk(*data, *state);
+        ChunkIterator(std::string_view *data, unsigned int *state, bool trailer = false) : data(data), state(state), trailer(trailer) {
+            chunk = uWS::getNextChunk(*data, *state, trailer);
         }
 
         ChunkIterator() {
@@ -203,7 +225,7 @@ namespace uWS {
         }
 
         ChunkIterator &operator++() {
-            chunk = uWS::getNextChunk(*data, *state);
+            chunk = uWS::getNextChunk(*data, *state, trailer);
             return *this;
         }
 

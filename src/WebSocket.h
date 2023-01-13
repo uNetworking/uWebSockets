@@ -195,6 +195,13 @@ public:
         /* Set shorter timeout (use ping-timeout) to avoid long hanging sockets after end() on broken connections */
         Super::timeout(webSocketContextData->idleTimeoutComponents.second);
 
+        /* At this point we iterate all currently held subscriptions and emit an event for all of them */
+        if (webSocketData->subscriber && webSocketContextData->subscriptionHandler) {
+            for (Topic *t : webSocketData->subscriber->topics) {
+                webSocketContextData->subscriptionHandler(this, t->name, (int) t->size() - 1, (int) t->size());
+            }
+        }
+
         /* Make sure to unsubscribe from any pub/sub node at exit */
         webSocketContextData->topicTree->freeSubscriber(webSocketData->subscriber);
         webSocketData->subscriber = nullptr;
@@ -234,7 +241,11 @@ public:
         }
 
         /* Cannot return numSubscribers as this is only for this particular websocket context */
-        webSocketContextData->topicTree->subscribe(webSocketData->subscriber, topic);
+        Topic *topicOrNull = webSocketContextData->topicTree->subscribe(webSocketData->subscriber, topic);
+        if (topicOrNull && webSocketContextData->subscriptionHandler) {
+            /* Emit this socket, the topic, new count, old count */
+            webSocketContextData->subscriptionHandler(this, topic, (int) topicOrNull->size(), (int) topicOrNull->size() - 1);
+        }
 
         /* Subscribe always succeeds */
         return true;
@@ -251,7 +262,11 @@ public:
         if (!webSocketData->subscriber) { return false; }
 
         /* Cannot return numSubscribers as this is only for this particular websocket context */
-        auto [ok, last] = webSocketContextData->topicTree->unsubscribe(webSocketData->subscriber, topic);
+        auto [ok, last, newCount] = webSocketContextData->topicTree->unsubscribe(webSocketData->subscriber, topic);
+        /* Emit subscription event if last */
+        if (ok && webSocketContextData->subscriptionHandler) {
+            webSocketContextData->subscriptionHandler(this, topic, newCount, newCount + 1);
+        }
 
         /* Free us as subscribers if we unsubscribed from our last topic */
         if (ok && last) {

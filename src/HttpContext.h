@@ -170,7 +170,7 @@ private:
 
                 /* Route the method and URL */
                 selectedRouter->getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
-                if (!selectedRouter->route(httpRequest->getMethod(), httpRequest->getUrl())) {
+                if (!selectedRouter->route(httpRequest->getCaseSensitiveMethod(), httpRequest->getUrl())) {
                     /* We have to force close this socket as we have no handler for it */
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
@@ -253,6 +253,14 @@ private:
 
             /* Mark that we are no longer parsing Http */
             httpContextData->isParsingHttp = false;
+
+            /* If we got fullptr that means the parser wants us to close the socket from error (same as calling the errorHandler) */
+            if (returnedSocket == FULLPTR) {
+                /* Close any socket on HTTP errors */
+                us_socket_close(SSL, s, 0, nullptr);
+                /* This just makes the following code act as if the socket was closed from error inside the parser. */
+                returnedSocket = nullptr;
+            }
 
             /* We need to uncork in all cases, except for nullptr (closed socket, or upgraded socket) */
             if (returnedSocket != nullptr) {
@@ -415,7 +423,7 @@ public:
         /* Todo: This is ugly, fix */
         std::vector<std::string> methods;
         if (method == "*") {
-            methods = httpContextData->currentRouter->methods;
+            methods = httpContextData->currentRouter->upperCasedMethods;
         } else {
             methods = {method};
         }

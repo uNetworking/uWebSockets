@@ -11,3 +11,9 @@ default:
 	./ExtensionsNegotiator
 	$(CXX) -std=c++17 -fsanitize=address HttpParser.cpp -o HttpParser
 	./HttpParser
+
+smoke:
+	../Crc32 &
+	sleep 1
+	~/.deno/bin/deno run --allow-net smoke.mjs
+	pkill Crc32

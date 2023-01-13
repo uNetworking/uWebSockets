@@ -23,18 +23,6 @@
 #include <string_view>
 
 namespace uWS {
-    /* Type queued up when publishing */
-    struct TopicTreeMessage {
-        std::string message;
-        /*OpCode*/ int opCode;
-        bool compress;
-    };
-    struct TopicTreeBigMessage {
-        std::string_view message;
-        /*OpCode*/ int opCode;
-        bool compress;
-    };
-
     /* Safari 15.0 - 15.3 has a completely broken compression implementation (client_no_context_takeover not
      * properly implemented) - so we fully disable compression for this browser :-(
      * see https://github.com/uNetworking/uWebSockets/issues/1347 */
@@ -97,6 +85,8 @@ private:
     /* WebSocketContexts are of differing type, but we as owners and creators must delete them correctly */
     std::vector<MoveOnlyFunction<void()>> webSocketContextDeleters;
 
+    std::vector<void *> webSocketContexts;
+
 public:
 
     TopicTree<TopicTreeMessage, TopicTreeBigMessage> *topicTree = nullptr;
@@ -149,8 +139,10 @@ public:
     }
 
     /* Attaches a "filter" function to track socket connections/disconnections */
-    void filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
+    TemplatedApp &&filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         httpContext->filter(std::move(filterHandler));
+
+        return std::move(*this);
     }
 
     /* Publishes a message to all websocket contexts - conceptually as if publishing to the one single
@@ -222,6 +214,8 @@ public:
         /* Move webSocketContextDeleters */
         webSocketContextDeleters = std::move(other.webSocketContextDeleters);
 
+        webSocketContexts = std::move(other.webSocketContexts);
+
         /* Move TopicTree */
         topicTree = other.topicTree;
         other.topicTree = nullptr;
@@ -250,7 +244,7 @@ public:
         bool resetIdleTimeoutOnSend = false;
         /* A good default, esp. for newcomers */
         bool sendPingsAutomatically = true;
-        /* Maximum socket lifetime in seconds before forced closure (defaults to disabled) */
+        /* Maximum socket lifetime in minutes before forced closure (defaults to disabled) */
         unsigned short maxLifetime = 0;
         MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> open = nullptr;
@@ -258,8 +252,19 @@ public:
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> drain = nullptr;
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view)> ping = nullptr;
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view)> pong = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view, int, int)> subscription = nullptr;
         MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, int, std::string_view)> close = nullptr;
     };
+
+    /* Closes all sockets including listen sockets. */
+    TemplatedApp &&close() {
+        us_socket_context_close(SSL, (struct us_socket_context_t *) httpContext);
+        for (void *webSocketContext : webSocketContexts) {
+            us_socket_context_close(SSL, (struct us_socket_context_t *) webSocketContext);
+        }
+
+        return std::move(*this);
+    }
 
     template <typename UserData>
     TemplatedApp &&ws(std::string pattern, WebSocketBehavior<UserData> &&behavior) {
@@ -277,8 +282,16 @@ public:
             std::terminate();
         }
 
-        if (behavior.idleTimeout % 4) {
-            std::cerr << "Warning: idleTimeout should be a multiple of 4!" << std::endl;
+        /* Maximum idleTimeout is 16 minutes */
+        if (behavior.idleTimeout > 240 * 4) {
+            std::cerr << "Error: idleTimeout must not be greater than 960 seconds!" << std::endl;
+            std::terminate();
+        }
+
+        /* Maximum maxLifetime is 4 hours */
+        if (behavior.maxLifetime > 240) {
+            std::cerr << "Error: maxLifetime must not be greater than 240 minutes!" << std::endl;
+            std::terminate();
         }
 
         /* If we don't have a TopicTree yet, create one now */
@@ -343,6 +356,9 @@ public:
             webSocketContext->free();
         });
 
+        /* We also keep this list for easy closing */
+        webSocketContexts.push_back((void *)webSocketContext);
+
         /* Quick fix to disable any compression if set */
 #ifdef UWS_NO_ZLIB
         behavior.compression = DISABLED;
@@ -364,6 +380,7 @@ public:
         webSocketContext->getExt()->openHandler = std::move(behavior.open);
         webSocketContext->getExt()->messageHandler = std::move(behavior.message);
         webSocketContext->getExt()->drainHandler = std::move(behavior.drain);
+        webSocketContext->getExt()->subscriptionHandler = std::move(behavior.subscription);
         webSocketContext->getExt()->closeHandler = std::move([closeHandler = std::move(behavior.close)](WebSocket<SSL, true, UserData> *ws, int code, std::string_view message) mutable {
             if (closeHandler) {
                 closeHandler(ws, code, message);
@@ -381,12 +398,13 @@ public:
         webSocketContext->getExt()->closeOnBackpressureLimit = behavior.closeOnBackpressureLimit;
         webSocketContext->getExt()->resetIdleTimeoutOnSend = behavior.resetIdleTimeoutOnSend;
         webSocketContext->getExt()->sendPingsAutomatically = behavior.sendPingsAutomatically;
+        webSocketContext->getExt()->maxLifetime = behavior.maxLifetime;
         webSocketContext->getExt()->compression = behavior.compression;
 
         /* Calculate idleTimeoutCompnents */
         webSocketContext->getExt()->calculateIdleTimeoutCompnents(behavior.idleTimeout);
 
-        httpContext->onHttp("get", pattern, [webSocketContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
+        httpContext->onHttp("GET", pattern, [webSocketContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
 
             /* If we have this header set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
@@ -445,63 +463,63 @@ public:
 
     TemplatedApp &&get(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("get", pattern, std::move(handler));
+            httpContext->onHttp("GET", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&post(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("post", pattern, std::move(handler));
+            httpContext->onHttp("POST", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&options(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("options", pattern, std::move(handler));
+            httpContext->onHttp("OPTIONS", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&del(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("delete", pattern, std::move(handler));
+            httpContext->onHttp("DELETE", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&patch(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("patch", pattern, std::move(handler));
+            httpContext->onHttp("PATCH", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&put(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("put", pattern, std::move(handler));
+            httpContext->onHttp("PUT", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&head(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("head", pattern, std::move(handler));
+            httpContext->onHttp("HEAD", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&connect(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("connect", pattern, std::move(handler));
+            httpContext->onHttp("CONNECT", pattern, std::move(handler));
         }
         return std::move(*this);
     }
 
     TemplatedApp &&trace(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
-            httpContext->onHttp("trace", pattern, std::move(handler));
+            httpContext->onHttp("TRACE", pattern, std::move(handler));
         }
         return std::move(*this);
     }
