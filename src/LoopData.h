@@ -62,7 +62,7 @@ public:
 
     void updateDate() {
         time_t now = time(0);
-        struct tm tstruct = {0};
+        struct tm tstruct = {};
 #ifdef _WIN32
         /* Micro, fucking soft never follows spec. */
         gmtime_s(&tstruct, &now);
@@ -78,12 +78,12 @@ public:
         };
         snprintf(date, 32, "%.3s, %.2d %.3s %d %.2d:%.2d:%.2d GMT",
             wday_name[tstruct.tm_wday],
-            tstruct.tm_mday,
+            tstruct.tm_mday % 99,
             mon_name[tstruct.tm_mon],
-            1900 + tstruct.tm_year,
-            tstruct.tm_hour,
-            tstruct.tm_min,
-            tstruct.tm_sec);
+            (1900 + tstruct.tm_year) % 9999,
+            tstruct.tm_hour % 99,
+            tstruct.tm_min % 99,
+            tstruct.tm_sec % 99);
     }
 
     char date[32];
