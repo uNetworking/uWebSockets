@@ -238,11 +238,11 @@ private:
 
     /* Puts method as key, target as value and returns non-null (or nullptr on error). */
     static inline char *consumeRequestLine(char *data, HttpRequest::Header &header) {
-        /* Scan until single SP, assume next is / (origin request) */
+        /* Scan until single SP, assume next is not SP (origin request) */
         char *start = data;
         /* This catches the post padded CR and fails */
         while (data[0] > 32) data++;
-        if (data[0] == 32 && data[1] == '/') {
+        if (data[0] == 32 && data[1] != 32) {
             header.key = {start, (size_t) (data - start)};
             data++;
             /* Scan for less than 33 (catches post padded CR and fails) */
