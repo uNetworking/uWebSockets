@@ -237,7 +237,7 @@ extern "C"
     //Request
     DLL_EXPORT bool uws_req_is_ancient(uws_req_t *res);
     DLL_EXPORT bool uws_req_get_yield(uws_req_t *res);
-    DLL_EXPORT void uws_req_set_field(uws_req_t *res, bool yield);
+    DLL_EXPORT void uws_req_set_yield(uws_req_t *res, bool yield);
     DLL_EXPORT size_t uws_req_get_url(uws_req_t *res, const char **dest);
     DLL_EXPORT size_t uws_req_get_full_url(uws_req_t *res, const char **dest);
     DLL_EXPORT size_t uws_req_get_method(uws_req_t *res, const char **dest);
