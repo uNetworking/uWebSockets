@@ -1214,7 +1214,7 @@ extern "C"
         return uwsReq->getYield();
     }
 
-    void uws_req_set_field(uws_req_t *res, bool yield)
+    void uws_req_set_yield(uws_req_t *res, bool yield)
     {
         uWS::HttpRequest *uwsReq = (uWS::HttpRequest *)res;
         return uwsReq->setYield(yield);
