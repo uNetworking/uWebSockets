@@ -222,9 +222,9 @@ extern "C"
     DLL_EXPORT uintmax_t uws_res_get_write_offset(int ssl, uws_res_t *res);
     DLL_EXPORT void uws_res_override_write_offset(int ssl, uws_res_t *res, uintmax_t offset);
     DLL_EXPORT bool uws_res_has_responded(int ssl, uws_res_t *res);
-    DLL_EXPORT void uws_res_on_writable(int ssl, uws_res_t *res, bool (*handler)(uws_res_t *res, uintmax_t, void *opcional_data), void *user_data);
-    DLL_EXPORT void uws_res_on_aborted(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, void *opcional_data), void *opcional_data);
-    DLL_EXPORT void uws_res_on_data(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, const char *chunk, size_t chunk_length, bool is_end, void *opcional_data), void *opcional_data);
+    DLL_EXPORT void uws_res_on_writable(int ssl, uws_res_t *res, bool (*handler)(uws_res_t *res, uintmax_t, void *optional_data), void *user_data);
+    DLL_EXPORT void uws_res_on_aborted(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, void *optional_data), void *optional_data);
+    DLL_EXPORT void uws_res_on_data(int ssl, uws_res_t *res, void (*handler)(uws_res_t *res, const char *chunk, size_t chunk_length, bool is_end, void *optional_data), void *optional_data);
     DLL_EXPORT void uws_res_upgrade(int ssl, uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws);
     DLL_EXPORT size_t uws_res_get_remote_address(int ssl, uws_res_t *res, const char **dest);
     DLL_EXPORT size_t uws_res_get_remote_address_as_text(int ssl, uws_res_t *res, const char **dest);
