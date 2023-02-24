@@ -1,16 +1,16 @@
 /*
  * Copyright 2022 Ciro Spaciari
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -39,7 +39,7 @@ extern "C"
             sco.passphrase = options.passphrase;
             sco.ssl_prefer_low_memory_usage = options.ssl_prefer_low_memory_usage;
             sco.ssl_ciphers = options.ssl_ciphers;
-            
+
             return (uws_app_t *)new uWS::SSLApp(sco);
         }
 
@@ -547,7 +547,7 @@ extern "C"
         }
     }
 
-    void uws_ws(int ssl, uws_app_t *app, const char *pattern, uws_socket_behavior_t behavior, void* user_data)
+    void uws_ws(int ssl, uws_app_t *app, const char *pattern, uws_socket_behavior_t behavior, void *user_data)
     {
         if (ssl)
         {
@@ -598,9 +598,9 @@ extern "C"
                     behavior.close((uws_websocket_t *)ws, code, message.data(), message.length(), user_data);
                 };
             if (behavior.subscription)
-                generic_handler.subscription = [behavior, user_data](auto *ws, auto topic, int subscribers, int old_subscribers){
+                generic_handler.subscription = [behavior, user_data](auto *ws, auto topic, int subscribers, int old_subscribers)
+                {
                     behavior.subscription((uws_websocket_t *)ws, topic.data(), topic.length(), subscribers, old_subscribers, user_data);
-
                 };
             uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
 
@@ -655,9 +655,9 @@ extern "C"
                     behavior.close((uws_websocket_t *)ws, code, message.data(), message.length(), user_data);
                 };
             if (behavior.subscription)
-                generic_handler.subscription = [behavior, user_data](auto *ws, auto topic, int subscribers, int old_subscribers){
+                generic_handler.subscription = [behavior, user_data](auto *ws, auto topic, int subscribers, int old_subscribers)
+                {
                     behavior.subscription((uws_websocket_t *)ws, topic.data(), topic.length(), subscribers, old_subscribers, user_data);
-
                 };
             uWS::App *uwsApp = (uWS::App *)app;
             uwsApp->ws<void *>(pattern, std::move(generic_handler));
@@ -863,7 +863,6 @@ extern "C"
         return uws->getBufferedAmount();
     }
 
-
     size_t uws_ws_get_remote_address(int ssl, uws_websocket_t *ws, const char **dest)
     {
         if (ssl)
@@ -896,7 +895,19 @@ extern "C"
         *dest = value.data();
         return value.length();
     }
-
+    void uws_res_close(int ssl, uws_res_t *res)
+    {
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+            uwsRes->close();
+        }
+        else
+        {
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+            uwsRes->close();
+        }
+    }
     void uws_res_end(int ssl, uws_res_t *res, const char *data, size_t length, bool close_connection)
     {
         if (ssl)
@@ -920,7 +931,7 @@ extern "C"
             *dest = value.data();
             return value.length();
         }
-            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+        uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
 
         std::string_view value = uwsRes->getRemoteAddress();
         *dest = value.data();
@@ -936,7 +947,7 @@ extern "C"
             *dest = value.data();
             return value.length();
         }
-            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+        uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
 
         std::string_view value = uwsRes->getRemoteAddressAsText();
         *dest = value.data();
@@ -952,7 +963,7 @@ extern "C"
             *dest = value.data();
             return value.length();
         }
-            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+        uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
 
         std::string_view value = uwsRes->getProxiedRemoteAddress();
         *dest = value.data();
@@ -968,7 +979,7 @@ extern "C"
             *dest = value.data();
             return value.length();
         }
-            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+        uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
 
         std::string_view value = uwsRes->getProxiedRemoteAddressAsText();
         *dest = value.data();
@@ -997,7 +1008,6 @@ extern "C"
             };
         }
     }
-
 
     void uws_res_cork(int ssl, uws_res_t *res, void (*callback)(uws_res_t *res, void *user_data), void *user_data)
     {
@@ -1140,8 +1150,11 @@ extern "C"
             uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
             uwsRes->overrideWriteOffset(offset);
         }
-        uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
-        uwsRes->overrideWriteOffset(offset);
+        else
+        {
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+            uwsRes->overrideWriteOffset(offset);
+        }
     }
     bool uws_res_has_responded(int ssl, uws_res_t *res)
     {
@@ -1289,16 +1302,29 @@ extern "C"
 
     void uws_res_upgrade(int ssl, uws_res_t *res, void *data, const char *sec_web_socket_key, size_t sec_web_socket_key_length, const char *sec_web_socket_protocol, size_t sec_web_socket_protocol_length, const char *sec_web_socket_extensions, size_t sec_web_socket_extensions_length, uws_socket_context_t *ws)
     {
-        uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
 
-        uwsRes->template upgrade<void *>(data ? std::move(data) : NULL,
-                                         std::string_view(sec_web_socket_key, sec_web_socket_key_length),
-                                         std::string_view(sec_web_socket_protocol, sec_web_socket_protocol_length),
-                                         std::string_view(sec_web_socket_extensions, sec_web_socket_extensions_length),
-                                         (struct us_socket_context_t *)ws);
+        if (ssl)
+        {
+            uWS::HttpResponse<true> *uwsRes = (uWS::HttpResponse<true> *)res;
+
+            uwsRes->template upgrade<void *>(data ? std::move(data) : NULL,
+                                             std::string_view(sec_web_socket_key, sec_web_socket_key_length),
+                                             std::string_view(sec_web_socket_protocol, sec_web_socket_protocol_length),
+                                             std::string_view(sec_web_socket_extensions, sec_web_socket_extensions_length),
+                                             (struct us_socket_context_t *)ws);
+        }
+        else
+        {
+            uWS::HttpResponse<false> *uwsRes = (uWS::HttpResponse<false> *)res;
+
+            uwsRes->template upgrade<void *>(data ? std::move(data) : NULL,
+                                             std::string_view(sec_web_socket_key, sec_web_socket_key_length),
+                                             std::string_view(sec_web_socket_protocol, sec_web_socket_protocol_length),
+                                             std::string_view(sec_web_socket_extensions, sec_web_socket_extensions_length),
+                                             (struct us_socket_context_t *)ws);
+        }
     }
 
-  
     void *uws_res_get_native_handle(int ssl, uws_res_t *res)
     {
         if (ssl)
