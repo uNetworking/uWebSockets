@@ -115,9 +115,9 @@ void on_timer_interval(void* data){
 
     int64_t millis = ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 
-    
-    char* message = (char*)malloc((size_t)buffer_size("%ld", millis));
-    size_t message_length = sprintf(message, "%ld", millis);
+    size_t sz = buffer_size("%ld", millis);
+    char* message = (char*)malloc(sz);
+    size_t message_length = snprintf(message, sz, "%ld", millis);
 
     uws_publish(SSL, app, "broadcast", 9, message, message_length, uws_opcode_t::TEXT, false);
     free(message);

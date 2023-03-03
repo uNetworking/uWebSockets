@@ -88,8 +88,9 @@ void open_handler(uws_websocket_t *ws)
     for (int i = 0; i < data->topics_quantity; i++)
     {
 
-        char *topic = (char *)malloc((size_t)buffer_size("%ld-%d", (uintptr_t)ws, i));
-        size_t topic_length = sprintf(topic, "%ld-%d", (uintptr_t)ws, i);
+        size_t sz = buffer_size("%ld-%d", (uintptr_t)ws, i);
+        char *topic = (char *)malloc(sz);
+        size_t topic_length = snprintf(topic, sz, "%ld-%d", (uintptr_t)ws, i);
 
         topic_t *new_topic = (topic_t*) malloc(sizeof(topic_t));
         new_topic->length = topic_length;
