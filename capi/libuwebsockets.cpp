@@ -23,6 +23,7 @@
 #include "libuwebsockets.h"
 #include <string_view>
 #include "App.h"
+#include "ClientApp.h"
 #include <optional>
 extern "C"
 {
@@ -1347,5 +1348,13 @@ extern "C"
     struct us_loop_t *uws_get_loop_with_native(void *existing_native_loop)
     {
         return (struct us_loop_t *)uWS::Loop::get(existing_native_loop);
+    }
+    void uws_loop_defer(us_loop_t *loop, void( cb(void *user_data) ), void *user_data)
+    {
+        uWS::Loop *loop_instance = (uWS::Loop *)loop;
+        loop_instance->defer([cb, user_data](){
+            cb(user_data);
+        });
+
     }
 }

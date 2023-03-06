@@ -250,6 +250,7 @@ extern "C"
 
     DLL_EXPORT struct us_loop_t *uws_get_loop();
     DLL_EXPORT struct us_loop_t *uws_get_loop_with_native(void* existing_native_loop);
+    DLL_EXPORT void uws_loop_defer(struct us_loop_t *loop, void( cb(void *user_data) ), void *user_data);
 
 #ifdef __cplusplus
 }
