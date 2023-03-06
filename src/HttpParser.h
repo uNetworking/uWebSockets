@@ -580,21 +580,34 @@ public:
                 length -= consumed.first - had;
 
                 if (remainingStreamingBytes) {
-                    // this is exactly the same as above!
-                    if (remainingStreamingBytes >= (unsigned int) length) {
-                        void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == (unsigned int) length);
-                        remainingStreamingBytes -= length;
-                        return returnedUser;
+                    /* It's either chunked or with a content-length */
+                    if (isParsingChunkedEncoding(remainingStreamingBytes)) {
+                        std::string_view dataToConsume(data, length);
+                        for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                            dataHandler(user, chunk, chunk.length() == 0);
+                        }
+                        if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
+                            return FULLPTR;
+                        }
+                        data = (char *) dataToConsume.data();
+                        length = (unsigned int) dataToConsume.length();
                     } else {
-                        void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
-
-                        data += remainingStreamingBytes;
-                        length -= remainingStreamingBytes;
-
-                        remainingStreamingBytes = 0;
-
-                        if (returnedUser != user) {
+                        // this is exactly the same as above!
+                        if (remainingStreamingBytes >= (unsigned int) length) {
+                            void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == (unsigned int) length);
+                            remainingStreamingBytes -= length;
                             return returnedUser;
+                        } else {
+                            void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
+
+                            data += remainingStreamingBytes;
+                            length -= remainingStreamingBytes;
+
+                            remainingStreamingBytes = 0;
+
+                            if (returnedUser != user) {
+                                return returnedUser;
+                            }
                         }
                     }
                 }
