@@ -500,7 +500,8 @@ private:
                         if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
                             return {0, FULLPTR};
                         }
-                        unsigned int consumed = (length - (unsigned int) dataToConsume.length());
+                        
+                        consumed = (length - (unsigned int) dataToConsume.length());
                         data = (char *) dataToConsume.data();
                         length = (unsigned int) dataToConsume.length();
                         consumedTotal += consumed;
