@@ -501,7 +501,7 @@ private:
                             return {0, FULLPTR};
                         }
                         
-                        consumed = (length - (unsigned int) dataToConsume.length());
+                        unsigned int consumed = (length - (unsigned int) dataToConsume.length());
                         data = (char *) dataToConsume.data();
                         length = (unsigned int) dataToConsume.length();
                         consumedTotal += consumed;
