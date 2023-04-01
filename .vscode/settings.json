@@ -1,0 +1,11 @@
+{
+  "files.associations": {
+    "*.lock": "yarnlock",
+    "socket.h": "c",
+    "in.h": "c",
+    "string.h": "c",
+    "tcp.h": "c",
+    "vector": "cpp",
+    "string_view": "cpp"
+  }
+}

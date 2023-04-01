@@ -48,7 +48,7 @@ struct HttpResponse : public AsyncSocket<SSL> {
     /* Solely used for getHttpResponseData() */
     template <bool> friend struct TemplatedApp;
     typedef AsyncSocket<SSL> Super;
-private:
+public:
     HttpResponseData<SSL> *getHttpResponseData() {
         return (HttpResponseData<SSL> *) Super::getAsyncSocketData();
     }
@@ -568,6 +568,14 @@ public:
         /* Always reset this counter here */
         data->received_bytes_per_timeout = 0;
     }
+
+
+    void setWriteOffset(uintmax_t offset) {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        httpResponseData->offset = offset;
+    }
+
 };
 
 }

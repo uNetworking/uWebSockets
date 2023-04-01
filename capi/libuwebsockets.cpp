@@ -40,7 +40,6 @@ extern "C"
             sco.passphrase = options.passphrase;
             sco.ssl_prefer_low_memory_usage = options.ssl_prefer_low_memory_usage;
             sco.ssl_ciphers = options.ssl_ciphers;
-
             return (uws_app_t *)new uWS::SSLApp(sco);
         }
 
@@ -656,9 +655,9 @@ extern "C"
                     behavior.close((uws_websocket_t *)ws, code, message.data(), message.length(), user_data);
                 };
             if (behavior.subscription)
-                generic_handler.subscription = [behavior, user_data](auto *ws, auto topic, int subscribers, int old_subscribers)
-                {
+                generic_handler.subscription = [behavior, user_data](auto *ws, auto topic, int subscribers, int old_subscribers){
                     behavior.subscription((uws_websocket_t *)ws, topic.data(), topic.length(), subscribers, old_subscribers, user_data);
+
                 };
             uWS::App *uwsApp = (uWS::App *)app;
             uwsApp->ws<void *>(pattern, std::move(generic_handler));

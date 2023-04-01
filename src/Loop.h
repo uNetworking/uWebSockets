@@ -1,3 +1,4 @@
+#pragma once
 /*
  * Authored by Alex Hultman, 2018-2020.
  * Intellectual property of third-party.
@@ -79,6 +80,8 @@ private:
         /* We also need some timers (should live off the one 4 second timer rather) */
         LoopData *loopData = (LoopData *) us_loop_ext((struct us_loop_t *) loop);
         loopData->dateTimer = us_create_timer((struct us_loop_t *) loop, 1, sizeof(LoopData *));
+        loopData->updateDate();
+        
         memcpy(us_timer_ext(loopData->dateTimer), &loopData, sizeof(LoopData *));
         us_timer_set(loopData->dateTimer, [](struct us_timer_t *t) {
             LoopData *loopData;

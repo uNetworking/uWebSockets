@@ -62,7 +62,11 @@ public:
 
     void updateDate() {
         time_t now = time(0);
+<<<<<<< HEAD
         struct tm tstruct = {};
+=======
+        struct tm tstruct = {0};
+>>>>>>> 3f8bc17 (Merge pull request #7 from cirospaciari/ciro/update-usockets)
 #ifdef _WIN32
         /* Micro, fucking soft never follows spec. */
         gmtime_s(&tstruct, &now);
@@ -76,6 +80,7 @@ public:
             "Jan", "Feb", "Mar", "Apr", "May", "Jun",
             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
         };
+<<<<<<< HEAD
         snprintf(date, 32, "%.3s, %.2u %.3s %.4u %.2u:%.2u:%.2u GMT",
             wday_name[tstruct.tm_wday],
             tstruct.tm_mday % 99,
@@ -84,6 +89,16 @@ public:
             tstruct.tm_hour % 99,
             tstruct.tm_min % 99,
             tstruct.tm_sec % 99);
+=======
+        snprintf(date, 32, "%.3s, %.2d %.3s %d %.2d:%.2d:%.2d GMT",
+            wday_name[tstruct.tm_wday],
+            tstruct.tm_mday,
+            mon_name[tstruct.tm_mon],
+            1900 + tstruct.tm_year,
+            tstruct.tm_hour,
+            tstruct.tm_min,
+            tstruct.tm_sec);
+>>>>>>> 3f8bc17 (Merge pull request #7 from cirospaciari/ciro/update-usockets)
     }
 
     char date[32];

@@ -32,7 +32,7 @@ template <bool SSL>
 struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
     template <bool> friend struct HttpResponse;
     template <bool> friend struct HttpContext;
-
+    public:
     /* When we are done with a response we mark it like so */
     void markDone() {
         onAborted = nullptr;
@@ -62,9 +62,9 @@ struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
 
         return ret;
     }
-private:
+
     /* Bits of status */
-    enum {
+    enum  : int32_t{
         HTTP_STATUS_CALLED = 1, // used
         HTTP_WRITE_CALLED = 2, // used
         HTTP_END_CALLED = 4, // used

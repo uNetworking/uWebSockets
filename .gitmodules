@@ -1,9 +1,12 @@
 [submodule "uSockets"]
-	path = uSockets
-	url = https://github.com/uNetworking/uSockets.git
+path = uSockets
+url = https://github.com/Jarred-Sumner/uSockets
+ignore = dirty
+depth = 1
+shallow = true
 [submodule "fuzzing/libEpollFuzzer"]
-	path = fuzzing/libEpollFuzzer
-	url = https://github.com/uNetworking/libEpollFuzzer
+path = fuzzing/libEpollFuzzer
+url = https://github.com/uNetworking/libEpollFuzzer
 [submodule "fuzzing/seed-corpus"]
-	path = fuzzing/seed-corpus
-	url = https://github.com/uNetworking/seed-corpus.git
+path = fuzzing/seed-corpus
+url = https://github.com/uNetworking/seed-corpus.git

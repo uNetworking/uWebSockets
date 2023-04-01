@@ -102,7 +102,6 @@ namespace uWS {
 
     /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
     static std::optional<std::string_view> getNextChunk(std::string_view &data, unsigned int &state, bool trailer = false) {
-
         while (data.length()) {
 
             // if in "drop trailer mode", just drop up to what we have as size
