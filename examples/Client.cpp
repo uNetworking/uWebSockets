@@ -1,3 +1,5 @@
+// This example is broken and doesn't do anything. It is a potential interface for a future potential client.
+
 #include "ClientApp.h"
 #include <iostream>
 
