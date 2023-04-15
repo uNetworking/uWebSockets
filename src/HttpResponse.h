@@ -497,8 +497,20 @@ public:
             Super::cork();
             handler();
 
+            /* The only way we could possibly have changed the corked socket during handler call, would be if 
+             * the HTTP socket was upgraded to WebSocket and caused a realloc. Because of this we cannot use "this"
+             * from here downwards. The corking is done with corkUnchecked() in upgrade. It steals cork. */
+            auto *newCorkedSocket = Super::corkedSocket();
+
             /* Timeout on uncork failure, since most writes will succeed while corked */
-            auto [written, failed] = Super::uncork();
+            auto [written, failed] = static_cast<Super *>(newCorkedSocket)->uncork();
+
+            /* If we are no longer an HTTP socket then early return the new "this".
+             * We don't want to even overwrite timeout as it is set in upgrade already. */
+            if (this != newCorkedSocket) {
+                return static_cast<HttpResponse *>(newCorkedSocket);
+            }
+
             if (failed) {
                 /* For now we only have one single timeout so let's use it */
                 /* This behavior should equal the behavior in HttpContext when uncorking fails */
