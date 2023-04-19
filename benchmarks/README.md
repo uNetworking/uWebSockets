@@ -20,3 +20,18 @@ If you're looking for a performant solution, look no further.
 It is very common, extremely common in fact, that people try and benchmark µWebSockets using a scripted Node.js client such as autocannon, ws, or anything similar. It might seem like an okay method but it really isn't. µWebSockets is 12x faster than Node.js, so trying to stress µWebSockets using Node.js is almost impossible. Maybe if you have a 16-core CPU and dedicate 15 cores to Node.js and 1 core to µWebSockets.
 
 So whatever you do, it is of greatest importance that you actually **do check and make sure that µWebSockets is being stressed to 100% CPU-time** before noting the result. If it isn't, then you're not really benchmarking µWebSockets - you're benchmarking your client, trying to stress µWebSockets! Please don't make this mistake.
+
+## Why "hello world" benchmarking?
+
+Contrary to popular belief, "hello world benchmarks" are the most accurate and realistic gauges of performance for the kind of applications µWebSockets is designed for:
+
+* IO-gaming (latency)
+* Signalling (memory overhead)
+* Trading (latency)
+* Finance (latency)
+* Chatting (memory overhead)
+* Notifications (memory overhead)
+
+Most business applications of the above mentioned categories are implemented without a central on-disk DB, blocking or severely limiting hot-path performance. As such, web IO becomes a significant part of overall bottleneck, if not the only bottleneck.
+
+Of course, if you build an app that *absolutely must* have an on-disk SQL DB central to all hot-paths, then µWebSockets is not the right tool for your app. Keep in mind that, finding a case where µWebSockets makes no difference, does not mean µWebSockets never makes a difference.
