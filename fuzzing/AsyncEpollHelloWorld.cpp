@@ -18,7 +18,7 @@ void test() {
             .cert_file_name = "../misc/cert.pem",
             .passphrase = "1234"
         }).get("/*", [](auto *res, auto *req) {
-            bool *aborted = new bool;
+            auto aborted = std::make_shared<bool>();
             *aborted = false;
             res->onAborted([aborted]() {
                 *aborted = true;
@@ -31,7 +31,6 @@ void test() {
                         res->end("Hello async!");
                     });
                 }
-                delete aborted;
             });
         }).listen(9001, [](auto *listenSocket) {
             listen_socket = listenSocket;
