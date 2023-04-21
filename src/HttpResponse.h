@@ -502,6 +502,13 @@ public:
              * from here downwards. The corking is done with corkUnchecked() in upgrade. It steals cork. */
             auto *newCorkedSocket = Super::corkedSocket();
 
+            /* If nobody is corked, it means most probably that large amounts of data has
+             * been written and the cork buffer has already been sent off and uncorked.
+             * We are done here, if that is the case. */
+            if (!newCorkedSocket) {
+                return this;
+            }
+
             /* Timeout on uncork failure, since most writes will succeed while corked */
             auto [written, failed] = static_cast<Super *>(newCorkedSocket)->uncork();
 
