@@ -44,7 +44,7 @@ namespace uWS {
             if (statement.length() && statement[0] == key[0]) {
                 /* Equal sign must be present and not in the end of statement */
                 auto equality = statement.find('=');
-                if (equality != std::string_view::npos && equality != statement.length() - 1) {
+                if (/*equality != std::string_view::npos && equality != statement.length() - 1*/ true) {
 
                     std::string_view statementKey = statement.substr(0, equality);
                     std::string_view statementValue = statement.substr(equality + 1);

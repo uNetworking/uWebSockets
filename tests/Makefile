@@ -1,4 +1,6 @@
 default:
+	$(CXX) -std=c++17 -fsanitize=address Query.cpp -o Query
+	./Query
 	$(CXX) -std=c++17 -fsanitize=address ChunkedEncoding.cpp -o ChunkedEncoding
 	./ChunkedEncoding
 	$(CXX) -std=c++17 -fsanitize=address TopicTree.cpp -o TopicTree
