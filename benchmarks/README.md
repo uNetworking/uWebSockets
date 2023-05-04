@@ -1,5 +1,9 @@
 # Benchmark-driven development
 
+**2023-05-04**: Adding *denoland/fastwebsockets* since they have recently made some public claims of being as fast as uWebSockets. While this would be welcomed, we don't buy the claim:
+
+![](../misc/Single-threaded%20echo%20performance%20over%20varying%20message%20sizes,%20Linux.png)
+
 Making decisions based on scientific benchmarking **while** you develop can guide you to create very efficient solutions if you have the dicipline to follow through. µWebSockets performs with **98%** the theoretical maximum for any user space Linux process - if anything would ever be faster, it would only be so by less than 2%. We know of no such project.
 
 Http | WebSockets
