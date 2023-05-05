@@ -40,10 +40,7 @@ extern "C"
             sco.passphrase = options.passphrase;
             sco.ssl_prefer_low_memory_usage = options.ssl_prefer_low_memory_usage;
             sco.ssl_ciphers = options.ssl_ciphers;
-<<<<<<< HEAD
-=======
 
->>>>>>> a0267e1 (manual upgrade to uWS v20.40.0)
             return (uws_app_t *)new uWS::SSLApp(sco);
         }
 
