@@ -38,6 +38,8 @@ struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
         onAborted = nullptr;
         /* Also remove onWritable so that we do not emit when draining behind the scenes. */
         onWritable = nullptr;
+        /* Ignore data after this point */
+        inStream = nullptr;
 
         /* We are done with this request */
         state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
