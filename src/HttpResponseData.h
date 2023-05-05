@@ -42,7 +42,7 @@ struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
         inStream = nullptr;
 
         /* We are done with this request */
-        state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
+        this->state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
     }
 
     /* Caller of onWritable. It is possible onWritable calls markDone so we need to borrow it. */

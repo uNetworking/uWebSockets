@@ -343,10 +343,10 @@ namespace uWS
             }
         }
 
-        /* End is only used for the proxy parser. The HTTP parser recognizes "\ra" as invalid "\r\n" scan and breaks. */
-        static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved, bool *isAncientHttp)
-        {
-            char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
+
+    /* End is only used for the proxy parser. The HTTP parser recognizes "\ra" as invalid "\r\n" scan and breaks. */
+    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved, bool*isAncientHttp) {
+        char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
 
 #ifdef UWS_WITH_PROXY
             /* ProxyParser is passed as reserved parameter */
@@ -381,6 +381,7 @@ namespace uWS
             if (!(postPaddedBuffer = consumeRequestLine(postPaddedBuffer, headers[0], isAncientHttp)))
             {
                 /* Error - invalid request line */
+
                 return 0;
             }
             headers++;
@@ -466,6 +467,7 @@ namespace uWS
             /* We ran out of header space, too large request */
             return 0;
         }
+
 
         /* This is the only caller of getHeaders and is thus the deepest part of the parser.
          * From here we return either [consumed, user] for "keep going",

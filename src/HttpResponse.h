@@ -227,6 +227,8 @@ public:
     std::string_view getProxiedRemoteAddressAsText() {
         return Super::addressAsText(getProxiedRemoteAddress());
     }
+
+
 #endif
 
     /* Manually upgrade to WebSocket. Typically called in upgrade handler. Immediately calls open handler.
