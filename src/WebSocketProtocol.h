@@ -290,9 +290,9 @@ protected:
         }
     }
 
-    static inline void unmaskImpreciseCopyMask(char *dst, char *src, char *maskPtr, unsigned int length) {
-        char mask[4] = {maskPtr[0], maskPtr[1], maskPtr[2], maskPtr[3]};
-        unmaskImprecise(dst, src, mask, length);
+    static inline void unmaskImpreciseCopyMask(char *src, unsigned int length) {
+        char mask[4] = {src[-4], src[-3], src[-2], src[-1]};
+        unmaskImprecise(src-4, src, mask, length);
     }
 
     static inline void rotateMask(unsigned int offset, char *mask) {
@@ -333,7 +333,7 @@ protected:
 
         if (payLength + MESSAGE_HEADER <= length) {
             if (isServer) {
-                unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, (unsigned int) payLength);
+                unmaskImpreciseCopyMask(src + MESSAGE_HEADER, (unsigned int) payLength);
                 if (Impl::handleFragment(src + MESSAGE_HEADER - 4, payLength, 0, wState->state.opCode[wState->state.opStack], isFin(src), wState, user)) {
                     return true;
                 }

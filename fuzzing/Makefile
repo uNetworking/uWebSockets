@@ -18,6 +18,8 @@ oss-fuzz:
 	# Link against object files
 	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O3 -DUWS_MOCK_ZLIB -I../src -I../uSockets/src EpollHelloWorld.cpp -o $(OUT)/EpollHelloWorld $(LIB_FUZZING_ENGINE) *.o
 	rm -f EpollHelloWorld.o
+	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O3 -DUWS_MOCK_ZLIB -I../src -I../uSockets/src AsyncEpollHelloWorld.cpp -o $(OUT)/AsyncEpollHelloWorld $(LIB_FUZZING_ENGINE) *.o
+	rm -f AsyncEpollHelloWorld.o
 	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O3 -DUWS_MOCK_ZLIB -I../src -I../uSockets/src EpollEchoServer.cpp -o $(OUT)/EpollEchoServer $(LIB_FUZZING_ENGINE) *.o
 	rm -f EpollEchoServer.o
 	$(CXX) $(CXXFLAGS) $(WRAPPED_SYSCALLS) -std=c++17 -O3 -DUWS_MOCK_ZLIB -I../src -I../uSockets/src EpollEchoServerPubSub.cpp -o $(OUT)/EpollEchoServerPubSub $(LIB_FUZZING_ENGINE) *.o

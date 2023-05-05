@@ -44,7 +44,7 @@ namespace uWS {
             if (statement.length() && statement[0] == key[0]) {
                 /* Equal sign must be present and not in the end of statement */
                 auto equality = statement.find('=');
-                if (equality != std::string_view::npos && equality != statement.length() - 1) {
+                if (equality != std::string_view::npos) {
 
                     std::string_view statementKey = statement.substr(0, equality);
                     std::string_view statementValue = statement.substr(equality + 1);
@@ -104,15 +104,15 @@ namespace uWS {
                     }
                 } else {
                     /* This querystring is invalid, cannot parse it */
-                    return {};
+                    return {nullptr, 0};
                 }
             }
 
             queryString.remove_prefix(statement.length() + 1);
         }
 
-        /* Nothing found */
-        return {};
+        /* Nothing found is given as nullptr, while empty string is given as some pointer to the given buffer */
+        return {nullptr, 0};
     }
 
 }
