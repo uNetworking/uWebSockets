@@ -31,6 +31,6 @@ Contrary to popular belief, "hello world benchmarks" are the most accurate and r
 * Chatting (memory overhead)
 * Notifications (memory overhead)
 
-Most business applications of the above mentioned categories are implemented without a central on-disk DB, blocking or severely limiting hot-path performance. As such, web IO becomes a significant part of overall bottleneck, if not the only bottleneck. Message echoing of around 1-16 kB or even as small as 512 bytes is a good test of the overall server plumbing (receive, timeout, send) for these applications.
+Most business applications of the above mentioned categories are implemented without a central on-disk DB, blocking or severely limiting hot-path performance. As such, web IO becomes a significant part of overall bottleneck, if not the only bottleneck. Message echoing of around 1-16 kB or even as small as 512 bytes is a good test of the overall server plumbing (receive -> timeout clear -> emit to app -> timeout set -> send) for these applications.
 
 Of course, if you build an app that *absolutely must* have an on-disk SQL DB central to all hot-paths, then µWebSockets is not the right tool for your app. Keep in mind that, finding a case where µWebSockets makes no difference, does not mean µWebSockets never makes a difference.
