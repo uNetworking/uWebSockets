@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
     char *EXAMPLE_FILES[] = {"Http3Server", "Broadcast", "HelloWorld", "Crc32", "ServerName",
     "EchoServer", "BroadcastingEchoServer", "UpgradeSync", "UpgradeAsync"};
 
-    strcat(CXXFLAGS, " -O3 -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++20 -Isrc -IuSockets/src");
+    strcat(CXXFLAGS, " -march=native -O3 -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++20 -Isrc -IuSockets/src");
     strcat(LDFLAGS, " uSockets/*.o");
 
     // By default we use LTO, but Windows does not support it

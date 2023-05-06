@@ -1,6 +1,6 @@
 /* This is a simple yet efficient WebSocket server benchmark much like WRK */
 
-#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
@@ -62,6 +62,7 @@ void init_big_message(unsigned int size) {
     web_socket_request_text_size = size + 6 + 8;
 
     web_socket_request_text = malloc(web_socket_request_text_size);
+    memset(web_socket_request_text, 'T', web_socket_request_text_size);
     web_socket_request_text[0] = 130;
     web_socket_request_text[1] = 255;
     uint64_t msg_size = htobe64(size);
@@ -70,6 +71,26 @@ void init_big_message(unsigned int size) {
     web_socket_request_text[10] = 2;
     web_socket_request_text[10] = 3;
     web_socket_request_text[10] = 4;
+}
+
+void init_medium_message(unsigned int size) {
+    if (size > 65536) {
+        printf("Error: message size must be smaller\n");
+        exit(0);
+    }
+
+    web_socket_request_text_size = size + 6 + 2; // 8 for big
+
+    web_socket_request_text = malloc(web_socket_request_text_size);
+    memset(web_socket_request_text, 'T', web_socket_request_text_size);
+    web_socket_request_text[0] = 130;
+    web_socket_request_text[1] = 254;
+    uint16_t msg_size = htobe16(size);
+    memcpy(&web_socket_request_text[2], &msg_size, 2);
+    web_socket_request_text[4] = 1;
+    web_socket_request_text[5] = 2;
+    web_socket_request_text[6] = 3;
+    web_socket_request_text[7] = 4;
 }
 
 char request_deflate[] = "GET / HTTP/1.1\r\n"
@@ -229,7 +250,7 @@ int main(int argc, char **argv) {
 
     /* Parse host and port */
     if (argc != 6 && argc != 7) {
-        printf("Usage: connections host port ssl deflate [size_mb]\n");
+        printf("Usage: connections host port ssl deflate [size_kb]\n");
         return 0;
     }
 
@@ -248,10 +269,15 @@ int main(int argc, char **argv) {
     } else {
         /* Only if we are NOT using defalte can we support testing with 100mb for now */
         if (argc == 7) {
-            int size_mb = atoi(argv[6]);
-            printf("Using message size of %d MB\n", size_mb);
-            /* Size has to be in MB since the minimal size is 64kb */
-            init_big_message(size_mb * 1024 * 1024);
+            int size_kb = atoi(argv[6]);
+            printf("Using message size of %d kB\n", size_kb);
+
+            /* Size has to be in KB since the minimal size for medium is 1kb */
+            if (size_kb <= 64) {
+                init_medium_message(size_kb * 1024);
+            } else {      
+                init_big_message(size_kb * 1024);
+            }
         }
 
         web_socket_request = web_socket_request_text;

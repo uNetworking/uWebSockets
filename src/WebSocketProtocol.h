@@ -281,18 +281,42 @@ protected:
         data[N - 1] ^= mask[(N - 1) % 4];
     }
 
-    static inline void unmaskImprecise(char *dst, char *src, char *mask, unsigned int length) {
-        for (unsigned int n = (length >> 2) + 1; n; n--) {
-            *(dst++) = *(src++) ^ mask[0];
-            *(dst++) = *(src++) ^ mask[1];
-            *(dst++) = *(src++) ^ mask[2];
-            *(dst++) = *(src++) ^ mask[3];
+    template <int DESTINATION>
+    static inline void unmaskImprecise8(char *src, uint64_t mask, unsigned int length) {
+        for (unsigned int n = (length >> 3) + 1; n; n--) {
+            uint64_t loaded;
+            memcpy(&loaded, src, 8);
+            loaded ^= mask;
+            memcpy(src - DESTINATION, &loaded, 8);
+            src += 8;
         }
     }
 
-    static inline void unmaskImpreciseCopyMask(char *dst, char *src, char *maskPtr, unsigned int length) {
-        char mask[4] = {maskPtr[0], maskPtr[1], maskPtr[2], maskPtr[3]};
-        unmaskImprecise(dst, src, mask, length);
+    /* DESTINATION = 6 makes this not SIMD, DESTINATION = 4 is with SIMD but we don't want that for short messages */
+    template <int DESTINATION>
+    static inline void unmaskImprecise4(char *src, uint32_t mask, unsigned int length) {
+        for (unsigned int n = (length >> 2) + 1; n; n--) {
+            uint32_t loaded;
+            memcpy(&loaded, src, 4);
+            loaded ^= mask;
+            memcpy(src - DESTINATION, &loaded, 4);
+            src += 4;
+        }
+    }
+
+    template <int HEADER_SIZE>
+    static inline void unmaskImpreciseCopyMask(char *src, unsigned int length) {
+        if constexpr (HEADER_SIZE != 6) {
+            char mask[8] = {src[-4], src[-3], src[-2], src[-1], src[-4], src[-3], src[-2], src[-1]};
+            uint64_t maskInt;
+            memcpy(&maskInt, mask, 8);
+            unmaskImprecise8<HEADER_SIZE>(src, maskInt, length);
+        } else {
+            char mask[4] = {src[-4], src[-3], src[-2], src[-1]};
+            uint32_t maskInt;
+            memcpy(&maskInt, mask, 4);
+            unmaskImprecise4<HEADER_SIZE>(src, maskInt, length);
+        }
     }
 
     static inline void rotateMask(unsigned int offset, char *mask) {
@@ -332,9 +356,11 @@ protected:
         }
 
         if (payLength + MESSAGE_HEADER <= length) {
+            bool fin = isFin(src);
             if (isServer) {
-                unmaskImpreciseCopyMask(src + MESSAGE_HEADER - 4, src + MESSAGE_HEADER, src + MESSAGE_HEADER - 4, (unsigned int) payLength);
-                if (Impl::handleFragment(src + MESSAGE_HEADER - 4, payLength, 0, wState->state.opCode[wState->state.opStack], isFin(src), wState, user)) {
+                /* This guy can never be assumed to be perfectly aligned since we can get multiple messages in one read */
+                unmaskImpreciseCopyMask<MESSAGE_HEADER>(src + MESSAGE_HEADER, (unsigned int) payLength);
+                if (Impl::handleFragment(src, payLength, 0, wState->state.opCode[wState->state.opStack], fin, wState, user)) {
                     return true;
                 }
             } else {
@@ -343,7 +369,7 @@ protected:
                 }
             }
 
-            if (isFin(src)) {
+            if (fin) {
                 wState->state.opStack--;
             }
 
@@ -356,14 +382,15 @@ protected:
             wState->state.wantsHead = false;
             wState->remainingBytes = (unsigned int) (payLength - length + MESSAGE_HEADER);
             bool fin = isFin(src);
-            if (isServer) {
+            if constexpr (isServer) {
                 memcpy(wState->mask, src + MESSAGE_HEADER - 4, 4);
-                unmaskImprecise(src, src + MESSAGE_HEADER, wState->mask, length - MESSAGE_HEADER);
+                uint64_t mask;
+                memcpy(&mask, src + MESSAGE_HEADER - 4, 4);
+                memcpy(((char *)&mask) + 4, src + MESSAGE_HEADER - 4, 4);
+                unmaskImprecise8<0>(src + MESSAGE_HEADER, mask, length);
                 rotateMask(4 - (length - MESSAGE_HEADER) % 4, wState->mask);
-            } else {
-                src += MESSAGE_HEADER;
             }
-            Impl::handleFragment(src, length - MESSAGE_HEADER, wState->remainingBytes, wState->state.opCode[wState->state.opStack], fin, wState, user);
+            Impl::handleFragment(src + MESSAGE_HEADER, length - MESSAGE_HEADER, wState->remainingBytes, wState->state.opCode[wState->state.opStack], fin, wState, user);
             return true;
         }
     }

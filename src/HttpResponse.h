@@ -55,7 +55,9 @@ private:
 
     /* Write an unsigned 32-bit integer in hex */
     void writeUnsignedHex(unsigned int value) {
-        char buf[10];
+        /* Buf really only needs to be 8 long but building with
+         * -mavx2, GCC still wants to overstep it so made it 16 */
+        char buf[16];
         int length = utils::u32toaHex(value, buf);
 
         /* For now we do this copy */
