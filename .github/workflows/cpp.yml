@@ -72,6 +72,8 @@ jobs:
       run: make -C uWebSockets/tests smoke
     - name: Run unit tests
       run: make -C uWebSockets/tests
+    - name: Autobahn|Testsuite
+      run: ~/.deno/bin/deno run -A --unstable uWebSockets/autobahn/server-test.js
       
   build_osx:
 

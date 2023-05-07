@@ -1,0 +1,26 @@
+{
+  "outdir": "./reports/servers",
+  "servers": [
+    {
+      "agent": "uWebSockets",
+      "url": "ws://localhost:9001"
+    }
+  ],
+  "cases": [
+    "1.*",
+    "2.*",
+    "3.*",
+    "4.*",
+    "5.*",
+    "6.*",
+    "7.*",
+    "9.*",
+    "10.*"
+  ],
+  "exclude-cases": [
+    "11.*",
+    "12.*",
+    "13.*"
+  ],
+  "exclude-agent-cases": {}
+}
