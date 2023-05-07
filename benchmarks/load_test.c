@@ -48,7 +48,7 @@ unsigned char web_socket_request_deflate[13] = {
 };
 
 /* Not compressed */
-unsigned char web_socket_request_text_small[26] = {130, 128 | 20, 1, 2, 3, 4};
+unsigned char web_socket_request_text_small[126] = {130, 128 | 20, 1, 2, 3, 4};
 unsigned int web_socket_request_text_size = 26;
 unsigned char *web_socket_request_text = web_socket_request_text_small;
 
@@ -250,7 +250,7 @@ int main(int argc, char **argv) {
 
     /* Parse host and port */
     if (argc != 6 && argc != 7) {
-        printf("Usage: connections host port ssl deflate [size_kb]\n");
+        printf("Usage: connections host port ssl deflate [payload_size_bytes]\n");
         return 0;
     }
 
@@ -270,14 +270,20 @@ int main(int argc, char **argv) {
         /* Only if we are NOT using defalte can we support testing with 100mb for now */
         if (argc == 7) {
             int size_kb = atoi(argv[6]);
-            printf("Using message size of %d kB\n", size_kb);
+            printf("Using message size of %d bytes\n", size_kb);
 
             /* Size has to be in KB since the minimal size for medium is 1kb */
-            if (size_kb <= 64) {
-                init_medium_message(size_kb * 1024);
+            if (size_kb <= 125) {
+                /* For small messages we just reduce the size as needed */
+                web_socket_request_text_size = size_kb + 6;
+                web_socket_request_text[1] = 128 | size_kb;
+            } else if (size_kb <= 65535) {
+                init_medium_message(size_kb);
             } else {      
-                init_big_message(size_kb * 1024);
+                init_big_message(size_kb);
             }
+        } else {
+            printf("Using message size of %d bytes\n", 20);
         }
 
         web_socket_request = web_socket_request_text;
