@@ -12,7 +12,7 @@ int main() {
 
     /* Keep in mind that uWS::SSLApp({options}) is the same as uWS::App() when compiled without SSL support.
      * You may swap to using uWS:App() if you don't need SSL */
-    uWS::SSLApp({
+    uWS::App({
         /* There are example certificates in uWebSockets.js repo */
 	    .key_file_name = "misc/key.pem",
 	    .cert_file_name = "misc/cert.pem",
@@ -33,7 +33,10 @@ int main() {
 
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
-            ws->send(message, opCode, true);
+            /* This is the opposite of what you probably want; compress if message is LARGER than 16 kb
+             * the reason we do the opposite here; compress if SMALLER than 16 kb is to allow for 
+             * benchmarking of large message sending without compression */
+            ws->send(message, opCode, message.length() < 16 * 1024);
         },
         .drain = [](auto */*ws*/) {
             /* Check ws->getBufferedAmount() here */
