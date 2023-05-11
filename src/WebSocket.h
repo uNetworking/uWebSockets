@@ -119,8 +119,10 @@ public:
                 } else {
                     webSocketData->buffer.append(header + written, (size_t) header_length - (size_t) written);
                 }
-                /* We cannot still be corked if we have backpressure */
-                Super::uncork();
+                /* We cannot still be corked if we have backpressure.
+                 * We also cannot uncork normally since it will re-write the already buffered
+                 * up backpressure again. */
+                Super::uncorkWithoutSending();
                 return BACKPRESSURE;
             }
         } else {
