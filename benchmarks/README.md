@@ -7,7 +7,7 @@ v20 | v21
 
 
 # Benchmark-driven development
-Making decisions based on scientific benchmarking **while** you develop can guide you to create very efficient solutions if you have the dicipline to follow through. µWebSockets performs with **98%** the theoretical maximum for any user space Linux process - if anything would ever be faster, it would only be so by less than 2%. We know of no such project.
+Making decisions based on scientific benchmarking **while** you develop can guide you to create very efficient solutions if you have the dicipline to follow through. µWebSockets performs with **98%** the theoretical maximum for any user space Linux process [this was written before io_uring was added to Linux] - if anything would ever be faster, it would only be so by less than 2%. We know of no such project.
 
 Http | WebSockets
 --- | ---
