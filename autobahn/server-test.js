@@ -16,7 +16,7 @@ function failed(name) {
   return name != "OK" && name != "INFORMATIONAL" && name != "NON-STRICT";
 }
 
-console.log(result);
+console.log(JSON.stringify(result, null, 2));
 
 const failedtests = result.filter((outcome) => failed(outcome.behavior) || failed(outcome.behaviorClose));
 
