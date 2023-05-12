@@ -15,6 +15,10 @@ int main(int argc, char **argv) {
     strcat(CXXFLAGS, " -march=native -O3 -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++20 -Isrc -IuSockets/src");
     strcat(LDFLAGS, " uSockets/*.o");
 
+    if (env_is("WITH_IO_URING", "1")) {
+        strcat(LDFLAGS, " /usr/lib/liburing.a");
+    }
+
     // By default we use LTO, but Windows does not support it
     if (!env_is("WITH_LTO", "0")) {
         strcat(CXXFLAGS, " -flto");

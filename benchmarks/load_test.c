@@ -183,21 +183,6 @@ struct us_socket_t *on_http_socket_end(struct us_socket_t *s) {
     return us_socket_close(SSL, s, 0, NULL);
 }
 
-#include <time.h>
-
-void print_stats() {
-    static int messages = 0;
-    static clock_t then = 0;
-    if (messages++ == 500000) {
-        messages = 0;
-        clock_t now = clock();
-        float msgsec = (float)(now - then) / (float)CLOCKS_PER_SEC;
-        msgsec = (float)500000 / msgsec;
-        printf("Messages per second: %f\n", msgsec);
-        then = now;
-    }
-}
-
 struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int length) {
     /* Get socket extension and the socket's context's extension */
     struct http_socket *http_socket = (struct http_socket *) us_socket_ext(SSL, s);
@@ -214,8 +199,6 @@ struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int l
 
             /* Increase stats */
             responses++;
-
-            print_stats();
         } else if (http_socket->outstanding_bytes < 0) {
             /* This should never happen */
             printf("ERROR: outstanding bytes negative!");
