@@ -300,7 +300,7 @@ private:
             webSocketData->hasTimedOut = false;
 
             /* We always cork on data */
-            asyncSocket->cork();
+            asyncSocket->cork(us_socket_send_buffer(0, s));
 
             /* This parser has virtually no overhead */
             WebSocketProtocol<isServer, WebSocketContext<SSL, isServer, USERDATA>>::consume(data, (unsigned int) length, (WebSocketState<isServer> *) webSocketData, s);

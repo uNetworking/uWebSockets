@@ -122,7 +122,7 @@ private:
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_socket_ext(SSL, s);
 
             /* Cork this socket */
-            ((AsyncSocket<SSL> *) s)->cork();
+            ((AsyncSocket<SSL> *) s)->cork(us_socket_send_buffer(0, s));
 
             /* Mark that we are inside the parser now */
             httpContextData->isParsingHttp = true;

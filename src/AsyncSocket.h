@@ -130,7 +130,7 @@ protected:
     }
 
     /* Cork this socket. Only one socket may ever be corked per-loop at any given time */
-    void cork() {
+    void cork(char *sendBuffer = nullptr) {
         /* Extra check for invalid corking of others */
         if (getLoopData()->corkOffset && getLoopData()->corkedSocket != this) {
             std::cerr << "Error: Cork buffer must not be acquired without checking canCork!" << std::endl;
@@ -139,6 +139,15 @@ protected:
 
         /* What if another socket is corked? */
         getLoopData()->corkedSocket = this;
+
+        if (sendBuffer) {
+            setCorkBuffer(sendBuffer, 0);
+        }
+    }
+
+    void setCorkBuffer(char *buffer, int offset) {
+        getLoopData()->corkBuffer = buffer;
+        getLoopData()->corkOffset = offset;
     }
 
     /* Returns the corked socket or nullptr */
