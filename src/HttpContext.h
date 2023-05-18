@@ -388,10 +388,10 @@ private:
 
 public:
     /* Construct a new HttpContext using specified loop */
-    static HttpContext *create(Loop *loop, us_socket_context_options_t options = {}) {
+    static HttpContext *create(Loop *loop, us_bun_socket_context_options_t options = {}) {
         HttpContext *httpContext;
 
-        httpContext = (HttpContext *) us_create_socket_context(SSL, (us_loop_t *) loop, sizeof(HttpContextData<SSL>), options);
+        httpContext = (HttpContext *) us_create_bun_socket_context(SSL, (us_loop_t *) loop, sizeof(HttpContextData<SSL>), options);
 
         if (!httpContext) {
             return nullptr;

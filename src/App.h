@@ -67,15 +67,25 @@ namespace uWS {
         const char *ssl_ciphers = nullptr;
         int ssl_prefer_low_memory_usage = 0;
 
+        const char **key = nullptr;
+        unsigned int key_count = 0; 
+        const char **cert = nullptr;
+        unsigned int cert_count = 0; 
+        const char **ca = nullptr;
+        unsigned int ca_count = 0; 
+        unsigned int secure_options = 0;
+        int reject_unauthorized = 0;
+        int request_cert = 0;
+
         /* Conversion operator used internally */
-        operator struct us_socket_context_options_t() const {
-            struct us_socket_context_options_t socket_context_options;
+        operator struct us_bun_socket_context_options_t() const {
+            struct us_bun_socket_context_options_t socket_context_options;
             memcpy(&socket_context_options, this, sizeof(SocketContextOptions));
             return socket_context_options;
         }
     };
 
-    static_assert(sizeof(struct us_socket_context_options_t) == sizeof(SocketContextOptions), "Mismatching uSockets/uWebSockets ABI");
+    static_assert(sizeof(struct us_bun_socket_context_options_t) == sizeof(SocketContextOptions), "Mismatching uSockets/uWebSockets ABI");
 
 template <bool SSL>
 struct TemplatedApp {
@@ -99,7 +109,7 @@ public:
             /* First we create a new router for this domain */
             auto *domainRouter = new HttpRouter<typename HttpContextData<SSL>::RouterData>();
 
-            us_socket_context_add_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str(), options, domainRouter);
+            us_bun_socket_context_add_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str(), options, domainRouter);
         }
 
         return std::move(*this);

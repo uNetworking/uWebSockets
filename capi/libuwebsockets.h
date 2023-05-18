@@ -152,7 +152,7 @@ extern "C"
     DLL_EXPORT typedef void (*uws_missing_server_handler)(const char *hostname, size_t hostname_length, void *user_data);
     DLL_EXPORT typedef void (*uws_get_headers_server_handler)(const char *header_name, size_t header_name_size, const char *header_value, size_t header_value_size, void *user_data);
     //Basic HTTP
-    DLL_EXPORT uws_app_t *uws_create_app(int ssl, struct us_socket_context_options_t options);
+    DLL_EXPORT uws_app_t *uws_create_app(int ssl, struct us_bun_socket_context_options_t options);
     DLL_EXPORT void uws_app_destroy(int ssl, uws_app_t *app);
     DLL_EXPORT void uws_app_get(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
     DLL_EXPORT void uws_app_post(int ssl, uws_app_t *app, const char *pattern, uws_method_handler handler, void *user_data);
@@ -179,7 +179,7 @@ extern "C"
     DLL_EXPORT void *uws_get_native_handle(int ssl, uws_app_t *app);
     DLL_EXPORT void uws_remove_server_name(int ssl, uws_app_t *app, const char *hostname_pattern, size_t hostname_pattern_length);
     DLL_EXPORT void uws_add_server_name(int ssl, uws_app_t *app, const char *hostname_pattern, size_t hostname_pattern_length);
-    DLL_EXPORT void uws_add_server_name_with_options(int ssl, uws_app_t *app, const char *hostname_pattern, size_t hostname_pattern_length, struct us_socket_context_options_t options);
+    DLL_EXPORT void uws_add_server_name_with_options(int ssl, uws_app_t *app, const char *hostname_pattern, size_t hostname_pattern_length, struct us_bun_socket_context_options_t options);
     DLL_EXPORT void uws_missing_server_name(int ssl, uws_app_t *app, uws_missing_server_handler handler, void *user_data);
     DLL_EXPORT void uws_filter(int ssl, uws_app_t *app, uws_filter_handler handler, void *user_data);
 
