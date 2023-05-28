@@ -289,7 +289,7 @@ private:
             ProxyParser *pp = (ProxyParser *) reserved;
 
             /* Parse PROXY protocol */
-            auto [done, offset] = pp->parse({start, (size_t) (end - postPaddedBuffer)});
+            auto [done, offset] = pp->parse({postPaddedBuffer, (size_t) (end - postPaddedBuffer)});
             if (!done) {
                 /* We do not reset the ProxyParser (on filure) since it is tied to this
                 * connection, which is really only supposed to ever get one PROXY frame
@@ -297,7 +297,7 @@ private:
                 return 0;
             } else {
                 /* We have consumed this data so skip it */
-                start += offset;
+                postPaddedBuffer += offset;
             }
         #else
             /* This one is unused */
