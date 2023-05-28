@@ -12,7 +12,7 @@ int main() {
 
     uWS::HttpParser httpParser;
 
-    void *returnedUser = httpParser.consumePostPadded((char *) data, size, user, reserved, [reserved](void *s, uWS::HttpRequest *httpRequest) -> void * {
+    auto [err, returnedUser] = httpParser.consumePostPadded((char *) data, size, user, reserved, [reserved](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
         std::cout << httpRequest->getMethod() << std::endl;
 
@@ -31,10 +31,6 @@ int main() {
         /* Return ok */
         return user;
 
-    }, [](void *user) -> void * {
-
-        /* Return break */
-        return nullptr;
     });
 
     std::cout << "HTTP DONE" << std::endl;
