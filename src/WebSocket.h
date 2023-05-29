@@ -245,6 +245,8 @@ public:
             /* There is no timeout when failing to uncork for WebSockets,
              * as that is handled by idleTimeout */
             auto [written, failed] = Super::uncork();
+            (void)written;
+            (void)failed;
         } else {
             /* We are already corked, or can't cork so let's just call the handler */
             handler();
