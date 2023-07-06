@@ -19,7 +19,6 @@
 #define UWS_APP_H
 
 #include <string>
-#include <charconv>
 #include <string_view>
 
 namespace uWS {
@@ -35,9 +34,14 @@ namespace uWS {
         if (posEnd == std::string_view::npos) return false;
 
         unsigned int minorVersion = 0;
-        auto result = std::from_chars(userAgent.data() + posStart, userAgent.data() + posEnd, minorVersion);
-        if (result.ec != std::errc()) return false;
-        if (result.ptr != userAgent.data() + posEnd) return false; // do not accept trailing chars
+        std::string minorVersionStr(userAgent.substr(posStart, posEnd - posStart));
+
+        try {
+            minorVersion = std::stoi(minorVersionStr);
+        } catch (const std::exception&) {
+            return false;
+        }
+
         if (minorVersion > 3) return false; // we target just Safari 15.0 - 15.3
 
         if (userAgent.find(" Safari/", posEnd) == std::string_view::npos) return false;
