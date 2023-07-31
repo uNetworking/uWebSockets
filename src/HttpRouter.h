@@ -36,7 +36,42 @@ namespace uWS {
 template <class USERDATA>
 struct HttpRouter {
     /* These are public for now */
-    std::vector<std::string> upperCasedMethods = {"GET", "POST", "HEAD", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"};
+    std::vector<std::string> upperCasedMethods = {
+        "ACL",
+        "BIND",
+        "CHECKOUT",
+        "CONNECT",
+        "COPY",
+        "DELETE",
+        "GET",
+        "HEAD",
+        "LINK",
+        "LOCK",
+        "M-SEARCH" ,
+        "MERGE",
+        "MKACTIVITY",
+        "MKCALENDAR",
+        "MKCOL",
+        "MOVE",
+        "NOTIFY",
+        "OPTIONS",
+        "PATCH",
+        "POST",
+        "PROPFIND",
+        "PROPPATCH",
+        "PURGE",
+        "PUT",
+        "REBIND",
+        "REPORT",
+        "SEARCH",
+        "SOURCE",
+        "SUBSCRIBE",
+        "TRACE",
+        "UNBIND",
+        "UNLINK",
+        "UNLOCK",
+        "UNSUBSCRIBE",
+    };
     static const uint32_t HIGH_PRIORITY = 0xd0000000, MEDIUM_PRIORITY = 0xe0000000, LOW_PRIORITY = 0xf0000000;
 
 private:
