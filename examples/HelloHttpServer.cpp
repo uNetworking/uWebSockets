@@ -14,6 +14,11 @@ A simple HTTP file server, using synchronous file
 transfer. Good for a amall project with a few clients, 
 not ideal for higher traffic servers because the 
 process hangs while a file is delivered.
+
+Set HTTPFileStream::web_root path below to point to your web files
+and the SERVER_IP and SERVER_PORT macros below before building
+and running this example. If you wish to serve to localhost,
+see the comment next to the uWS::listen() call.
 */
 
 #define SERVER_IP "192.168.0.1"
@@ -103,6 +108,7 @@ class HTTPFileStream {
         }
 };
 
+//Must be absolute path, with no '/' at the end, to work with HTTPFileStream
 template <bool SSL>
 std::string HTTPFileStream<SSL>::web_root = "/path/to/web/files";
 
@@ -149,10 +155,11 @@ int main() {
             res->end("File not found.");
         }
 	}).listen(SERVER_IP, SERVER_PORT, [](auto *listen_socket) {
+        //Comment out "SERVER_IP," to serve to localhost instead of a specified IP
 	    if (listen_socket) {
 			std::cout << "Listening on port " << SERVER_PORT << std::endl;
 	    }
 	}).run();
 
-	std::cout << "Failed to listen on port 3000" << std::endl;
+	std::cout << "Failed to listen on port " << SERVER_PORT << std::endl;
 }
