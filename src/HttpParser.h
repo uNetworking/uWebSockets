@@ -172,7 +172,7 @@ private:
     /* This guy really has only 30 bits since we reserve two highest bits to chunked encoding parsing state */
     unsigned int remainingStreamingBytes = 0;
 
-    const size_t MAX_FALLBACK_SIZE = 1024 * 4;
+    const size_t MAX_FALLBACK_SIZE = 1024 * 8;
 
     /* Returns UINT_MAX on error. Maximum 999999999 is allowed. */
     static unsigned int toUnsignedInteger(std::string_view str) {
