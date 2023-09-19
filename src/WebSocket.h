@@ -118,6 +118,7 @@ public:
                     webSocketData->buffer.append(message.data() + written - header_length, message.length() - (size_t) (written - header_length));
                 } else {
                     webSocketData->buffer.append(header + written, (size_t) header_length - (size_t) written);
+                    webSocketData->buffer.append(message.data(), message.length());
                 }
                 /* We cannot still be corked if we have backpressure.
                  * We also cannot uncork normally since it will re-write the already buffered
