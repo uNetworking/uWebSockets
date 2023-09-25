@@ -173,7 +173,7 @@ private:
     unsigned int remainingStreamingBytes = 0;
 
     /* MAX_FALLBACK_SIZE = max request header length (total of all headers). Env var MAX_HEADER_LENGTH can change the default if needed. */
-    const size_t MAX_FALLBACK_SIZE = getenv("MAX_HEADER_LENGTH") ? atoi(getenv("MAX_HEADER_LENGTH")) : 1024 * 4;
+    const size_t MAX_FALLBACK_SIZE = getenv("UWS_HTTP_MAX_FALLBACK_SIZE") ? atoi(getenv("UWS_HTTP_MAX_FALLBACK_SIZE")) : 1024 * 4;
 
     /* Returns UINT_MAX on error. Maximum 999999999 is allowed. */
     static unsigned int toUnsignedInteger(std::string_view str) {
