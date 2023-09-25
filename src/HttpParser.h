@@ -172,7 +172,7 @@ private:
     /* This guy really has only 30 bits since we reserve two highest bits to chunked encoding parsing state */
     unsigned int remainingStreamingBytes = 0;
 
-    /* UWS_HTTP_MAX_FALLBACK_SIZE = max request header length (total of all headers). Env var UWS_HTTP_MAX_FALLBACK_SIZE can change the default if needed. */
+    /* MAX_FALLBACK_SIZE = max request header length (total of all headers). Env var UWS_HTTP_MAX_FALLBACK_SIZE can change the default if needed. */
     const size_t MAX_FALLBACK_SIZE = getenv("UWS_HTTP_MAX_FALLBACK_SIZE") ? atoi(getenv("UWS_HTTP_MAX_FALLBACK_SIZE")) : 1024 * 4;
 
     /* Returns UINT_MAX on error. Maximum 999999999 is allowed. */
