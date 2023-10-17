@@ -408,6 +408,20 @@ extern "C"
             uwsApp->domain(std::string(server_name, server_name_length));
         }
     }
+    void uws_app_close(int ssl, uws_app_t *app)
+    {
+        if (ssl)
+        {
+            uWS::SSLApp *uwsApp = (uWS::SSLApp *)app;
+            uwsApp->close();
+        }
+        else
+        {
+            uWS::App *uwsApp = (uWS::App *)app;
+            uwsApp->close();
+        }
+    }
+
     void uws_app_destroy(int ssl, uws_app_t *app)
     {
         if (ssl)
