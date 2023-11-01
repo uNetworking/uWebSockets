@@ -295,11 +295,7 @@ public:
             webSocketContextData->subscriptionHandler(this, topic, newCount, newCount + 1);
         }
 
-        /* Free us as subscribers if we unsubscribed from our last topic */
-        if (ok && last) {
-            webSocketContextData->topicTree->freeSubscriber(webSocketData->subscriber);
-            webSocketData->subscriber = nullptr;
-        }
+        /* Leave us as subscribers even if we subscribe to nothing (last unsubscribed topic might miss its message otherwise) */
 
         return ok;
     }
