@@ -100,6 +100,12 @@ public:
             if (webSocketContextData->closeOnBackpressureLimit) {
                 us_socket_shutdown_read(SSL, (us_socket_t *) this);
             }
+
+            /* It is okay to call send again from within this callback since we immediately return with DROPPED afterwards */
+            if (webSocketContextData->droppedHandler) {
+                webSocketContextData->droppedHandler(this, message, opCode);
+            }
+
             return DROPPED;
         }
 

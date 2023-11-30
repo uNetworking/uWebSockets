@@ -38,6 +38,9 @@ int main() {
              * benchmarking of large message sending without compression */
             ws->send(message, opCode, message.length() < 16 * 1024);
         },
+        .dropped = [](auto */*ws*/, std::string_view /*message*/, uWS::OpCode /*opCode*/) {
+            /* A message was dropped due to set maxBackpressure and closeOnBackpressureLimit limit */
+        },
         .drain = [](auto */*ws*/) {
             /* Check ws->getBufferedAmount() here */
         },
