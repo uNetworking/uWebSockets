@@ -29,6 +29,8 @@ enum HttpError {
     HTTP_ERROR_404_FILE_NOT_FOUND = 4
 };
 
+#ifndef UWS_HTTPRESPONSE_NO_WRITEMARK
+
 /* Returned parser errors match this LUT. */
 static const std::string_view httpErrorResponses[] = {
     "", /* Zeroth place is no error so don't use it */
@@ -37,6 +39,18 @@ static const std::string_view httpErrorResponses[] = {
     "HTTP/1.1 400 Bad Request\r\n\r\n<h1>Bad Request</h1><hr><i>uWebSockets/20 Server</i>",
     "HTTP/1.1 404 File Not Found\r\n\r\n<h1>File Not Found</h1><hr><i>uWebSockets/20 Server</i>"
 };
+
+#else
+/* Anonymized pages */
+static const std::string_view httpErrorResponses[] = {
+    "", /* Zeroth place is no error so don't use it */
+    "HTTP/1.1 505 HTTP Version Not Supported\r\n\r\n",
+    "HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n",
+    "HTTP/1.1 400 Bad Request\r\n\r\n",
+    "HTTP/1.1 404 File Not Found\r\n\r\n"
+};
+#endif
+
 }
 
 #endif
