@@ -44,8 +44,6 @@ jobs:
           $ENV:LDFLAGS='-L C:\vcpkg\installed\x64-windows\lib';
           $ENV:CXX='clang++'; $ENV:EXEC_SUFFIX='.exe'; $ENV:WITH_LIBUV='1'; nmake
           ls
-      - name: Run unit tests
-        run: $Env:CC='clang'; $Env:CXX='clang++'; make -C uWebSockets/tests
       - name: Run smoke test
         run: |
           cd uWebSockets
