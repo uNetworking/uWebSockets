@@ -46,7 +46,9 @@ struct HttpRequest {
     friend struct HttpParser;
 
 private:
-    const static int MAX_HEADERS = 50;
+    /* MAX_HEADERS = max number of request headers. Env var UWS_HTTP_MAX_HEADERS can change the default if needed. */
+    const static int MAX_HEADERS = getenv("UWS_HTTP_MAX_HEADERS") ? atoi(getenv("UWS_HTTP_MAX_HEADERS")) : 50;
+
     struct Header {
         std::string_view key, value;
     } headers[MAX_HEADERS];
