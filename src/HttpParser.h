@@ -41,6 +41,14 @@ namespace uWS {
 static const unsigned int MINIMUM_HTTP_POST_PADDING = 32;
 static void *FULLPTR = (void *)~(uintptr_t)0;
 
+/* STL needs one of these */
+template <typename T>
+std::optional<T *> optional_ptr(T *ptr) {
+    return ptr ? std::optional<T *>(ptr) : std::nullopt;
+}
+
+static const size_t MAX_FALLBACK_SIZE = (size_t) atoi(optional_ptr(getenv("UWS_HTTP_MAX_HEADERS_SIZE")).value_or((char *) "4096"));
+
 struct HttpRequest {
 
     friend struct HttpParser;
@@ -171,8 +179,6 @@ private:
     std::string fallback;
     /* This guy really has only 30 bits since we reserve two highest bits to chunked encoding parsing state */
     unsigned int remainingStreamingBytes = 0;
-
-    const size_t MAX_FALLBACK_SIZE = 1024 * 4;
 
     /* Returns UINT_MAX on error. Maximum 999999999 is allowed. */
     static unsigned int toUnsignedInteger(std::string_view str) {
