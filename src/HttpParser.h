@@ -48,16 +48,18 @@ std::optional<T *> optional_ptr(T *ptr) {
 }
 
 static const size_t MAX_FALLBACK_SIZE = (size_t) atoi(optional_ptr(getenv("UWS_HTTP_MAX_HEADERS_SIZE")).value_or((char *) "4096"));
+#ifndef UWS_HTTP_MAX_HEADERS_COUNT
+#define UWS_HTTP_MAX_HEADERS_COUNT 100
+#endif
 
 struct HttpRequest {
 
     friend struct HttpParser;
 
 private:
-    const static int MAX_HEADERS = 50;
     struct Header {
         std::string_view key, value;
-    } headers[MAX_HEADERS];
+    } headers[UWS_HTTP_MAX_HEADERS_COUNT];
     bool ancientHttp;
     unsigned int querySeparator;
     bool didYield;
@@ -327,7 +329,7 @@ private:
         }
         headers++;
 
-        for (unsigned int i = 1; i < HttpRequest::MAX_HEADERS - 1; i++) {
+        for (unsigned int i = 1; i < UWS_HTTP_MAX_HEADERS_COUNT - 1; i++) {
             /* Lower case and consume the field name */
             preliminaryKey = postPaddedBuffer;
             postPaddedBuffer = (char *) consumeFieldName(postPaddedBuffer);
