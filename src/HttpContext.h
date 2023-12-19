@@ -426,7 +426,7 @@ public:
         /* Todo: This is ugly, fix */
         std::vector<std::string> methods;
         if (method == "*") {
-            methods = httpContextData->currentRouter->upperCasedMethods;
+            methods = {"*"};
         } else {
             methods = {method};
         }

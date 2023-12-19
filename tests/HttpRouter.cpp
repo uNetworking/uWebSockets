@@ -8,7 +8,7 @@ void testMethodPriority() {
     uWS::HttpRouter<int> r;
     std::string result;
 
-    r.add(r.upperCasedMethods, "/static/route", [&result](auto *) {
+    r.add({"*"}, "/static/route", [&result](auto *) {
         std::cout << "ANY static route" << std::endl;
         result += "AS";
         return true;
@@ -26,9 +26,9 @@ void testMethodPriority() {
         return true;
     });
 
-    assert(r.route("nonsense", "/static/route") == false);
+    assert(r.route("nonsense", "/static/route") == true);
     assert(r.route("GET", "/static") == false);
-    assert(result == "");
+    assert(result == "AS");
 
     /* Should end up directly in ANY handler */
     result.clear();
@@ -51,7 +51,7 @@ void testPatternPriority() {
     uWS::HttpRouter<int> r;
     std::string result;
 
-    r.add(r.upperCasedMethods, "/a/b/c", [&result](auto *) {
+    r.add({"*"}, "/a/b/c", [&result](auto *) {
         std::cout << "ANY static route" << std::endl;
         result += "AS";
         return false;
@@ -81,18 +81,18 @@ void testPatternPriority() {
         return false;
     });
 
-    r.add(r.upperCasedMethods, "/a/:b/c", [&result](auto *) {
+    r.add({"*"}, "/a/:b/c", [&result](auto *) {
         std::cout << "ANY parameter route" << std::endl;
         result += "AP";
         return false;
     }, r.LOW_PRIORITY);
 
     assert(r.route("POST", "/a/b/c") == false);
-    assert(result == "ASPPAP");
+    assert(result == "PPASAP");
 
     result.clear();
     assert(r.route("GET", "/a/b/c") == false);
-    assert(result == "GSASGPAPGW");
+    assert(result == "GSGPGWASAP");
 }
 
 void testUpgrade() {
@@ -224,7 +224,7 @@ void testBugReports() {
         }, r.MEDIUM_PRIORITY);
 
         /* ANY on /* */
-        r.add(r.upperCasedMethods, "/*", [&result](auto *) {
+        r.add({"*"}, "/*", [&result](auto *) {
             result += "AW";
             return false;
         }, r.LOW_PRIORITY);
@@ -256,7 +256,7 @@ void testBugReports() {
         }, r.MEDIUM_PRIORITY);
 
         /* ANY on /* */
-        r.add(r.upperCasedMethods, "/*", [&result](auto *) {
+        r.add({"*"}, "/*", [&result](auto *) {
             result += "AW";
             return false;
         }, r.LOW_PRIORITY);

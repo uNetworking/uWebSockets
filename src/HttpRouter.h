@@ -35,8 +35,7 @@ namespace uWS {
 
 template <class USERDATA>
 struct HttpRouter {
-    /* These are public for now */
-    std::vector<std::string> upperCasedMethods = {"GET", "POST", "HEAD", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"};
+    static constexpr std::string_view ANY_METHOD_TOKEN = "*";
     static const uint32_t HIGH_PRIORITY = 0xd0000000, MEDIUM_PRIORITY = 0xe0000000, LOW_PRIORITY = 0xf0000000;
 
 private:
@@ -45,9 +44,6 @@ private:
 
     /* Handler ids are 32-bit */
     static const uint32_t HANDLER_MASK = 0x0fffffff;
-
-    /* Methods and their respective priority */
-    std::map<std::string, int> priority;
 
     /* List of handlers */
     std::vector<MoveOnlyFunction<bool(HttpRouter *)>> handlers;
@@ -245,10 +241,8 @@ private:
 
 public:
     HttpRouter() {
-        int p = 0;
-        for (std::string &method : upperCasedMethods) {
-            priority[method] = p++;
-        }
+        /* Always have ANY route */
+        getNode(&root, std::string(ANY_METHOD_TOKEN.data(), ANY_METHOD_TOKEN.length()), false);
     }
 
     std::pair<int, std::string_view *> getParameters() {
@@ -269,12 +263,16 @@ public:
         for (auto &p : root.children) {
             if (p->name == method) {
                 /* Then route the url */
-                return executeHandlers(p.get(), 0, userData);
+                if (executeHandlers(p.get(), 0, userData)) {
+                    return true;
+                } else {
+                    break;
+                }
             }
         }
 
-        /* We did not find any handler for this method and url */
-        return false;
+        /* Always test any route last */
+        return executeHandlers(root.children.back().get(), 0, userData);
     }
 
     /* Adds the corresponding entires in matching tree and handler list */
@@ -299,6 +297,22 @@ public:
             std::cerr << "Error: Internal routing error" << std::endl;
             std::abort();
         }
+
+        /* ANY method must be last, GET must be first */
+        std::sort(root.children.begin(), root.children.end(), [](const auto &a, const auto &b) {
+            /* Assuming the list of methods is unique, non-repeating */
+            if (a->name == "GET") {
+                return true;
+            } else if (b->name == "GET") {
+                return false;
+            } else if (a->name == ANY_METHOD_TOKEN) {
+                return false;
+            } else if (b->name == ANY_METHOD_TOKEN) {
+                return true;
+            } else {
+                return a->name < b->name;
+            }
+        });
     }
 
     bool cullNode(Node *parent, Node *node, uint32_t handler) {
