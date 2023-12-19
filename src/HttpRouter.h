@@ -134,7 +134,7 @@ private:
     inline std::pair<std::string_view, bool> getUrlSegment(int urlSegment) {
         if (urlSegment > urlSegmentTop) {
             /* Signal as STOP when we have no more URL or stack space */
-            if (!currentUrl.length() || urlSegment > 99) {
+            if (!currentUrl.length() || urlSegment > MAX_URL_SEGMENTS - 1) {
                 return {{}, true};
             }
 
@@ -291,12 +291,6 @@ public:
 
         /* Alloate this handler */
         handlers.emplace_back(std::move(handler));
-
-        /* Assume can find this handler again */
-        if (((handlers.size() - 1) | priority) != findHandler(methods[0], pattern, priority)) {
-            std::cerr << "Error: Internal routing error" << std::endl;
-            std::abort();
-        }
 
         /* ANY method must be last, GET must be first */
         std::sort(root.children.begin(), root.children.end(), [](const auto &a, const auto &b) {

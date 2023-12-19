@@ -376,10 +376,36 @@ void testParameters() {
     assert(result == "GLWGPW");
 }
 
+#include <chrono>
+
+void testPerformance() {
+    std::cout << "TestPerformance" << std::endl;
+    uWS::HttpRouter<int> r;
+
+    r.add({"GET"}, "/*", [](auto *h) {
+        return true;
+    });
+
+    r.add({"*"}, "/*", [](auto *h) {
+        return true;
+    });
+
+    auto start = std::chrono::steady_clock::now();
+    for (int i = 0; i < 1000000; i++) {
+        r.route("GET", "/something");
+        r.route("other", "/whatever");
+    }
+    auto end = std::chrono::steady_clock::now();
+
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cout << "Duration: " << duration << "ms" << std::endl;
+}
+
 int main() {
     testPatternPriority();
     testMethodPriority();
     testUpgrade();
     testBugReports();
     testParameters();
+    testPerformance();
 }

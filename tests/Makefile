@@ -14,6 +14,10 @@ default:
 	$(CXX) -std=c++17 -fsanitize=address HttpParser.cpp -o HttpParser
 	./HttpParser
 
+performance:
+	$(CXX) -std=c++17 HttpRouter.cpp -O3 -o HttpRouter
+	./HttpRouter
+
 smoke:
 	../Crc32 &
 	sleep 1
