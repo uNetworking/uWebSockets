@@ -171,10 +171,6 @@ private:
                 /* Route the method and URL */
                 selectedRouter->getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
                 if (!selectedRouter->route(httpRequest->getCaseSensitiveMethod(), httpRequest->getUrl())) {
-                    /* We don't care if it reaches the client or not */
-                    us_socket_write(SSL, (us_socket_t *) s, httpErrorResponses[HTTP_ERROR_404_FILE_NOT_FOUND].data(), (int) httpErrorResponses[HTTP_ERROR_404_FILE_NOT_FOUND].length(), false);
-                    us_socket_shutdown(SSL, (us_socket_t *) s);
-
                     /* We have to force close this socket as we have no handler for it */
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
