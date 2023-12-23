@@ -134,7 +134,7 @@ private:
     inline std::pair<std::string_view, bool> getUrlSegment(int urlSegment) {
         if (urlSegment > urlSegmentTop) {
             /* Signal as STOP when we have no more URL or stack space */
-            if (!currentUrl.length() || urlSegment > MAX_URL_SEGMENTS - 1) {
+            if (!currentUrl.length() || urlSegment > int(MAX_URL_SEGMENTS - 1)) {
                 return {{}, true};
             }
 

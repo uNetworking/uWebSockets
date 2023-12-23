@@ -77,13 +77,15 @@ int main() {
                     * such as res->writeStatus(...)->writeHeader(...)->end(...); or similar.*/
 
                     /* This call will immediately emit .open event */
-                    upgradeData->httpRes->template upgrade<PerSocketData>({
-                        /* We initialize PerSocketData struct here */
-                        .something = 13
-                    }, upgradeData->secWebSocketKey,
-                        upgradeData->secWebSocketProtocol,
-                        upgradeData->secWebSocketExtensions,
-                        upgradeData->context);
+                    upgradeData->httpRes->cork([upgradeData]() {
+                        upgradeData->httpRes->template upgrade<PerSocketData>({
+                            /* We initialize PerSocketData struct here */
+                            .something = 13
+                        }, upgradeData->secWebSocketKey,
+                            upgradeData->secWebSocketProtocol,
+                            upgradeData->secWebSocketExtensions,
+                            upgradeData->context);
+                    });
                 } else {
                     std::cout << "Async task done, but the HTTP socket was closed. Skipping upgrade to WebSocket!" << std::endl;
                 }
