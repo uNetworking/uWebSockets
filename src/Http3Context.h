@@ -138,7 +138,7 @@ namespace uWS {
             /* Todo: This is ugly, fix */
             std::vector<std::string> methods;
             if (method == "*") {
-                methods = contextData->router.upperCasedMethods; //bug! needs to be upper cased!
+                methods = {"*"}; //bug! needs to be upper cased!
                 // router.upperCasedMethods;
             } else {
                 methods = {method};
