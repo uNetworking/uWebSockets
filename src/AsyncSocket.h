@@ -141,11 +141,6 @@ protected:
         getLoopData()->corkedSocket = this;
     }
 
-    /* Returns the corked socket or nullptr */
-    void *corkedSocket() {
-        return getLoopData()->corkedSocket;
-    }
-
     /* Returns wheter we are corked or not */
     bool isCorked() {
         return getLoopData()->corkedSocket == this;
