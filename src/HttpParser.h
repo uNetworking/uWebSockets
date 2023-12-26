@@ -180,7 +180,7 @@ struct HttpParser {
 private:
     std::string fallback;
     /* This guy really has only 30 bits since we reserve two highest bits to chunked encoding parsing state */
-    unsigned int remainingStreamingBytes = 0;
+    uint64_t remainingStreamingBytes = 0;
 
     /* Returns UINT_MAX on error. Maximum 999999999 is allowed. */
     static unsigned int toUnsignedInteger(std::string_view str) {
@@ -506,7 +506,7 @@ private:
                 }
 
                 if (!CONSUME_MINIMALLY) {
-                    unsigned int emittable = std::min<unsigned int>(remainingStreamingBytes, length);
+                    unsigned int emittable = (unsigned int) std::min<uint64_t>(remainingStreamingBytes, length);
                     dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
                     remainingStreamingBytes -= emittable;
 
@@ -561,8 +561,8 @@ public:
                 } else {
                     void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
 
-                    data += remainingStreamingBytes;
-                    length -= remainingStreamingBytes;
+                    data += (unsigned int) remainingStreamingBytes;
+                    length -= (unsigned int) remainingStreamingBytes;
 
                     remainingStreamingBytes = 0;
 
@@ -617,8 +617,8 @@ public:
                         } else {
                             void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
 
-                            data += remainingStreamingBytes;
-                            length -= remainingStreamingBytes;
+                            data += (unsigned int) remainingStreamingBytes;
+                            length -= (unsigned int) remainingStreamingBytes;
 
                             remainingStreamingBytes = 0;
 
