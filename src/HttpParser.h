@@ -183,19 +183,19 @@ private:
     uint64_t remainingStreamingBytes = 0;
 
     /* Returns UINT_MAX on error. Maximum 999999999 is allowed. */
-    static unsigned int toUnsignedInteger(std::string_view str) {
-        /* We assume at least 32-bit integer giving us safely 999999999 (9 number of 9s) */
-        if (str.length() > 9) {
+    static uint64_t toUnsignedInteger(std::string_view str) {
+        /* We assume at least 64-bit integer giving us safely 999999999999999999 (18 number of 9s) */
+        if (str.length() > 18) {
             return UINT_MAX;
         }
 
-        unsigned int unsignedIntegerValue = 0;
+        uint64_t unsignedIntegerValue = 0;
         for (char c : str) {
             /* As long as the letter is 0-9 we cannot overflow. */
             if (c < '0' || c > '9') {
                 return UINT_MAX;
             }
-            unsignedIntegerValue = unsignedIntegerValue * 10u + ((unsigned int) c - (unsigned int) '0');
+            unsignedIntegerValue = unsignedIntegerValue * 10ull + ((unsigned int) c - (unsigned int) '0');
         }
         return unsignedIntegerValue;
     }
