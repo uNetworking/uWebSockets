@@ -435,10 +435,27 @@ public:
             return;
         }
 
-        httpContextData->currentRouter->add(methods, pattern, [handler = std::move(handler)](auto *r) mutable {
+        /* Record this route's parameter offsets */
+        std::map<std::string, unsigned short, std::less<>> parameterOffsets;
+        unsigned short offset = 0;
+        for (unsigned int i = 0; i < pattern.length(); i++) {
+            if (pattern[i] == ':') {
+                i++;
+                unsigned int start = i;
+                while (i < pattern.length() && pattern[i] != '/') {
+                    i++;
+                }
+                parameterOffsets[std::string(pattern.data() + start, i - start)] = offset;
+                //std::cout << "<" << std::string(pattern.data() + start, i - start) << "> is offset " << offset;
+                offset++;
+            }
+        }
+
+        httpContextData->currentRouter->add(methods, pattern, [handler = std::move(handler), parameterOffsets = std::move(parameterOffsets)](auto *r) mutable {
             auto user = r->getUserData();
             user.httpRequest->setYield(false);
             user.httpRequest->setParameters(r->getParameters());
+            user.httpRequest->setParameterOffsets(&parameterOffsets);
 
             /* Middleware? Automatically respond to expectations */
             std::string_view expect = user.httpRequest->getHeader("expect");

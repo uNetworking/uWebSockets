@@ -65,6 +65,7 @@ private:
     bool didYield;
     BloomFilter bf;
     std::pair<int, std::string_view *> currentParameters;
+    std::map<std::string, unsigned short, std::less<>> *currentParameterOffsets = nullptr;
 
 public:
     bool isAncient() {
@@ -163,6 +164,21 @@ public:
 
     void setParameters(std::pair<int, std::string_view *> parameters) {
         currentParameters = parameters;
+    }
+
+    void setParameterOffsets(std::map<std::string, unsigned short, std::less<>> *offsets) {
+        currentParameterOffsets = offsets;
+    }
+
+    std::string_view getParameter(std::string_view name) {
+        if (!currentParameterOffsets) {
+            return {nullptr, 0};
+        }
+        auto it = currentParameterOffsets->find(name);
+        if (it == currentParameterOffsets->end()) {
+            return {nullptr, 0};
+        }
+        return getParameter(it->second);
     }
 
     std::string_view getParameter(unsigned short index) {
