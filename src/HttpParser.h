@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <climits>
 #include <string_view>
+#include <map>
 #include "MoveOnlyFunction.h"
 #include "ChunkedEncoding.h"
 
