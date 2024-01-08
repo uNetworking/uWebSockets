@@ -278,7 +278,7 @@ protected:
                     /* Fall through to default return */
                 } else {
                     /* Strategy differences between SSL and non-SSL regarding syscall minimizing */
-                    if constexpr (SSL) {
+                    if constexpr (false) {
                         /* Cork up as much as we can */
                         unsigned int stripped = LoopData::CORK_BUFFER_SIZE - loopData->corkOffset;
                         memcpy(loopData->corkBuffer + loopData->corkOffset, src, stripped);
