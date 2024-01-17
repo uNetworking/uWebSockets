@@ -575,6 +575,12 @@ public:
         return std::move(*this);
     }
 
+    /* adopt an externally accepted socket */
+    TemplatedApp &&adoptSocket(LIBUS_SOCKET_DESCRIPTOR accepted_fd) {
+        httpContext->adoptAcceptedSocket(accepted_fd);
+        return std::move(*this);
+    }
+
     TemplatedApp &&run() {
         uWS::run();
         return std::move(*this);
