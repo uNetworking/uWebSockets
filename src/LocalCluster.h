@@ -34,7 +34,7 @@ struct LocalCluster {
 
                 cb(*app);
                 
-                app->preOpen([](LIBUS_SOCKET_DESCRIPTOR fd) {
+                app->preOpen([](LIBUS_SOCKET_DESCRIPTOR fd) -> LIBUS_SOCKET_DESCRIPTOR {
 
                     /* Distribute this socket in round robin fashion */
                     //std::cout << "About to load balance " << fd << " to " << roundRobin << std::endl;
@@ -45,7 +45,7 @@ struct LocalCluster {
                     });
 
                     roundRobin = (roundRobin + 1) % hardwareConcurrency;
-                    return -1;
+                    return (LIBUS_SOCKET_DESCRIPTOR) -1;
                 });
                 m.unlock();
                 app->run();
