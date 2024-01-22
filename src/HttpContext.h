@@ -482,6 +482,11 @@ public:
     us_listen_socket_t *listen(const char *path, int options) {
         return us_socket_context_listen_unix(SSL, getSocketContext(), path, options, sizeof(HttpResponseData<SSL>));
     }
+
+    /* Adopt an externally accepted socket into this HttpContext */
+    us_socket_t *adoptAcceptedSocket(LIBUS_SOCKET_DESCRIPTOR accepted_fd) {
+        return us_adopt_accepted_socket(SSL, getSocketContext(), accepted_fd, sizeof(HttpResponseData<SSL>), 0, 0);
+    }
 };
 
 }
