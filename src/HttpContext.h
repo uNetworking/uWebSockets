@@ -46,6 +46,10 @@ private:
     /* Minimum allowed receive throughput per second (clients uploading less than 16kB/sec get dropped) */
     static const int HTTP_RECEIVE_THROUGHPUT_BYTES = 16 * 1024;
 
+    us_loop_t *getLoop() {
+        return us_socket_context_loop(SSL, getSocketContext());
+    }
+
     us_socket_context_t *getSocketContext() {
         return (us_socket_context_t *) this;
     }
@@ -481,6 +485,10 @@ public:
     /* Listen to unix domain socket using this HttpContext */
     us_listen_socket_t *listen(const char *path, int options) {
         return us_socket_context_listen_unix(SSL, getSocketContext(), path, options, sizeof(HttpResponseData<SSL>));
+    }
+
+    void onPreOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(LIBUS_SOCKET_DESCRIPTOR)) {
+        us_socket_context_on_pre_open(SSL, getSocketContext(), handler);
     }
 
     /* Adopt an externally accepted socket into this HttpContext */

@@ -575,6 +575,12 @@ public:
         return std::move(*this);
     }
 
+    /* Register event handler for accepted FD. Can be used together with adoptSocket. */
+    TemplatedApp &&preOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(LIBUS_SOCKET_DESCRIPTOR)) {
+        httpContext->onPreOpen(handler);
+        return std::move(*this);
+    }
+
     /* adopt an externally accepted socket */
     TemplatedApp &&adoptSocket(LIBUS_SOCKET_DESCRIPTOR accepted_fd) {
         httpContext->adoptAcceptedSocket(accepted_fd);
@@ -584,6 +590,10 @@ public:
     TemplatedApp &&run() {
         uWS::run();
         return std::move(*this);
+    }
+
+    Loop *getLoop() {
+        return (Loop *) httpContext->getLoop();
     }
 
 };
