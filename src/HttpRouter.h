@@ -286,7 +286,12 @@ public:
             /* Iterate over all segments */
             setUrl(pattern);
             for (int i = 0; !getUrlSegment(i).second; i++) {
-                node = getNode(node, std::string(getUrlSegment(i).first), priority == HIGH_PRIORITY);
+                std::string strippedSegment(getUrlSegment(i).first);
+                if (strippedSegment.length() && strippedSegment[0] == ':') {
+                    /* Parameter routes must be named only : */
+                    strippedSegment = ":";
+                }
+                node = getNode(node, strippedSegment, priority == HIGH_PRIORITY);
             }
             /* Insert handler in order sorted by priority (most significant 1 byte) */
             node->handlers.insert(std::upper_bound(node->handlers.begin(), node->handlers.end(), (uint32_t) (priority | handlers.size())), (uint32_t) (priority | handlers.size()));

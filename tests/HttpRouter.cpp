@@ -46,6 +46,34 @@ void testMethodPriority() {
     assert(result == "PSAS");
 }
 
+void testDeepParameterRoutes() {
+    std::cout << "TestDeepParameterRoutes" << std::endl;
+    uWS::HttpRouter<int> r;
+    std::string result;
+
+    r.add({"GET"}, "/something/:id/sync", [&result](auto *h) {
+        result += "ETT";
+        return false;
+    });
+
+    r.add({"GET"}, "/something/:somethingId/pin", [&result](auto *h) {
+        result += "TVÅ";
+        return false;
+    });
+
+    r.add({"GET"}, "/something/:id/:attribute", [&result](auto *h) {
+        result += "TRE";
+        return false;
+    });
+
+    assert(r.route("GET", "/something/1234/pin") == false);
+    assert(result == "TVÅTRE");
+
+    result.clear();
+    assert(r.route("GET", "/something/1234/sync") == false);
+    assert(result == "ETTTRE");
+}
+
 void testPatternPriority() {
     std::cout << "TestPatternPriority" << std::endl;
     uWS::HttpRouter<int> r;
@@ -402,6 +430,7 @@ void testPerformance() {
 }
 
 int main() {
+    testDeepParameterRoutes();
     testPatternPriority();
     testMethodPriority();
     testUpgrade();
