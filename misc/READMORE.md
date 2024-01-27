@@ -38,11 +38,22 @@ There are a few compilation flags for µSockets (see its documentation), but com
 
 You can use the Makefile on Linux and macOS. It is simple to use and builds the examples for you. `WITH_OPENSSL=1 make` builds all examples with SSL enabled. Examples will fail to listen if cert and key cannot be found, so make sure to specify a path that works for you.
 
-### Steps
+### Steps for Linux
 ```sh
 git clone --resurse-submodules https://github.com/uNetworking/uWebSockets
 make # prepend variables if desired such as `WITH_OPENSSL` as mentioned above
 make install
+```
+
+_Note for Linux CMake users: make sure to include ZLIB as a dependency as well as `uSockets.a` static library (which was installed during `make install`)._
+
+Here is an example:
+```
+...
+find_library(USOCKETS_LIBRARY uSockets.a PATHS /usr/local/lib REQUIRED)
+find_package(ZLIB REQUIRED)
+target_link_libraries(${PROJECT_NAME} ${USOCKETS_LIBRARY} ZLIB::ZLIB)
+...
 ```
 
 ## User manual
