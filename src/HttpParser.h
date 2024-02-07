@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2020.
+ * Authored by Alex Hultman, 2018-2024.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -199,18 +199,18 @@ private:
     /* This guy really has only 30 bits since we reserve two highest bits to chunked encoding parsing state */
     uint64_t remainingStreamingBytes = 0;
 
-    /* Returns UINT_MAX on error. Maximum 999999999 is allowed. */
+    /* Returns UINT64_MAX on error. Maximum 999999999 is allowed. */
     static uint64_t toUnsignedInteger(std::string_view str) {
         /* We assume at least 64-bit integer giving us safely 999999999999999999 (18 number of 9s) */
         if (str.length() > 18) {
-            return UINT_MAX;
+            return UINT64_MAX;
         }
 
         uint64_t unsignedIntegerValue = 0;
         for (char c : str) {
             /* As long as the letter is 0-9 we cannot overflow. */
             if (c < '0' || c > '9') {
-                return UINT_MAX;
+                return UINT64_MAX;
             }
             unsignedIntegerValue = unsignedIntegerValue * 10ull + ((unsigned int) c - (unsigned int) '0');
         }
@@ -517,7 +517,7 @@ private:
                 }
             } else if (contentLengthString.length()) {
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
-                if (remainingStreamingBytes == UINT_MAX) {
+                if (remainingStreamingBytes == UINT64_MAX) {
                     /* Parser error */
                     return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
                 }
