@@ -18,7 +18,7 @@ Furthermore, we partake in Google's OSS-Fuzz with a ~95% daily fuzzing coverage<
 ### :arrow_forward: Rapid scripting
 µWebSockets is written entirely in C & C++ but has a seamless integration for Node.js backends. This allows for rapid scripting of powerful apps, using widespread competence. See <a href="https://github.com/uNetworking/uWebSockets.js">µWebSockets.js</a>.
 
-Besides this Node.js integration, a tweaked version of µWebSockets makes up the web server and event-loop of [Bun](https://bun.sh).
+Besides this Node.js integration, the JavaScript runtime [Bun](https://bun.sh) uses a tweaked version of µWebSockets for event-loop & web server.
 
 ### :crossed_swords: Battle proven
 We've been fully standards compliant with a perfect Autobahn|Testsuite score since 2016<sup><a href="https://unetworking.github.io/uWebSockets.js/report.pdf">2</a></sup>. µWebSockets powers many of the biggest crypto exchanges in the world, handling trade volumes of multiple billions of USD every day. If you trade crypto, chances are you do so via µWebSockets.
