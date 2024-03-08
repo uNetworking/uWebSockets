@@ -55,7 +55,21 @@ int __wrap_epoll_wait(int epfd, struct epoll_event *events,
 }
 
 int __wrap_recv(int sockfd, void *buf, size_t len, int flags) {
-	const char request[] = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
+	const char request[] =
+    "GET /joyent/http-parser HTTP/1.1\r\n"
+    "Host: github.com\r\n"
+    "DNT: 1\r\n"
+    "Accept-Encoding: gzip, deflate, sdch\r\n"
+    "Accept-Language: ru-RU,ru;q=0.8,en-US;q=0.6,en;q=0.4\r\n"
+    "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/39.0.2171.65 Safari/537.36\r\n"
+    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/webp,*/*;q=0.8\r\n"
+    "Referer: https://github.com/joyent/http-parser\r\n"
+    "Connection: keep-alive\r\n"
+    "Cache-Control: max-age=0\r\n\r\n";
+
 	memcpy(buf, request, sizeof(request) - 1);
 	return sizeof(request) - 1;
 }
@@ -67,7 +81,7 @@ int __wrap_send(int sockfd, const void *buf, size_t len, int flags) {
 		// print how long it took to make 1 million requests
 		clock_t newTime = clock();
 		float elapsed = float(newTime - lastTime) / CLOCKS_PER_SEC;
-		printf("Req/sec: %f\n", 1000000.0f / elapsed);
+		printf("Req/sec: %f million\n", (1000000.0f / elapsed) / 1000000.0f);
 		sent = 0;
 		lastTime = newTime;
 	}
