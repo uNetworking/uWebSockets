@@ -247,20 +247,24 @@ private:
         hasBetween(x, 'Z', 'a') |
         hasMore(x, 'z');
     }
+
+    static inline bool isFieldNameByteFastLowercased(unsigned char &in) {
+        if ((in >= 97 & in <= 122) | (in == '-')) [[likely]] {
+            return true;
+        } else if (in >= 65 & in <= 90) [[unlikely]] {
+            in |= 32;
+            return true;
+        } else if (isFieldNameByte(in)) [[unlikely]] {
+            return true;
+        }
+        return false;
+    }
     
     static inline void *consumeFieldName(char *p) {
-        //for (; true; p += 8) {
-            //uint64_t word;
-            //memcpy(&word, p, sizeof(uint64_t));
-            //if (notFieldNameWord(word)) {
-                while (isFieldNameByte(*(unsigned char *)p)) {
-                    *(p++) |= 0x20;
-                }
-                return (void *)p;
-            //}
-            //word |= 0x2020202020202020ull;
-            //memcpy(p, &word, sizeof(uint64_t));
-        //}
+        while (isFieldNameByteFastLowercased(*(unsigned char *)p)) {
+            p++;
+        }
+        return (void *)p;
     }
 
     /* Puts method as key, target as value and returns non-null (or nullptr on error). */

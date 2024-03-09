@@ -6,4 +6,4 @@ override CFLAGS += -DUWS_NO_ZLIB -I../src -I../uSockets/src
 
 default:
 	make -C ../uSockets
-	g++ -flto -O3 -std=c++17 ../examples/HelloWorld.cpp epoll_benchmarker.cpp $(CFLAGS) -o HelloWorld ../uSockets/uSockets.a
+	$(CXX) -flto -O3 -std=c++17 ../examples/HelloWorld.cpp epoll_benchmarker.cpp $(CFLAGS) -o HelloWorld ../uSockets/uSockets.a
