@@ -249,9 +249,9 @@ private:
     }
 
     static inline bool isFieldNameByteFastLowercased(unsigned char &in) {
-        if ((in >= 97 & in <= 122) | (in == '-')) [[likely]] {
+        if (((in >= 97) & (in <= 122)) | (in == '-')) [[likely]] {
             return true;
-        } else if (in >= 65 & in <= 90) [[unlikely]] {
+        } else if ((in >= 65) & (in <= 90)) [[unlikely]] {
             in |= 32;
             return true;
         } else if (isFieldNameByte(in)) [[unlikely]] {
