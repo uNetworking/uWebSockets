@@ -242,8 +242,8 @@ private:
     static inline bool isUnlikelyFieldNameByte(unsigned char c)
     {
         /* Digits and 14 of the 15 non-alphanum characters (lacking hyphen) */
-        return ((c == '~') | (c == '|') | (c == '`') | (c == '_') | (c == '^') | (c == '.') | (c == '+') | (c == '*')
-            | (c == '\'') | (c == '&') | (c == '%') | (c == '$') | (c == '#') | (c == '!')) || ((c >= 48) & (c <= 57));
+        return ((c == '~') | (c == '|') | (c == '`') | (c == '_') | (c == '^') | (c == '.') | (c == '+')
+            | (c == '*') | (c == '!')) || ((c >= 48) & (c <= 57)) || ((c <= 39) & (c >= 35));
     }
 
     static inline bool isFieldNameByteFastLowercased(unsigned char &in) {
