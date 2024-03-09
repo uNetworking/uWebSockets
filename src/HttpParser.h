@@ -262,6 +262,27 @@ private:
     }
     
     static inline void *consumeFieldName(char *p) {
+        /* Best case fast path (particularly useful with clang) */
+        while (true) {
+            while ((*p >= 65) & (*p <= 90)) [[likely]] {
+                *p |= 32;
+                p++;
+            }
+            while (((*p >= 97) & (*p <= 122))) [[likely]] {
+                p++;
+            }
+            if (*p == ':') {
+                return (void *)p;
+            }
+            if (*p == '-') {
+                p++;
+            } else if (!((*p >= 65) & (*p <= 90))) {
+                /* Exit fast path parsing */
+                break;
+            }
+        }
+
+        /* Generic */
         while (isFieldNameByteFastLowercased(*(unsigned char *)p)) {
             p++;
         }
