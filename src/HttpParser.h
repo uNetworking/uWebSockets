@@ -216,17 +216,6 @@ private:
         }
         return unsignedIntegerValue;
     }
-   
-    /* RFC 9110 5.6.2. Tokens */
-    static inline bool isFieldNameByte(unsigned char c)
-    {
-        return (c > 32) & (c < 127) & (c != '(') &
-            (c != ')') & (c != ',') & (c != '/') &
-            (c != ':') & (c != ';') & (c != '<') &
-            (c != '=') & (c != '>') & (c != '?') &
-            (c != '@') & (c != '[') & (c != '\\') &
-            (c != ']') & (c != '{') & (c != '}');
-    }
     
     static inline uint64_t hasLess(uint64_t x, uint64_t n) {
         return (((x)-~0ULL/255*(n))&~(x)&~0ULL/255*128);
@@ -248,13 +237,25 @@ private:
         hasMore(x, 'z');
     }
 
+    /* RFC 9110 5.6.2. Tokens */
+    /* Hyphen is not checked here as it is very common */
+    static inline bool isUnlikelyFieldNameByte(unsigned char c)
+    {
+        /* Digits and 14 of the 15 non-alphanum characters (lacking hyphen) */
+        return (c == '~' | c == '|' | c == '`' | c == '_' | c == '^' | c == '.' | c == '+' | c == '*'
+            | c == '\'' | c == '&' | c == '%' | c == '$' | c == '#' | c == '!') || ((c >= 48) & (c <= 57));
+    }
+
     static inline bool isFieldNameByteFastLowercased(unsigned char &in) {
+        /* Most common is lowercase alpha and hyphen */
         if (((in >= 97) & (in <= 122)) | (in == '-')) [[likely]] {
             return true;
+        /* Second is upper case alpha */
         } else if ((in >= 65) & (in <= 90)) [[unlikely]] {
             in |= 32;
             return true;
-        } else if (isFieldNameByte(in)) [[unlikely]] {
+        /* These are rarely used but still valid */
+        } else if (isUnlikelyFieldNameByte(in)) [[unlikely]] {
             return true;
         }
         return false;
