@@ -461,6 +461,11 @@ private:
             length -= consumed;
             consumedTotal += consumed;
 
+            /* Even if we could parse it, check for length here as well */
+            if (consumed > MAX_FALLBACK_SIZE) {
+                return {HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE, FULLPTR};
+            }
+
             /* Store HTTP version (ancient 1.0 or 1.1) */
             req->ancientHttp = false;
 
