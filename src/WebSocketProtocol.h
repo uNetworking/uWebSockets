@@ -238,7 +238,9 @@ static inline size_t formatMessage(char *dst, const char *src, size_t length, Op
     }
 
     messageLength = headerLength + length;
-    memcpy(dst + headerLength, src, length);
+    if (length) {
+        memcpy(dst + headerLength, src, length);
+    }
 
     if (!isServer) {
 
