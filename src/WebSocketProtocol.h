@@ -170,7 +170,7 @@ static inline CloseFrame parseClosePayload(char *src, size_t length) {
         if (cf.code < 1000 || cf.code > 4999 || (cf.code > 1011 && cf.code < 4000) ||
             (cf.code >= 1004 && cf.code <= 1006) || !isValidUtf8((unsigned char *) cf.message, cf.length)) {
             /* Even though we got a WebSocket close frame, it in itself is abnormal */
-            return {1006, nullptr, 0};
+            return {1006, (char *) ERR_INVALID_CLOSE_PAYLOAD.data(), ERR_INVALID_CLOSE_PAYLOAD.length()};
         }
     }
     return cf;
