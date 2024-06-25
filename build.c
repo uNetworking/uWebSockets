@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
 
     if (!strcmp(argv[1], "examples")) {
         for (int i = 0; i < sizeof(EXAMPLE_FILES) / sizeof(char *); i++) {
-            if (run("%s%s examples/%s.cpp %s -o %s%s", CXX, CXXFLAGS, EXAMPLE_FILES[i], LDFLAGS, EXAMPLE_FILES[i], EXEC_SUFFIX)) {
+            if (run("%s %s examples/%s.cpp %s -o %s%s", CXX, CXXFLAGS, EXAMPLE_FILES[i], LDFLAGS, EXAMPLE_FILES[i], EXEC_SUFFIX)) {
                 return -1;
             }
         }
