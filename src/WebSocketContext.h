@@ -269,9 +269,11 @@ private:
                 webSocketContextData->topicTree->freeSubscriber(webSocketData->subscriber);
                 webSocketData->subscriber = nullptr;
 
+                auto *ws = (WebSocket<SSL, isServer, USERDATA> *) s;
                 if (webSocketContextData->closeHandler) {
-                    webSocketContextData->closeHandler((WebSocket<SSL, isServer, USERDATA> *) s, 1006, {(char *) reason, (size_t) code});
+                    webSocketContextData->closeHandler(ws, 1006, {(char *) reason, (size_t) code});
                 }
+                ((USERDATA *) ws->getUserData())->~USERDATA();
             }
 
             /* Destruct in-placed data struct */

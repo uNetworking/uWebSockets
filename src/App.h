@@ -382,14 +382,7 @@ public:
         webSocketContext->getExt()->droppedHandler = std::move(behavior.dropped);
         webSocketContext->getExt()->drainHandler = std::move(behavior.drain);
         webSocketContext->getExt()->subscriptionHandler = std::move(behavior.subscription);
-        webSocketContext->getExt()->closeHandler = std::move([closeHandler = std::move(behavior.close)](WebSocket<SSL, true, UserData> *ws, int code, std::string_view message) mutable {
-            if (closeHandler) {
-                closeHandler(ws, code, message);
-            }
-
-            /* Destruct user data after returning from close handler */
-            ((UserData *) ws->getUserData())->~UserData();
-        });
+        webSocketContext->getExt()->closeHandler = std::move(behavior.close);
         webSocketContext->getExt()->pingHandler = std::move(behavior.ping);
         webSocketContext->getExt()->pongHandler = std::move(behavior.pong);
 
