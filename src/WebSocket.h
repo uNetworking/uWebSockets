@@ -241,6 +241,7 @@ public:
         if (webSocketContextData->closeHandler) {
             webSocketContextData->closeHandler(this, code, message);
         }
+        ((USERDATA *) this->getUserData())->~USERDATA();
     }
 
     /* Corks the response if possible. Leaves already corked socket be. */
