@@ -119,7 +119,7 @@ static bool isValidUtf8(unsigned char *s, size_t length)
     for (unsigned char *e = s + length; s != e; ) {
         if (s + 16 <= e) {
             uint64_t tmp[2];
-            memcpy(&tmp, s, 16);
+            memcpy(tmp, s, 16);
             if (((tmp[0] & 0x8080808080808080) | (tmp[1] & 0x8080808080808080)) == 0) {
                 s += 16;
                 continue;
