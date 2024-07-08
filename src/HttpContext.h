@@ -149,7 +149,9 @@ private:
                 HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_socket_ext(SSL, (us_socket_t *) s);
                 httpResponseData->offset = 0;
 
-                /* Are we not ready for another request yet? Terminate the connection. */
+                /* Are we not ready for another request yet? Terminate the connection.
+                 * Important for denying async pipelining until, if ever, we want to suppot it.
+                 * Otherwise requests can get mixed up on the same connection. We still support sync pipelining. */
                 if (httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) {
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
