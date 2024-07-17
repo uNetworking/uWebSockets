@@ -18,6 +18,8 @@
 #ifndef UWS_APP_H
 #define UWS_APP_H
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <string>
 #include <charconv>
 #include <string_view>
