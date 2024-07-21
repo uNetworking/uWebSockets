@@ -116,7 +116,7 @@ public:
         }
 
         us_socket_context_remove_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str());
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     BuilderPatternReturnType &&missingServerName(MoveOnlyFunction<void(const char *hostname)> handler) {
@@ -132,7 +132,7 @@ public:
             });
         }
 
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Returns the SSL_CTX of this app, or nullptr. */
@@ -144,7 +144,7 @@ public:
     BuilderPatternReturnType &&filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         httpContext->filter(std::move(filterHandler));
 
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Publishes a message to all websocket contexts - conceptually as if publishing to the one single
@@ -265,7 +265,7 @@ public:
             us_socket_context_close(SSL, (struct us_socket_context_t *) webSocketContext);
         }
 
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     template <typename UserData>
@@ -475,49 +475,49 @@ public:
         if (httpContext) {
             httpContext->onHttp("OPTIONS", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     BuilderPatternReturnType &&del(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("DELETE", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     BuilderPatternReturnType &&patch(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("PATCH", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     BuilderPatternReturnType &&put(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("PUT", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     BuilderPatternReturnType &&head(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("HEAD", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     BuilderPatternReturnType &&connect(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("CONNECT", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     BuilderPatternReturnType &&trace(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("TRACE", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* This one catches any method */
@@ -534,7 +534,7 @@ public:
             return listen(port, std::move(handler));
         }
         handler(httpContext ? httpContext->listen(host.c_str(), port, 0) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Host, port, options, callback */
@@ -543,7 +543,7 @@ public:
             return listen(port, options, std::move(handler));
         }
         handler(httpContext ? httpContext->listen(host.c_str(), port, options) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Port, callback */
@@ -555,19 +555,19 @@ public:
     /* Port, options, callback */
     BuilderPatternReturnType &&listen(int port, int options, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
         handler(httpContext ? httpContext->listen(nullptr, port, options) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* options, callback, path to unix domain socket */
     BuilderPatternReturnType &&listen(int options, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler, std::string path) {
         handler(httpContext ? httpContext->listen(path.c_str(), options) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* callback, path to unix domain socket */
     BuilderPatternReturnType &&listen(MoveOnlyFunction<void(us_listen_socket_t *)> &&handler, std::string path) {
         handler(httpContext ? httpContext->listen(path.c_str(), 0) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Register event handler for accepted FD. Can be used together with adoptSocket. */
