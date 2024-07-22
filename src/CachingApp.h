@@ -21,14 +21,12 @@ struct StringViewEqual {
     }
 };
 
-typedef std::unordered_map<std::string_view, std::string, 
-                       StringViewHash, 
-                       StringViewEqual> CacheType;
+
 
 class CachingHttpResponse {
 public:
-    CachingHttpResponse(uWS::HttpResponse<false> *res, CacheType &cache, const std::string_view &cacheKey)
-        : res(res), cache(cache), cacheKey(cacheKey) {}
+    CachingHttpResponse(uWS::HttpResponse<false> *res)
+        : res(res) {}
 
     void write(std::string_view data) {
         buffer.append(data);
@@ -36,26 +34,35 @@ public:
 
     void end(std::string_view data = "") {
         buffer.append(data);
-        cache[cacheKey] = buffer;
+
+        // end for all queued up sockets also
         res->end(buffer);
+
+        created = time(0);
     }
 
-private:
-    uWS::HttpResponse<false>* res;
-    CacheType &cache;
-    std::string cacheKey;
-    std::string buffer;
+public:
+    uWS::HttpResponse<false>* res; // should be a vector of waiting sockets
+
+
+    std::string buffer; // body
+    time_t created;
 };
 
-// we can also derive from H3app later on
-struct CachingApp : public uWS::TemplatedApp<false, CachingApp> {
-public:
-    CachingApp(SocketContextOptions options = {}) : uWS::TemplatedApp<false, CachingApp>(options) {}
+typedef std::unordered_map<std::string_view, CachingHttpResponse *, 
+                       StringViewHash, 
+                       StringViewEqual> CacheType;
 
-    using uWS::TemplatedApp<false, CachingApp>::get;
+// we can also derive from H3app later on
+template <bool SSL>
+struct CachingApp : public uWS::TemplatedApp<SSL, CachingApp<SSL>> {
+public:
+    CachingApp(SocketContextOptions options = {}) : uWS::TemplatedApp<SSL, CachingApp<SSL>>(options) {}
+
+    using uWS::TemplatedApp<SSL, CachingApp<SSL>>::get;
 
     CachingApp(const CachingApp &other) = delete;
-    CachingApp(CachingApp &&other) : uWS::TemplatedApp<false, CachingApp>(std::move(other)) {
+    CachingApp(CachingApp<SSL> &&other) : uWS::TemplatedApp<SSL, CachingApp<SSL>>(std::move(other)) {
         // also move the cache
     }
 
@@ -64,27 +71,33 @@ public:
     }
 
     // variant 1: only taking URL into account
-    CachingApp& get(const std::string& url, std::function<void(CachingHttpResponse*, uWS::HttpRequest*)> handler, unsigned int /*secondsToExpiry*/) {
-        ((uWS::TemplatedApp<false, CachingApp> *)this)->get(url, [this, handler](auto* res, auto* req) {
+    CachingApp& get(const std::string& url, std::function<void(CachingHttpResponse*, uWS::HttpRequest*)> handler, unsigned int secondsToExpiry) {
+        ((uWS::TemplatedApp<SSL, CachingApp<SSL>> *)this)->get(url, [this, handler, secondsToExpiry](auto* res, auto* req) {
+            /* We need to know the cache key and the time of now */
             std::string_view cache_key = req->getFullUrl();
+            time_t now = static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
 
-            // whenever a cache is to be used, its timestamp is checked against
-            // the one timestamp driven by the server
-            // CachedApp::updateTimestamp() will be called by the server timer
-            
-            // Loop::get()::getTimestamp()
+            auto it = cache.find(cache_key);
+            if (it != cache.end()) {
 
-            if (cache.find(cache_key) != cache.end()) {
-                res->end(cache[cache_key]); // tryEnd!
-            } else {
+                if (it->second->created + secondsToExpiry > now) {
+                    res->end(it->second->buffer); // tryEnd!
+                    return;
+                }
 
-                // om CacheNode har HttpRequest, status, headers, body - kan CacheNode användas som CachedHttpResponse
-                // Cache blir unorderd_map<string_view, unique_ptr<CacheNode>> cache;
+                /* We are no longer valid, delete old cache and fall through to create a new entry */
+                delete it->second;
 
-                CachingHttpResponse cachingRes(res, cache, cache_key); // res kan inte vara stackallokerad
+                // is the cache completed? if not, add yourself to the waiting list of sockets to that cache
 
-                handler(&cachingRes, req);
+                // if the cache completed? ok, is it still valid? use it
             }
+
+            // immediately take the place in the cache
+            CachingHttpResponse *cachingRes;
+            cache[cache_key] = (cachingRes = new CachingHttpResponse(res));
+
+            handler(cachingRes, req);           
         });
         return *this;
     }

@@ -5,13 +5,13 @@ int main() {
     uWS::App app;
 
     /* Regular, non-cached response */
-    app.get("/*", [](auto *res, auto */*req*/) {
+    app.get("/not-cached", [](auto *res, auto */*req*/) {
         res->end("Responding without a cache");
-    }).get("/cached", [](auto *res, auto */*req*/) {
-        /* A cached response with 13 seconds of lifetime */
+    }).get("/*", [](auto *res, auto */*req*/) {
+        /* A cached response with 5 seconds of lifetime */
         std::cout << "Filling cache now" << std::endl;
         res->end("This is a response");
-    }, 13).listen(8080, [](bool success) {
+    }, 5).listen(8080, [](bool success) {
         if (success) {
             std::cout << "Listening on port 8080" << std::endl;
         } else {

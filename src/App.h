@@ -598,8 +598,8 @@ public:
 #include "CachingApp.h"
 
 namespace uWS {
-    typedef uWS::CachingApp App;
-    typedef uWS::CachingApp SSLApp;
+    typedef uWS::CachingApp<false> App;
+    typedef uWS::CachingApp<true> SSLApp;
 }
 
 #endif // UWS_APP_H
