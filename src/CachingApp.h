@@ -55,8 +55,8 @@ public:
     using uWS::TemplatedApp<false, CachingApp>::get;
 
     CachingApp(const CachingApp &other) = delete;
-    CachingApp(CachingApp &&/*other*/) {
-
+    CachingApp(CachingApp &&other) : uWS::TemplatedApp<false, CachingApp>(std::move(other)) {
+        // also move the cache
     }
 
     ~CachingApp() {
