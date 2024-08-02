@@ -33,6 +33,8 @@ const std::string_view ERR_WEBSOCKET_TIMEOUT("WebSocket timed out from inactivit
 const std::string_view ERR_INVALID_TEXT("Received invalid UTF-8");
 const std::string_view ERR_TOO_BIG_MESSAGE_INFLATION("Received too big message, or other inflation error");
 const std::string_view ERR_INVALID_CLOSE_PAYLOAD("Received invalid close payload");
+const std::string_view ERR_PROTOCOL("Received invalid WebSocket frame");
+const std::string_view ERR_TCP_FIN("Received TCP FIN before WebSocket close frame");
 
 enum OpCode : unsigned char {
     CONTINUATION = 0,
@@ -341,12 +343,12 @@ protected:
     static inline bool consumeMessage(T payLength, char *&src, unsigned int &length, WebSocketState<isServer> *wState, void *user) {
         if (getOpCode(src)) {
             if (wState->state.opStack == 1 || (!wState->state.lastFin && getOpCode(src) < 2)) {
-                Impl::forceClose(wState, user);
+                Impl::forceClose(wState, user, ERR_PROTOCOL);
                 return true;
             }
             wState->state.opCode[++wState->state.opStack] = (OpCode) getOpCode(src);
         } else if (wState->state.opStack == -1) {
-            Impl::forceClose(wState, user);
+            Impl::forceClose(wState, user, ERR_PROTOCOL);
             return true;
         }
         wState->state.lastFin = isFin(src);
@@ -469,7 +471,7 @@ public:
                 // invalid reserved bits / invalid opcodes / invalid control frames / set compressed frame
                 if ((rsv1(src) && !Impl::setCompressed(wState, user)) || rsv23(src) || (getOpCode(src) > 2 && getOpCode(src) < 8) ||
                     getOpCode(src) > 10 || (getOpCode(src) > 2 && (!isFin(src) || payloadLength(src) > 125))) {
-                    Impl::forceClose(wState, user);
+                    Impl::forceClose(wState, user, ERR_PROTOCOL);
                     return;
                 }
 

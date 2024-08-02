@@ -371,11 +371,11 @@ private:
             return s;
         });
 
-        /* Handle FIN, HTTP does not support half-closed sockets, so simply close */
+        /* Handle FIN, WebSocket does not support half-closed sockets, so simply close */
         us_socket_context_on_end(SSL, getSocketContext(), [](auto *s) {
 
             /* If we get a fin, we just close I guess */
-            us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
+            us_socket_close(SSL, (us_socket_t *) s, (int) ERR_TCP_FIN.length(), (void *) ERR_TCP_FIN.data());
 
             return s;
         });
