@@ -32,7 +32,7 @@ public:
         buffer.append(data);
     }
 
-    void end(std::string_view data = "") {
+    void end(std::string_view data = "", bool closeConnection = false) {
         buffer.append(data);
 
         // end for all queued up sockets also
@@ -71,8 +71,8 @@ public:
     }
 
     // variant 1: only taking URL into account
-    CachingApp& get(const std::string& url, std::function<void(CachingHttpResponse*, uWS::HttpRequest*)> handler, unsigned int secondsToExpiry) {
-        ((uWS::TemplatedApp<SSL, CachingApp<SSL>> *)this)->get(url, [this, handler, secondsToExpiry](auto* res, auto* req) {
+    CachingApp &&get(const std::string& url, uWS::MoveOnlyFunction<void(CachingHttpResponse*, uWS::HttpRequest*)> &&handler, unsigned int secondsToExpiry) {
+        ((uWS::TemplatedApp<SSL, CachingApp<SSL>> *)this)->get(url, [this, handler = std::move(handler), secondsToExpiry](auto* res, auto* req) mutable {
             /* We need to know the cache key and the time of now */
             std::string_view cache_key = req->getFullUrl();
             time_t now = static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
@@ -97,9 +97,9 @@ public:
             CachingHttpResponse *cachingRes;
             cache[cache_key] = (cachingRes = new CachingHttpResponse(res));
 
-            handler(cachingRes, req);           
+            handler(cachingRes, req);
         });
-        return *this;
+        return std::move(*this);
     }
 
     // variant 2: taking URL and a list of headers into account
