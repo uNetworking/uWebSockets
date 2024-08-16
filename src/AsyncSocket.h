@@ -141,7 +141,7 @@ protected:
         getLoopData()->corkedSocket = this;
     }
 
-    /* Returns wheter we are corked or not */
+    /* Returns whether we are corked or not */
     bool isCorked() {
         return getLoopData()->corkedSocket == this;
     }
@@ -231,7 +231,7 @@ protected:
     }
 
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
-     * Returns pair of bytes written (anywhere) and wheter or not this call resulted in the polling for
+     * Returns pair of bytes written (anywhere) and whether or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */
     std::pair<int, bool> write(const char *src, int length, bool optionally = false, int nextLength = 0) {
         /* Fake success if closed, simple fix to allow uncork of closed socket to succeed */
