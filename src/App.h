@@ -576,6 +576,29 @@ public:
         return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
+    BuilderPatternReturnType &&addChildApp(BuilderPatternReturnType *app) {
+        /* Add this app to httpContextData list over child apps and set onPreOpen */
+        httpContext->getSocketContextData()->childApps.push_back((void *) app);
+        
+        httpContext->onPreOpen([](struct us_socket_context_t *context, LIBUS_SOCKET_DESCRIPTOR fd) -> LIBUS_SOCKET_DESCRIPTOR {
+            HttpContext<SSL> *httpContext = (HttpContext<SSL> *) context;
+
+            int &roundRobin = &httpContext->getSocketContextData()->roundRobin;
+            BuilderPatternReturnType *receivingApp = (BuilderPatternReturnType *) httpContext->getSocketContextData()->childApps[roundRobin];
+
+            receivingApp->getLoop()->defer([fd, receivingApp]() {
+                receivingApp->adoptSocket(fd);
+            });
+
+            if (++roundRobin == httpContext->getSocketContextData()->childApps.size()) {
+                roundRobin = 0;
+            }
+
+            return fd + 1;
+        });
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
+    }
+
     /* adopt an externally accepted socket */
     BuilderPatternReturnType &&adoptSocket(LIBUS_SOCKET_DESCRIPTOR accepted_fd) {
         httpContext->adoptAcceptedSocket(accepted_fd);
