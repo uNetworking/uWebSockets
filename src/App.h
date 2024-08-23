@@ -571,7 +571,7 @@ public:
     }
 
     /* Register event handler for accepted FD. Can be used together with adoptSocket. */
-    BuilderPatternReturnType &&preOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(LIBUS_SOCKET_DESCRIPTOR)) {
+    BuilderPatternReturnType &&preOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(struct us_socket_context_t *, LIBUS_SOCKET_DESCRIPTOR)) {
         httpContext->onPreOpen(handler);
         return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
