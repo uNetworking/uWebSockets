@@ -581,17 +581,33 @@ public:
         httpContext->getSocketContextData()->childApps.push_back((void *) app);
         
         httpContext->onPreOpen([](struct us_socket_context_t *context, LIBUS_SOCKET_DESCRIPTOR fd) -> LIBUS_SOCKET_DESCRIPTOR {
+            
             HttpContext<SSL> *httpContext = (HttpContext<SSL> *) context;
 
-            int &roundRobin = &httpContext->getSocketContextData()->roundRobin;
-            BuilderPatternReturnType *receivingApp = (BuilderPatternReturnType *) httpContext->getSocketContextData()->childApps[roundRobin];
+            if (httpContext->getSocketContextData()->childApps.empty()) {
+                return fd;
+            }
+
+            //std::cout << "Distributing fd: " << fd << " from context: " << context << std::endl;
+
+            unsigned int *roundRobin = &httpContext->getSocketContextData()->roundRobin;
+
+            //std::cout << "Round robin is: " << *roundRobin << " and size of apps is: " << httpContext->getSocketContextData()->childApps.size() << std::endl;
+
+            BuilderPatternReturnType *receivingApp = (BuilderPatternReturnType *) httpContext->getSocketContextData()->childApps[*roundRobin];
+
+
+            //std::cout << "Loop is " << receivingApp->getLoop() << std::endl;
+
 
             receivingApp->getLoop()->defer([fd, receivingApp]() {
+                //std::cout << "About to adopt socket " << fd << " on receivingApp " << receivingApp << std::endl;
                 receivingApp->adoptSocket(fd);
+                //std::cout << "Done " << std::endl;
             });
 
-            if (++roundRobin == httpContext->getSocketContextData()->childApps.size()) {
-                roundRobin = 0;
+            if (++(*roundRobin) == httpContext->getSocketContextData()->childApps.size()) {
+                *roundRobin = 0;
             }
 
             return fd + 1;
