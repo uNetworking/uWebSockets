@@ -189,12 +189,12 @@ public:
 
         /* Delete TopicTree */
         if (topicTree) {
-            delete topicTree;
-
             /* And unregister loop callbacks */
             /* We must unregister any loop post handler here */
             Loop::get()->removePostHandler(topicTree);
             Loop::get()->removePreHandler(topicTree);
+
+	    delete topicTree;
         }
     }
 
