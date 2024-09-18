@@ -30,7 +30,7 @@ struct BloomFilter {
 private:
     std::bitset<256> filter;
     static inline uint32_t perfectHash(uint32_t features) {
-        return features *= 1843993368;
+        return features * 1843993368;
     }
 
     union ScrambleArea {
