@@ -576,6 +576,18 @@ public:
         return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
+    BuilderPatternReturnType &&removeChildApp(BuilderPatternReturnType *app) {
+        /* Remove this app from httpContextData list over child apps and reset round robin */
+        auto &childApps = httpContext->getSocketContextData()->childApps;
+        childApps.erase(
+            std::remove(childApps.begin(), childApps.end(), (void *) app),
+            childApps.end()
+        );
+        httpContext->getSocketContextData()->roundRobin = 0;
+        
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
+    }
+
     BuilderPatternReturnType &&addChildApp(BuilderPatternReturnType *app) {
         /* Add this app to httpContextData list over child apps and set onPreOpen */
         httpContext->getSocketContextData()->childApps.push_back((void *) app);
