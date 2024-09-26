@@ -1,5 +1,6 @@
 module(name = "uwebsockets")
 
+bazel_dep(name = "rules_cc", version = "0.0.10")
 bazel_dep(name = "usockets")
 
 # When usockets is published on bazel central registry, we can get rid of this.
