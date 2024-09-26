@@ -21,6 +21,7 @@
 /* This filter has no false positives or collisions for the standard
  * and non-standard common request headers */
 
+#include <cstdint>
 #include <string_view>
 #include <bitset>
 
