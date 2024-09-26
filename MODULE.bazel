@@ -1,0 +1,10 @@
+module(name = "uwebsockets")
+
+bazel_dep(name = "usockets")
+
+# When usockets is published on bazel central registry, we can get rid of this.
+git_override(
+    module_name = "usockets",
+    commit = "386375df53b366a7967439e5b890309e4f5b8695",
+    remote = "https://github.com/Xadeck/uSockets",
+)
