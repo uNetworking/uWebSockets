@@ -43,6 +43,7 @@ jobs:
           $ENV:CFLAGS='-I C:\vcpkg\installed\x64-windows\include';
           $ENV:LDFLAGS='-L C:\vcpkg\installed\x64-windows\lib';
           $ENV:CXX='clang++'; $ENV:EXEC_SUFFIX='.exe'; $ENV:WITH_LIBUV='1'; nmake
+          cmake -G "NMake Makefiles" -B build -S .
           ls
       - name: Run smoke test
         run: |
