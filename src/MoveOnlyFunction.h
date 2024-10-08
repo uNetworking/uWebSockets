@@ -28,6 +28,9 @@ SOFTWARE.
 #define _ANY_INVOKABLE_H_
 
 #include <functional>
+
+#if !defined(__cpp_lib_move_only_function) || __cpp_lib_move_only_function < 202110L
+
 #include <memory>
 #include <type_traits>
 
@@ -373,5 +376,14 @@ namespace uWS {
   template <class T>
   using MoveOnlyFunction = ofats::any_invocable<T>;
 }
+
+#else // !defined(__cpp_lib_move_only_function) || __cpp_lib_move_only_function < 202110L
+
+namespace uWS {
+  template <class T>
+  using MoveOnlyFunction = std::move_only_function<T>;
+}
+
+#endif
 
 #endif  // _ANY_INVOKABLE_H_
