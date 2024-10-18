@@ -1,6 +1,6 @@
 [submodule "uSockets"]
 	path = uSockets
-	url = https://github.com/uNetworking/uSockets.git
+	url = https://github.com/Napolitain/uSockets
 [submodule "fuzzing/libEpollFuzzer"]
 	path = fuzzing/libEpollFuzzer
 	url = https://github.com/uNetworking/libEpollFuzzer
