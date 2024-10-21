@@ -80,7 +80,7 @@ namespace uWS {
     static_assert(sizeof(struct us_socket_context_options_t) == sizeof(SocketContextOptions), "Mismatching uSockets/uWebSockets ABI");
 
 template <bool SSL, typename BuilderPatternReturnType>
-struct TemplatedApp {
+struct TemplatedAppBase {
 private:
     /* The app always owns at least one http context, but creates websocket contexts on demand */
     HttpContext<SSL> *httpContext;
@@ -176,7 +176,7 @@ public:
         return 0;
     }
 
-    ~TemplatedApp() {
+    ~TemplatedAppBase() {
         /* Let's just put everything here */
         if (httpContext) {
             httpContext->free();
@@ -199,9 +199,9 @@ public:
     }
 
     /* Disallow copying, only move */
-    TemplatedApp(const TemplatedApp &other) = delete;
+    TemplatedAppBase(const TemplatedAppBase &other) = delete;
 
-    TemplatedApp(TemplatedApp &&other) {
+    TemplatedAppBase(TemplatedAppBase &&other) {
         /* Move HttpContext */
         httpContext = other.httpContext;
         other.httpContext = nullptr;
@@ -216,7 +216,7 @@ public:
         other.topicTree = nullptr;
     }
 
-    TemplatedApp(SocketContextOptions options = {}) {
+    TemplatedAppBase(SocketContextOptions options = {}) {
         httpContext = HttpContext<SSL>::create(Loop::get(), options);
 
         /* Register default handler for 404 (can be overridden by user) */
@@ -649,8 +649,11 @@ public:
 #include "CachingApp.h"
 
 namespace uWS {
-    typedef uWS::CachingApp<false> App;
-    typedef uWS::CachingApp<true> SSLApp;
+    template <bool SSL>
+    using TemplatedApp = uWS::TemplatedAppBase<SSL, uWS::CachingApp<SSL>>;
+
+    typedef uWS::TemplatedApp<false> App;
+    typedef uWS::TemplatedApp<true> SSLApp;
 }
 
 #endif // UWS_APP_H

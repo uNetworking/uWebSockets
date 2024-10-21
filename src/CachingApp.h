@@ -39,6 +39,8 @@ public:
         res->end(buffer);
 
         created = time(0);
+
+        std::ignore = closeConnection;
     }
 
 public:
@@ -55,14 +57,14 @@ typedef std::unordered_map<std::string_view, CachingHttpResponse *,
 
 // we can also derive from H3app later on
 template <bool SSL>
-struct CachingApp : public uWS::TemplatedApp<SSL, CachingApp<SSL>> {
+struct CachingApp : public uWS::TemplatedAppBase<SSL, CachingApp<SSL>> {
 public:
-    CachingApp(SocketContextOptions options = {}) : uWS::TemplatedApp<SSL, CachingApp<SSL>>(options) {}
+    CachingApp(SocketContextOptions options = {}) : uWS::TemplatedAppBase<SSL, CachingApp<SSL>>(options) {}
 
-    using uWS::TemplatedApp<SSL, CachingApp<SSL>>::get;
+    using uWS::TemplatedAppBase<SSL, CachingApp<SSL>>::get;
 
     CachingApp(const CachingApp &other) = delete;
-    CachingApp(CachingApp<SSL> &&other) : uWS::TemplatedApp<SSL, CachingApp<SSL>>(std::move(other)) {
+    CachingApp(CachingApp<SSL> &&other) : uWS::TemplatedAppBase<SSL, CachingApp<SSL>>(std::move(other)) {
         // also move the cache
     }
 
@@ -72,7 +74,7 @@ public:
 
     // variant 1: only taking URL into account
     CachingApp &&get(const std::string& url, uWS::MoveOnlyFunction<void(CachingHttpResponse*, uWS::HttpRequest*)> &&handler, unsigned int secondsToExpiry) {
-        ((uWS::TemplatedApp<SSL, CachingApp<SSL>> *)this)->get(url, [this, handler = std::move(handler), secondsToExpiry](auto* res, auto* req) mutable {
+        ((uWS::TemplatedAppBase<SSL, CachingApp<SSL>> *)this)->get(url, [this, handler = std::move(handler), secondsToExpiry](auto* res, auto* req) mutable {
             /* We need to know the cache key and the time of now */
             std::string_view cache_key = req->getFullUrl();
             time_t now = static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
