@@ -96,6 +96,14 @@ public:
 
     TopicTree<TopicTreeMessage, TopicTreeBigMessage> *topicTree = nullptr;
 
+    BuilderPatternReturnType &&setOptions(const SocketContextOptions& options) {
+
+        /* Options might be more than just SSL in the future */
+        us_update_socket_context(SSL, (struct us_socket_context_t *) httpContext, (const struct us_socket_context_options_t*) &options);
+
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
+    }
+
     /* Server name */
     BuilderPatternReturnType &&addServerName(std::string hostname_pattern, SocketContextOptions options = {}) {
 
