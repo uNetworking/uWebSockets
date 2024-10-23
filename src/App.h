@@ -61,13 +61,16 @@ namespace uWS {
 
     /* This one matches us_socket_context_options_t but has default values */
     struct SocketContextOptions {
-        const char *key_file_name = nullptr;
-        const char *cert_file_name = nullptr;
+        union{ const char *key_file_name = nullptr, *key_file; };
+        union{ const char *cert_file_name = nullptr, *cert_file; };
         const char *passphrase = nullptr;
-        const char *dh_params_file_name = nullptr;
-        const char *ca_file_name = nullptr;
+        union{ const char *dh_params_file_name = nullptr, *dh_params_file; };
+        union{ const char *ca_file_name = nullptr, *ca_file; };
         const char *ssl_ciphers = nullptr;
-        int ssl_prefer_low_memory_usage = 0;
+        char ssl_prefer_low_memory_usage = 0;
+        char key_data_inline = 0;
+        char cert_data_inline = 0;
+        char dh_params_data_inline = 0;
 
         /* Conversion operator used internally */
         operator struct us_socket_context_options_t() const {
