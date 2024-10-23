@@ -18,6 +18,8 @@
 #ifndef UWS_APP_H
 #define UWS_APP_H
 
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <string>
 #include <charconv>
 #include <string_view>
@@ -77,8 +79,8 @@ namespace uWS {
 
     static_assert(sizeof(struct us_socket_context_options_t) == sizeof(SocketContextOptions), "Mismatching uSockets/uWebSockets ABI");
 
-template <bool SSL>
-struct TemplatedApp {
+template <bool SSL, typename BuilderPatternReturnType>
+struct TemplatedAppBase {
 private:
     /* The app always owns at least one http context, but creates websocket contexts on demand */
     HttpContext<SSL> *httpContext;
@@ -92,7 +94,7 @@ public:
     TopicTree<TopicTreeMessage, TopicTreeBigMessage> *topicTree = nullptr;
 
     /* Server name */
-    TemplatedApp &&addServerName(std::string hostname_pattern, SocketContextOptions options = {}) {
+    BuilderPatternReturnType &&addServerName(std::string hostname_pattern, SocketContextOptions options = {}) {
 
         /* Do nothing if not even on SSL */
         if constexpr (SSL) {
@@ -102,10 +104,10 @@ public:
             us_socket_context_add_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str(), options, domainRouter);
         }
 
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&removeServerName(std::string hostname_pattern) {
+    BuilderPatternReturnType &&removeServerName(std::string hostname_pattern) {
     
         /* This will do for now, would be better if us_socket_context_remove_server_name returned the user data */
         auto *domainRouter = us_socket_context_find_server_name_userdata(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str());
@@ -114,10 +116,10 @@ public:
         }
 
         us_socket_context_remove_server_name(SSL, (struct us_socket_context_t *) httpContext, hostname_pattern.c_str());
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&missingServerName(MoveOnlyFunction<void(const char *hostname)> handler) {
+    BuilderPatternReturnType &&missingServerName(MoveOnlyFunction<void(const char *hostname)> handler) {
 
         if (!constructorFailed()) {
             httpContext->getSocketContextData()->missingServerNameHandler = std::move(handler);
@@ -130,7 +132,7 @@ public:
             });
         }
 
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Returns the SSL_CTX of this app, or nullptr. */
@@ -139,10 +141,10 @@ public:
     }
 
     /* Attaches a "filter" function to track socket connections/disconnections */
-    TemplatedApp &&filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
+    BuilderPatternReturnType &&filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         httpContext->filter(std::move(filterHandler));
 
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Publishes a message to all websocket contexts - conceptually as if publishing to the one single
@@ -174,7 +176,7 @@ public:
         return 0;
     }
 
-    ~TemplatedApp() {
+    ~TemplatedAppBase() {
         /* Let's just put everything here */
         if (httpContext) {
             httpContext->free();
@@ -187,19 +189,19 @@ public:
 
         /* Delete TopicTree */
         if (topicTree) {
-            delete topicTree;
-
             /* And unregister loop callbacks */
             /* We must unregister any loop post handler here */
             Loop::get()->removePostHandler(topicTree);
             Loop::get()->removePreHandler(topicTree);
+
+	    delete topicTree;
         }
     }
 
     /* Disallow copying, only move */
-    TemplatedApp(const TemplatedApp &other) = delete;
+    TemplatedAppBase(const TemplatedAppBase &other) = delete;
 
-    TemplatedApp(TemplatedApp &&other) {
+    TemplatedAppBase(TemplatedAppBase &&other) {
         /* Move HttpContext */
         httpContext = other.httpContext;
         other.httpContext = nullptr;
@@ -214,7 +216,7 @@ public:
         other.topicTree = nullptr;
     }
 
-    TemplatedApp(SocketContextOptions options = {}) {
+    TemplatedAppBase(SocketContextOptions options = {}) {
         httpContext = HttpContext<SSL>::create(Loop::get(), options);
 
         /* Register default handler for 404 (can be overridden by user) */
@@ -257,23 +259,23 @@ public:
     };
 
     /* Closes all sockets including listen sockets. */
-    TemplatedApp &&close() {
+    BuilderPatternReturnType &&close() {
         us_socket_context_close(SSL, (struct us_socket_context_t *) httpContext);
         for (void *webSocketContext : webSocketContexts) {
             us_socket_context_close(SSL, (struct us_socket_context_t *) webSocketContext);
         }
 
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     template <typename UserData>
-    TemplatedApp &&ws(std::string pattern, WebSocketBehavior<UserData> &&behavior) {
+    BuilderPatternReturnType &&ws(std::string pattern, WebSocketBehavior<UserData> &&behavior) {
         /* Don't compile if alignment rules cannot be satisfied */
         static_assert(alignof(UserData) <= LIBUS_EXT_ALIGNMENT,
         "µWebSockets cannot satisfy UserData alignment requirements. You need to recompile µSockets with LIBUS_EXT_ALIGNMENT adjusted accordingly.");
 
         if (!httpContext) {
-            return std::move(*this);
+            return std::move(static_cast<BuilderPatternReturnType &&>(*this));
         }
 
         /* Terminate on misleading idleTimeout values */
@@ -436,11 +438,11 @@ public:
                 req->setYield(true);
             }
         }, true);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Browse to a server name, changing the router to this domain */
-    TemplatedApp &&domain(std::string serverName) {
+    BuilderPatternReturnType &&domain(std::string serverName) {
         HttpContextData<SSL> *httpContextData = httpContext->getSocketContextData();
 
         void *domainRouter = us_socket_context_find_server_name_userdata(SSL, (struct us_socket_context_t *) httpContext, serverName.c_str());
@@ -452,137 +454,188 @@ public:
             httpContextData->currentRouter = &httpContextData->router;
         }
     
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&get(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    BuilderPatternReturnType &&get(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("GET", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&post(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    BuilderPatternReturnType &&post(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("POST", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&options(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    BuilderPatternReturnType &&options(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("OPTIONS", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&del(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    BuilderPatternReturnType &&del(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("DELETE", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&patch(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    BuilderPatternReturnType &&patch(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("PATCH", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&put(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    BuilderPatternReturnType &&put(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("PUT", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&head(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    BuilderPatternReturnType &&head(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("HEAD", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&connect(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    BuilderPatternReturnType &&connect(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("CONNECT", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&trace(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    BuilderPatternReturnType &&trace(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("TRACE", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* This one catches any method */
-    TemplatedApp &&any(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
+    BuilderPatternReturnType &&any(std::string pattern, MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *)> &&handler) {
         if (httpContext) {
             httpContext->onHttp("*", pattern, std::move(handler));
         }
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Host, port, callback */
-    TemplatedApp &&listen(std::string host, int port, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
+    BuilderPatternReturnType &&listen(std::string host, int port, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
         if (!host.length()) {
             return listen(port, std::move(handler));
         }
         handler(httpContext ? httpContext->listen(host.c_str(), port, 0) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Host, port, options, callback */
-    TemplatedApp &&listen(std::string host, int port, int options, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
+    BuilderPatternReturnType &&listen(std::string host, int port, int options, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
         if (!host.length()) {
             return listen(port, options, std::move(handler));
         }
         handler(httpContext ? httpContext->listen(host.c_str(), port, options) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Port, callback */
-    TemplatedApp &&listen(int port, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
+    BuilderPatternReturnType &&listen(int port, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
         handler(httpContext ? httpContext->listen(nullptr, port, 0) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Port, options, callback */
-    TemplatedApp &&listen(int port, int options, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
+    BuilderPatternReturnType &&listen(int port, int options, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler) {
         handler(httpContext ? httpContext->listen(nullptr, port, options) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* options, callback, path to unix domain socket */
-    TemplatedApp &&listen(int options, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler, std::string path) {
+    BuilderPatternReturnType &&listen(int options, MoveOnlyFunction<void(us_listen_socket_t *)> &&handler, std::string path) {
         handler(httpContext ? httpContext->listen(path.c_str(), options) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* callback, path to unix domain socket */
-    TemplatedApp &&listen(MoveOnlyFunction<void(us_listen_socket_t *)> &&handler, std::string path) {
+    BuilderPatternReturnType &&listen(MoveOnlyFunction<void(us_listen_socket_t *)> &&handler, std::string path) {
         handler(httpContext ? httpContext->listen(path.c_str(), 0) : nullptr);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* Register event handler for accepted FD. Can be used together with adoptSocket. */
-    TemplatedApp &&preOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(LIBUS_SOCKET_DESCRIPTOR)) {
+    BuilderPatternReturnType &&preOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(struct us_socket_context_t *, LIBUS_SOCKET_DESCRIPTOR)) {
         httpContext->onPreOpen(handler);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
+    }
+
+    BuilderPatternReturnType &&removeChildApp(BuilderPatternReturnType *app) {
+        /* Remove this app from httpContextData list over child apps and reset round robin */
+        auto &childApps = httpContext->getSocketContextData()->childApps;
+        childApps.erase(
+            std::remove(childApps.begin(), childApps.end(), (void *) app),
+            childApps.end()
+        );
+        httpContext->getSocketContextData()->roundRobin = 0;
+        
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
+    }
+
+    BuilderPatternReturnType &&addChildApp(BuilderPatternReturnType *app) {
+        /* Add this app to httpContextData list over child apps and set onPreOpen */
+        httpContext->getSocketContextData()->childApps.push_back((void *) app);
+        
+        httpContext->onPreOpen([](struct us_socket_context_t *context, LIBUS_SOCKET_DESCRIPTOR fd) -> LIBUS_SOCKET_DESCRIPTOR {
+            
+            HttpContext<SSL> *httpContext = (HttpContext<SSL> *) context;
+
+            if (httpContext->getSocketContextData()->childApps.empty()) {
+                return fd;
+            }
+
+            //std::cout << "Distributing fd: " << fd << " from context: " << context << std::endl;
+
+            unsigned int *roundRobin = &httpContext->getSocketContextData()->roundRobin;
+
+            //std::cout << "Round robin is: " << *roundRobin << " and size of apps is: " << httpContext->getSocketContextData()->childApps.size() << std::endl;
+
+            BuilderPatternReturnType *receivingApp = (BuilderPatternReturnType *) httpContext->getSocketContextData()->childApps[*roundRobin];
+
+
+            //std::cout << "Loop is " << receivingApp->getLoop() << std::endl;
+
+
+            receivingApp->getLoop()->defer([fd, receivingApp]() {
+                //std::cout << "About to adopt socket " << fd << " on receivingApp " << receivingApp << std::endl;
+                receivingApp->adoptSocket(fd);
+                //std::cout << "Done " << std::endl;
+            });
+
+            if (++(*roundRobin) == httpContext->getSocketContextData()->childApps.size()) {
+                *roundRobin = 0;
+            }
+
+            return fd + 1;
+        });
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     /* adopt an externally accepted socket */
-    TemplatedApp &&adoptSocket(LIBUS_SOCKET_DESCRIPTOR accepted_fd) {
+    BuilderPatternReturnType &&adoptSocket(LIBUS_SOCKET_DESCRIPTOR accepted_fd) {
         httpContext->adoptAcceptedSocket(accepted_fd);
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
-    TemplatedApp &&run() {
+    BuilderPatternReturnType &&run() {
         uWS::run();
-        return std::move(*this);
+        return std::move(static_cast<BuilderPatternReturnType &&>(*this));
     }
 
     Loop *getLoop() {
@@ -591,9 +644,16 @@ public:
 
 };
 
-typedef TemplatedApp<false> App;
-typedef TemplatedApp<true> SSLApp;
+}
 
+#include "CachingApp.h"
+
+namespace uWS {
+    template <bool SSL>
+    using TemplatedApp = uWS::TemplatedAppBase<SSL, uWS::CachingApp<SSL>>;
+
+    typedef uWS::TemplatedApp<false> App;
+    typedef uWS::TemplatedApp<true> SSLApp;
 }
 
 #endif // UWS_APP_H

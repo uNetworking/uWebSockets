@@ -35,7 +35,7 @@ template<bool> struct HttpResponse;
 
 template <bool SSL>
 struct HttpContext {
-    template<bool> friend struct TemplatedApp;
+    template<bool, typename> friend struct TemplatedAppBase;
     template<bool> friend struct HttpResponse;
 private:
     HttpContext() = delete;
@@ -149,7 +149,9 @@ private:
                 HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_socket_ext(SSL, (us_socket_t *) s);
                 httpResponseData->offset = 0;
 
-                /* Are we not ready for another request yet? Terminate the connection. */
+                /* Are we not ready for another request yet? Terminate the connection.
+                 * Important for denying async pipelining until, if ever, we want to suppot it.
+                 * Otherwise requests can get mixed up on the same connection. We still support sync pipelining. */
                 if (httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) {
                     us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
                     return nullptr;
@@ -487,7 +489,7 @@ public:
         return us_socket_context_listen_unix(SSL, getSocketContext(), path, options, sizeof(HttpResponseData<SSL>));
     }
 
-    void onPreOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(LIBUS_SOCKET_DESCRIPTOR)) {
+    void onPreOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(struct us_socket_context_t *, LIBUS_SOCKET_DESCRIPTOR)) {
         us_socket_context_on_pre_open(SSL, getSocketContext(), handler);
     }
 

@@ -34,7 +34,9 @@ struct LocalCluster {
 
                 cb(*app);
                 
-                app->preOpen([](LIBUS_SOCKET_DESCRIPTOR fd) -> LIBUS_SOCKET_DESCRIPTOR {
+                app->preOpen([](struct us_socket_context_t *context, LIBUS_SOCKET_DESCRIPTOR fd) -> LIBUS_SOCKET_DESCRIPTOR {
+
+                    std::ignore = context;
 
                     /* Distribute this socket in round robin fashion */
                     //std::cout << "About to load balance " << fd << " to " << roundRobin << std::endl;

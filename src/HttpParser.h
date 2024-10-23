@@ -311,11 +311,20 @@ private:
                     if (memcmp(" HTTP/1.1\r\n", data, 11) == 0) {
                         return data + 11;
                     }
-                    return nullptr;
+                    /* If we stand at the post padded CR, we have fragmented input so try again later */
+                    if (data[0] == '\r') {
+                        return nullptr;
+                    }
+                    /* This is an error */
+                    return (char *) 0x1;
                 }
             }
         }
-        return nullptr;
+        /* If we stand at the post padded CR, we have fragmented input so try again later */
+        if (data[0] == '\r') {
+            return nullptr;
+        }
+        return (char *) 0x1;
     }
 
     /* RFC 9110: 5.5 Field Values (TLDR; anything above 31 is allowed; htab (9) is also allowed)
@@ -364,10 +373,10 @@ private:
          * which is then removed, and our counters to flip due to overflow and we end up with a crash */
 
         /* The request line is different from the field names / field values */
-        if (!(postPaddedBuffer = consumeRequestLine(postPaddedBuffer, headers[0]))) {
+        if ((char *) 2 > (postPaddedBuffer = consumeRequestLine(postPaddedBuffer, headers[0]))) {
             /* Error - invalid request line */
             /* Assuming it is 505 HTTP Version Not Supported */
-            err = HTTP_ERROR_505_HTTP_VERSION_NOT_SUPPORTED;
+            err = postPaddedBuffer ? HTTP_ERROR_505_HTTP_VERSION_NOT_SUPPORTED : 0;
             return 0;
         }
         headers++;
@@ -437,6 +446,7 @@ private:
             }
         }
         /* We ran out of header space, too large request */
+        err = HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE;
         return 0;
     }
 

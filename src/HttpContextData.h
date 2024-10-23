@@ -31,7 +31,7 @@ template <bool SSL>
 struct alignas(16) HttpContextData {
     template <bool> friend struct HttpContext;
     template <bool> friend struct HttpResponse;
-    template <bool> friend struct TemplatedApp;
+    template <bool, typename> friend struct TemplatedAppBase;
 private:
     std::vector<MoveOnlyFunction<void(HttpResponse<SSL> *, int)>> filterHandlers;
 
@@ -49,6 +49,10 @@ private:
     HttpRouter<RouterData> router;
     void *upgradedWebSocket = nullptr;
     bool isParsingHttp = false;
+
+    /* If we are main acceptor, distribute to these apps */
+    std::vector<void *> childApps;
+    unsigned int roundRobin = 0;
 };
 
 }
