@@ -30,6 +30,7 @@
 #include <functional>
 #include <set>
 #include <string>
+#include <exception>
 
 namespace uWS {
 
