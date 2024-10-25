@@ -15,6 +15,11 @@ const testCases: TestCase[] = [
         expectedStatus: [[200, 299]],
     },
     {
+        request: "GET / HTTP/1.1\r\nhoSt:\texample.com\r\nempty:\r\n\r\n",
+        description: "Valid GET request with edge cases",
+        expectedStatus: [[200, 299]],
+    },
+    {
         request: "GET / HTTP/1.1\r\nHost: example.com\r\nX-Invalid[]: test\r\n\r\n",
         description: "Invalid header characters",
         expectedStatus: [[400, 499]],
