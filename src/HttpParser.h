@@ -390,6 +390,7 @@ private:
             /* We should not accept whitespace between key and colon, so colon must foloow immediately */
             if (postPaddedBuffer[0] != ':') {
                 /* Error: invalid chars in field name */
+                err = HTTP_ERROR_400_BAD_REQUEST;
                 return 0;
             }
             postPaddedBuffer++;
@@ -406,6 +407,7 @@ private:
                         continue;
                     }
                     /* Error - invalid chars in field value */
+                    err = HTTP_ERROR_400_BAD_REQUEST;
                     return 0;
                 }
                 break;
@@ -437,6 +439,9 @@ private:
                         return (unsigned int) ((postPaddedBuffer + 2) - start);
                     } else {
                         /* \r\n\r plus non-\n letter is malformed request, or simply out of search space */
+                        if (postPaddedBuffer != end) {
+                            err = HTTP_ERROR_400_BAD_REQUEST;
+                        }
                         return 0;
                     }
                 }
