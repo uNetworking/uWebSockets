@@ -68,6 +68,8 @@ jobs:
       run: curl -fsSL https://deno.land/x/install/install.sh | sh
     - name: Run smoke test
       run: make -C uWebSockets/tests smoke
+    - name: Run compliance test
+      run: make -C uWebSockets/tests compliance
     - name: Run unit tests
       run: make -C uWebSockets/tests
     - name: Autobahn|Testsuite
