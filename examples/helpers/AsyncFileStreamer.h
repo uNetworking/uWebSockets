@@ -38,7 +38,7 @@ struct AsyncFileStreamer {
     static void streamFile(uWS::HttpResponse<SSL> *res, AsyncFileReader *asyncFileReader) {
         /* Peek from cache */
         std::string_view chunk = asyncFileReader->peek(res->getWriteOffset());
-        auto remaining_data = r->getFileSize() - res->getWriteOffset();
+        auto remaining_data = asyncFileReader->getFileSize() - res->getWriteOffset();
         if (!chunk.length() || res->tryEnd(chunk, remaining_data).first) {
             /* Request new chunk */
             // todo: we need to abort this callback if peer closed!
