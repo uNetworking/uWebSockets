@@ -196,6 +196,9 @@ async function runTests() {
 
     const passedCount = results.filter((result) => result).length;
     console.log(`\n${passedCount} out of ${testCases.length} tests passed.`);
+    if (passedCount != testCases.length) {
+        Deno.exit(1);
+    }
 }
 
 // Run a single test case with a 3-second timeout on reading
