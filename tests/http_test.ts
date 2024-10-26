@@ -10,6 +10,106 @@ interface TestCase {
 
 const testCases: TestCase[] = [
     {
+        request: "G",
+        description: "Fragmented method",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET ",
+        description: "Fragmented URL 1",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello",
+        description: "Fragmented URL 2",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello ",
+        description: "Fragmented URL 3",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP",
+        description: "Fragmented HTTP version",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP/1.1",
+        description: "Fragmented request line",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP/1.1\r",
+        description: "Fragmented request line newline 1",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP/1.1\r\n",
+        description: "Fragmented request line newline 2",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP/1.1\r\nHos",
+        description: "Fragmented field name",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP/1.1\r\nHost:",
+        description: "Fragmented field value 1",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP/1.1\r\nHost: ",
+        description: "Fragmented field value 2",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP/1.1\r\nHost: localhost",
+        description: "Fragmented field value 3",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP/1.1\r\nHost: localhost\r",
+        description: "Fragmented field value 4",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP/1.1\r\nHost: localhost\r\n",
+        description: "Fragmented request",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET /hello HTTP/1.1\r\nHost: localhost\r\n\r",
+        description: "Fragmented request termination",
+        expectedStatus: [[-1, -1]],
+        expectedTimeout: true
+    },
+    {
+        request: "GET / \r\n\r\n",
+        description: "Request without HTTP version",
+        expectedStatus: [[400, 599]],
+    },
+    {
+        request: "GET / HTTP/1.1\r\nHost: example.com\r\nExpect: 100-continue\r\n\r\n",
+        description: "Request with Expect header",
+        expectedStatus: [[100, 100], [200, 299]],
+    },
+    {
         request: "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
         description: "Valid GET request",
         expectedStatus: [[200, 299]],
@@ -109,9 +209,15 @@ async function runTestCase(testCase: TestCase, host: string, port: number): Prom
         // Set up a read timeout promise
         const readTimeout = new Promise<boolean>((resolve) => {
             const timeoutId = setTimeout(() => {
-                console.error(`❌ ${testCase.description}: Read operation timed out`);
-                conn.close(); // Ensure the connection is closed on timeout
-                resolve(false);
+                if (testCase.expectedTimeout) {
+                    console.error(`✅ ${testCase.description}: Server waited successfully`);
+                    conn.close(); // Ensure the connection is closed on timeout
+                    resolve(true);
+                } else {
+                    console.error(`❌ ${testCase.description}: Read operation timed out`);
+                    conn.close(); // Ensure the connection is closed on timeout
+                    resolve(false);
+                }
             }, 500);
 
             const readPromise = (async () => {
