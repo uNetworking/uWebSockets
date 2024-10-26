@@ -290,12 +290,15 @@ private:
     }
 
     /* Puts method as key, target as value and returns non-null (or nullptr on error). */
-    static inline char *consumeRequestLine(char *data, HttpRequest::Header &header) {
+    static inline char *consumeRequestLine(char *data, char *end, HttpRequest::Header &header) {
         /* Scan until single SP, assume next is / (origin request) */
         char *start = data;
         /* This catches the post padded CR and fails */
         while (data[0] > 32) data++;
-        if (data[0] == 32 && data[1] == '/') {
+        if (&data[1] == end) [[unlikely]] {
+            return nullptr;
+        }
+        if (data[0] == 32 && data[1] == '/') [[likely]] {
             header.key = {start, (size_t) (data - start)};
             data++;
             /* Scan for less than 33 (catches post padded CR and fails) */
@@ -308,6 +311,13 @@ private:
                     /* Now we stand on space */
                     header.value = {start, (size_t) (data - start)};
                     /* Check that the following is http 1.1 */
+                    if (data + 11 >= end) {
+                        /* Whatever we have must be part of the version string */
+                        if (memcmp(" HTTP/1.1\r\n", data, std::min<unsigned int>(11, (unsigned int) (end - data))) == 0) {
+                            return nullptr;
+                        }
+                        return (char *) 0x1;
+                    }
                     if (memcmp(" HTTP/1.1\r\n", data, 11) == 0) {
                         return data + 11;
                     }
@@ -373,7 +383,7 @@ private:
          * which is then removed, and our counters to flip due to overflow and we end up with a crash */
 
         /* The request line is different from the field names / field values */
-        if ((char *) 2 > (postPaddedBuffer = consumeRequestLine(postPaddedBuffer, headers[0]))) {
+        if ((char *) 2 > (postPaddedBuffer = consumeRequestLine(postPaddedBuffer, end, headers[0]))) {
             /* Error - invalid request line */
             /* Assuming it is 505 HTTP Version Not Supported */
             err = postPaddedBuffer ? HTTP_ERROR_505_HTTP_VERSION_NOT_SUPPORTED : 0;
@@ -389,6 +399,10 @@ private:
 
             /* We should not accept whitespace between key and colon, so colon must foloow immediately */
             if (postPaddedBuffer[0] != ':') {
+                /* If we stand at the end, we are fragmented */
+                if (postPaddedBuffer == end) {
+                    return 0;
+                }
                 /* Error: invalid chars in field name */
                 err = HTTP_ERROR_400_BAD_REQUEST;
                 return 0;
@@ -439,7 +453,7 @@ private:
                         return (unsigned int) ((postPaddedBuffer + 2) - start);
                     } else {
                         /* \r\n\r plus non-\n letter is malformed request, or simply out of search space */
-                        if (postPaddedBuffer != end) {
+                        if (postPaddedBuffer + 1 < end) {
                             err = HTTP_ERROR_400_BAD_REQUEST;
                         }
                         return 0;
