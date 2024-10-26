@@ -24,3 +24,9 @@ smoke:
 	~/.deno/bin/deno run --allow-net smoke.mjs
 	node smoke.mjs
 	pkill Crc32
+
+compliance:
+	../HelloWorld &
+	sleep 1
+	~/.deno/bin/deno run --allow-net http_test.ts localhost 3000
+	pkill HelloWorld
