@@ -26,7 +26,7 @@ smoke:
 	pkill Crc32
 
 compliance:
-	../HelloWorld &
+	../EchoBody &
 	sleep 1
 	~/.deno/bin/deno run --allow-net ../h1spec/http_test.ts localhost 3000
-	pkill HelloWorld
+	pkill EchoBody
