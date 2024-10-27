@@ -7,3 +7,6 @@
 [submodule "fuzzing/seed-corpus"]
 	path = fuzzing/seed-corpus
 	url = https://github.com/uNetworking/seed-corpus.git
+[submodule "h1spec"]
+	path = h1spec
+	url = https://github.com/uNetworking/h1spec

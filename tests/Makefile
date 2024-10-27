@@ -28,5 +28,5 @@ smoke:
 compliance:
 	../HelloWorld &
 	sleep 1
-	~/.deno/bin/deno run --allow-net http_test.ts localhost 3000
+	~/.deno/bin/deno run --allow-net ../h1spec/http_test.ts localhost 3000
 	pkill HelloWorld
