@@ -1,4 +1,5 @@
 // This example is broken and doesn't do anything. It is a potential interface for a future potential client.
+// There is no client support implemented in the library. This example is a placeholder.
 
 #include "ClientApp.h"
 #include <iostream>
