@@ -501,6 +501,12 @@ private:
             /* Add all headers to bloom filter */
             req->bf.reset();
             for (HttpRequest::Header *h = req->headers; (++h)->key.length(); ) {
+                if (req->bf.mightHave(h->key)) [[unlikely]] {
+                    /* Host header is not allowed twice */
+                    if (h->key == "host" && req->getHeader("host").data()) {
+                        return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
+                    }
+                }
                 req->bf.add(h->key);
             }
             
