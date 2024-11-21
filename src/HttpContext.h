@@ -35,7 +35,7 @@ template<bool> struct HttpResponse;
 
 template <bool SSL>
 struct HttpContext {
-    template<bool, typename> friend struct TemplatedAppBase;
+    template<bool> friend struct TemplatedApp;
     template<bool> friend struct HttpResponse;
 private:
     HttpContext() = delete;

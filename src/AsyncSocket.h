@@ -47,7 +47,7 @@ struct AsyncSocket {
     /* This guy is promiscuous */
     template <bool> friend struct HttpContext;
     template <bool, bool, typename> friend struct WebSocketContext;
-    template <bool, typename> friend struct TemplatedAppBase;
+    template <bool> friend struct TemplatedApp;
     template <bool, typename> friend struct WebSocketContextData;
     template <typename, typename> friend struct TopicTree;
     template <bool> friend struct HttpResponse;

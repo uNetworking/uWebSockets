@@ -27,7 +27,7 @@ namespace uWS {
 
 template <bool SSL, bool isServer, typename USERDATA>
 struct WebSocketContext {
-    template <bool, typename> friend struct TemplatedAppBase;
+    template <bool> friend struct TemplatedApp;
     template <bool, typename> friend struct WebSocketProtocol;
 private:
     WebSocketContext() = delete;
