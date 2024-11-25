@@ -2,12 +2,12 @@
 
 int main(int argc, char **argv) {
     /* Some variables we need */
-    char *CXXFLAGS = strcpy(calloc(1024, 1), maybe(getenv("CXXFLAGS")));
-    char *CFLAGS = strcpy(calloc(1024, 1), maybe(getenv("CFLAGS")));
-    char *LDFLAGS = strcpy(calloc(1024, 1), maybe(getenv("LDFLAGS")));
-    char *CC = strcpy(calloc(1024, 1), or_else(getenv("CC"), "cc"));
-    char *CXX = strcpy(calloc(1024, 1), or_else(getenv("CXX"), "g++"));
-    char *EXEC_SUFFIX = strcpy(calloc(1024, 1), maybe(getenv("EXEC_SUFFIX")));
+    char *CXXFLAGS = strncpy(calloc(1024, 1), maybe(getenv("CXXFLAGS")), 1024);
+    char *CFLAGS = strncpy(calloc(1024, 1), maybe(getenv("CFLAGS")), 1024);
+    char *LDFLAGS = strncpy(calloc(1024, 1), maybe(getenv("LDFLAGS")), 1024);
+    char *CC = strncpy(calloc(1024, 1), or_else(getenv("CC"), "cc"), 1024);
+    char *CXX = strncpy(calloc(1024, 1), or_else(getenv("CXX"), "g++"), 1024);
+    char *EXEC_SUFFIX = strncpy(calloc(1024, 1), maybe(getenv("EXEC_SUFFIX")), 1024);
 
     char *EXAMPLE_FILES[] = {"EchoBody", "HelloWorldThreaded", "Http3Server", "Broadcast", "HelloWorld", "Crc32", "ServerName",
     "EchoServer", "BroadcastingEchoServer", "UpgradeSync", "UpgradeAsync", "ParameterRoutes"};
@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
 
     // By default we use LTO, but Windows does not support it
     if (!env_is("WITH_LTO", "0")) {
-        strcat(CXXFLAGS, " -flto");
+        strcat(CXXFLAGS, " -flto=auto");
     }
 
     // By default we use zlib but you can build without it (disables permessage-deflate)
