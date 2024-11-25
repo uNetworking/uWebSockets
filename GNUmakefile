@@ -21,4 +21,4 @@ all: default
 
 default:
 	$(MAKE) -C uSockets
-	$(CC) build.c -o build
+	$(CC) -fopenmp build.c -o build

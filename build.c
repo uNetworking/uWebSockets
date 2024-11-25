@@ -73,9 +73,10 @@ int main(int argc, char **argv) {
     }
 
     if (!strcmp(argv[1], "examples")) {
+        #pragma omp parallel for
         for (int i = 0; i < sizeof(EXAMPLE_FILES) / sizeof(char *); i++) {
             if (run("%s %s examples/%s.cpp %s -o %s%s", CXX, CXXFLAGS, EXAMPLE_FILES[i], LDFLAGS, EXAMPLE_FILES[i], EXEC_SUFFIX)) {
-                return -1;
+                exit(-1);
             }
         }
     } else if (!strcmp(argv[1], "capi")) {
