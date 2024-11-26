@@ -40,7 +40,7 @@ You can use the Makefile on Linux and macOS. It is simple to use and builds the 
 
 ### Steps for Linux
 ```sh
-git clone --resurse-submodules https://github.com/uNetworking/uWebSockets
+git clone --recurse-submodules https://github.com/uNetworking/uWebSockets
 make # prepend variables if desired such as `WITH_OPENSSL` as mentioned above
 make install
 ```
