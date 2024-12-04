@@ -5,7 +5,7 @@ default:
 	./ChunkedEncoding
 	$(CXX) -std=c++17 -fsanitize=address TopicTree.cpp -o TopicTree
 	./TopicTree
-	$(CXX) -std=c++17 -fsanitize=address HttpRouter.cpp -o HttpRouter
+	$(CXX) -D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG -std=c++17 -fsanitize=address HttpRouter.cpp -o HttpRouter
 	./HttpRouter
 	$(CXX) -std=c++17 -fsanitize=address BloomFilter.cpp -o BloomFilter
 	./BloomFilter

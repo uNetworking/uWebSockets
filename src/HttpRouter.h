@@ -302,14 +302,13 @@ public:
 
         /* ANY method must be last, GET must be first */
         std::sort(root.children.begin(), root.children.end(), [](const auto &a, const auto &b) {
-            /* Assuming the list of methods is unique, non-repeating */
-            if (a->name == "GET") {
+            if (a->name == "GET" && b->name != "GET") {
                 return true;
-            } else if (b->name == "GET") {
+            } else if (b->name == "GET" && a->name != "GET") {
                 return false;
-            } else if (a->name == ANY_METHOD_TOKEN) {
+            } else if (a->name == ANY_METHOD_TOKEN && b->name != ANY_METHOD_TOKEN) {
                 return false;
-            } else if (b->name == ANY_METHOD_TOKEN) {
+            } else if (b->name == ANY_METHOD_TOKEN && a->name != ANY_METHOD_TOKEN) {
                 return true;
             } else {
                 return a->name < b->name;
