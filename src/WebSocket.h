@@ -27,6 +27,13 @@
 
 namespace uWS {
 
+/* Experimental */
+enum CompressFlags : int {
+    NO_ACTION,
+    COMPRESS,
+    ALREADY_COMPRESSED
+};
+
 template <bool SSL, bool isServer, typename USERDATA>
 struct WebSocket : AsyncSocket<SSL> {
     template <bool> friend struct TemplatedApp;
@@ -87,9 +94,15 @@ public:
         return send(message, CONTINUATION, compress, true);
     }
 
+    /* Experimental */
+    bool hasNegotiatedCompression() {
+        WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
+        return webSocketData->compressionStatus == WebSocketData::ENABLED;
+    }
+
     /* Send or buffer a WebSocket frame, compressed or not. Returns BACKPRESSURE on increased user space backpressure,
      * DROPPED on dropped message (due to backpressure) or SUCCCESS if you are free to send even more now. */
-    SendStatus send(std::string_view message, OpCode opCode = OpCode::BINARY, bool compress = false, bool fin = true) {
+    SendStatus send(std::string_view message, OpCode opCode = OpCode::BINARY, int compress = false, bool fin = true) {
         WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
@@ -145,12 +158,15 @@ public:
 
                 /* Check and correct the compress hint. It is never valid to compress 0 bytes */
                 if (message.length() && opCode < 3 && webSocketData->compressionStatus == WebSocketData::ENABLED) {
-                    LoopData *loopData = Super::getLoopData();
-                    /* Compress using either shared or dedicated deflationStream */
-                    if (webSocketData->deflationStream) {
-                        message = webSocketData->deflationStream->deflate(loopData->zlibContext, message, false);
-                    } else {
-                        message = loopData->deflationStream->deflate(loopData->zlibContext, message, true);
+                    /* If compress is 2 (IS_PRE_COMPRESSED), skip this step (experimental) */
+                    if (compress != CompressFlags::ALREADY_COMPRESSED) {
+                        LoopData *loopData = Super::getLoopData();
+                        /* Compress using either shared or dedicated deflationStream */
+                        if (webSocketData->deflationStream) {
+                            message = webSocketData->deflationStream->deflate(loopData->zlibContext, message, false);
+                        } else {
+                            message = loopData->deflationStream->deflate(loopData->zlibContext, message, true);
+                        }
                     }
                 } else {
                     compress = false;
