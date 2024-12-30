@@ -436,7 +436,8 @@ public:
     /* Try and end the response. Returns [true, true] on success.
      * Starts a timeout in some cases. Returns [ok, hasResponded] */
     std::pair<bool, bool> tryEnd(std::string_view data, uintmax_t totalSize = 0, bool closeConnection = false) {
-        return {internalEnd(data, totalSize, true, true, closeConnection), hasResponded()};
+        bool ok = internalEnd(data, totalSize, true, true, closeConnection);
+        return {ok, hasResponded()};
     }
 
     /* Write parts of the response in chunking fashion. Starts timeout if failed. */
