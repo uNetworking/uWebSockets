@@ -28,13 +28,13 @@
 namespace uWS {
 
 /* We should not overcomplicate these */
-const std::string_view ERR_TOO_BIG_MESSAGE("Received too big message");
-const std::string_view ERR_WEBSOCKET_TIMEOUT("WebSocket timed out from inactivity");
-const std::string_view ERR_INVALID_TEXT("Received invalid UTF-8");
-const std::string_view ERR_TOO_BIG_MESSAGE_INFLATION("Received too big message, or other inflation error");
-const std::string_view ERR_INVALID_CLOSE_PAYLOAD("Received invalid close payload");
-const std::string_view ERR_PROTOCOL("Received invalid WebSocket frame");
-const std::string_view ERR_TCP_FIN("Received TCP FIN before WebSocket close frame");
+constexpr std::string_view ERR_TOO_BIG_MESSAGE("Received too big message");
+constexpr std::string_view ERR_WEBSOCKET_TIMEOUT("WebSocket timed out from inactivity");
+constexpr std::string_view ERR_INVALID_TEXT("Received invalid UTF-8");
+constexpr std::string_view ERR_TOO_BIG_MESSAGE_INFLATION("Received too big message, or other inflation error");
+constexpr std::string_view ERR_INVALID_CLOSE_PAYLOAD("Received invalid close payload");
+constexpr std::string_view ERR_PROTOCOL("Received invalid WebSocket frame");
+constexpr std::string_view ERR_TCP_FIN("Received TCP FIN before WebSocket close frame");
 
 enum OpCode : unsigned char {
     CONTINUATION = 0,
