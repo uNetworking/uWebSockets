@@ -160,6 +160,39 @@ void testBugReports() {
         uWS::HttpRouter<int> r;
         std::string result;
 
+        r.add({"GET"}, "/route", [&result](auto *) {
+            result += "ROUTE";
+            return true;
+        }, r.MEDIUM_PRIORITY);
+
+        r.add({"GET"}, "/route/:id", [&result](auto *) {
+            result += "ROUID";
+            return true;
+        }, r.MEDIUM_PRIORITY);
+
+        r.route("GET", "/route/21");
+        assert(result == "ROUID");
+
+        result = "";
+        r.route("GET", "/route");
+        assert(result == "ROUTE");
+
+        result = "";
+        r.remove("GET", "/route", r.MEDIUM_PRIORITY);
+        r.route("GET", "/route");
+        assert(result == "");
+
+        r.remove("GET", "/route/:id", r.MEDIUM_PRIORITY);
+
+        /* The bug is really only this line, it does not remove parameter routes */
+        r.route("GET", "/route/21");
+        std::cout << result << std::endl;
+        assert(result == "");
+    }
+    {
+        uWS::HttpRouter<int> r;
+        std::string result;
+
         r.add({"GET"}, "/foo//////bar/baz/qux", [&result](auto *) {
             result += "MANYSLASH";
             return false;
