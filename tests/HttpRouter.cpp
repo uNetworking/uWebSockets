@@ -182,11 +182,13 @@ void testBugReports() {
         r.route("GET", "/route");
         assert(result == "");
 
-        r.remove("GET", "/route/:id", r.MEDIUM_PRIORITY);
+        std::cout << "TRYING TO DELETE /route/:id" << std::endl;
+        bool found = r.remove("GET", "/route/:id", r.MEDIUM_PRIORITY);
+        std::cout << "Found:" << found << std::endl;
 
         /* The bug is really only this line, it does not remove parameter routes */
         r.route("GET", "/route/21");
-        std::cout << result << std::endl;
+        std::cout << "Found:" << found << ", " << result << std::endl;
         assert(result == "");
     }
     {
