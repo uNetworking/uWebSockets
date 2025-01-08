@@ -139,10 +139,10 @@ uWS::App().ws<PerSocketData>("/*", {
     .drain = [](auto *ws) {
         /* Check getBufferedAmount here */
     },
-    .ping = [](auto *ws) {
+    .ping = [](auto *ws, std::string_view message) {
 
     },
-    .pong = [](auto *ws) {
+    .pong = [](auto *ws, std::string_view message) {
 
     },
     .close = [](auto *ws, int code, std::string_view message) {
