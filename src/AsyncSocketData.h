@@ -37,7 +37,7 @@ struct BackPressure {
         pendingRemoval += length;
         /* Always erase a minimum of 1/32th the current backpressure */
         if (pendingRemoval > (buffer.length() >> 5)) {
-            buffer.erase(0, pendingRemoval);
+            std::string(buffer.begin() + pendingRemoval, buffer.end()).swap(buffer);
             pendingRemoval = 0;
         }
     }
