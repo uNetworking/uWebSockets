@@ -100,6 +100,15 @@ public:
         return webSocketData->compressionStatus == WebSocketData::ENABLED;
     }
 
+    /* Experimental */
+    void sendPrepared(PreparedMessage &preparedMessage) {
+        if (hasNegotiatedCompression() && preparedMessage.compressedMessage.length() < preparedMessage.originalMessage.length()) {
+            send({preparedMessage.compressedMessage.data(), preparedMessage.compressedMessage.length()}, (OpCode) preparedMessage.opCode, uWS::CompressFlags::ALREADY_COMPRESSED);
+        } else {
+            send({preparedMessage.originalMessage.data(), preparedMessage.originalMessage.length()}, (OpCode) preparedMessage.opCode);
+        }
+    }
+
     /* Send or buffer a WebSocket frame, compressed or not. Returns BACKPRESSURE on increased user space backpressure,
      * DROPPED on dropped message (due to backpressure) or SUCCCESS if you are free to send even more now. */
     SendStatus send(std::string_view message, OpCode opCode = OpCode::BINARY, int compress = false, bool fin = true) {

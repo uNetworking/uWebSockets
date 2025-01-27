@@ -25,6 +25,15 @@
 #include <iostream>
 
 namespace uWS {
+
+/* A prepared message is dependent on the Loop, so it belongs here */
+struct PreparedMessage {
+    /* These should be a single alloation along with the PreparedMessage itself (they are static) */
+    std::string originalMessage, compressedMessage;
+    bool compressed;
+    int opCode;
+};
+
 struct Loop {
 private:
     static void wakeupCb(us_loop_t *loop) {
@@ -106,6 +115,29 @@ private:
     }
 
 public:
+
+    /* Preformatted messages need the Loop */
+    PreparedMessage prepareMessage(std::string_view message, int opCode, bool compress = true) {
+        /* The message could be formatted right here, but this optimization is not done yet */
+        PreparedMessage preparedMessage;
+        preparedMessage.compressed = compress;
+        preparedMessage.opCode = opCode;
+        preparedMessage.originalMessage = message;
+
+        LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
+
+        /* Initialize loop's deflate inflate streams */
+        if (!loopData->zlibContext) {
+            loopData->zlibContext = new ZlibContext;
+            loopData->inflationStream = new InflationStream(CompressOptions::DEDICATED_DECOMPRESSOR);
+            loopData->deflationStream = new DeflationStream(CompressOptions::DEDICATED_COMPRESSOR);
+        }
+
+        preparedMessage.compressedMessage = loopData->deflationStream->deflate(loopData->zlibContext, {preparedMessage.originalMessage.data(), preparedMessage.originalMessage.length()}, true);
+        
+        return preparedMessage;
+    }
+
     /* Lazily initializes a per-thread loop and returns it.
      * Will automatically free all initialized loops at exit. */
     static Loop *get(void *existingNativeLoop = nullptr) {
