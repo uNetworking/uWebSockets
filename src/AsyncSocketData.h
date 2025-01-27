@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2021.
+ * Authored by Alex Hultman, 2018-2025.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,22 +44,22 @@ struct BackPressure {
     size_t length() {
         return buffer.length() - pendingRemoval;
     }
+    /* Only used in AsyncSocket::write - what about replacing it with the other functions like erase(length())? */
     void clear() {
         pendingRemoval = 0;
         buffer.clear();
         buffer.shrink_to_fit();
     }
+    /* Only used by AsyncSocket::write (optionally) before append */
     void reserve(size_t length) {
         buffer.reserve(length + pendingRemoval);
     }
+    /* Only used by getSendBuffer as last resort */
     void resize(size_t length) {
         buffer.resize(length + pendingRemoval);
     }
     const char *data() {
         return buffer.data() + pendingRemoval;
-    }
-    size_t size() {
-        return length();
     }
     /* The total length, incuding pending removal */
     size_t totalLength() {
