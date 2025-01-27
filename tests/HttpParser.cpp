@@ -17,8 +17,8 @@ int main() {
         std::cout << httpRequest->getMethod() << std::endl;
 
         for (auto [key, value] : *httpRequest) {
-			std::cout << key << ": " << value << std::endl;
-		}
+            std::cout << key << ": " << value << std::endl;
+        }
 
         /* Since we did proper whitespace trimming this thing is there, but empty */
         assert(httpRequest->getHeader("utf8").data());
