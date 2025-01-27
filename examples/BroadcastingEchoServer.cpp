@@ -15,10 +15,10 @@ int main() {
      * You may swap to using uWS:App() if you don't need SSL */
     uWS::SSLApp *app = new uWS::SSLApp({
         /* There are example certificates in uWebSockets.js repo */
-	    .key_file_name = "misc/key.pem",
-	    .cert_file_name = "misc/cert.pem",
-	    .passphrase = "1234"
-	});
+        .key_file_name = "misc/key.pem",
+        .cert_file_name = "misc/cert.pem",
+        .passphrase = "1234"
+    });
     
     app->ws<PerSocketData>("/*", {
         /* Settings */

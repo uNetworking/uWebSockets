@@ -6,23 +6,23 @@ int main() {
         /* Fill with user data */
     };
 
-	/* Keeping track of last prepared message */
+    /* Keeping track of last prepared message */
     uWS::PreparedMessage preparedMessage;
-	std::mutex m;
+    std::mutex m;
 
-	/* For demo, we create a thread that will update the precompressed message every second */
-	std::thread t2([&m, &preparedMessage]() {
-		for (int counter = 1; true; counter++) {
-			m.lock();
-			std::string newMessage = "Hello you are looking at message number " + std::to_string(counter) + " and this text should be precompressed";		
+    /* For demo, we create a thread that will update the precompressed message every second */
+    std::thread t2([&m, &preparedMessage]() {
+        for (int counter = 1; true; counter++) {
+            m.lock();
+            std::string newMessage = "Hello you are looking at message number " + std::to_string(counter) + " and this text should be precompressed";        
             
             /* Here the current preparedMessage is updated */
             preparedMessage = uWS::Loop::get()->prepareMessage(newMessage, uWS::OpCode::TEXT, true);
             
             m.unlock();
-			std::this_thread::sleep_for(std::chrono::milliseconds(500));
-		}
-	});
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+    });
 
     uWS::App().ws<PerSocketData>("/*", {
         /* You must only use SHARED_COMPRESSOR with precompression (can't use dedicated_compressor) */
@@ -35,13 +35,17 @@ int main() {
         },
         .message = [&m, &preparedMessage](auto *ws, std::string_view message, uWS::OpCode opCode) {
 
-			/* First respond by echoing what they send us, without compression */
-			ws->send(message, opCode, false);
+            /* First respond by echoing what they send us, without compression */
+            ws->send(message, opCode, false);
 
             /* Send last prepared message */
-			m.lock();
+            m.lock();
             ws->sendPrepared(preparedMessage);
-			m.unlock();
+
+            /* Using publish should also take preparedMessage */
+            
+
+            m.unlock();
         },
         .dropped = [](auto */*ws*/, std::string_view /*message*/, uWS::OpCode /*opCode*/) {
             /* A message was dropped due to set maxBackpressure and closeOnBackpressureLimit limit */

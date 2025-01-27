@@ -32,40 +32,40 @@ uint32_t crc32(const char *s, size_t n, uint32_t crc = 0xFFFFFFFF) {
 
 int main() {
 
-	uWS::SSLApp({
-	  .key_file_name = "misc/key.pem",
-	  .cert_file_name = "misc/cert.pem",
-	  .passphrase = "1234"
-	}).post("/*", [](auto *res, auto *req) {
+    uWS::SSLApp({
+      .key_file_name = "misc/key.pem",
+      .cert_file_name = "misc/cert.pem",
+      .passphrase = "1234"
+    }).post("/*", [](auto *res, auto *req) {
 
-		/* Display the headers */
-		std::cout << " --- " << req->getUrl() << " --- " << std::endl;
-		for (auto [key, value] : *req) {
-			std::cout << key << ": " << value << std::endl;
-		}
+        /* Display the headers */
+        std::cout << " --- " << req->getUrl() << " --- " << std::endl;
+        for (auto [key, value] : *req) {
+            std::cout << key << ": " << value << std::endl;
+        }
 
-		auto isAborted = std::make_shared<bool>(false);
-		uint32_t crc = 0xFFFFFFFF;
-		res->onData([res, isAborted, crc](std::string_view chunk, bool isFin) mutable {
-			if (chunk.length()) {
-				crc = crc32(chunk.data(), chunk.length(), crc);
-			}
+        auto isAborted = std::make_shared<bool>(false);
+        uint32_t crc = 0xFFFFFFFF;
+        res->onData([res, isAborted, crc](std::string_view chunk, bool isFin) mutable {
+            if (chunk.length()) {
+                crc = crc32(chunk.data(), chunk.length(), crc);
+            }
 
-			if (isFin && !*isAborted) {
-				std::stringstream s;
-    			s << std::hex << (~crc) << std::endl;
-				res->end(s.str());
-			}
-		});
+            if (isFin && !*isAborted) {
+                std::stringstream s;
+                s << std::hex << (~crc) << std::endl;
+                res->end(s.str());
+            }
+        });
 
-		res->onAborted([isAborted]() {
-			*isAborted = true;
-		});
-	}).listen(3000, [](auto *listen_socket) {
-	    if (listen_socket) {
-			std::cerr << "Listening on port " << 3000 << std::endl;
-	    }
-	}).run();
+        res->onAborted([isAborted]() {
+            *isAborted = true;
+        });
+    }).listen(3000, [](auto *listen_socket) {
+        if (listen_socket) {
+            std::cerr << "Listening on port " << 3000 << std::endl;
+        }
+    }).run();
 
-	std::cout << "Failed to listen on port 3000" << std::endl;
+    std::cout << "Failed to listen on port 3000" << std::endl;
 }

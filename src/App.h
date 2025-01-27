@@ -194,7 +194,7 @@ public:
             Loop::get()->removePostHandler(topicTree);
             Loop::get()->removePreHandler(topicTree);
 
-	    delete topicTree;
+        delete topicTree;
         }
     }
 
@@ -221,8 +221,8 @@ public:
 
         /* Register default handler for 404 (can be overridden by user) */
         this->any("/*", [](auto *res, auto */*req*/) {
-		    res->writeStatus("404 File Not Found");
-	        res->end("<html><body><h1>File Not Found</h1><hr><i>uWebSockets/20 Server</i></body></html>");
+            res->writeStatus("404 File Not Found");
+            res->end("<html><body><h1>File Not Found</h1><hr><i>uWebSockets/20 Server</i></body></html>");
         });
     }
 
