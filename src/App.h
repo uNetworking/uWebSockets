@@ -147,6 +147,19 @@ public:
         return std::move(static_cast<TemplatedApp &&>(*this));
     }
 
+    /* Same as publish, but takes a prepared message */
+    bool publishPrepared(std::string_view topic, PreparedMessage &preparedMessage) {
+        /* It is assumed by heuristics that a prepared message ought to be big,
+         * and so there is no fast path for small messages (yet?) as preparing a small message is unlikely */
+
+        return reinterpret_cast<TopicTree<TopicTreeMessage, PreparedMessage *> *>(topicTree)->publishBig(nullptr, topic, &preparedMessage, [](Subscriber *s, PreparedMessage *preparedMessage) {
+            auto *ws = (WebSocket<SSL, true, int> *) s->user;
+
+            /* Send will drain if needed */
+            ws->sendPrepared(*preparedMessage);
+        });
+    }
+
     /* Publishes a message to all websocket contexts - conceptually as if publishing to the one single
      * TopicTree of this app (technically there are many TopicTrees, however the concept is that one
      * app has one conceptual Topic tree) */

@@ -24,7 +24,9 @@ int main() {
         }
     });
 
-    uWS::App().ws<PerSocketData>("/*", {
+    uWS::App app;
+
+    app.ws<PerSocketData>("/*", {
         /* You must only use SHARED_COMPRESSOR with precompression (can't use dedicated_compressor) */
         .compression = uWS::CompressOptions(uWS::SHARED_COMPRESSOR | uWS::DEDICATED_DECOMPRESSOR),
         /* Handlers */
@@ -33,7 +35,7 @@ int main() {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
 
         },
-        .message = [&m, &preparedMessage](auto *ws, std::string_view message, uWS::OpCode opCode) {
+        .message = [&m, &preparedMessage, &app](auto *ws, std::string_view message, uWS::OpCode opCode) {
 
             /* First respond by echoing what they send us, without compression */
             ws->send(message, opCode, false);
@@ -43,7 +45,9 @@ int main() {
             ws->sendPrepared(preparedMessage);
 
             /* Using publish should also take preparedMessage */
-            
+            ws->subscribe("test");
+            app.publishPrepared("test", preparedMessage);
+            ws->unsubscribe("test");
 
             m.unlock();
         },
