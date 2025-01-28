@@ -126,15 +126,17 @@ public:
 
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
 
-        /* Initialize loop's deflate inflate streams */
-        if (!loopData->zlibContext) {
-            loopData->zlibContext = new ZlibContext;
-            loopData->inflationStream = new InflationStream(CompressOptions::DEDICATED_DECOMPRESSOR);
-            loopData->deflationStream = new DeflationStream(CompressOptions::DEDICATED_COMPRESSOR);
+        if (compress) {
+            /* Initialize loop's deflate inflate streams */
+            if (!loopData->zlibContext) {
+                loopData->zlibContext = new ZlibContext;
+                loopData->inflationStream = new InflationStream(CompressOptions::DEDICATED_DECOMPRESSOR);
+                loopData->deflationStream = new DeflationStream(CompressOptions::DEDICATED_COMPRESSOR);
+            }
+
+            preparedMessage.compressedMessage = loopData->deflationStream->deflate(loopData->zlibContext, {preparedMessage.originalMessage.data(), preparedMessage.originalMessage.length()}, true);
         }
 
-        preparedMessage.compressedMessage = loopData->deflationStream->deflate(loopData->zlibContext, {preparedMessage.originalMessage.data(), preparedMessage.originalMessage.length()}, true);
-        
         return preparedMessage;
     }
 

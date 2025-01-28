@@ -202,7 +202,7 @@ public:
         /* Remove us from topic */
         topicPtr->erase(s);
 
-        int newCount = topicPtr->size();
+        int newCount = (int) topicPtr->size();
 
         /* If there is no subscriber to this topic, remove it */
         if (!topicPtr->size()) {
