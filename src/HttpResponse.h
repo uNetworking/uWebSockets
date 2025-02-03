@@ -398,8 +398,10 @@ public:
     }
 
     /* Write an HTTP header with string value */
-    HttpResponse *writeHeader(std::string_view key, std::string_view value) {
-        writeStatus(HTTP_200_OK);
+    HttpResponse *writeHeader(std::string_view key, std::string_view value, bool writeOK = true) {
+       if(writeOK) {
+           writeStatus(HTTP_200_OK);
+       }
 
         Super::write(key.data(), (int) key.length());
         Super::write(": ", 2);
@@ -409,8 +411,10 @@ public:
     }
 
     /* Write an HTTP header with unsigned int value */
-    HttpResponse *writeHeader(std::string_view key, uint64_t value) {
-        writeStatus(HTTP_200_OK);
+    HttpResponse *writeHeader(std::string_view key, uint64_t value, bool writeOK = true) {
+        if(writeOK) {
+            writeStatus(HTTP_200_OK);
+        }
 
         Super::write(key.data(), (int) key.length());
         Super::write(": ", 2);
@@ -441,8 +445,10 @@ public:
     }
 
     /* Write parts of the response in chunking fashion. Starts timeout if failed. */
-    bool write(std::string_view data) {
-        writeStatus(HTTP_200_OK);
+    bool write(std::string_view data, bool writeOK = true) {
+        if(writeOK) {
+            writeStatus(HTTP_200_OK);
+        }
 
         /* Do not allow sending 0 chunks, they mark end of response */
         if (!data.length()) {
