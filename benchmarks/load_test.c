@@ -32,20 +32,116 @@ int SSL;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <zlib.h>
 
 /* Whatever type we selected (compressed or not) */
 unsigned char *web_socket_request;
-int web_socket_request_size;
+int web_socket_request_size, web_socket_request_response_size;
+
+int server_will_compress = 0;
 
 char *upgrade_request;
 int upgrade_request_length;
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <zlib.h>
+#include <time.h>
+
 /* Compressed message */
-unsigned char web_socket_request_deflate[13] = {
-    130 | 64, 128 | 7,
-    0, 0, 0, 0,
-    0xf2, 0x48, 0xcd, 0xc9, 0xc9, 0x07, 0x00
-};
+unsigned char *web_socket_request_deflate;
+int web_socket_request_deflate_size;
+
+int init_deflated_message(int size) {
+
+    // Create a JSON message of the specified size
+    static const char placeholder[] = "{\"placeholder\":\"An elaborate placeholder with lots of data\",\"description\":\"A longer piece of text that is used to pad out the JSON to around 300 bytes, containing random info about a user profile.\",\"company\":\"Contoso\",\"address\":{\"street\":\"One Microsoft Way\",\"city\":\"Redmond\",\"state\":\"WA\",\"zip\":\"98052\"},\"skills\":[\"C\",\"C++\",\"Rust\",\"Go\",\"JavaScript\"],\"projects\":[{\"name\":\"SampleProject\",\"linesOfCode\":1234},{\"name\":\"AnotherProject\",\"linesOfCode\":2345}],\"misc\":{\"favoriteQuotes\":[\"Hello World\",\"Lorem Ipsum\",\"Carpe Diem\"]}}";
+    char *json_message = malloc(size);
+    int placeholder_len = sizeof(placeholder) - 1;
+    for (int i = 0; i < size; i += placeholder_len) {
+        int copy_len = (i + placeholder_len <= size) ? placeholder_len : size - i;
+        memcpy(json_message + i, placeholder, copy_len);
+    }
+
+    // Compress the JSON message using raw DEFLATE
+    z_stream defstream;
+    defstream.zalloc = Z_NULL;
+    defstream.zfree = Z_NULL;
+    defstream.opaque = Z_NULL;
+
+    deflateInit2(&defstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -MAX_WBITS, 8, Z_DEFAULT_STRATEGY);
+    uLongf compressed_max_size = deflateBound(&defstream, (uLong)size);
+    Bytef *compressed_data = (Bytef *)malloc(compressed_max_size);
+
+    defstream.avail_in = (uInt)size;
+    defstream.next_in = (Bytef *)json_message;
+    defstream.avail_out = (uInt)compressed_max_size;
+    defstream.next_out = compressed_data;
+
+    int res = deflate(&defstream, Z_SYNC_FLUSH);
+    if (res != Z_OK) {
+        printf("Deflation failed: %d\n", res);
+        exit(1);
+    }
+    uLongf compressed_size = defstream.total_out;
+    deflateEnd(&defstream);
+    free(json_message);
+
+    // Generate random 4-byte mask
+    srand((unsigned int)time(NULL));
+    unsigned char mask[4];
+    for (int i = 0; i < 4; i++) {
+        mask[i] = 0;//(unsigned char)(rand() % 256);
+    }
+
+    // Apply mask to compressed data
+    for (uLongf i = 0; i < compressed_size; i++) {
+        compressed_data[i] ^= mask[i % 4];
+    }
+
+    // Build WebSocket frame header
+    unsigned char header[14];
+    int header_len;
+
+    if (compressed_size <= 125) {
+        header_len = 6;
+        header[0] = 0xC2; // FIN + RSV1 + Opcode 2
+        header[1] = 0x80 | compressed_size; // Mask bit + length
+        memcpy(header + 2, mask, 4);
+    } else if (compressed_size <= 65535) {
+        header_len = 8;
+        header[0] = 0xC2;
+        header[1] = 0x80 | 126;
+        header[2] = (compressed_size >> 8) & 0xFF;
+        header[3] = compressed_size & 0xFF;
+        memcpy(header + 4, mask, 4);
+    } else {
+        header_len = 14;
+        header[0] = 0xC2;
+        header[1] = 0x80 | 127;
+        for (int i = 0; i < 8; i++) {
+            header[2 + i] = (compressed_size >> (56 - i * 8)) & 0xFF;
+        }
+        memcpy(header + 10, mask, 4);
+    }
+
+    // Combine header and masked compressed data
+    web_socket_request_deflate_size = header_len + compressed_size;
+    web_socket_request_deflate = malloc(web_socket_request_deflate_size);
+    memcpy(web_socket_request_deflate, header, header_len);
+    memcpy(web_socket_request_deflate + header_len, compressed_data, compressed_size);
+
+
+    // for (int i = 0; i < web_socket_request_deflate_size; i++) {
+    //     printf("%02X ", web_socket_request_deflate[i]);
+    // }
+
+
+    free(compressed_data);
+
+    return web_socket_request_deflate_size;
+}
 
 /* Not compressed */
 unsigned char web_socket_request_text_small[126] = {130, 128 | 20, 1, 2, 3, 4};
@@ -97,7 +193,7 @@ char request_deflate[] = "GET / HTTP/1.1\r\n"
                  "Upgrade: websocket\r\n"
                  "Connection: Upgrade\r\n"
                  "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"
-                 "Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n"
+                 "Sec-WebSocket-Extensions: permessage-deflate\r\n"
                  "Host: server.example.com\r\n"
                  "Sec-WebSocket-Version: 13\r\n\r\n";
 
@@ -195,7 +291,7 @@ struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int l
         if (http_socket->outstanding_bytes == 0) {
             /* We got exactly the correct amount of bytes back, send another message */
             http_socket->offset = us_socket_write(SSL, s, (char *) web_socket_request, web_socket_request_size, 0);
-            http_socket->outstanding_bytes = web_socket_request_size - 4;
+            http_socket->outstanding_bytes = web_socket_request_response_size - 4; // minus 4 because of mask
 
             /* Increase stats */
             responses++;
@@ -211,7 +307,7 @@ struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int l
             http_socket->offset = us_socket_write(SSL, s, (char *) web_socket_request, web_socket_request_size, 0);
 
             /* Server will echo back the same message minus 4 bytes for mask */
-            http_socket->outstanding_bytes = web_socket_request_size - 4;
+            http_socket->outstanding_bytes = web_socket_request_response_size - 4;
             http_socket->is_upgraded = 1;
         }
     }
@@ -260,9 +356,35 @@ int main(int argc, char **argv) {
     connections = atoi(argv[1]);
     SSL = atoi(argv[4]);
     if (atoi(argv[5])) {
+
+
+        /* Use the size if provided */
+        int size = 5;
+        if (argc == 7) {
+            size = atoi(argv[6]);
+        }
+
+        init_deflated_message(size);
+
+        printf("Using message size of %d bytes compressed down to %d bytes\n", size, web_socket_request_deflate_size);
+
         /* Set up deflate */
         web_socket_request = web_socket_request_deflate;
-        web_socket_request_size = sizeof(web_socket_request_deflate);
+        web_socket_request_size = web_socket_request_deflate_size;//sizeof(web_socket_request_deflate);
+
+        /* Depending on whether the server will comress or not, we expect either the same or different length back */
+        if (server_will_compress) {
+            web_socket_request_response_size = web_socket_request_size;
+        } else {
+
+            if (size <= 125) {
+                web_socket_request_response_size = 6 + size;
+            } else if (size <= 65535) {
+                web_socket_request_response_size = 8 + size;
+            } else {
+                web_socket_request_response_size = 14 + size;
+            }
+        }
 
         upgrade_request = request_deflate;
         upgrade_request_length = sizeof(request_deflate) - 1;
@@ -288,6 +410,7 @@ int main(int argc, char **argv) {
 
         web_socket_request = web_socket_request_text;
         web_socket_request_size = web_socket_request_text_size;
+        web_socket_request_response_size = web_socket_request_size;
 
         upgrade_request = request_text;
         upgrade_request_length = sizeof(request_text) - 1;
