@@ -54,7 +54,6 @@ static int connections;  // Number of remaining connections to establish
 static int responses = 0;// Number of responses received
 
 // Predefined static data
-static unsigned char web_socket_request_text_small[126] = {130, 128 | 20, 1, 2, 3, 4};
 static char request_deflate[] = "GET / HTTP/1.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\nSec-WebSocket-Extensions: permessage-deflate\r\nHost: server.example.com\r\nSec-WebSocket-Version: 13\r\n\r\n";
 static char request_text[] = "GET / HTTP/1.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\nHost: server.example.com\r\nSec-WebSocket-Version: 13\r\n\r\n";
 
@@ -134,7 +133,7 @@ void init_deflated_request(int size, BenchmarkConfig *config) {
         printf("Deflation failed: %d\n", res);
         exit(1);
     }
-    uLongf compressed_size = defstream.total_out;
+    uLongf compressed_size = defstream.total_out - 4;
     deflateEnd(&defstream);
     free(json_message);
 
@@ -240,6 +239,7 @@ struct us_socket_t *on_http_socket_data(struct us_socket_t *s, char *data, int l
         }
     } else {
         if (length >= 4 && memcmp(data + length - 4, "\r\n\r\n", 4) == 0) {
+            printf("Response: %.*s\n", length, data);
             state->offset = us_socket_write(config.SSL, s, (char *)config.web_socket_request, config.web_socket_request_size, 0);
             state->outstanding_bytes = config.web_socket_request_response_size - 4;
             state->is_upgraded = 1;
@@ -305,15 +305,11 @@ int main(int argc, char **argv) {
         config.upgrade_request_length = sizeof(request_text) - 1;
         if (argc == 7) {
             config.payload_size = atoi(argv[6]);
-            init_text_request(config.payload_size, &config);
-            printf("Using message size of %d bytes\n", config.payload_size);
         } else {
             config.payload_size = 20;
-            config.web_socket_request = web_socket_request_text_small;
-            config.web_socket_request_size = 26;
-            config.web_socket_request_response_size = 26;
-            printf("Using message size of %d bytes\n", config.payload_size);
         }
+        init_text_request(config.payload_size, &config);
+        printf("Using message size of %d bytes\n", config.payload_size);
     }
 
     // Create and run the event loop
@@ -335,9 +331,7 @@ int main(int argc, char **argv) {
 
     // Cleanup
     free(config.host);
-    if (config.web_socket_request != web_socket_request_text_small) {
-        free(config.web_socket_request);
-    }
+    free(config.web_socket_request);
     us_socket_context_free(config.SSL, http_context);
     us_loop_free(loop);
 
