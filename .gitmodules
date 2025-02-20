@@ -10,3 +10,6 @@
 [submodule "h1spec"]
 	path = h1spec
 	url = https://github.com/uNetworking/h1spec
+[submodule "libdeflate"]
+	path = libdeflate
+	url = ./libdeflate

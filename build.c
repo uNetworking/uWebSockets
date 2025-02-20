@@ -15,6 +15,12 @@ int main(int argc, char **argv) {
     strcat(CXXFLAGS, " -march=native -O3 -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++20 -Isrc -IuSockets/src");
     strcat(LDFLAGS, " uSockets/*.o");
 
+    // We can use libdeflate as a fast path to zlib (you need to build it first)
+    if (env_is("WITH_LIBDEFLATE", "1")) {
+        strcat(LDFLAGS, " libdeflate/libdeflate.a");
+        strcat(CXXFLAGS, " -DUWS_USE_LIBDEFLATE -I libdeflate");
+    }
+
     // By default we use LTO, but Windows does not support it
     if (!env_is("WITH_LTO", "0")) {
         strcat(CXXFLAGS, " -flto=auto");
