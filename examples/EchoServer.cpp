@@ -19,7 +19,7 @@ int main() {
         .passphrase = "1234"
     }).ws<PerSocketData>("/*", {
         /* Settings */
-        .compression = uWS::CompressOptions(uWS::DEDICATED_COMPRESSOR | uWS::SHARED_DECOMPRESSOR),
+        .compression = uWS::CompressOptions(uWS::DEDICATED_COMPRESSOR | uWS::DEDICATED_DECOMPRESSOR),
         .maxPayloadLength = 100 * 1024 * 1024,
         .idleTimeout = 16,
         .maxBackpressure = 100 * 1024 * 1024,
