@@ -108,9 +108,10 @@ void init_text_request(int size, BenchmarkConfig *config) {
  * @param config Pointer to the BenchmarkConfig to populate
  */
 void init_deflated_request(int size, BenchmarkConfig *config) {
-    static const char placeholder[] = "{\"placeholder\":\"An elaborate placeholder with lots of data\",\"description\":\"A longer piece of text that is used to pad out the JSON to around 300 bytes, containing random info about a user profile.\",\"company\":\"Contoso\",\"address\":{\"street\":\"One Microsoft Way\",\"city\":\"Redmond\",\"state\":\"WA\",\"zip\":\"98052\"},\"skills\":[\"C\",\"C++\",\"Rust\",\"Go\",\"JavaScript\"],\"projects\":[{\"name\":\"SampleProject\",\"linesOfCode\":1234},{\"name\":\"AnotherProject\",\"linesOfCode\":2345}],\"misc\":{\"favoriteQuotes\":[\"Hello World\",\"Lorem Ipsum\",\"Carpe Diem\"]}}";
+    const char placeholder[] = "{\"userId\":12345,\"action\":\"purchase\",\"items\":[{\"id\":\"A1B2C3\",\"name\":\"Wireless Mouse\",\"price\":25.99,\"quantity\":1},{\"id\":\"D4E5F6\",\"name\":\"Mechanical Keyboard\",\"price\":89.99,\"quantity\":1}],\"payment\":{\"method\":\"credit_card\",\"transactionId\":\"XYZ987654321\",\"status\":\"approved\"},\"timestamp\":\"2025-02-20T15:30:00Z\"};";
     char *json_message = malloc(size);
     int placeholder_len = sizeof(placeholder) - 1;
+    printf("Using placeholder of %d bytes\n", placeholder_len);
     for (int i = 0; i < size; i += placeholder_len) {
         int copy_len = (i + placeholder_len <= size) ? placeholder_len : size - i;
         memcpy(json_message + i, placeholder, copy_len);
