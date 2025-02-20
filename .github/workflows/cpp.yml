@@ -61,7 +61,7 @@ jobs:
     - name: Clone source
       run: git clone --recursive https://github.com/uNetworking/uWebSockets.git
     - name: Build source
-      run: make -C uWebSockets
+      run: cd libdeflate && cmake . && make && cd .. && WITH_LIBDEFLATE=1 make -C uWebSockets
     - name: List binaries
       run: ls uWebSockets
     - name: Install Deno
