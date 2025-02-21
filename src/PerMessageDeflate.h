@@ -213,19 +213,21 @@ struct InflationStream {
     std::optional<std::string_view> inflate(ZlibContext *zlibContext, std::string_view compressed, size_t maxPayloadLength, bool reset) {
 
 #ifdef UWS_USE_LIBDEFLATE
-        /* Try fast path first (assuming single DEFLATE block) */
-        size_t written = 0, consumed;
-        zlibContext->dynamicInflationBuffer.clear();
-        zlibContext->dynamicInflationBuffer.reserve(maxPayloadLength);
+        if (reset) {
+            /* Try fast path first (assuming single DEFLATE block and shared compressor aka reset = true) */
+            size_t written = 0, consumed;
+            zlibContext->dynamicInflationBuffer.clear();
+            zlibContext->dynamicInflationBuffer.reserve(maxPayloadLength);
 
-        ((char *)compressed.data())[0] |= 0x1; // BFINAL = 1
-        libdeflate_result res = libdeflate_deflate_decompress_ex(zlibContext->decompressor, compressed.data(), compressed.length(), zlibContext->dynamicInflationBuffer.data(), maxPayloadLength, &consumed, &written);
-  
-        if (res == 0 && consumed == compressed.length()) {
-            return std::string_view(zlibContext->dynamicInflationBuffer.data(), written);
-        } else {
-            /* We can only end up here if the first DEFLATE block was not the last, so mark it as such */
-            ((char *)compressed.data())[0] &= ~0x1; // BFINAL = 0
+            ((char *)compressed.data())[0] |= 0x1; // BFINAL = 1
+            libdeflate_result res = libdeflate_deflate_decompress_ex(zlibContext->decompressor, compressed.data(), compressed.length(), zlibContext->dynamicInflationBuffer.data(), maxPayloadLength, &consumed, &written);
+    
+            if (res == 0 && consumed == compressed.length()) {
+                return std::string_view(zlibContext->dynamicInflationBuffer.data(), written);
+            } else {
+                /* We can only end up here if the first DEFLATE block was not the last, so mark it as such */
+                ((char *)compressed.data())[0] &= ~0x1; // BFINAL = 0
+            }
         }
 #endif
 
