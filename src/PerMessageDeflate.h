@@ -222,9 +222,9 @@ struct InflationStream {
             ((char *)compressed.data())[0] |= 0x1; // BFINAL = 1
             libdeflate_result res = libdeflate_deflate_decompress_ex(zlibContext->decompressor, compressed.data(), compressed.length(), zlibContext->dynamicInflationBuffer.data(), maxPayloadLength, &consumed, &written);
     
-            /* DEFLATE is not a byte aligned format, so we might end up consuming 1 byte less than the input */
-            /* This extra byte is zero-padding. */
-            if (res == 0 && consumed == compressed.length() || (consumed == compressed.length() - 1 && compressed.data()[consumed] == 0)) {
+            /* Still not entirely sure why 1 extra zero byte is optional and ignored by both zlib and libdeflate in some cases */
+            /* Minimal reproducer is load_test.c with 102 byte message size. It should be tested with Chrome at various message sizes as well. */
+            if (res == 0 && (consumed == compressed.length() || (consumed + 1 == compressed.length() && compressed[consumed] == '\0'))) {
                 return std::string_view(zlibContext->dynamicInflationBuffer.data(), written);
             } else {
                 /* We can only end up here if the first DEFLATE block was not the last, so mark it as such */
