@@ -91,6 +91,22 @@ public:
         }
     }
 
+    unsigned int getSourcePort() {
+
+        // UNSPEC family and protocol
+        if (family == 0) {
+            return {};
+        }
+
+        if ((family & 0xf0) >> 4 == 1) {
+            /* Family 1 is INET4 */
+            return addr.ipv4_addr.src_port;
+        } else {
+            /* Family 2 is INET6 */
+            return addr.ipv6_addr.src_port;
+        }
+    }
+
     /* Returns [done, consumed] where done = false on failure */
     std::pair<bool, unsigned int> parse(std::string_view data) {
 
