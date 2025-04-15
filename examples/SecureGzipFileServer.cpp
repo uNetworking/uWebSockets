@@ -1,55 +1,46 @@
 #include <iostream>
-#include <map>
 #include <unordered_map>
 #include <mutex>
 #include <thread>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <set>
+#include <string>
+#include <cstdint>
+#include <cstring>
+#include "App.h"
+#include <zlib.h>
+
+#if defined(__linux__)
 #include <sys/inotify.h>
 #include <unistd.h>
-#include <cstring>
-#include "App.h"  // Ensure uWS is installed and this header is available
+#endif
 
-int cooldown = 0; // how much to sleep after reloading files, seconds
+int cooldown = 0; // Seconds to sleep after reloading files (Linux only)
 
-// Custom hasher for both std::string and std::string_view
+// Custom hasher for transparent lookup with std::string and std::string_view
 struct StringViewHasher {
-    using is_transparent = void; // Enable transparent lookup
-
-    std::size_t operator()(const std::string& s) const {
-        return std::hash<std::string_view>{}(s);
-    }
-
-    std::size_t operator()(std::string_view s) const {
-        return std::hash<std::string_view>{}(s);
-    }
+    using is_transparent = void;
+    std::size_t operator()(const std::string& s) const { return std::hash<std::string_view>{}(s); }
+    std::size_t operator()(std::string_view s) const { return std::hash<std::string_view>{}(s); }
 };
 
 // Custom equality comparator for transparent lookup
 struct StringViewEqual {
-    using is_transparent = void; // Enable transparent lookup
-
-    // Single operator() that handles all combinations
-    bool operator()(std::string_view lhs, std::string_view rhs) const {
-        return lhs == rhs;
-    }
+    using is_transparent = void;
+    bool operator()(std::string_view lhs, std::string_view rhs) const { return lhs == rhs; }
 };
 
-
-// Global variables for the file map, mutex, and inotify file descriptor
+// Global variables
 std::unordered_map<std::string, std::pair<std::string, bool>, StringViewHasher, StringViewEqual> file_map;
 std::mutex map_mutex;
+#if defined(__linux__)
 int inotify_fd;
+#endif
 unsigned long fileSizes = 0;
 
-#include <zlib.h>
-#include <stdexcept>
-
-
+// Loads file content and compresses it with zlib if beneficial
 std::pair<std::string, bool> load_file_content(const std::filesystem::path& path) {
-    // Load file content
     std::ifstream file(path, std::ios::binary);
     if (!file) {
         std::cerr << "Failed to open file: " << path << std::endl;
@@ -60,52 +51,38 @@ std::pair<std::string, bool> load_file_content(const std::filesystem::path& path
     file.seekg(0, std::ios::beg);
     std::string content(size, 0);
     file.read(&content[0], size);
-    //std::cout << "Loaded file: " << path << " (" << size << " bytes)" << std::endl;
 
-    // Compress in memory using zlib
     z_stream zs = {};
-    zs.zalloc = Z_NULL;
-    zs.zfree = Z_NULL;
-    zs.opaque = Z_NULL;
     if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
-        std::cerr << "Failed to initialize zlib" << std::endl;
+        std::cerr << "Failed to initialize zlib for " << path << std::endl;
         return {"", false};
     }
-
     zs.next_in = reinterpret_cast<Bytef*>(content.data());
     zs.avail_in = content.size();
-
-    // Calculate output buffer size (zlib guarantees max output size)
     size_t bound = deflateBound(&zs, content.size());
     std::string compressed(bound, 0);
     zs.next_out = reinterpret_cast<Bytef*>(&compressed[0]);
     zs.avail_out = bound;
-
     int ret = deflate(&zs, Z_FINISH);
     if (ret != Z_STREAM_END) {
         deflateEnd(&zs);
-        std::cerr << "Failed to compress data" << std::endl;
+        std::cerr << "Failed to compress " << path << std::endl;
         return {"", false};
     }
-
     size_t compressed_size = zs.total_out;
     deflateEnd(&zs);
-
-    // Resize to actual compressed size
     compressed.resize(compressed_size);
 
-    if (compressed_size > size) {
-        fileSizes += size;
-        return {content, false};
+    if (compressed_size < size) {
+        fileSizes += compressed_size;
+        return {compressed, true};
     }
-
-    //std::cout << "Compressed to: " << compressed_size << " bytes" << std::endl;
-    fileSizes += compressed_size;
-    return {compressed, true};
+    fileSizes += size;
+    return {content, false};
 }
 
-// Function to load all files from the root folder into the map and add inotify watches
-void load_files(const std::string& root, int inotify_fd) {
+// Loads all files from the root folder into the map; adds inotify watches on Linux if inotify_fd >= 0
+void load_files(const std::string& root, int inotify_fd = -1) {
     fileSizes = 0;
     std::unordered_map<std::string, std::pair<std::string, bool>, StringViewHasher, StringViewEqual> new_map;
     for (const auto& entry : std::filesystem::recursive_directory_iterator(root)) {
@@ -113,23 +90,29 @@ void load_files(const std::string& root, int inotify_fd) {
             std::string relative_path = "/" + std::filesystem::relative(entry.path(), root).generic_string();
             auto [content, compressed] = load_file_content(entry.path());
             new_map[relative_path] = {content, compressed};
-            // Add watch to file for IN_MODIFY
-            inotify_add_watch(inotify_fd, entry.path().c_str(), IN_MODIFY);
+#if defined(__linux__)
+            if (inotify_fd >= 0) {
+                inotify_add_watch(inotify_fd, entry.path().c_str(), IN_MODIFY);
+            }
+#endif
         } else if (entry.is_directory()) {
-            // Add watch to directory for IN_CREATE | IN_DELETE | IN_MOVE
-            inotify_add_watch(inotify_fd, entry.path().c_str(), IN_CREATE | IN_DELETE | IN_MOVE);
+#if defined(__linux__)
+            if (inotify_fd >= 0) {
+                inotify_add_watch(inotify_fd, entry.path().c_str(), IN_CREATE | IN_DELETE | IN_MOVE);
+            }
+#endif
         }
     }
     {
         std::lock_guard<std::mutex> lock(map_mutex);
         file_map = std::move(new_map);
-        std::cout << "Reloaded " << (fileSizes / 1024 / 1024) << " MB of files into RAM" << std::endl;
+        std::cout << "Loaded " << (fileSizes / 1024 / 1024) << " MB of files into RAM" << std::endl;
     }
 }
 
-// Background thread function to monitor inotify events and reload files on changes
+#if defined(__linux__)
+// Background thread to monitor inotify events and reload files on changes (Linux only)
 void inotify_reloader_function(const std::string& root, int inotify_fd) {
-    load_files(root, inotify_fd);
     char buffer[4096];
     while (true) {
         int length = read(inotify_fd, buffer, sizeof(buffer));
@@ -144,6 +127,7 @@ void inotify_reloader_function(const std::string& root, int inotify_fd) {
         }
     }
 }
+#endif
 
 int main(int argc, char** argv) {
     if (argc != 3) {
@@ -153,26 +137,32 @@ int main(int argc, char** argv) {
     std::string root = argv[1];
     cooldown = std::stoi(argv[2]);
     if (cooldown < 0) {
-        std::cerr << "Cooldown must be a positive integer" << std::endl;
+        std::cerr << "Cooldown must be a non-negative integer" << std::endl;
         return 1;
     }
 
+#if defined(__linux__)
     inotify_fd = inotify_init();
     if (inotify_fd < 0) {
         std::cerr << "Failed to initialize inotify: " << strerror(errno) << std::endl;
         return 1;
     }
-
+    load_files(root, inotify_fd);
     std::thread inotify_reloader(inotify_reloader_function, root, inotify_fd);
+#else
+    load_files(root); // Load once at startup on macOS and Windows
+#endif
 
     uWS::App app;
 
-    // We only need to lock once per event loop iteration, not on every request
-    uWS::Loop::get()->addPostHandler(&inotify_reloader, [](uWS::Loop */*loop*/) {
+    // Static key for uWS handlers
+    static char handler_key;
+
+    // Add post and pre handlers to lock the mutex around event loop iterations (unchanged as requested)
+    uWS::Loop::get()->addPostHandler(&handler_key, [](uWS::Loop* /*loop*/) {
         std::lock_guard<std::mutex> lock(map_mutex);
     });
-
-    uWS::Loop::get()->addPreHandler(&inotify_reloader, [](uWS::Loop */*loop*/) {
+    uWS::Loop::get()->addPreHandler(&handler_key, [](uWS::Loop* /*loop*/) {
         std::lock_guard<std::mutex> lock(map_mutex);
     });
 
@@ -188,6 +178,7 @@ int main(int argc, char** argv) {
             res->end("Not Found");
         }
     });
+
     app.get("/*", [](auto* res, auto* req) {
         auto it = file_map.find(req->getUrl());
         if (it != file_map.end()) {
@@ -209,7 +200,10 @@ int main(int argc, char** argv) {
 
     app.run();
 
+#if defined(__linux__)
     inotify_reloader.join();
     close(inotify_fd);
+#endif
+
     return 0;
 }
