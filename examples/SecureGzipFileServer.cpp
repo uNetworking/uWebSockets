@@ -9,7 +9,10 @@
 #include <cstdint>
 #include <cstring>
 #include "App.h"
+
+#ifndef UWS_NO_ZLIB
 #include <zlib.h>
+#endif
 
 #if defined(__linux__)
 #include <sys/inotify.h>
@@ -39,7 +42,7 @@ int inotify_fd;
 #endif
 unsigned long fileSizes = 0;
 
-// Loads file content and compresses it with zlib if beneficial
+// Loads file content; compresses with zlib if UWS_NO_ZLIB is not defined and compression is beneficial
 std::pair<std::string, bool> load_file_content(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file) {
@@ -52,31 +55,29 @@ std::pair<std::string, bool> load_file_content(const std::filesystem::path& path
     std::string content(size, 0);
     file.read(&content[0], size);
 
+#ifndef UWS_NO_ZLIB
     z_stream zs = {};
-    if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
-        std::cerr << "Failed to initialize zlib for " << path << std::endl;
-        return {"", false};
+    if (deflateInit2(&zs, Z_BEST_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) == Z_OK) {
+        zs.next_in = reinterpret_cast<Bytef*>(content.data());
+        zs.avail_in = content.size();
+        size_t bound = deflateBound(&zs, content.size());
+        std::string compressed(bound, 0);
+        zs.next_out = reinterpret_cast<Bytef*>(&compressed[0]);
+        zs.avail_out = bound;
+        int ret = deflate(&zs, Z_FINISH);
+        if (ret == Z_STREAM_END) {
+            size_t compressed_size = zs.total_out;
+            deflateEnd(&zs);
+            compressed.resize(compressed_size);
+            if (compressed_size < size) {
+                fileSizes += compressed_size;
+                return {compressed, true};
+            }
+        } else {
+            deflateEnd(&zs);
+        }
     }
-    zs.next_in = reinterpret_cast<Bytef*>(content.data());
-    zs.avail_in = content.size();
-    size_t bound = deflateBound(&zs, content.size());
-    std::string compressed(bound, 0);
-    zs.next_out = reinterpret_cast<Bytef*>(&compressed[0]);
-    zs.avail_out = bound;
-    int ret = deflate(&zs, Z_FINISH);
-    if (ret != Z_STREAM_END) {
-        deflateEnd(&zs);
-        std::cerr << "Failed to compress " << path << std::endl;
-        return {"", false};
-    }
-    size_t compressed_size = zs.total_out;
-    deflateEnd(&zs);
-    compressed.resize(compressed_size);
-
-    if (compressed_size < size) {
-        fileSizes += compressed_size;
-        return {compressed, true};
-    }
+#endif
     fileSizes += size;
     return {content, false};
 }
@@ -158,7 +159,7 @@ int main(int argc, char** argv) {
     // Static key for uWS handlers
     static char handler_key;
 
-    // Add post and pre handlers to lock the mutex around event loop iterations (unchanged as requested)
+    // Add post and pre handlers to lock the mutex around event loop iterations
     uWS::Loop::get()->addPostHandler(&handler_key, [](uWS::Loop* /*loop*/) {
         std::lock_guard<std::mutex> lock(map_mutex);
     });
