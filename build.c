@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
     char *EXAMPLE_FILES[] = {"SecureGzipFileServer", "Precompress", "EchoBody", "HelloWorldThreaded", "Http3Server", "Broadcast", "HelloWorld", "Crc32", "ServerName",
     "EchoServer", "BroadcastingEchoServer", "UpgradeSync", "UpgradeAsync", "ParameterRoutes"};
 
-    strcat(CXXFLAGS, " -march=native -O3 -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++23 -Isrc -IuSockets/src");
+    strcat(CXXFLAGS, " -march=native -O3 -Wpedantic -Wall -Wextra -Wsign-conversion -Wconversion -std=c++2b -Isrc -IuSockets/src");
     strcat(LDFLAGS, " uSockets/*.o");
 
     // We can use libdeflate as a fast path to zlib (you need to build it first)
