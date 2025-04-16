@@ -229,6 +229,10 @@ public:
     std::string_view getProxiedRemoteAddressAsText() {
         return Super::addressAsText(getProxiedRemoteAddress());
     }
+
+    unsigned int getProxiedRemotePort() {
+        return getHttpResponseData()->proxyParser.getSourcePort();
+    }
 #endif
 
     /* Manually upgrade to WebSocket. Typically called in upgrade handler. Immediately calls open handler.
@@ -355,6 +359,7 @@ public:
     /* See AsyncSocket */
     using Super::getRemoteAddress;
     using Super::getRemoteAddressAsText;
+    using Super::getRemotePort;
     using Super::getNativeHandle;
 
     /* Throttle reads and writes */
