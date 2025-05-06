@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2020.
+ * Authored by Alex Hultman, 2018-2025.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -196,8 +196,11 @@ private:
                 Super::timeout(HTTP_TIMEOUT_S);
             }
 
-            /* Remove onAborted function if we reach the end */
-            if (httpResponseData->offset == totalSize) {
+            /* Remove onAborted, onWritable function and mark done if we reach the end, or if we were given no data (faked size like in HEAD response) */
+            /* I need to figure out if this line should rather be simply httpResponseData->offset == data.length() */
+            /* No that can't be right, tryEnd with fake length should not complete the response even if the smaller chunk wrote in one go */
+            /* Possibly need  to separate endWithoutBody and tryEnd with fake length into two separate calls with a boolean that explicitly marks isHeadOnly */
+            if (httpResponseData->offset == totalSize || !data.length()) {
                 httpResponseData->markDone();
 
                 /* We need to check if we should close this socket here now */
