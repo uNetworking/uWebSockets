@@ -95,18 +95,20 @@ T bit_cast(char *c) {
 /* Byte swap for little-endian systems */
 template <typename T>
 T cond_byte_swap(T value) {
+    static_assert(std::is_trivially_copyable<T>::value, "T must be trivially copyable");
     uint32_t endian_test = 1;
-    if (*((char *)&endian_test)) {
-        union {
-            T i;
-            uint8_t b[sizeof(T)];
-        } src = { value }, dst;
+    if (*reinterpret_cast<char*>(&endian_test)) {
+        uint8_t src[sizeof(T)];
+        uint8_t dst[sizeof(T)];
 
-        for (unsigned int i = 0; i < sizeof(value); i++) {
-            dst.b[i] = src.b[sizeof(value) - 1 - i];
+        std::memcpy(src, &value, sizeof(T));
+        for (size_t i = 0; i < sizeof(T); ++i) {
+            dst[i] = src[sizeof(T) - 1 - i];
         }
 
-        return dst.i;
+        T result;
+        std::memcpy(&result, dst, sizeof(T));
+        return result;
     }
     return value;
 }
