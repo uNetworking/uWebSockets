@@ -295,6 +295,24 @@ protected:
         }
     }
 
+   static inline void unmaskPrecise8(char *src, uint64_t maskInt, char* mask, unsigned int length) {
+        size_t lengthu64 = length/8;
+        uint64_t* u64I = (uint64_t*)src;
+        uint64_t* u64O = (uint64_t*)src;
+        for(size_t m=0; m<lengthu64; m++){
+            u64O[m] = u64I[m] ^ maskInt;
+        }
+        size_t remain = length % 8;
+        if (remain > 0) {
+            size_t roffset =  length - remain;
+            char* rI = (src + roffset);
+            char* rO = (src + roffset);
+            for (size_t i=0; i<remain; i++) {
+                rO[i] = rI[i] ^ mask[i % 4];
+            }
+        }
+    }
+
     /* DESTINATION = 6 makes this not SIMD, DESTINATION = 4 is with SIMD but we don't want that for short messages */
     template <int DESTINATION>
     static inline void unmaskImprecise4(char *src, uint32_t mask, unsigned int length) {
@@ -319,6 +337,51 @@ protected:
             uint32_t maskInt;
             memcpy(&maskInt, mask, 4);
             unmaskImprecise4<HEADER_SIZE>(src, maskInt, length);
+        }
+    }
+
+    template <int HEADER_SIZE>
+    static inline void unmaskPreciseCopyMask(char *src, unsigned int length) {
+        if constexpr (HEADER_SIZE != 6) {
+            char mask[8] = {src[-4], src[-3], src[-2], src[-1], src[-4], src[-3], src[-2], src[-1]};
+            uint64_t maskInt;
+            memcpy(&maskInt, mask, 8);
+
+            size_t lengthu64 = length/8;
+            uint64_t* u64I = (uint64_t*)src;
+            uint64_t* u64O = (uint64_t*)src;
+            for(size_t m=0; m<lengthu64; m++){
+                u64O[m] = u64I[m] ^ maskInt;
+            }
+            size_t remain = length % 8;
+            if (remain > 0) {
+                size_t roffset =  length - remain;
+                char* rI = (src + roffset);
+                char* rO = (src + roffset);
+                for (size_t i=0; i<remain; i++) {
+                    rO[i] = rI[i] ^ mask[i % 4];
+                }
+            }
+        } else {
+            char mask[4] = {src[-4], src[-3], src[-2], src[-1]};
+            uint32_t maskInt;
+            memcpy(&maskInt, mask, 4);
+
+            size_t lengthu32 = length/4;
+            uint32_t* u32I = (uint32_t*)src;
+            uint32_t* u32O = (uint32_t*)src;
+            for(size_t i=0; i<lengthu32; i++){
+                u32O[i] = u32I[i] ^  maskInt;
+            }
+            size_t remain = length%4;
+            if (remain > 0) {
+                size_t roffset = length - remain;
+                char* rI = (src + roffset);
+                char* rO = (src + roffset);
+                for (size_t i=0; i<remain; i++) {
+                    rO[i] = rI[i] ^ mask[i % 4];
+                }
+            }
         }
     }
 
@@ -361,9 +424,9 @@ protected:
         if (payLength + MESSAGE_HEADER <= length) {
             bool fin = isFin(src);
             if (isServer) {
-                /* This guy can never be assumed to be perfectly aligned since we can get multiple messages in one read */
-                unmaskImpreciseCopyMask<MESSAGE_HEADER>(src + MESSAGE_HEADER, (unsigned int) payLength);
-                if (Impl::handleFragment(src, payLength, 0, wState->state.opCode[wState->state.opStack], fin, wState, user)) {
+                /* use precise mask， which is better than unprecise to avoid effect remain data */
+                unmaskPreciseCopyMask<MESSAGE_HEADER>(src + MESSAGE_HEADER, (unsigned int) payLength);
+                if (Impl::handleFragment(src + MESSAGE_HEADER, payLength, 0, wState->state.opCode[wState->state.opStack], fin, wState, user)) {
                     return true;
                 }
             } else {
