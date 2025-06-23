@@ -424,7 +424,7 @@ protected:
         if (payLength + MESSAGE_HEADER <= length) {
             bool fin = isFin(src);
             if (isServer) {
-                /* use precise mask， which is better than unprecise to avoid effect remain data */
+                /* use precise mask, which is better than unprecise to avoid effect remain data */
                 unmaskPreciseCopyMask<MESSAGE_HEADER>(src + MESSAGE_HEADER, (unsigned int) payLength);
                 if (Impl::handleFragment(src + MESSAGE_HEADER, payLength, 0, wState->state.opCode[wState->state.opStack], fin, wState, user)) {
                     return true;
