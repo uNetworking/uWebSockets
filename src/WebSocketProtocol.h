@@ -402,6 +402,28 @@ protected:
         }
     }
 
+    static inline void unmaskPreciseInplace(char *src, size_t length, char *mask) {
+        uint64_t maskInt;
+        memcpy(&maskInt, mask, 4);
+        memcpy(((char *)&maskInt) + 4, mask, 4);
+
+        size_t lengthu64 = length/8;
+        uint64_t* u64I = (uint64_t*)src;
+        uint64_t* u64O = (uint64_t*)src;
+        for(size_t m=0; m<lengthu64; m++){
+            u64O[m] = u64I[m] ^ maskInt;
+        }
+        size_t remain = length % 8;
+        if (remain > 0) {
+            size_t roffset =  length - remain;
+            char* rI = (src + roffset);
+            char* rO = (src + roffset);
+            for (size_t i=0; i<remain; i++) {
+                rO[i] = rI[i] ^ mask[i % 4];
+            }
+        }
+    }
+
     template <unsigned int MESSAGE_HEADER, typename T>
     static inline bool consumeMessage(T payLength, char *&src, unsigned int &length, WebSocketState<isServer> *wState, void *user) {
         if (getOpCode(src)) {
@@ -450,10 +472,11 @@ protected:
             bool fin = isFin(src);
             if constexpr (isServer) {
                 memcpy(wState->mask, src + MESSAGE_HEADER - 4, 4);
-                uint64_t mask;
-                memcpy(&mask, src + MESSAGE_HEADER - 4, 4);
-                memcpy(((char *)&mask) + 4, src + MESSAGE_HEADER - 4, 4);
-                unmaskImprecise8<0>(src + MESSAGE_HEADER, mask, length);
+                uint64_t maskInt;
+                memcpy(&maskInt, src + MESSAGE_HEADER - 4, 4);
+                memcpy(((char *)&maskInt) + 4, src + MESSAGE_HEADER - 4, 4);
+                char* mask = src + MESSAGE_HEADER - 4;
+                unmaskPrecise8(src + MESSAGE_HEADER, maskInt, mask, length - MESSAGE_HEADER);
                 rotateMask(4 - (length - MESSAGE_HEADER) % 4, wState->mask);
             }
             Impl::handleFragment(src + MESSAGE_HEADER, length - MESSAGE_HEADER, wState->remainingBytes, wState->state.opCode[wState->state.opStack], fin, wState, user);
@@ -498,8 +521,7 @@ protected:
                     if /*constexpr*/ (LIBUS_RECV_BUFFER_LENGTH == length) {
                         unmaskAll(src, wState->mask);
                     } else {
-                        // Slow path
-                        unmaskInplace(src, src + ((length >> 2) + 1) * 4, wState->mask);
+                        unmaskPreciseInplace(src, length, wState->mask);
                     }
                 }
             }
