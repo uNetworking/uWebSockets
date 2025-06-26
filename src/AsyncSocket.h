@@ -26,6 +26,7 @@
 
 #include <cstring>
 #include <iostream>
+#include <string.h>
 
 #include "libusockets.h"
 
@@ -212,6 +213,12 @@ protected:
             ipLength = snprintf(buf, 64, "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
                 b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11],
                 b[12], b[13], b[14], b[15]);
+            // ip4 127.0.0.1 be converted to ip6 0000:0000:0000:0000:0000:ffff:7f00:0001
+            // following code will check the prefix convert ip6 back to ip4 if ip is ip4
+            const char* IPV6_IPV4_MAPPED_PREFIX="0000:0000:0000:0000:0000:ffff:";
+            if (0 == memcmp(buf, IPV6_IPV4_MAPPED_PREFIX, strlen(IPV6_IPV4_MAPPED_PREFIX))) {
+                ipLength = snprintf(buf, 64, "%u.%u.%u.%u", b[12], b[13], b[14], b[15]);
+            }
         }
 
         return {buf, (unsigned int) ipLength};
