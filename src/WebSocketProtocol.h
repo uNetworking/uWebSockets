@@ -25,7 +25,7 @@
 #include <cstdlib>
 #include <string_view>
 
-#ifdef ENABLE_SIMD_UTF8
+#ifdef UWS_USE_SIMDUTF
   #include <simdutf.h>
 #endif
 
@@ -115,7 +115,7 @@ T cond_byte_swap(T value) {
     return value;
 }
 
-#ifdef ENABLE_SIMD_UTF8
+#ifdef UWS_USE_SIMDUTF
 
 static bool isValidUtf8(unsigned char *s, size_t length)
 {
