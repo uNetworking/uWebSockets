@@ -190,6 +190,18 @@ public:
         }
     }
 
+    /* Access to parameter names, not used internally */
+    std::vector<std::string> getParameterNames() const {
+        if (!currentParameterOffsets) {
+            return {};
+        }
+        std::vector<std::string> names;
+        names.reserve(currentParameterOffsets->size());
+        for (const auto& it : *currentParameterOffsets) {
+            names.push_back(it.first);
+        }
+        return names;
+    }
 };
 
 struct HttpParser {
