@@ -25,6 +25,10 @@
 #include <cstdlib>
 #include <string_view>
 
+#ifdef UWS_USE_SIMDUTF
+  #include <simdutf.h>
+#endif
+
 namespace uWS {
 
 /* We should not overcomplicate these */
@@ -113,6 +117,14 @@ T cond_byte_swap(T value) {
     return value;
 }
 
+#ifdef UWS_USE_SIMDUTF
+
+static bool isValidUtf8(unsigned char *s, size_t length)
+{
+    return simdutf::validate_utf8((const char *)s, length);
+}
+
+#else
 // Based on utf8_check.c by Markus Kuhn, 2005
 // https://www.cl.cam.ac.uk/~mgk25/ucs/utf8_check.c
 // Optimized for predominantly 7-bit content by Alex Hultman, 2016
@@ -159,6 +171,8 @@ static bool isValidUtf8(unsigned char *s, size_t length)
     }
     return true;
 }
+
+#endif
 
 struct CloseFrame {
     uint16_t code;
