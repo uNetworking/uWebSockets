@@ -5,11 +5,11 @@
 #include <iostream>
 
 int main() {
-    uWS::ClientApp app({
+    uWS::ClientApp app(uWS::WebSocketClientBehavior{
         .open = [](/*auto *ws*/) {
             std::cout << "Hello and welcome to client" << std::endl;
         },
-        .message = [](/*auto *ws, auto message*/) {
+        .message = [](std::string_view) {
 
         },
         .close = [](/*auto *ws*/) {
