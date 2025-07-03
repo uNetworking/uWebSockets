@@ -9,6 +9,8 @@
 #include <cstring>
 #include <type_traits>
 
+#include <iostream>
+
 namespace uWS {
 
 struct WebSocketClientBehavior {
@@ -59,6 +61,8 @@ class ClientApp {
     }
 
     static struct us_socket_t *onOpen(struct us_socket_t *s, int is_client, char *ip, int ip_length) {
+        std::cout << "WebSocket client connected to (" << ip_length << "): " << std::string_view(ip, ip_length) << '\n' << std::endl;
+
         ClientApp *self = get(s);
         self->socket = s;
         unsigned char rnd[16];
@@ -72,11 +76,17 @@ class ClientApp {
         req += "Upgrade: websocket\r\nConnection: Upgrade\r\n";
         req += "Sec-WebSocket-Key: " + self->secKey + "\r\n";
         req += "Sec-WebSocket-Version: 13\r\n\r\n";
+
+        std::cout << "Sending handshake request:\n" << req << '\n' << std::endl;
+
         us_socket_write(0, s, req.c_str(), (int) req.length(), 0);
+        
         return s;
     }
 
     static struct us_socket_t *onData(struct us_socket_t *s, char *data, int length) {
+        std::cout << "WebSocket client received data:\n" << std::string_view(data, length) << '\n' << std::endl;
+
         ClientApp *self = get(s);
         self->recvBuffer.append(data, length);
         if (!self->handshakeDone) {
@@ -87,14 +97,16 @@ class ClientApp {
                 if (headers.find("101") != std::string::npos) {
                     char accept[28];
                     WebSocketHandshake::generate(self->secKey.c_str(), accept);
-                    std::string acceptHdr = std::string("Sec-WebSocket-Accept: ") + accept;
+                    std::string acceptHdr = std::string("Sec-WebSocket-Accept: ") + std::string(accept, 28) + "\r\n";
                     if (headers.find(acceptHdr) != std::string::npos) {
                         self->handshakeDone = true;
                         if (self->behavior.open) self->behavior.open();
                     } else {
+                        std::cout << "Não achei o accept header esperado (" << acceptHdr.size() << ") \"" << acceptHdr << "\", por isso encerrando..." << std::endl;
                         us_socket_close(0, s, 0, nullptr);
                     }
                 } else {
+                    std::cout << "Não achei o \"101\", por isso encerrando..." << std::endl;
                     us_socket_close(0, s, 0, nullptr);
                 }
             }
@@ -130,6 +142,8 @@ class ClientApp {
     }
 
     static struct us_socket_t *onClose(struct us_socket_t *s, int code, void *reason) {
+        std::cout << "WebSocket client closed connection with code: " << code << '\n' << std::endl;
+
         ClientApp *self = get(s);
         if (self->behavior.close) self->behavior.close();
         return s;
