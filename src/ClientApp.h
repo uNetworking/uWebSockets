@@ -1,160 +1,235 @@
-#pragma once
-#include "Loop.h"
-#include "MoveOnlyFunction.h"
-#include "WebSocketHandshake.h"
-#include <string>
-#include <string_view>
-#include <vector>
-#include <random>
-#include <cstring>
-#include <type_traits>
+#ifndef UWS_CLI_APP_H
+#define UWS_CLI_APP_H
 
-#include <iostream>
+#include <string>
+#include <charconv>
+#include <string_view>
+
+/* An app is a convenience wrapper of some of the most used fuctionalities and allows a
+ * builder-pattern kind of init. Apps operate on the implicit thread local Loop */
+
+#include "HttpContext.h"
+#include "HttpResponse.h"
+#include "WebSocketContext.h"
+#include "WebSocket.h"
+#include "PerMessageDeflate.h"
 
 namespace uWS {
 
-struct WebSocketClientBehavior {
-    MoveOnlyFunction<void()> open;
-    MoveOnlyFunction<void(std::string_view)> message;
-    MoveOnlyFunction<void()> close;
-};
+    /* This one matches us_socket_context_options_t but has default values */
+    struct SocketContextOptions {
+        const char *key_file_name = nullptr;
+        const char *cert_file_name = nullptr;
+        const char *passphrase = nullptr;
+        const char *dh_params_file_name = nullptr;
+        const char *ca_file_name = nullptr;
+        const char *ssl_ciphers = nullptr;
+        int ssl_prefer_low_memory_usage = 0;
 
-class ClientApp {
-    struct us_socket_context_t *context = nullptr;
-    struct us_socket_t *socket = nullptr;
-    std::string host;
+        /* Conversion operator used internally */
+        operator struct us_socket_context_options_t() const {
+            struct us_socket_context_options_t socket_context_options;
+            memcpy(&socket_context_options, this, sizeof(SocketContextOptions));
+            return socket_context_options;
+        }
+    };
+
+    static_assert(sizeof(struct us_socket_context_options_t) == sizeof(SocketContextOptions), "Mismatching uSockets/uWebSockets ABI");
+    
+template <bool SSL>
+struct TemplatedClientApp {
+private:
+    /* The app always owns at least one http context, but creates websocket contexts on demand */
+    HttpContext<SSL> *httpContext;
+    
+    char webSocketKey[24];
+    bool handshakeSent = false;
+
+    int port;
     std::string path;
-    int port = 80;
-    WebSocketClientBehavior behavior;
-    std::string recvBuffer;
-    std::string secKey;
-    bool handshakeDone = false;
-
-    static std::string base64(const unsigned char *src, size_t len) {
-        static const char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        std::string out;
-        out.resize(((len + 2) / 3) * 4);
-        size_t i, j;
-        for (i = 0, j = 0; i + 2 < len; i += 3) {
-            out[j++] = b64[(src[i] >> 2) & 63];
-            out[j++] = b64[((src[i] & 3) << 4) | ((src[i + 1] & 0xf0) >> 4)];
-            out[j++] = b64[((src[i + 1] & 0x0f) << 2) | ((src[i + 2] & 0xc0) >> 6)];
-            out[j++] = b64[src[i + 2] & 63];
-        }
-        if (i < len) {
-            out[j++] = b64[(src[i] >> 2) & 63];
-            if (i + 1 < len) {
-                out[j++] = b64[((src[i] & 3) << 4) | ((src[i + 1] & 0xf0) >> 4)];
-                out[j++] = b64[(src[i + 1] & 0x0f) << 2];
-                out[j++] = '=';
-            } else {
-                out[j++] = b64[(src[i] & 3) << 4];
-                out[j++] = '=';
-                out[j++] = '=';
-            }
-        }
-        return out;
-    }
-
-    static ClientApp *get(struct us_socket_t *s) {
-        return *(ClientApp **) us_socket_context_ext(0, us_socket_context(0, s));
-    }
-
-    static struct us_socket_t *onOpen(struct us_socket_t *s, int is_client, char *ip, int ip_length) {
-        std::cout << "WebSocket client connected to (" << ip_length << "): " << std::string_view(ip, ip_length) << '\n' << std::endl;
-
-        ClientApp *self = get(s);
-        self->socket = s;
-        unsigned char rnd[16];
-        std::random_device rd;
-        for (int i = 0; i < 16; i++) {
-            rnd[i] = rd();
-        }
-        self->secKey = base64(rnd, 16);
-        std::string req = "GET " + self->path + " HTTP/1.1\r\n";
-        req += "Host: " + self->host + "\r\n";
-        req += "Upgrade: websocket\r\nConnection: Upgrade\r\n";
-        req += "Sec-WebSocket-Key: " + self->secKey + "\r\n";
-        req += "Sec-WebSocket-Version: 13\r\n\r\n";
-
-        std::cout << "Sending handshake request:\n" << req << '\n' << std::endl;
-
-        us_socket_write(0, s, req.c_str(), (int) req.length(), 0);
-        
-        return s;
-    }
-
-    static struct us_socket_t *onData(struct us_socket_t *s, char *data, int length) {
-        std::cout << "WebSocket client received data:\n" << std::string_view(data, length) << '\n' << std::endl;
-
-        ClientApp *self = get(s);
-        self->recvBuffer.append(data, length);
-        if (!self->handshakeDone) {
-            auto pos = self->recvBuffer.find("\r\n\r\n");
-            if (pos != std::string::npos) {
-                std::string headers = self->recvBuffer.substr(0, pos + 4);
-                self->recvBuffer.erase(0, pos + 4);
-                if (headers.find("101") != std::string::npos) {
-                    char accept[28];
-                    WebSocketHandshake::generate(self->secKey.c_str(), accept);
-                    std::string acceptHdr = std::string("Sec-WebSocket-Accept: ") + std::string(accept, 28) + "\r\n";
-                    if (headers.find(acceptHdr) != std::string::npos) {
-                        self->handshakeDone = true;
-                        if (self->behavior.open) self->behavior.open();
-                    } else {
-                        std::cout << "Não achei o accept header esperado (" << acceptHdr.size() << ") \"" << acceptHdr << "\", por isso encerrando..." << std::endl;
-                        us_socket_close(0, s, 0, nullptr);
-                    }
-                } else {
-                    std::cout << "Não achei o \"101\", por isso encerrando..." << std::endl;
-                    us_socket_close(0, s, 0, nullptr);
-                }
-            }
-            return s;
-        }
-        if (self->recvBuffer.size() >= 2) {
-            unsigned char b0 = self->recvBuffer[0];
-            unsigned char b1 = self->recvBuffer[1];
-            bool fin = b0 & 0x80;
-            unsigned char op = b0 & 0x0f;
-            size_t offset = 2;
-            uint64_t len64 = b1 & 0x7f;
-            if (len64 == 126) {
-                if (self->recvBuffer.size() < offset + 2) return s;
-                len64 = ((unsigned char)self->recvBuffer[offset] << 8) | (unsigned char)self->recvBuffer[offset + 1];
-                offset += 2;
-            } else if (len64 == 127) {
-                if (self->recvBuffer.size() < offset + 8) return s;
-                len64 = 0;
-                for (int i = 0; i < 8; i++) {
-                    len64 = (len64 << 8) | (unsigned char)self->recvBuffer[offset + i];
-                }
-                offset += 8;
-            }
-            if (self->recvBuffer.size() < offset + len64) return s;
-            std::string_view msg(self->recvBuffer.data() + offset, len64);
-            if (op == 1 && self->behavior.message) {
-                self->behavior.message(msg);
-            }
-            self->recvBuffer.erase(0, offset + len64);
-        }
-        return s;
-    }
-
-    static struct us_socket_t *onClose(struct us_socket_t *s, int code, void *reason) {
-        std::cout << "WebSocket client closed connection with code: " << code << '\n' << std::endl;
-
-        ClientApp *self = get(s);
-        if (self->behavior.close) self->behavior.close();
-        return s;
-    }
+    std::string host;
 
 public:
-    template <class T, typename = std::enable_if_t<!std::is_same_v<std::decay_t<T>, ClientApp>>>
-    ClientApp(T &&behavior) : behavior(std::forward<T>(behavior)) {}
 
-    ClientApp &&connect(std::string url, std::string protocol = "") {
-        if (url.rfind("ws://", 0) == 0) {
+    TemplatedClientApp(SocketContextOptions options = {}) {
+        httpContext = HttpContext<SSL>::create(Loop::get(), options);
+    }
+
+    bool constructorFailed() {
+        return !httpContext;
+    }
+
+    template <typename UserData>
+    struct WebSocketBehavior {
+        /* Disabled compression by default - probably a bad default */
+        CompressOptions compression = DISABLED;
+        /* Maximum message size we can receive */
+        unsigned int maxPayloadLength = 16 * 1024;
+        /* 2 minutes timeout is good */
+        unsigned short idleTimeout = 120;
+        /* 64kb backpressure is probably good */
+        unsigned int maxBackpressure = 64 * 1024;
+        bool closeOnBackpressureLimit = false;
+        /* This one depends on kernel timeouts and is a bad default */
+        bool resetIdleTimeoutOnSend = false;
+        /* A good default, esp. for newcomers */
+        bool sendPingsAutomatically = true;
+        /* Maximum socket lifetime in minutes before forced closure (defaults to disabled) */
+        unsigned short maxLifetime = 0;
+        MoveOnlyFunction<void(HttpResponse<SSL> *, HttpRequest *, struct us_socket_context_t *)> upgrade = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> open = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view, OpCode)> message = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view, OpCode)> dropped = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *)> drain = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view)> ping = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view)> pong = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, std::string_view, int, int)> subscription = nullptr;
+        MoveOnlyFunction<void(WebSocket<SSL, true, UserData> *, int, std::string_view)> close = nullptr;
+    };
+
+    template <typename UserData>
+    TemplatedClientApp &&ws(WebSocketBehavior<UserData> &&behavior) {
+        /* Don't compile if alignment rules cannot be satisfied */
+        static_assert(alignof(UserData) <= LIBUS_EXT_ALIGNMENT,
+        "µWebSockets cannot satisfy UserData alignment requirements. You need to recompile µSockets with LIBUS_EXT_ALIGNMENT adjusted accordingly.");
+
+        if (!httpContext) {
+            return std::move(static_cast<TemplatedClientApp &&>(*this));
+        }
+
+        /* Terminate on misleading idleTimeout values */
+        if (behavior.idleTimeout && behavior.idleTimeout < 8) {
+            std::cerr << "Error: idleTimeout must be either 0 or greater than 8!" << std::endl;
+            std::terminate();
+        }
+
+        /* Maximum idleTimeout is 16 minutes */
+        if (behavior.idleTimeout > 240 * 4) {
+            std::cerr << "Error: idleTimeout must not be greater than 960 seconds!" << std::endl;
+            std::terminate();
+        }
+
+        /* Maximum maxLifetime is 4 hours */
+        if (behavior.maxLifetime > 240) {
+            std::cerr << "Error: maxLifetime must not be greater than 240 minutes!" << std::endl;
+            std::terminate();
+        }
+
+        auto *webSocketContext = WebSocketContext<SSL, true, UserData>::create(Loop::get(), (us_socket_context_t *) httpContext, nullptr);
+
+        /* Quick fix to disable any compression if set */
+#ifdef UWS_NO_ZLIB
+        behavior.compression = DISABLED;
+#endif
+
+        /* If we are the first one to use compression, initialize it */
+        if (behavior.compression) {
+            LoopData *loopData = (LoopData *) us_loop_ext(us_socket_context_loop(SSL, webSocketContext->getSocketContext()));
+
+            /* Initialize loop's deflate inflate streams */
+            if (!loopData->zlibContext) {
+                loopData->zlibContext = new ZlibContext;
+                loopData->inflationStream = new InflationStream(CompressOptions::DEDICATED_DECOMPRESSOR);
+                loopData->deflationStream = new DeflationStream(CompressOptions::DEDICATED_COMPRESSOR);
+            }
+        }
+
+        /* Copy all handlers */
+        webSocketContext->getExt()->openHandler = std::move(behavior.open);
+        webSocketContext->getExt()->messageHandler = std::move(behavior.message);
+        webSocketContext->getExt()->droppedHandler = std::move(behavior.dropped);
+        webSocketContext->getExt()->drainHandler = std::move(behavior.drain);
+        webSocketContext->getExt()->subscriptionHandler = std::move(behavior.subscription);
+        webSocketContext->getExt()->closeHandler = std::move(behavior.close);
+        webSocketContext->getExt()->pingHandler = std::move(behavior.ping);
+        webSocketContext->getExt()->pongHandler = std::move(behavior.pong);
+
+        /* Copy settings */
+        webSocketContext->getExt()->maxPayloadLength = behavior.maxPayloadLength;
+        webSocketContext->getExt()->maxBackpressure = behavior.maxBackpressure;
+        webSocketContext->getExt()->closeOnBackpressureLimit = behavior.closeOnBackpressureLimit;
+        webSocketContext->getExt()->resetIdleTimeoutOnSend = behavior.resetIdleTimeoutOnSend;
+        webSocketContext->getExt()->sendPingsAutomatically = behavior.sendPingsAutomatically;
+        webSocketContext->getExt()->maxLifetime = behavior.maxLifetime;
+        webSocketContext->getExt()->compression = behavior.compression;
+
+        /* Calculate idleTimeoutCompnents */
+        webSocketContext->getExt()->calculateIdleTimeoutCompnents(behavior.idleTimeout);
+
+        /* 
+         * Filter is called only when the connection opens (event = 1) or 
+         * closes (event = -1) of the socket. So we set a filter to send 
+         * the initial websocket handshake once the server connection is open. 
+         */
+        httpContext->filter([ this ](HttpResponse<SSL> *res, int event) {
+            if (event == 1) {
+                /* Connection established */
+
+                if (!this->handshakeSent) {
+                    this->handshakeSent = true;
+
+                    /* Writes a new key to "this->webSocketKey" */
+                    WebSocketHandshake::generateKey(this->webSocketKey);
+
+                    res->writeInitHandshake(this->host, this->path, this->webSocketKey);
+                }
+            } else if (event == -1) {
+                /* Connection closed */
+                if (this->handshakeSent) {
+                    this->handshakeSent = false;
+                }
+            }
+        });
+        
+        /* Creates a "fake" route to handle the server initial handshake response. */
+        httpContext->onHttp("HTTP/1.1", "101", [this, webSocketContext, behavior = std::move(behavior)](HttpResponse<SSL> *res, HttpRequest *req) mutable {
+            
+            /* If we have this header set, it's a websocket handshake response */
+            std::string_view secWebSocketAccept = req->getHeader("sec-websocket-accept");
+            if (secWebSocketAccept.length() != 28) {
+                /* Tell the router that we did not handle this request */
+                req->setYield(true);
+                return;
+            }
+            
+            char expectedSecWebSocketAccept[29] = {};
+            WebSocketHandshake::generate(this->webSocketKey, expectedSecWebSocketAccept);
+            if (memcmp(secWebSocketAccept.data(), expectedSecWebSocketAccept, 28) != 0) {
+                /* Tell the router that we did not handle this request */
+                req->setYield(true);
+                return;
+            }
+
+            /* Emit upgrade handler */
+            if (behavior.upgrade) {
+                behavior.upgrade(res, req, (struct us_socket_context_t *) webSocketContext);
+            } else {
+                /* Default handler upgrades to WebSocket */
+                res->template upgrade<UserData>(
+                    {}, 
+                    {}, 
+                    req->getHeader("sec-websocket-protocol"), 
+                    req->getHeader("sec-websocket-extensions"), 
+                    (struct us_socket_context_t *) webSocketContext,
+                    true
+                );
+            }
+
+            /* We are going to get uncorked by the Http get return */
+
+            /* We do not need to check for any close or shutdown here as we immediately return from get handler */
+
+        }, true);
+        
+        return std::move(static_cast<TemplatedClientApp &&>(*this));
+    }
+
+    TemplatedClientApp &&connect(std::string url) {
+        /* Parses the URL setting "host", "path" and "port" */
+        port = SSL ? 443 : 80;
+        if (url.rfind("wss://", 0) == 0) {
+            url = url.substr(6);
+        } else if (url.rfind("ws://", 0) == 0) {
             url = url.substr(5);
         }
         size_t slash = url.find('/');
@@ -166,22 +241,29 @@ public:
             port = std::stoi(hostPort.substr(colon + 1));
         } else {
             host = hostPort;
-            port = 80;
         }
 
-        struct us_socket_context_options_t options = {};
-        context = us_create_socket_context(0, (us_loop_t *) Loop::get(), sizeof(ClientApp *), options);
-        *(ClientApp **) us_socket_context_ext(0, context) = this;
-        us_socket_context_on_open(0, context, onOpen);
-        us_socket_context_on_data(0, context, onData);
-        us_socket_context_on_close(0, context, onClose);
-        us_socket_context_connect(0, context, host.c_str(), port, nullptr, 0, 0);
-        return std::move(*this);
+        std::cout << "SSL= " << SSL << std::endl;
+        std::cout << "host= " << host << std::endl;
+        std::cout << "port= " << port << std::endl;
+
+        /* Connect the socket */
+        httpContext->connect(host.c_str(), port, 0);
+
+        return std::move(static_cast<TemplatedClientApp &&>(*this));
     }
 
-    void run() {
-        Loop::get()->run();
+    TemplatedClientApp &&run() {
+        uWS::run();
+        return std::move(static_cast<TemplatedClientApp &&>(*this));
     }
 };
 
+};
+
+namespace uWS {
+    typedef uWS::TemplatedClientApp<false> CliApp;
+    typedef uWS::TemplatedClientApp<true> CliSSLApp;
 }
+
+#endif // UWS_CLI_APP_H

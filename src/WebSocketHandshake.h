@@ -20,8 +20,15 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <sys/random.h>
 
 namespace uWS {
+
+// Shared Base64 character table (file-scope internal linkage)
+static const char base64_table[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz"
+    "0123456789+/";
 
 struct WebSocketHandshake {
     template <int N, typename T>
@@ -98,18 +105,39 @@ struct WebSocketHandshake {
         static_for<5, Sha1Loop6>()(a, hash);
     }
 
-    static inline void base64(unsigned char *src, char *dst) {
-        const char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        for (int i = 0; i < 18; i += 3) {
-            *dst++ = b64[(src[i] >> 2) & 63];
-            *dst++ = b64[((src[i] & 3) << 4) | ((src[i + 1] & 240) >> 4)];
-            *dst++ = b64[((src[i + 1] & 15) << 2) | ((src[i + 2] & 192) >> 6)];
-            *dst++ = b64[src[i + 2] & 63];
+    // Base64-encode an arbitrary length (multiple of 3) chunk
+    static inline void base64Encode(const unsigned char *src, size_t len, char *dst) {
+        size_t i = 0;
+        for (; i + 2 < len; i += 3) {
+            unsigned v = (src[i] << 16) | (src[i+1] << 8) | src[i+2];
+            *dst++ = base64_table[v >> 18];
+            *dst++ = base64_table[(v >> 12) & 0x3F];
+            *dst++ = base64_table[(v >> 6)  & 0x3F];
+            *dst++ = base64_table[v & 0x3F];
         }
-        *dst++ = b64[(src[18] >> 2) & 63];
-        *dst++ = b64[((src[18] & 3) << 4) | ((src[19] & 240) >> 4)];
-        *dst++ = b64[((src[19] & 15) << 2)];
-        *dst++ = '=';
+        // handle padding
+        if (i < len) {
+            unsigned v = src[i] << 16;
+            if (i+1 < len) v |= src[i+1] << 8;
+            *dst++ = base64_table[v >> 18];
+            *dst++ = base64_table[(v >> 12) & 0x3F];
+            *dst++ = (i+1 < len) ? base64_table[(v >> 6) & 0x3F] : '=';
+            *dst++ = '=';
+        }
+    }
+
+    // Fill buffer with randomness via getrandom()
+    static inline bool fillRandom(unsigned char *buf, size_t len) {
+        size_t got = 0;
+        while (got < len) {
+            ssize_t n = getrandom(buf + got, len - got, 0);
+            if (n < 0) {
+                if (errno == EINTR) continue;
+                return false;
+            }
+            got += static_cast<size_t>(n);
+        }
+        return true;
     }
 
 public:
@@ -136,7 +164,29 @@ public:
             bytes[1] = (char) ((tmp >> 16) & 0xff);
             bytes[0] = (char) ((tmp >> 24) & 0xff);
         }
-        base64((unsigned char *) b_output, output);
+        base64Encode((unsigned char *) b_output, 20, output);
+    }
+
+    /**
+     * Generate a new Sec-WebSocket-Key: random 16 bytes → 24-char Base64
+     * output must be at least 24 chars (no null terminator added)
+     * returns true on success
+     */
+    static inline bool generateKey(unsigned char key[16], char output[24]) {
+        if (!fillRandom(key, 16)) {
+            return false;
+        }
+        base64Encode(key, 16, output);
+        return true;
+    }
+    
+    static inline bool generateKey(char output[24]) {
+        unsigned char key[16];
+        if (!fillRandom(key, 16)) {
+            return false;
+        }
+        base64Encode(key, 16, output);
+        return true;
     }
 };
 

@@ -36,6 +36,7 @@ template<bool> struct HttpResponse;
 template <bool SSL>
 struct HttpContext {
     template<bool> friend struct TemplatedApp;
+    template<bool> friend struct TemplatedClientApp;
     template<bool> friend struct HttpResponse;
 private:
     HttpContext() = delete;
@@ -110,6 +111,8 @@ private:
         /* Handle HTTP data streams */
         us_socket_context_on_data(SSL, getSocketContext(), [](us_socket_t *s, char *data, int length) {
 
+            std::cout << "Server received:\n" << std::string_view{ data, (size_t)length } << '\n' << std::endl;
+
             // total overhead is about 210k down to 180k
             // ~210k req/sec is the original perf with write in data
             // ~200k req/sec is with cork and formatting
@@ -140,119 +143,125 @@ private:
 #endif
 
             /* The return value is entirely up to us to interpret. The HttpParser only care for whether the returned value is DIFFERENT or not from passed user */
-            auto [err, returnedSocket] = httpResponseData->consumePostPadded(data, (unsigned int) length, s, proxyParser, [httpContextData](void *s, HttpRequest *httpRequest) -> void * {
-                /* For every request we reset the timeout and hang until user makes action */
-                /* Warning: if we are in shutdown state, resetting the timer is a security issue! */
-                us_socket_timeout(SSL, (us_socket_t *) s, 0);
+            auto [err, returnedSocket] = httpResponseData->consumePostPadded(data, (unsigned int) length, s, proxyParser, 
+                [httpContextData](void *s, HttpRequest *httpRequest) -> void * {
+                    /* For every request we reset the timeout and hang until user makes action */
+                    /* Warning: if we are in shutdown state, resetting the timer is a security issue! */
+                    us_socket_timeout(SSL, (us_socket_t *) s, 0);
 
-                /* Reset httpResponse */
-                HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_socket_ext(SSL, (us_socket_t *) s);
-                httpResponseData->offset = 0;
+                    /* Reset httpResponse */
+                    HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) us_socket_ext(SSL, (us_socket_t *) s);
+                    httpResponseData->offset = 0;
 
-                /* Are we not ready for another request yet? Terminate the connection.
-                 * Important for denying async pipelining until, if ever, we want to suppot it.
-                 * Otherwise requests can get mixed up on the same connection. We still support sync pipelining. */
-                if (httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) {
-                    us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
-                    return nullptr;
-                }
-
-                /* Mark pending request and emit it */
-                httpResponseData->state = HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
-
-                /* Mark this response as connectionClose if ancient or connection: close */
-                if (httpRequest->isAncient() || httpRequest->getHeader("connection").length() == 5) {
-                    httpResponseData->state |= HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE;
-                }
-
-                /* Select the router based on SNI (only possible for SSL) */
-                auto *selectedRouter = &httpContextData->router;
-                if constexpr (SSL) {
-                    void *domainRouter = us_socket_server_name_userdata(SSL, (struct us_socket_t *) s);
-                    if (domainRouter) {
-                        selectedRouter = (decltype(selectedRouter)) domainRouter;
+                    /* Are we not ready for another request yet? Terminate the connection.
+                    * Important for denying async pipelining until, if ever, we want to suppot it.
+                    * Otherwise requests can get mixed up on the same connection. We still support sync pipelining. */
+                    if (httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) {
+                        us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
+                        return nullptr;
                     }
-                }
 
-                /* Route the method and URL */
-                selectedRouter->getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
-                if (!selectedRouter->route(httpRequest->getCaseSensitiveMethod(), httpRequest->getUrl())) {
-                    /* We have to force close this socket as we have no handler for it */
-                    us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
-                    return nullptr;
-                }
+                    /* Mark pending request and emit it (if server) */
+                    // if (!httpRequest->isHandshakeResponse()) {
+                    //     httpResponseData->state = HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
+                    // }
+                    httpResponseData->state = HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
 
-                /* First of all we need to check if this socket was deleted due to upgrade */
-                if (httpContextData->upgradedWebSocket) {
-                    /* We differ between closed and upgraded below */
-                    return nullptr;
-                }
+                    /* Mark this response as connectionClose if ancient or connection: close */
+                    if (httpRequest->isAncient() || httpRequest->getHeader("connection").length() == 5) {
+                        httpResponseData->state |= HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE;
+                    }
 
-                /* Was the socket closed? */
-                if (us_socket_is_closed(SSL, (struct us_socket_t *) s)) {
-                    return nullptr;
-                }
-
-                /* We absolutely have to terminate parsing if shutdown */
-                if (us_socket_is_shut_down(SSL, (us_socket_t *) s)) {
-                    return nullptr;
-                }
-
-                /* Returning from a request handler without responding or attaching an onAborted handler is ill-use */
-                if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted) {
-                    /* Throw exception here? */
-                    std::cerr << "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!" << std::endl;
-                    std::terminate();
-                }
-
-                /* If we have not responded and we have a data handler, we need to timeout to enfore client sending the data */
-                if (!((HttpResponse<SSL> *) s)->hasResponded() && httpResponseData->inStream) {
-                    us_socket_timeout(SSL, (us_socket_t *) s, HTTP_IDLE_TIMEOUT_S);
-                }
-
-                /* Continue parsing */
-                return s;
-
-            }, [httpResponseData](void *user, std::string_view data, bool fin) -> void * {
-                /* We always get an empty chunk even if there is no data */
-                if (httpResponseData->inStream) {
-
-                    /* Todo: can this handle timeout for non-post as well? */
-                    if (fin) {
-                        /* If we just got the last chunk (or empty chunk), disable timeout */
-                        us_socket_timeout(SSL, (struct us_socket_t *) user, 0);
-                    } else {
-                        /* We still have some more data coming in later, so reset timeout */
-                        /* Only reset timeout if we got enough bytes (16kb/sec) since last time we reset here */
-                        httpResponseData->received_bytes_per_timeout += (unsigned int) data.length();
-                        if (httpResponseData->received_bytes_per_timeout >= HTTP_RECEIVE_THROUGHPUT_BYTES * HTTP_IDLE_TIMEOUT_S) {
-                            us_socket_timeout(SSL, (struct us_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
-                            httpResponseData->received_bytes_per_timeout = 0;
+                    /* Select the router based on SNI (only possible for SSL) */
+                    auto *selectedRouter = &httpContextData->router;
+                    if constexpr (SSL) {
+                        void *domainRouter = us_socket_server_name_userdata(SSL, (struct us_socket_t *) s);
+                        if (domainRouter) {
+                            selectedRouter = (decltype(selectedRouter)) domainRouter;
                         }
                     }
-
-                    /* We might respond in the handler, so do not change timeout after this */
-                    httpResponseData->inStream(data, fin);
-
+                    
+                    /* Route the method and URL (if server) */
+                    selectedRouter->getUserData() = {(HttpResponse<SSL> *) s, httpRequest};
+                    if (!selectedRouter->route(httpRequest->getCaseSensitiveMethod(), httpRequest->getUrl())) {
+                        /* We have to force close this socket as we have no handler for it */
+                        us_socket_close(SSL, (us_socket_t *) s, 0, nullptr);
+                        return nullptr;
+                    }
+                    
+                    /* First of all we need to check if this socket was deleted due to upgrade */
+                    if (httpContextData->upgradedWebSocket) {
+                        /* We differ between closed and upgraded below */
+                        return nullptr;
+                    }
+                    
                     /* Was the socket closed? */
-                    if (us_socket_is_closed(SSL, (struct us_socket_t *) user)) {
+                    if (us_socket_is_closed(SSL, (struct us_socket_t *) s)) {
                         return nullptr;
                     }
-
+                    
                     /* We absolutely have to terminate parsing if shutdown */
-                    if (us_socket_is_shut_down(SSL, (us_socket_t *) user)) {
+                    if (us_socket_is_shut_down(SSL, (us_socket_t *) s)) {
                         return nullptr;
                     }
-
-                    /* If we were given the last data chunk, reset data handler to ensure following
-                     * requests on the same socket won't trigger any previously registered behavior */
-                    if (fin) {
-                        httpResponseData->inStream = nullptr;
+                    
+                    /* Returning from a request handler without responding or attaching an onAborted handler is ill-use */
+                    if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted) {
+                        /* Throw exception here? */
+                        std::cerr << "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!" << std::endl;
+                        std::terminate();
                     }
-                }
-                return user;
-            });
 
+                    /* If we have not responded and we have a data handler, we need to timeout to enfore client sending the data */
+                    if (!((HttpResponse<SSL> *) s)->hasResponded() && httpResponseData->inStream) {
+                        us_socket_timeout(SSL, (us_socket_t *) s, HTTP_IDLE_TIMEOUT_S);
+                    }
+                    
+                    /* Continue parsing */
+                    return s;
+
+                }, 
+                [httpResponseData](void *user, std::string_view data, bool fin) -> void * {
+                    
+                    /* We always get an empty chunk even if there is no data */
+                    if (httpResponseData->inStream) {
+
+                        /* Todo: can this handle timeout for non-post as well? */
+                        if (fin) {
+                            /* If we just got the last chunk (or empty chunk), disable timeout */
+                            us_socket_timeout(SSL, (struct us_socket_t *) user, 0);
+                        } else {
+                            /* We still have some more data coming in later, so reset timeout */
+                            /* Only reset timeout if we got enough bytes (16kb/sec) since last time we reset here */
+                            httpResponseData->received_bytes_per_timeout += (unsigned int) data.length();
+                            if (httpResponseData->received_bytes_per_timeout >= HTTP_RECEIVE_THROUGHPUT_BYTES * HTTP_IDLE_TIMEOUT_S) {
+                                us_socket_timeout(SSL, (struct us_socket_t *) user, HTTP_IDLE_TIMEOUT_S);
+                                httpResponseData->received_bytes_per_timeout = 0;
+                            }
+                        }
+
+                        /* We might respond in the handler, so do not change timeout after this */
+                        httpResponseData->inStream(data, fin);
+
+                        /* Was the socket closed? */
+                        if (us_socket_is_closed(SSL, (struct us_socket_t *) user)) {
+                            return nullptr;
+                        }
+
+                        /* We absolutely have to terminate parsing if shutdown */
+                        if (us_socket_is_shut_down(SSL, (us_socket_t *) user)) {
+                            return nullptr;
+                        }
+
+                        /* If we were given the last data chunk, reset data handler to ensure following
+                        * requests on the same socket won't trigger any previously registered behavior */
+                        if (fin) {
+                            httpResponseData->inStream = nullptr;
+                        }
+                    }
+                    return user;
+                });
+            
             /* Mark that we are no longer parsing Http */
             httpContextData->isParsingHttp = false;
 
@@ -318,6 +327,8 @@ private:
 
             /* It is okay to uncork a closed socket and we need to */
             ((AsyncSocket<SSL> *) s)->uncork();
+            
+            std::cout << "H3" << std::endl;
 
             /* We cannot return nullptr to the underlying stack in any case */
             return s;
@@ -487,6 +498,11 @@ public:
     /* Listen to unix domain socket using this HttpContext */
     us_listen_socket_t *listen(const char *path, int options) {
         return us_socket_context_listen_unix(SSL, getSocketContext(), path, options, sizeof(HttpResponseData<SSL>));
+    }
+
+    /* Connect to host and port using this HttpContext */
+    us_socket_t *connect(const char* host, int port, int options) {
+        return us_socket_context_connect(SSL, getSocketContext(), host, port, nullptr, options, sizeof(HttpResponseData<SSL>));
     }
 
     void onPreOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(struct us_socket_context_t *, LIBUS_SOCKET_DESCRIPTOR)) {

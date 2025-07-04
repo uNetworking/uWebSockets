@@ -38,6 +38,9 @@
 
 namespace uWS {
 
+/* Byte string for comparison */
+static const uint64_t BSTR_HTTP_1_1 = *(uint64_t*)"HTTP/1.1";
+
 /* We require at least this much post padding */
 static const unsigned int MINIMUM_HTTP_POST_PADDING = 32;
 static void *FULLPTR = (void *)~(uintptr_t)0;
@@ -67,6 +70,7 @@ private:
     BloomFilter bf;
     std::pair<int, std::string_view *> currentParameters;
     std::map<std::string, unsigned short, std::less<>> *currentParameterOffsets = nullptr;
+    bool handshakeResponse;
 
 public:
     bool isAncient() {
@@ -290,7 +294,7 @@ private:
     }
 
     /* Puts method as key, target as value and returns non-null (or nullptr on error). */
-    static inline char *consumeRequestLine(char *data, char *end, HttpRequest::Header &header) {
+    static inline char *consumeRequestLine(char *data, char *end, HttpRequest::Header &header, bool &handshakeResponse) {
         /* Scan until single SP, assume next is / (origin request) */
         char *start = data;
         /* This catches the post padded CR and fails */
@@ -298,7 +302,7 @@ private:
         if (&data[1] == end) [[unlikely]] {
             return nullptr;
         }
-        if (data[0] == 32 && data[1] == '/') [[likely]] {
+        if (data[0] == 32 && (data[1] == '/' || (data - start == 8 && *(uint64_t*)start == BSTR_HTTP_1_1))) [[likely]] {
             header.key = {start, (size_t) (data - start)};
             data++;
             /* Scan for less than 33 (catches post padded CR and fails) */
@@ -310,6 +314,18 @@ private:
                     while (*(unsigned char *)data > 32) data++;
                     /* Now we stand on space */
                     header.value = {start, (size_t) (data - start)};
+                    /* Check that the following is switching protocols */
+                    if (data + 22 >= end) {
+                        /* Whatever we have must be part of the http status string */
+                        if (memcmp(" Switching Protocols\r\n", data, std::min<unsigned int>(22, (unsigned int) (end - data))) == 0) {
+                            return nullptr;
+                        }
+                        return (char *) 0x1;
+                    }
+                    if (memcmp(" Switching Protocols\r\n", data, 22) == 0) {
+                        handshakeResponse = true;
+                        return data + 22;
+                    }
                     /* Check that the following is http 1.1 */
                     if (data + 11 >= end) {
                         /* Whatever we have must be part of the version string */
@@ -319,6 +335,7 @@ private:
                         return (char *) 0x1;
                     }
                     if (memcmp(" HTTP/1.1\r\n", data, 11) == 0) {
+                        handshakeResponse = false;
                         return data + 11;
                     }
                     /* If we stand at the post padded CR, we have fragmented input so try again later */
@@ -353,7 +370,7 @@ private:
     }
 
     /* End is only used for the proxy parser. The HTTP parser recognizes "\ra" as invalid "\r\n" scan and breaks. */
-    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved, unsigned int &err) {
+    static unsigned int getHeaders(char *postPaddedBuffer, char *end, struct HttpRequest::Header *headers, void *reserved, unsigned int &err, bool &handshakeResponse) {
         char *preliminaryKey, *preliminaryValue, *start = postPaddedBuffer;
 
         #ifdef UWS_WITH_PROXY
@@ -383,8 +400,29 @@ private:
          * which is then removed, and our counters to flip due to overflow and we end up with a crash */
 
         /* The request line is different from the field names / field values */
-        if ((char *) 2 > (postPaddedBuffer = consumeRequestLine(postPaddedBuffer, end, headers[0]))) {
+        if ((char *) 2 > (postPaddedBuffer = consumeRequestLine(postPaddedBuffer, end, headers[0], handshakeResponse))) {
             /* Error - invalid request line */
+
+            /* Handle handshake response errors */
+            if (handshakeResponse) {
+                if (*headers[0].value.data() == '4') {
+                    err = HTTP_RESPONSE_ERROR_4XX_CLIENT_ERROR;
+                } else if (*headers[0].value.data() == '5') {
+                    err = HTTP_RESPONSE_ERROR_5XX_SERVER_ERROR;
+                } else {
+                    err = HTTP_RESPONSE_UNKNOW_ERROR;
+                }
+
+                std::cerr << 
+                    "[E] WebScoket server did not accepted the handshake request." << 
+                    "Server response (An incomplete response here is not a problem):\n" << 
+                    std::string_view{headers[0].value.data(), (size_t)(end - headers[0].value.data())} << 
+                    '\n' << 
+                std::endl;
+                
+                return 0;
+            }
+
             /* Assuming it is 505 HTTP Version Not Supported */
             err = postPaddedBuffer ? HTTP_ERROR_505_HTTP_VERSION_NOT_SUPPORTED : 0;
             return 0;
@@ -485,7 +523,7 @@ private:
         data[length] = '\r';
         data[length + 1] = 'a'; /* Anything that is not \n, to trigger "invalid request" */
 
-        for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers, reserved, err)); ) {
+        for (unsigned int consumed; length && (consumed = getHeaders(data, data + length, req->headers, reserved, err, req->handshakeResponse)); ) {
             data += consumed;
             length -= consumed;
             consumedTotal += consumed;
@@ -510,8 +548,9 @@ private:
                 req->bf.add(h->key);
             }
             
-            /* Break if no host header (but we can have empty string which is different from nullptr) */
-            if (!req->getHeader("host").data()) {
+            /* Break if no host header (but we can have empty string which is different from nullptr)
+             * (Only if its not a server response) */
+            if ((!req->handshakeResponse) && (!req->getHeader("host").data())) {
                 return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
             }
 

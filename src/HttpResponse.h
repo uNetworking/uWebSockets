@@ -47,6 +47,7 @@ template <bool SSL>
 struct HttpResponse : public AsyncSocket<SSL> {
     /* Solely used for getHttpResponseData() */
     template <bool> friend struct TemplatedApp;
+    template <bool> friend struct TemplatedAppClient;
     typedef AsyncSocket<SSL> Super;
 private:
     HttpResponseData<SSL> *getHttpResponseData() {
@@ -239,72 +240,167 @@ public:
     template <typename UserData>
     void upgrade(UserData &&userData, std::string_view secWebSocketKey, std::string_view secWebSocketProtocol,
             std::string_view secWebSocketExtensions,
-            struct us_socket_context_t *webSocketContext) {
+            struct us_socket_context_t *webSocketContext,
+            const bool &isClient = false) {
 
         /* Extract needed parameters from WebSocketContextData */
         WebSocketContextData<SSL, UserData> *webSocketContextData = (WebSocketContextData<SSL, UserData> *) us_socket_context_ext(SSL, webSocketContext);
 
-        /* Note: OpenSSL can be used here to speed this up somewhat */
-        char secWebSocketAccept[29] = {};
-        WebSocketHandshake::generate(secWebSocketKey.data(), secWebSocketAccept);
-
-        writeStatus("101 Switching Protocols")
-            ->writeHeader("Upgrade", "websocket")
-            ->writeHeader("Connection", "Upgrade")
-            ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept);
-
-        /* Select first subprotocol if present */
-        if (secWebSocketProtocol.length()) {
-            writeHeader("Sec-WebSocket-Protocol", secWebSocketProtocol.substr(0, secWebSocketProtocol.find(',')));
-        }
-
-        /* Negotiate compression */
         bool perMessageDeflate = false;
         CompressOptions compressOptions = CompressOptions::DISABLED;
-        if (secWebSocketExtensions.length() && webSocketContextData->compression != DISABLED) {
 
-            /* Make sure to map SHARED_DECOMPRESSOR to windowBits = 0, not 1  */
-            int wantedInflationWindow = 0;
-            if ((webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) != CompressOptions::SHARED_DECOMPRESSOR) {
-                wantedInflationWindow = (webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) >> 8;
+        /* Note: OpenSSL can be used here to speed this up somewhat */
+        if (!isClient) {
+            char secWebSocketAccept[29] = {};
+            WebSocketHandshake::generate(secWebSocketKey.data(), secWebSocketAccept);
+
+            writeStatus("101 Switching Protocols")
+                ->writeHeader("Upgrade", "websocket")
+                ->writeHeader("Connection", "Upgrade")
+                ->writeHeader("Sec-WebSocket-Accept", secWebSocketAccept);
+
+            /* Select first subprotocol if present */
+            if (secWebSocketProtocol.length()) {
+                writeHeader("Sec-WebSocket-Protocol", secWebSocketProtocol.substr(0, secWebSocketProtocol.find(',')));
+            }
+            
+            /* Negotiate compression */
+            if (secWebSocketExtensions.length() && webSocketContextData->compression != DISABLED) {
+
+                /* Make sure to map SHARED_DECOMPRESSOR to windowBits = 0, not 1  */
+                int wantedInflationWindow = 0;
+                if ((webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) != CompressOptions::SHARED_DECOMPRESSOR) {
+                    wantedInflationWindow = (webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) >> 8;
+                }
+
+                /* Map from selected compressor (this automatically maps SHARED_COMPRESSOR to windowBits 0, not 1) */
+                int wantedCompressionWindow = (webSocketContextData->compression & CompressOptions::_COMPRESSOR_MASK) >> 4;
+
+                auto [negCompression, negCompressionWindow, negInflationWindow, negResponse] =
+                negotiateCompression(true, wantedCompressionWindow, wantedInflationWindow,
+                                            secWebSocketExtensions);
+
+                if (negCompression) {
+                    perMessageDeflate = true;
+
+                    /* Map from negotiated windowBits to compressor and decompressor */
+                    if (negCompressionWindow == 0) {
+                        compressOptions = CompressOptions::SHARED_COMPRESSOR;
+                    } else {
+                        compressOptions = (CompressOptions) ((uint32_t) (negCompressionWindow << 4)
+                                                            | (uint32_t) (negCompressionWindow - 7));
+
+                        /* If we are dedicated and have the 3kb then correct any 4kb to 3kb,
+                        * (they both share the windowBits = 9) */
+                        if (webSocketContextData->compression & DEDICATED_COMPRESSOR_3KB) {
+                            compressOptions = DEDICATED_COMPRESSOR_3KB;
+                        }
+                    }
+
+                    /* Here we modify the above compression with negotiated decompressor */
+                    if (negInflationWindow == 0) {
+                        compressOptions = CompressOptions(compressOptions | CompressOptions::SHARED_DECOMPRESSOR);
+                    } else {
+                        compressOptions = CompressOptions(compressOptions | (negInflationWindow << 8));
+                    }
+
+                    writeHeader("Sec-WebSocket-Extensions", negResponse);
+                }
             }
 
-            /* Map from selected compressor (this automatically maps SHARED_COMPRESSOR to windowBits 0, not 1) */
-            int wantedCompressionWindow = (webSocketContextData->compression & CompressOptions::_COMPRESSOR_MASK) >> 4;
-
-            auto [negCompression, negCompressionWindow, negInflationWindow, negResponse] =
-            negotiateCompression(true, wantedCompressionWindow, wantedInflationWindow,
-                                        secWebSocketExtensions);
-
-            if (negCompression) {
+            internalEnd({nullptr, 0}, 0, false, false);
+        
+        } else {
+            /* CLIENT: Parse what server actually negotiated using our requested compression settings */
+            if (secWebSocketExtensions.length() && webSocketContextData->compression != DISABLED) {
                 perMessageDeflate = true;
+                
+                /* Parse the server's response using ExtensionsParser */
+                ExtensionsParser ep(secWebSocketExtensions.data(), secWebSocketExtensions.length());
 
-                /* Map from negotiated windowBits to compressor and decompressor */
-                if (negCompressionWindow == 0) {
-                    compressOptions = CompressOptions::SHARED_COMPRESSOR;
-                } else {
-                    compressOptions = (CompressOptions) ((uint32_t) (negCompressionWindow << 4)
-                                                        | (uint32_t) (negCompressionWindow - 7));
+                /* Extract our original capabilities for validation */
+                int ourMaxCompressionWindow = (webSocketContextData->compression & CompressOptions::_COMPRESSOR_MASK) >> 4;
+                int ourMaxDecompressionWindow = 0;
+                if ((webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) != CompressOptions::SHARED_DECOMPRESSOR) {
+                    ourMaxDecompressionWindow = (webSocketContextData->compression & CompressOptions::_DECOMPRESSOR_MASK) >> 8;
+                }
 
-                    /* If we are dedicated and have the 3kb then correct any 4kb to 3kb,
-                     * (they both share the windowBits = 9) */
-                    if (webSocketContextData->compression & DEDICATED_COMPRESSOR_3KB) {
-                        compressOptions = DEDICATED_COMPRESSOR_3KB;
+                /* Parse what the server negotiated */
+                int serverCompressionWindow = 15; // Default
+                int clientCompressionWindow = 15; // Default
+        
+                if (ep.perMessageDeflate) {
+                    /* Standard permessage-deflate */
+                    if (ep.serverMaxWindowBits > 0) {
+                        serverCompressionWindow = ep.serverMaxWindowBits;
+                    }
+                    if (ep.clientMaxWindowBits > 0) {
+                        clientCompressionWindow = ep.clientMaxWindowBits;
+                    } else if (ep.clientNoContextTakeover) {
+                        clientCompressionWindow = 0; // No context takeover
+                    }
+                    if (ep.serverNoContextTakeover) {
+                        serverCompressionWindow = 0; // No context takeover
+                    }
+                } else if (ep.xWebKitDeflateFrame) {
+                    /* Safari's non-standard extension */
+                    if (ep.maxWindowBits > 0) {
+                        serverCompressionWindow = ep.maxWindowBits;
+                    }
+                    if (ep.noContextTakeover) {
+                        serverCompressionWindow = 0;
+                        clientCompressionWindow = 0;
                     }
                 }
-
-                /* Here we modify the above compression with negotiated decompressor */
-                if (negInflationWindow == 0) {
-                    compressOptions = CompressOptions(compressOptions | CompressOptions::SHARED_DECOMPRESSOR);
-                } else {
-                    compressOptions = CompressOptions(compressOptions | (negInflationWindow << 8));
+        
+                /* Validate server didn't exceed our capabilities */
+                bool valid = true;
+                if (serverCompressionWindow > 0 && ourMaxDecompressionWindow > 0) {
+                    if (serverCompressionWindow > ourMaxDecompressionWindow) {
+                        valid = false;
+                    }
                 }
+                if (clientCompressionWindow > 0 && ourMaxCompressionWindow > 0) {
+                    if (clientCompressionWindow > ourMaxCompressionWindow) {
+                        valid = false;
+                    }
+                }
+        
+                if (valid) {
+                    /* Build the negotiated compression options */
+                    /* For client: 
+                    * - serverCompressionWindow = what server compresses with (our decompression)
+                    * - clientCompressionWindow = what we compress with (server's decompression) */
+                    
+                    /* Set decompressor (for server's compressed data) */
+                    if (serverCompressionWindow == 0) {
+                        compressOptions = CompressOptions::SHARED_DECOMPRESSOR;
+                    } else {
+                        compressOptions = (CompressOptions)(serverCompressionWindow << 8);
+                    }
+                    
+                    /* Set compressor (for data we send to server) */
+                    if (clientCompressionWindow == 0) {
+                        compressOptions = CompressOptions(compressOptions | CompressOptions::SHARED_COMPRESSOR);
+                    } else {
+                        compressOptions = (CompressOptions)(compressOptions | (clientCompressionWindow << 4));
+                        
+                        /* Apply same 3KB correction as server side */
+                        if (webSocketContextData->compression & DEDICATED_COMPRESSOR_3KB) {
+                            compressOptions = CompressOptions((compressOptions & ~CompressOptions::_COMPRESSOR_MASK) | DEDICATED_COMPRESSOR_3KB);
+                        }
+                    }
+                    
+                    /* Update the context's compression settings to reflect what was actually negotiated */
+                    webSocketContextData->compression = compressOptions;
+                } else {
+                    /* Server response exceeded our capabilities - close socket */
+                    Super::close();
+                }
+                
 
-                writeHeader("Sec-WebSocket-Extensions", negResponse);
             }
         }
-
-        internalEnd({nullptr, 0}, 0, false, false);
 
         /* Grab the httpContext from res */
         HttpContext<SSL> *httpContext = (HttpContext<SSL> *) us_socket_context(SSL, (struct us_socket_t *) this);
@@ -375,6 +471,27 @@ public:
 
     /* Note: Headers are not checked in regards to timeout.
      * We only check when you actively push data or end the request */
+
+    /* Write initial handshake request */
+    HttpResponse *writeInitHandshake(std::string_view host, std::string_view path, const char *webSocketKey) {
+
+        size_t handshakeLen = 138 + host.size() + path.size();
+
+        Super::write("GET ", 4, false, (handshakeLen -= 4));
+        Super::write(path.data(), path.size(), false, (handshakeLen -= path.size()));
+        Super::write(" HTTP/1.1\r\n", 11, false, (handshakeLen -= 11));
+        Super::write("Host: ", 6, false, (handshakeLen -= 6));
+        Super::write(host.data(), host.size(), false, (handshakeLen -= host.size()));
+        Super::write("\r\n", 2, false, (handshakeLen -= 2));
+        Super::write("Connection: Upgrade\r\n", 21, false, (handshakeLen -= 21));
+        Super::write("Upgrade: websocket\r\n", 20, false, (handshakeLen -= 20));
+        Super::write("Sec-WebSocket-Key: ", 19, false, (handshakeLen -= 19));
+        Super::write(webSocketKey, 24, false, (handshakeLen -= 24));
+        Super::write("\r\n", 2, false, (handshakeLen -= 2));
+        Super::write("Sec-WebSocket-Version: 13\r\n\r\n", 29, false, (handshakeLen -= 29));
+        
+        return this;
+    }
 
     /* Write 100 Continue, can be done any amount of times */
     HttpResponse *writeContinue() {
