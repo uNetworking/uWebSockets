@@ -1,30 +1,30 @@
-name: C++ CI
+https://x.com/Magdy_albahsh?s=09name: C++ CI
 
-on: [push]
+on: [push]https://x.com/Magdy_albahsh?s=09
 
-jobs:
+jobs:https://x.com/Magdy_albahsh?s=09
 
-  short_fuzzing:
-    runs-on: ubuntu-latest
+  short_fuzzing:https://x.com/Magdy_albahsh?s=09
+    runs-on: ubuntu-latesthttps://x.com/Magdy_albahsh?s=09
     steps:
-    - name: Build fuzzers
-      id: build
+    - name: Build fuzzershttps://x.com/Magdy_albahsh?s=09
+      id: buildhttps://x.com/Magdy_albahsh?s=09
       uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
       with:
         oss-fuzz-project-name: 'uwebsockets'
         language: c++
-    - name: Run fuzzers
+    - name: Run fuzzershttps://x.com/Magdy_albahsh?s=09
       uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
       with:
         oss-fuzz-project-name: 'uwebsockets'
-        language: c++
+     https://x.com/Magdy_albahsh?s=09   language: c++
         fuzz-seconds: 600
-    - name: Upload crash
+    - name: Upload crashhttps://x.com/Magdy_albahsh?s=09
       uses: actions/upload-artifact@v4
       if: failure() && steps.build.outcome == 'success'
-      with:
+      with:https://x.com/Magdy_albahsh?s=09
         name: artifacts
-        path: ./out/artifacts
+        path: ./out/artifactshttps://x.com/Magdy_albahsh?s=09
 
   build_windows:
     runs-on: windows-latest
@@ -58,21 +58,21 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Clone source
+    - name: Clone sourcehttps://x.com/Magdy_albahsh?s=09
       run: git clone --recursive https://github.com/uNetworking/uWebSockets.git
-    - name: Build source
+    - name: Build sourcehttps://x.com/Magdy_albahsh?s=09
       run: cmake -S uWebSockets/libdeflate -B uWebSockets/libdeflate && make -C uWebSockets/libdeflate && WITH_ASAN=1 WITH_LIBDEFLATE=1 make -C uWebSockets
-    - name: List binaries
-      run: ls uWebSockets
-    - name: Install Deno
+    https://x.com/Magdy_albahsh?s=09- name: List binaries
+     https://x.com/Magdy_albahsh?s=09 run: ls uWebSockets
+   https://x.com/Magdy_albahsh?s=09 - name: Install Deno
       run: curl -fsSL https://deno.land/x/install/install.sh | sh
-    - name: Run smoke test
-      run: make -C uWebSockets/tests smoke
-    - name: Run compliance test
+   https://x.com/Magdy_albahsh?s=09 - name: Run smoke test
+  https://x.com/Magdy_albahsh?s=09    run: make -C uWebSockets/tests smoke
+    https://x.com/Magdy_albahsh?s=09- name: Run compliance test
       run: make -C uWebSockets/tests compliance
-    - name: Run unit tests
+    https://x.com/Magdy_albahsh?s=09- name: Run unit tests
       run: make -C uWebSockets/tests
-    - name: Autobahn|Testsuite
+    https://x.com/Magdy_albahsh?s=09- name: Autobahn|Testsuite
       run: ~/.deno/bin/deno run -A --unstable uWebSockets/autobahn/server-test.js
       
   build_osx:
@@ -80,11 +80,11 @@ jobs:
     runs-on: macos-latest
     
     steps:
-    - name: Clone source
+  https://x.com/Magdy_albahsh?s=09  - name: Clone source
       run: git clone --recursive https://github.com/uNetworking/uWebSockets.git
     - name: Build source
       run: make -C uWebSockets
-    - name: List binaries
+ https://x.com/Magdy_albahsh?s=09   - name: List binaries
       run: ls uWebSockets
     - name: Install Deno
       run: curl -fsSL https://deno.land/x/install/install.sh | sh
