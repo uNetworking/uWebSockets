@@ -36,6 +36,9 @@ private:
     std::vector<MoveOnlyFunction<void(HttpResponse<SSL> *, int)>> filterHandlers;
 
     MoveOnlyFunction<void(const char *hostname)> missingServerNameHandler;
+    
+    /* HTTP parsing error handler */
+    MoveOnlyFunction<void(HttpRequest *, int, std::string_view)> httpParsingErrorHandler;
 
     struct RouterData {
         HttpResponse<SSL> *httpResponse;

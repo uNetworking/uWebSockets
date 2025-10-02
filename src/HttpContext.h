@@ -25,6 +25,7 @@
 #include "HttpResponseData.h"
 #include "AsyncSocket.h"
 #include "WebSocketData.h"
+#include "HttpErrors.h"
 
 #include <string_view>
 #include <iostream>
@@ -251,6 +252,25 @@ private:
                     }
                 }
                 return user;
+            }, [httpContextData](/*void *s, */HttpRequest *httpRequest, unsigned int errorCode) -> void {
+                /* Call the high-level error handler if one is registered */
+                if (httpContextData->httpParsingErrorHandler) {
+                    /* Map internal error codes to HTTP status codes and response bodies */
+                    int statusCode;
+                    switch (errorCode) {
+                        case HTTP_ERROR_505_HTTP_VERSION_NOT_SUPPORTED:
+                            statusCode = 505;
+                            break;
+                        case HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE:
+                            statusCode = 431;
+                            break;
+                        case HTTP_ERROR_400_BAD_REQUEST:
+                        default:
+                            statusCode = 400;
+                            break;
+                    }
+                    httpContextData->httpParsingErrorHandler(httpRequest, statusCode, httpErrorResponses[errorCode]);
+                }
             });
 
             /* Mark that we are no longer parsing Http */
@@ -419,6 +439,11 @@ public:
 
     void filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         getSocketContextData()->filterHandlers.emplace_back(std::move(filterHandler));
+    }
+
+    /* Register an HTTP parsing error handler */
+    void onHttpParsingError(MoveOnlyFunction<void(HttpRequest *, int, std::string_view)> &&errorHandler) {
+        getSocketContextData()->httpParsingErrorHandler = std::move(errorHandler);
     }
 
     /* Register an HTTP route handler acording to URL pattern */
