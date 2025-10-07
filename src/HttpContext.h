@@ -442,8 +442,8 @@ public:
     }
 
     /* Register an HTTP parsing error handler */
-    void onHttpParsingError(MoveOnlyFunction<void(HttpRequest *, int, std::string_view)> &&errorHandler) {
-        getSocketContextData()->httpParsingErrorHandler = std::move(errorHandler);
+    void log(MoveOnlyFunction<void(HttpRequest *, int, std::string_view)> &&logHandler) {
+        getSocketContextData()->httpParsingErrorHandler = std::move(logHandler);
     }
 
     /* Register an HTTP route handler acording to URL pattern */

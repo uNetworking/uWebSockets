@@ -147,9 +147,9 @@ public:
         return std::move(static_cast<TemplatedApp &&>(*this));
     }
 
-    /* Attaches an error handler for internal HTTP parsing errors */
-    TemplatedApp &&onHttpParsingError(MoveOnlyFunction<void(HttpRequest *, int, std::string_view)> &&errorHandler) {
-        httpContext->onHttpParsingError(std::move(errorHandler));
+    /* Attaches a log handler for HTTP parsing errors */
+    TemplatedApp &&log(MoveOnlyFunction<void(HttpRequest *, int, std::string_view)> &&logHandler) {
+        httpContext->log(std::move(logHandler));
 
         return std::move(static_cast<TemplatedApp &&>(*this));
     }
