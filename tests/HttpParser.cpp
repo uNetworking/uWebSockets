@@ -31,6 +31,7 @@ int main() {
         /* Return ok */
         return user;
 
+    }, [](uWS::HttpRequest */*req*/, unsigned int /*errorCode*/) {
     });
 
     std::cout << "HTTP DONE" << std::endl;

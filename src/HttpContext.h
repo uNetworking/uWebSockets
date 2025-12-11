@@ -256,20 +256,7 @@ private:
                 /* Call the high-level error handler if one is registered */
                 if (httpContextData->httpParsingErrorHandler) {
                     /* Map internal error codes to HTTP status codes and response bodies */
-                    int statusCode;
-                    switch (errorCode) {
-                        case HTTP_ERROR_505_HTTP_VERSION_NOT_SUPPORTED:
-                            statusCode = 505;
-                            break;
-                        case HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE:
-                            statusCode = 431;
-                            break;
-                        case HTTP_ERROR_400_BAD_REQUEST:
-                        default:
-                            statusCode = 400;
-                            break;
-                    }
-                    httpContextData->httpParsingErrorHandler(httpRequest, statusCode, httpErrorResponses[errorCode]);
+                    httpContextData->httpParsingErrorHandler(httpRequest, httpErrorStatusCodes[errorCode], httpErrorResponses[errorCode]);
                 }
             });
 

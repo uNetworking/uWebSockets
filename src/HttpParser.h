@@ -614,7 +614,7 @@ private:
     }
 
 public:
-    std::pair<unsigned int, void *> consumePostPadded(char *data, unsigned int length, void *user, void *reserved, MoveOnlyFunction<void *(void *, HttpRequest *)> &&requestHandler, MoveOnlyFunction<void *(void *, std::string_view, bool)> &&dataHandler, MoveOnlyFunction<void(HttpRequest *, unsigned int)> &&errorHandler = nullptr) {
+    std::pair<unsigned int, void *> consumePostPadded(char *data, unsigned int length, void *user, void *reserved, MoveOnlyFunction<void *(void *, HttpRequest *)> &&requestHandler, MoveOnlyFunction<void *(void *, std::string_view, bool)> &&dataHandler, MoveOnlyFunction<void(HttpRequest *, unsigned int)> &&errorHandler) {
 
         /* This resets BloomFilter by construction, but later we also reset it again.
          * Optimize this to skip resetting twice (req could be made global) */
@@ -629,9 +629,7 @@ public:
                     dataHandler(user, chunk, chunk.length() == 0);
                 }
                 if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
-                    if (errorHandler) {
-                        errorHandler(&req, HTTP_ERROR_400_BAD_REQUEST);
-                    }
+                    errorHandler(&req, HTTP_ERROR_400_BAD_REQUEST);
                     return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
                 }
                 data = (char *) dataToConsume.data();
@@ -669,9 +667,7 @@ public:
             // break here on break
             std::pair<unsigned int, void *> consumed = fenceAndConsumePostPadded<true>(fallback.data(), (unsigned int) fallback.length(), user, reserved, &req, requestHandler, dataHandler);
             if (consumed.second != user) {
-                if (errorHandler) {
-                    errorHandler(&req, consumed.first);
-                }
+                errorHandler(&req, consumed.first);
                 return consumed;
             }
 
@@ -692,9 +688,7 @@ public:
                             dataHandler(user, chunk, chunk.length() == 0);
                         }
                         if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
-                            if (errorHandler) {
-                              errorHandler(&req, HTTP_ERROR_400_BAD_REQUEST);
-                            }
+                            errorHandler(&req, HTTP_ERROR_400_BAD_REQUEST);
                             return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
                         }
                         data = (char *) dataToConsume.data();
@@ -722,9 +716,7 @@ public:
 
             } else {
                 if (fallback.length() == MAX_FALLBACK_SIZE) {
-                    if (errorHandler) {
-                        errorHandler(&req, HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE);
-                    }
+                    errorHandler(&req, HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE);
                     return {HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE, FULLPTR};
                 }
                 return {0, user};
@@ -733,9 +725,7 @@ public:
 
         std::pair<unsigned int, void *> consumed = fenceAndConsumePostPadded<false>(data, length, user, reserved, &req, requestHandler, dataHandler);
         if (consumed.second != user) {
-            if (errorHandler) {
-                errorHandler(&req, consumed.first);
-            }
+            errorHandler(&req, consumed.first);
             return consumed;
         }
 
@@ -746,9 +736,7 @@ public:
             if (length < MAX_FALLBACK_SIZE) {
                 fallback.append(data, length);
             } else {
-                if (errorHandler) {
-                    errorHandler(&req, HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE);
-                }
+                errorHandler(&req, HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE);
                 return {HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE, FULLPTR};
             }
         }
