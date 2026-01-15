@@ -25,6 +25,7 @@
 #include "HttpResponseData.h"
 #include "AsyncSocket.h"
 #include "WebSocketData.h"
+#include "HttpErrors.h"
 
 #include <string_view>
 #include <iostream>
@@ -254,6 +255,12 @@ private:
                     }
                 }
                 return user;
+            }, [httpContextData](/*void *s, */HttpRequest *httpRequest, unsigned int errorCode) -> void {
+                /* Call the high-level error handler if one is registered */
+                if (httpContextData->httpParsingErrorHandler) {
+                    /* Map internal error codes to HTTP status codes and response bodies */
+                    httpContextData->httpParsingErrorHandler(httpRequest, httpErrorStatusCodes[errorCode], httpErrorResponses[errorCode]);
+                }
             });
 
             /* Mark that we are no longer parsing Http */
@@ -422,6 +429,11 @@ public:
 
     void filter(MoveOnlyFunction<void(HttpResponse<SSL> *, int)> &&filterHandler) {
         getSocketContextData()->filterHandlers.emplace_back(std::move(filterHandler));
+    }
+
+    /* Register an HTTP parsing error handler */
+    void log(MoveOnlyFunction<void(HttpRequest *, int, std::string_view)> &&logHandler) {
+        getSocketContextData()->httpParsingErrorHandler = std::move(logHandler);
     }
 
     /* Register an HTTP route handler acording to URL pattern */

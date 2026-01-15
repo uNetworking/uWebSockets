@@ -147,6 +147,13 @@ public:
         return std::move(static_cast<TemplatedApp &&>(*this));
     }
 
+    /* Attaches a log handler for HTTP parsing errors */
+    TemplatedApp &&log(MoveOnlyFunction<void(HttpRequest *, int, std::string_view)> &&logHandler) {
+        httpContext->log(std::move(logHandler));
+
+        return std::move(static_cast<TemplatedApp &&>(*this));
+    }
+
     /* Same as publish, but takes a prepared message */
     bool publishPrepared(std::string_view topic, PreparedMessage &preparedMessage) {
         /* It is assumed by heuristics that a prepared message ought to be big,
