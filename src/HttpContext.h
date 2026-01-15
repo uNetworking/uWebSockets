@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2020.
+ * Authored by Alex Hultman, 2018-2026.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -201,7 +201,10 @@ private:
                 /* Returning from a request handler without responding or attaching an onAborted handler is ill-use */
                 if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted) {
                     /* Throw exception here? */
-                    std::cerr << "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!" << std::endl;
+                    std::cerr << "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!"
+                              << std::endl
+                              << "\tMethod: \"" << httpRequest->getCaseSensitiveMethod() << "\"" << std::endl
+                              << "\tURL: \"" << httpRequest->getUrl() << "\"" << std::endl;
                     std::terminate();
                 }
 
