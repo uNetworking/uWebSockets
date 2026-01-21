@@ -190,6 +190,9 @@ public:
         }
     }
 
+    decltype(currentParameterOffsets) getCurrentParameterOffsets() {
+        return currentParameterOffsets;
+    }
 };
 
 struct HttpParser {
