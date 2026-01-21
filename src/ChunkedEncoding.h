@@ -20,6 +20,7 @@
 
 /* Independent chunked encoding parser, used by HttpParser. */
 
+#include <cstdint>
 #include <string>
 #include <cstring>
 #include <algorithm>
