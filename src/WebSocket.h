@@ -115,20 +115,24 @@ public:
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
 
-        /* Skip sending and report success if we are over the limit of maxBackpressure */
-        if (webSocketContextData->maxBackpressure && webSocketContextData->maxBackpressure < getBufferedAmount()) {
-            /* Also defer a close if we should */
-            if (webSocketContextData->closeOnBackpressureLimit) {
-                us_socket_shutdown_read(SSL, (us_socket_t *) this);
-            }
+        //only drop text and binary message when pressure, control message such as ping pong and close message should not be drop
+        if (opCode == OpCode::TEXT || opCode == OpCode::BINARY) {
+            /* Skip sending and report success if we are over the limit of maxBackpressure */
+            if (webSocketContextData->maxBackpressure && webSocketContextData->maxBackpressure < getBufferedAmount()) {
+                /* Also defer a close if we should */
+                if (webSocketContextData->closeOnBackpressureLimit) {
+                    us_socket_shutdown_read(SSL, (us_socket_t *) this);
+                }
 
-            /* It is okay to call send again from within this callback since we immediately return with DROPPED afterwards */
-            if (webSocketContextData->droppedHandler) {
-                webSocketContextData->droppedHandler(this, message, opCode);
-            }
+                /* It is okay to call send again from within this callback since we immediately return with DROPPED afterwards */
+                if (webSocketContextData->droppedHandler) {
+                    webSocketContextData->droppedHandler(this, message, opCode);
+                }
 
-            return DROPPED;
+                return DROPPED;
+            }
         }
+
 
         /* If we are subscribers and have messages to drain we need to drain them here to stay synced */
         WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
