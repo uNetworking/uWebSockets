@@ -422,6 +422,25 @@ public:
         return this;
     }
 
+    /* Begin writing the response body. Useful for chunked encodings whose first chunk is not yet known */
+    void beginWrite() {
+        /* Write status if not already done */
+        writeStatus(HTTP_200_OK);
+
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
+            /* Write mark on first call to write */
+            writeMark();
+
+            writeHeader("Transfer-Encoding", "chunked");
+            httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
+
+            /* Start of the body */
+            Super::write("\r\n", 2);
+        }
+    }
+
     /* End without a body (no content-length) or end with a spoofed content-length. */
     void endWithoutBody(std::optional<size_t> reportedContentLength = std::nullopt, bool closeConnection = false) {
         if (reportedContentLength.has_value()) {
