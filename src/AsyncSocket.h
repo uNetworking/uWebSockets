@@ -230,6 +230,12 @@ protected:
         return addressAsText(getRemoteAddress());
     }
 
+    /* Returns the remote port number or -1 on failure */
+    unsigned int getRemotePort() {
+        int port = us_socket_remote_port(SSL, (us_socket_t *) this);
+        return (unsigned int) port;
+    }
+
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
      * Returns pair of bytes written (anywhere) and whether or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */
