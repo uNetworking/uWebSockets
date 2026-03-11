@@ -30,6 +30,13 @@ enum HttpError {
 
 #ifndef UWS_HTTPRESPONSE_NO_WRITEMARK
 
+static const int httpErrorStatusCodes[] = {
+    400, /* Zeroth place (unused) */
+    505, /* HTTP_ERROR_505_HTTP_VERSION_NOT_SUPPORTED */
+    431, /* HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE */
+    400  /* HTTP_ERROR_400_BAD_REQUEST */
+};
+
 /* Returned parser errors match this LUT. */
 static const std::string_view httpErrorResponses[] = {
     "", /* Zeroth place is no error so don't use it */
