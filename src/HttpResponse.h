@@ -489,10 +489,10 @@ public:
     }
 
     /* Get the remaining body length if set via content-length, UINT64_MAX if transfer-encoding is chunked, or 0 if no body */
-    uint64_t remainingBodyLength() {
+    uint64_t maxRemainingBodyLength() {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
-        return httpResponseData->remainingBodyLength();
+        return httpResponseData->maxRemainingBodyLength();
     }
 
     /* If you are messing around with sendfile you might want to override the offset. */
