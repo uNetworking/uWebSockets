@@ -616,7 +616,7 @@ private:
 
 public:
     /* Returns the remaining body length if set via content-length, UINT64_MAX if transfer-encoding is chunked, or 0 if no body */
-    uint64_t remainingBodyLength() {
+    uint64_t maxRemainingBodyLength() {
         if (isParsingChunkedEncoding(remainingStreamingBytes)) {
             return UINT64_MAX;
         }
