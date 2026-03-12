@@ -615,6 +615,14 @@ private:
     }
 
 public:
+    /* Returns the remaining body length if set via content-length, or UINT64_MAX if transfer-encoding is chunked */
+    uint64_t remainingBodyLength() {
+        if (isParsingChunkedEncoding(remainingStreamingBytes)) {
+            return UINT64_MAX;
+        }
+        return remainingStreamingBytes;
+    }
+
     std::pair<unsigned int, void *> consumePostPadded(char *data, unsigned int length, void *user, void *reserved, MoveOnlyFunction<void *(void *, HttpRequest *)> &&requestHandler, MoveOnlyFunction<void *(void *, std::string_view, bool)> &&dataHandler) {
 
         /* This resets BloomFilter by construction, but later we also reset it again.

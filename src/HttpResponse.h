@@ -488,6 +488,13 @@ public:
         return httpResponseData->offset;
     }
 
+    /* Get the remaining body length, or UINT64_MAX if transfer-encoding is chunked */
+    uint64_t remainingBodyLength() {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        return httpResponseData->remainingBodyLength();
+    }
+
     /* If you are messing around with sendfile you might want to override the offset. */
     void overrideWriteOffset(uintmax_t offset) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
