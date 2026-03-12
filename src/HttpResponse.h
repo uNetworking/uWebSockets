@@ -488,7 +488,7 @@ public:
         return httpResponseData->offset;
     }
 
-    /* Get the remaining body length, or UINT64_MAX if transfer-encoding is chunked */
+    /* Get the remaining body length if set via content-length, UINT64_MAX if transfer-encoding is chunked, or 0 if no body */
     uint64_t remainingBodyLength() {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
