@@ -12,7 +12,7 @@ int main() {
 
     uWS::HttpParser httpParser;
 
-    auto [err, returnedUser] = httpParser.consumePostPadded((char *) data, size, user, reserved, [reserved](void *s, uWS::HttpRequest *httpRequest) -> void * {
+    auto [err, returnedUser] = httpParser.consumePostPadded((char *) data, size, user, reserved, [reserved, &httpParser](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
         std::cout << httpRequest->getMethod() << std::endl;
 
@@ -22,6 +22,9 @@ int main() {
 
         /* Since we did proper whitespace trimming this thing is there, but empty */
         assert(httpRequest->getHeader("utf8").data());
+
+        /* maxRemainingBodyLength() must be 0 for GET requests (no body) when called inside requestHandler */
+        assert(httpParser.maxRemainingBodyLength() == 0);
 
         /* Return ok */
         return s;
@@ -34,5 +37,25 @@ int main() {
     });
 
     std::cout << "HTTP DONE" << std::endl;
+
+    /* Test that maxRemainingBodyLength() is set correctly before requestHandler for a POST with content-length */
+    {
+        /* POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5\r\n\r\nhello + 8 bytes padding */
+        const char postData[] = "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5\r\n\r\nhelloEEEEEEEE";
+        int postSize = (int)(sizeof(postData) - 1 - 8);
+        uWS::HttpParser postParser;
+        uint64_t bodyLengthInHandler = UINT64_MAX;
+
+        postParser.consumePostPadded((char *) postData, postSize, user, reserved, [&postParser, &bodyLengthInHandler](void *s, uWS::HttpRequest *httpRequest) -> void * {
+            bodyLengthInHandler = postParser.maxRemainingBodyLength();
+            return s;
+        }, [](void *user, std::string_view data, bool fin) -> void * {
+            return user;
+        });
+
+        /* maxRemainingBodyLength() must return content-length (5) when called inside requestHandler */
+        assert(bodyLengthInHandler == 5);
+        std::cout << "POST content-length test PASS" << std::endl;
+    }
 
 }

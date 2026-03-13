@@ -533,15 +533,6 @@ private:
             const char *querySeparatorPtr = (const char *) memchr(req->headers->value.data(), '?', req->headers->value.length());
             req->querySeparator = (unsigned int) ((querySeparatorPtr ? querySeparatorPtr : req->headers->value.data() + req->headers->value.length()) - req->headers->value.data());
 
-            /* If returned socket is not what we put in we need
-             * to break here as we either have upgraded to
-             * WebSockets or otherwise closed the socket. */
-            void *returnedUser = requestHandler(user, req);
-            if (returnedUser != user) {
-                /* We are upgraded to WebSocket or otherwise broken */
-                return {consumedTotal, returnedUser};
-            }
-
             /* The rules at play here according to RFC 9112 for requests are essentially:
              * If both content-length and transfer-encoding then invalid message; must break.
              * If has transfer-encoding then must be chunked regardless of value.
@@ -566,6 +557,28 @@ private:
                  * This could be made stricter but makes no difference either way, unless forwarding the identical message as a proxy. */
 
                 remainingStreamingBytes = STATE_IS_CHUNKED;
+            } else if (contentLengthString.length()) {
+                remainingStreamingBytes = toUnsignedInteger(contentLengthString);
+                if (remainingStreamingBytes == UINT64_MAX) {
+                    /* Parser error */
+                    return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
+                }
+            } else {
+                /* No body (e.g. GET requests); set to 0 to match this assumption */
+                remainingStreamingBytes = 0;
+            }
+
+            /* If returned socket is not what we put in we need
+             * to break here as we either have upgraded to
+             * WebSockets or otherwise closed the socket. */
+            void *returnedUser = requestHandler(user, req);
+            if (returnedUser != user) {
+                /* We are upgraded to WebSocket or otherwise broken */
+                return {consumedTotal, returnedUser};
+            }
+
+            /* Consume body data */
+            if (transferEncodingString.length()) {
                 /* If consume minimally, we do not want to consume anything but we want to mark this as being chunked */
                 if (!CONSUME_MINIMALLY) {
                     /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
@@ -582,12 +595,6 @@ private:
                     consumedTotal += consumed;
                 }
             } else if (contentLengthString.length()) {
-                remainingStreamingBytes = toUnsignedInteger(contentLengthString);
-                if (remainingStreamingBytes == UINT64_MAX) {
-                    /* Parser error */
-                    return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
-                }
-
                 if (!CONSUME_MINIMALLY) {
                     unsigned int emittable = (unsigned int) std::min<uint64_t>(remainingStreamingBytes, length);
                     dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
