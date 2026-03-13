@@ -45,17 +45,23 @@ int main() {
         int postSize = (int)(sizeof(postData) - 1 - 8);
         uWS::HttpParser postParser;
         uint64_t bodyLengthInHandler = UINT64_MAX;
+        uint64_t bodyLengthInDataHandler = UINT64_MAX;
 
         postParser.consumePostPadded((char *) postData, postSize, user, reserved, [&postParser, &bodyLengthInHandler](void *s, uWS::HttpRequest *httpRequest) -> void * {
             bodyLengthInHandler = postParser.maxRemainingBodyLength();
             return s;
-        }, [](void *user, std::string_view data, bool fin) -> void * {
+        }, [&postParser, &bodyLengthInDataHandler](void *user, std::string_view data, bool fin) -> void * {
+            /* maxRemainingBodyLength() must be decremented before dataHandler is called */
+            bodyLengthInDataHandler = postParser.maxRemainingBodyLength();
             return user;
         });
 
         /* maxRemainingBodyLength() must return content-length (5) when called inside requestHandler */
         assert(bodyLengthInHandler == 5);
-        std::cout << "POST content-length test PASS" << std::endl;
+        std::cout << "POST content-length in requestHandler test PASS" << std::endl;
+        /* maxRemainingBodyLength() must be 0 after all body is consumed (decremented before dataHandler) */
+        assert(bodyLengthInDataHandler == 0);
+        std::cout << "POST content-length in dataHandler test PASS" << std::endl;
     }
 
 }

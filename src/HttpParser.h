@@ -597,8 +597,9 @@ private:
             } else if (contentLengthString.length()) {
                 if (!CONSUME_MINIMALLY) {
                     unsigned int emittable = (unsigned int) std::min<uint64_t>(remainingStreamingBytes, length);
-                    dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
+                    bool fin = (emittable == remainingStreamingBytes);
                     remainingStreamingBytes -= emittable;
+                    dataHandler(user, std::string_view(data, emittable), fin);
 
                     data += emittable;
                     length -= emittable;
@@ -653,16 +654,17 @@ public:
                 // this is exactly the same as below!
                 // todo: refactor this
                 if (remainingStreamingBytes >= length) {
-                    void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
+                    bool fin = (remainingStreamingBytes == length);
                     remainingStreamingBytes -= length;
+                    void *returnedUser = dataHandler(user, std::string_view(data, length), fin);
                     return {0, returnedUser};
                 } else {
-                    void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
-
-                    data += (unsigned int) remainingStreamingBytes;
-                    length -= (unsigned int) remainingStreamingBytes;
-
+                    unsigned int toEmit = (unsigned int) remainingStreamingBytes;
                     remainingStreamingBytes = 0;
+                    void *returnedUser = dataHandler(user, std::string_view(data, toEmit), true);
+
+                    data += toEmit;
+                    length -= toEmit;
 
                     if (returnedUser != user) {
                         return {0, returnedUser};
@@ -709,16 +711,17 @@ public:
                     } else {
                         // this is exactly the same as above!
                         if (remainingStreamingBytes >= (unsigned int) length) {
-                            void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == (unsigned int) length);
+                            bool fin = (remainingStreamingBytes == (unsigned int) length);
                             remainingStreamingBytes -= length;
+                            void *returnedUser = dataHandler(user, std::string_view(data, length), fin);
                             return {0, returnedUser};
                         } else {
-                            void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
-
-                            data += (unsigned int) remainingStreamingBytes;
-                            length -= (unsigned int) remainingStreamingBytes;
-
+                            unsigned int toEmit = (unsigned int) remainingStreamingBytes;
                             remainingStreamingBytes = 0;
+                            void *returnedUser = dataHandler(user, std::string_view(data, toEmit), true);
+
+                            data += toEmit;
+                            length -= toEmit;
 
                             if (returnedUser != user) {
                                 return {0, returnedUser};
