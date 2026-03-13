@@ -239,6 +239,15 @@ public:
         });
     }
 
+    TemplatedApp& operator=(const TemplatedApp&) = delete;
+
+    TemplatedApp& operator=(TemplatedApp&& other) {
+        std::swap(this->httpContext, other.httpContext);
+        std::swap(this->topicTree, other.topicTree);
+        std::swap(this->webSocketContextDeleters, other.webSocketContextDeleters);
+        std::swap(this->webSocketContexts, other.webSocketContexts);
+    }
+
     bool constructorFailed() {
         return !httpContext;
     }
