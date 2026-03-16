@@ -219,10 +219,15 @@ protected:
 
     /* Returns the remote IP address or empty string on failure */
     std::string_view getRemoteAddress() {
+#ifdef UWS_REMOTE_ADDRESS_USERSPACE
+        AsyncSocketData<SSL> *data = getAsyncSocketData();
+        return std::string_view(data->remoteAddress, (unsigned int) data->remoteAddressLength);
+#else
         static thread_local char buf[16];
         int ipLength = 16;
         us_socket_remote_address(SSL, (us_socket_t *) this, buf, &ipLength);
         return std::string_view(buf, (unsigned int) ipLength);
+#endif
     }
 
     /* Returns the text representation of IP */

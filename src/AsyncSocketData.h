@@ -74,6 +74,12 @@ struct AsyncSocketData {
     /* This will do for now */
     BackPressure buffer;
 
+#ifdef UWS_REMOTE_ADDRESS_USERSPACE
+    /* Cache for remote address, populated on socket open */
+    char remoteAddress[16];
+    int remoteAddressLength = 0;
+#endif
+
     /* Allow move constructing us */
     AsyncSocketData(BackPressure &&backpressure) : buffer(std::move(backpressure)) {
 
