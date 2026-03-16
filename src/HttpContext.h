@@ -69,12 +69,26 @@ private:
     /* Init the HttpContext by registering libusockets event handlers */
     HttpContext<SSL> *init() {
         /* Handle socket connections */
-        us_socket_context_on_open(SSL, getSocketContext(), [](us_socket_t *s, int /*is_client*/, char */*ip*/, int /*ip_length*/) {
+        us_socket_context_on_open(SSL, getSocketContext(), [](us_socket_t *s, int /*is_client*/, char *ip, int ip_length) {
             /* Any connected socket should timeout until it has a request */
             us_socket_timeout(SSL, s, HTTP_IDLE_TIMEOUT_S);
 
             /* Init socket ext */
             new (us_socket_ext(SSL, s)) HttpResponseData<SSL>;
+
+#ifdef UWS_REMOTE_ADDRESS_USERSPACE
+            /* Copy remote address into per-socket cache for later retrieval */
+            AsyncSocketData<SSL> *asyncSocketData = (AsyncSocketData<SSL> *) us_socket_ext(SSL, s);
+            if (ip_length > 0 && ip_length <= 16) {
+                memcpy(asyncSocketData->remoteAddress, ip, (size_t) ip_length);
+                asyncSocketData->remoteAddressLength = ip_length;
+            } else {
+                asyncSocketData->remoteAddressLength = 0;
+            }
+#else
+            (void) ip;
+            (void) ip_length;
+#endif
 
             /* Call filter */
             HttpContextData<SSL> *httpContextData = getSocketContextDataS(s);
