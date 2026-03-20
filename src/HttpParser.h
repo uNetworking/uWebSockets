@@ -598,9 +598,8 @@ private:
 
                 if (!CONSUME_MINIMALLY) {
                     unsigned int emittable = (unsigned int) std::min<uint64_t>(remainingStreamingBytes, length);
-                    bool isLast = emittable == remainingStreamingBytes;
                     remainingStreamingBytes -= emittable;
-                    dataHandler(user, std::string_view(data, emittable), isLast);
+                    dataHandler(user, std::string_view(data, emittable), remainingStreamingBytes == 0);
 
                     data += emittable;
                     length -= emittable;
@@ -663,9 +662,8 @@ public:
                 // this is exactly the same as below!
                 // todo: refactor this
                 if (remainingStreamingBytes >= length) {
-                    bool isLast = remainingStreamingBytes == length;
                     remainingStreamingBytes -= length;
-                    void *returnedUser = dataHandler(user, std::string_view(data, length), isLast);
+                    void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == 0);
                     return {0, returnedUser};
                 } else {
                     unsigned int toConsume = (unsigned int) remainingStreamingBytes;
@@ -728,9 +726,8 @@ public:
                     } else {
                         // this is exactly the same as above!
                         if (remainingStreamingBytes >= (unsigned int) length) {
-                            bool isLast = remainingStreamingBytes == (unsigned int) length;
                             remainingStreamingBytes -= length;
-                            void *returnedUser = dataHandler(user, std::string_view(data, length), isLast);
+                            void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == 0);
                             return {0, returnedUser};
                         } else {
                             unsigned int toConsume = (unsigned int) remainingStreamingBytes;
