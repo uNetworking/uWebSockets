@@ -571,7 +571,15 @@ private:
                     /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
                     std::string_view dataToConsume(data, length);
                     for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
-                        dataHandler(user, chunk, chunk.length() == 0);
+                        bool isLast = chunk.length() == 0;
+                        if (isLast) {
+                            uint64_t savedState = remainingStreamingBytes;
+                            remainingStreamingBytes = 0;
+                            dataHandler(user, chunk, true);
+                            remainingStreamingBytes = savedState;
+                        } else {
+                            dataHandler(user, chunk, false);
+                        }
                     }
                     if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
                         return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
@@ -590,8 +598,8 @@ private:
 
                 if (!CONSUME_MINIMALLY) {
                     unsigned int emittable = (unsigned int) std::min<uint64_t>(remainingStreamingBytes, length);
-                    dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
                     remainingStreamingBytes -= emittable;
+                    dataHandler(user, std::string_view(data, emittable), remainingStreamingBytes == 0);
 
                     data += emittable;
                     length -= emittable;
@@ -635,7 +643,15 @@ public:
             if (isParsingChunkedEncoding(remainingStreamingBytes)) {
                 std::string_view dataToConsume(data, length);
                 for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
-                    dataHandler(user, chunk, chunk.length() == 0);
+                    bool isLast = chunk.length() == 0;
+                    if (isLast) {
+                        uint64_t savedState = remainingStreamingBytes;
+                        remainingStreamingBytes = 0;
+                        dataHandler(user, chunk, true);
+                        remainingStreamingBytes = savedState;
+                    } else {
+                        dataHandler(user, chunk, false);
+                    }
                 }
                 if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
                     return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
@@ -646,16 +662,16 @@ public:
                 // this is exactly the same as below!
                 // todo: refactor this
                 if (remainingStreamingBytes >= length) {
-                    void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
                     remainingStreamingBytes -= length;
+                    void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == 0);
                     return {0, returnedUser};
                 } else {
-                    void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
-
-                    data += (unsigned int) remainingStreamingBytes;
-                    length -= (unsigned int) remainingStreamingBytes;
-
+                    unsigned int toConsume = (unsigned int) remainingStreamingBytes;
                     remainingStreamingBytes = 0;
+                    void *returnedUser = dataHandler(user, std::string_view(data, toConsume), true);
+
+                    data += toConsume;
+                    length -= toConsume;
 
                     if (returnedUser != user) {
                         return {0, returnedUser};
@@ -692,7 +708,15 @@ public:
                     if (isParsingChunkedEncoding(remainingStreamingBytes)) {
                         std::string_view dataToConsume(data, length);
                         for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
-                            dataHandler(user, chunk, chunk.length() == 0);
+                            bool isLast = chunk.length() == 0;
+                            if (isLast) {
+                                uint64_t savedState = remainingStreamingBytes;
+                                remainingStreamingBytes = 0;
+                                dataHandler(user, chunk, true);
+                                remainingStreamingBytes = savedState;
+                            } else {
+                                dataHandler(user, chunk, false);
+                            }
                         }
                         if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
                             return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
@@ -702,16 +726,16 @@ public:
                     } else {
                         // this is exactly the same as above!
                         if (remainingStreamingBytes >= (unsigned int) length) {
-                            void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == (unsigned int) length);
                             remainingStreamingBytes -= length;
+                            void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == 0);
                             return {0, returnedUser};
                         } else {
-                            void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
-
-                            data += (unsigned int) remainingStreamingBytes;
-                            length -= (unsigned int) remainingStreamingBytes;
-
+                            unsigned int toConsume = (unsigned int) remainingStreamingBytes;
                             remainingStreamingBytes = 0;
+                            void *returnedUser = dataHandler(user, std::string_view(data, toConsume), true);
+
+                            data += toConsume;
+                            length -= toConsume;
 
                             if (returnedUser != user) {
                                 return {0, returnedUser};
