@@ -198,6 +198,8 @@ private:
     std::string fallback;
     /* This guy really has only 30 bits since we reserve two highest bits to chunked encoding parsing state */
     uint64_t remainingStreamingBytes = 0;
+    /* Set before (and only before) each call to dataHandler; equals remainingStreamingBytes minus the emitted chunk */
+    uint64_t remainingBodyLength = 0;
 
     /* Returns UINT64_MAX on error. Maximum 999999999 is allowed. */
     static uint64_t toUnsignedInteger(std::string_view str) {
@@ -571,6 +573,7 @@ private:
                     /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
                     std::string_view dataToConsume(data, length);
                     for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                        remainingBodyLength = (chunk.length() == 0) ? 0 : STATE_IS_CHUNKED;
                         dataHandler(user, chunk, chunk.length() == 0);
                     }
                     if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
@@ -590,6 +593,7 @@ private:
 
                 if (!CONSUME_MINIMALLY) {
                     unsigned int emittable = (unsigned int) std::min<uint64_t>(remainingStreamingBytes, length);
+                    remainingBodyLength = remainingStreamingBytes - emittable;
                     dataHandler(user, std::string_view(data, emittable), emittable == remainingStreamingBytes);
                     remainingStreamingBytes -= emittable;
 
@@ -599,6 +603,7 @@ private:
                 }
             } else {
                 /* If we came here without a body; emit an empty data chunk to signal no data */
+                remainingBodyLength = 0;
                 dataHandler(user, {}, true);
             }
 
@@ -617,10 +622,10 @@ private:
 public:
     /* Returns the remaining body length if set via content-length, UINT64_MAX if transfer-encoding is chunked, or 0 if no body */
     uint64_t maxRemainingBodyLength() {
-        if (isParsingChunkedEncoding(remainingStreamingBytes)) {
+        if (isParsingChunkedEncoding(remainingBodyLength)) {
             return UINT64_MAX;
         }
-        return remainingStreamingBytes;
+        return remainingBodyLength;
     }
 
     std::pair<unsigned int, void *> consumePostPadded(char *data, unsigned int length, void *user, void *reserved, MoveOnlyFunction<void *(void *, HttpRequest *)> &&requestHandler, MoveOnlyFunction<void *(void *, std::string_view, bool)> &&dataHandler) {
@@ -635,6 +640,7 @@ public:
             if (isParsingChunkedEncoding(remainingStreamingBytes)) {
                 std::string_view dataToConsume(data, length);
                 for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                    remainingBodyLength = (chunk.length() == 0) ? 0 : STATE_IS_CHUNKED;
                     dataHandler(user, chunk, chunk.length() == 0);
                 }
                 if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
@@ -646,10 +652,12 @@ public:
                 // this is exactly the same as below!
                 // todo: refactor this
                 if (remainingStreamingBytes >= length) {
+                    remainingBodyLength = remainingStreamingBytes - length;
                     void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == length);
                     remainingStreamingBytes -= length;
                     return {0, returnedUser};
                 } else {
+                    remainingBodyLength = 0;
                     void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
 
                     data += (unsigned int) remainingStreamingBytes;
@@ -692,6 +700,7 @@ public:
                     if (isParsingChunkedEncoding(remainingStreamingBytes)) {
                         std::string_view dataToConsume(data, length);
                         for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                            remainingBodyLength = (chunk.length() == 0) ? 0 : STATE_IS_CHUNKED;
                             dataHandler(user, chunk, chunk.length() == 0);
                         }
                         if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
@@ -702,10 +711,12 @@ public:
                     } else {
                         // this is exactly the same as above!
                         if (remainingStreamingBytes >= (unsigned int) length) {
+                            remainingBodyLength = remainingStreamingBytes - length;
                             void *returnedUser = dataHandler(user, std::string_view(data, length), remainingStreamingBytes == (unsigned int) length);
                             remainingStreamingBytes -= length;
                             return {0, returnedUser};
                         } else {
+                            remainingBodyLength = 0;
                             void *returnedUser = dataHandler(user, std::string_view(data, remainingStreamingBytes), true);
 
                             data += (unsigned int) remainingStreamingBytes;
