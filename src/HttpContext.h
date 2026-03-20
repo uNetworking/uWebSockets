@@ -230,12 +230,12 @@ private:
                 /* Continue parsing */
                 return s;
 
-            }, [httpResponseData](void *user, std::string_view data, bool fin) -> void * {
+            }, [httpResponseData](void *user, std::string_view data, uint64_t maxRemainingBodyLength) -> void * {
                 /* We always get an empty chunk even if there is no data */
                 if (httpResponseData->inStream) {
 
                     /* Todo: can this handle timeout for non-post as well? */
-                    if (fin) {
+                    if (maxRemainingBodyLength == 0) {
                         /* If we just got the last chunk (or empty chunk), disable timeout */
                         us_socket_timeout(SSL, (struct us_socket_t *) user, 0);
                     } else {
@@ -249,7 +249,7 @@ private:
                     }
 
                     /* We might respond in the handler, so do not change timeout after this */
-                    httpResponseData->inStream(data, fin);
+                    httpResponseData->inStream(data, maxRemainingBodyLength);
 
                     /* Was the socket closed? */
                     if (us_socket_is_closed(SSL, (struct us_socket_t *) user)) {
@@ -263,7 +263,7 @@ private:
 
                     /* If we were given the last data chunk, reset data handler to ensure following
                      * requests on the same socket won't trigger any previously registered behavior */
-                    if (fin) {
+                    if (maxRemainingBodyLength == 0) {
                         httpResponseData->inStream = nullptr;
                     }
                 }

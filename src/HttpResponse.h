@@ -581,6 +581,17 @@ public:
 
     /* Attach a read handler for data sent. Will be called with FIN set true if last segment. */
     void onData(MoveOnlyFunction<void(std::string_view, bool)> &&handler) {
+        if (handler) {
+            onDataV2([handler = std::move(handler)](std::string_view chunk, uint64_t maxRemainingBodyLength) mutable {
+                handler(chunk, maxRemainingBodyLength == 0);
+            });
+        } else {
+            onDataV2(nullptr);
+        }
+    }
+
+    /* Attach a read handler for data sent. Will be called with maxRemainingBodyLength. maxRemainingBodyLength == 0 is the same as isLast. */
+    void onDataV2(MoveOnlyFunction<void(std::string_view, uint64_t)> &&handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();
         data->inStream = std::move(handler);
 

@@ -75,7 +75,7 @@ private:
     /* Per socket event handlers */
     MoveOnlyFunction<bool(uintmax_t)> onWritable;
     MoveOnlyFunction<void()> onAborted;
-    MoveOnlyFunction<void(std::string_view, bool)> inStream; // onData
+    MoveOnlyFunction<void(std::string_view, uint64_t)> inStream; // onData
     /* Outgoing offset */
     uintmax_t offset = 0;
 
