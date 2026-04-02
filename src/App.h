@@ -593,7 +593,7 @@ public:
     }
 
     /* Register event handler for accepted FD. Can be used together with adoptSocket. */
-    TemplatedApp &&preOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(struct us_socket_context_t *, LIBUS_SOCKET_DESCRIPTOR)) {
+    TemplatedApp &&preOpen(LIBUS_SOCKET_DESCRIPTOR (*handler)(struct us_socket_context_t *, LIBUS_SOCKET_DESCRIPTOR, char *, int)) {
         httpContext->onPreOpen(handler);
         return std::move(static_cast<TemplatedApp &&>(*this));
     }
@@ -614,7 +614,7 @@ public:
         /* Add this app to httpContextData list over child apps and set onPreOpen */
         httpContext->getSocketContextData()->childApps.push_back((void *) app);
         
-        httpContext->onPreOpen([](struct us_socket_context_t *context, LIBUS_SOCKET_DESCRIPTOR fd) -> LIBUS_SOCKET_DESCRIPTOR {
+        httpContext->onPreOpen([](struct us_socket_context_t *context, LIBUS_SOCKET_DESCRIPTOR fd, char *ip, int ip_length) -> LIBUS_SOCKET_DESCRIPTOR {
             
             HttpContext<SSL> *httpContext = (HttpContext<SSL> *) context;
 
@@ -634,9 +634,9 @@ public:
             //std::cout << "Loop is " << receivingApp->getLoop() << std::endl;
 
 
-            receivingApp->getLoop()->defer([fd, receivingApp]() {
+            receivingApp->getLoop()->defer([fd, ipStore = std::string(ip, ip + ip_length), receivingApp]() {
                 //std::cout << "About to adopt socket " << fd << " on receivingApp " << receivingApp << std::endl;
-                receivingApp->adoptSocket(fd);
+                receivingApp->adoptSocket(fd, std::string_view(ipStore));
                 //std::cout << "Done " << std::endl;
             });
 
@@ -650,8 +650,8 @@ public:
     }
 
     /* adopt an externally accepted socket */
-    TemplatedApp &&adoptSocket(LIBUS_SOCKET_DESCRIPTOR accepted_fd) {
-        httpContext->adoptAcceptedSocket(accepted_fd);
+    TemplatedApp &&adoptSocket(LIBUS_SOCKET_DESCRIPTOR accepted_fd, std::string_view ip = std::string_view()) {
+        httpContext->adoptAcceptedSocket(accepted_fd, (char *) ip.data(), (int) ip.length());
         return std::move(static_cast<TemplatedApp &&>(*this));
     }
 
