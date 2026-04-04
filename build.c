@@ -74,8 +74,8 @@ int main(int argc, char **argv) {
 
     // WITH_ASAN builds with sanitizers
     if (env_is("WITH_ASAN", "1")) {
-        strcat(CXXFLAGS, " -fsanitize=address -g");
-        strcat(LDFLAGS, " -lasan");
+        strcat(CXXFLAGS, " -fsanitize=address,undefined -g");
+        strcat(LDFLAGS, " -lasan -lubsan");
     }
 
     if (!strcmp(argv[1], "examples")) {
