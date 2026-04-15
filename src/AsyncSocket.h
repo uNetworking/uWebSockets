@@ -347,7 +347,17 @@ protected:
                 loopData->corkOffset = 0;
 
                 if (failed) {
-                    /* We do not need to care for buffering here, write does that */
+                    /* If corked data fails to flush, and we have more data to write, immediately buffer it here 
+                     * since the above call to write excludes src */
+                    if (!optionally && src && length) {
+                        AsyncSocketData<SSL> *asyncSocketData = getAsyncSocketData();
+                        asyncSocketData->buffer.append(src, (size_t) length);
+
+                        /* We wrote to per socket buffer, so report success */
+                        return {length, true};
+                    }
+
+                    /* We do not need to care for buffering (of the corked data) here, write did that */
                     return {0, true};
                 }
             }
