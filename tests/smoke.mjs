@@ -1,4 +1,4 @@
-/* This smoke test runs against the Crc32 example program for now, but this example will be extended for more tests */
+/* This smoke test runs against the dedicated SmokeTest program */
 
 var crc32 = (function () {
     var table = new Uint32Array(256);
@@ -112,13 +112,13 @@ async function streamingWriteTest() {
 async function streamingTryWriteTest() {
     console.log("Making tryWrite request");
     const res = await fetch("http://localhost:3000/trywrite");
-    expectFilled(await readBodySlowly(res), 128 * 1024, "x".charCodeAt(0), "tryWrite");
+    expectFilled(await readBodySlowly(res), 16 * 1024 * 1024, "x".charCodeAt(0), "tryWrite");
 }
 
 async function streamingTryWriteEndTest() {
     console.log("Making tryWrite-end request");
     const res = await fetch("http://localhost:3000/trywrite-end");
-    expectFilled(await readBodySlowly(res), 256 * 1024, "y".charCodeAt(0), "tryWrite-end");
+    expectFilled(await readBodySlowly(res), 32 * 1024 * 1024, "y".charCodeAt(0), "tryWrite-end");
 }
 
 /* Maximum chunk size is less than 256mb */
