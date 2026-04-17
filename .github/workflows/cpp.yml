@@ -48,7 +48,7 @@ jobs:
         run: |
           cd uWebSockets
           iwr https://deno.land/x/install/install.ps1 -useb | iex
-          Start-Process -NoNewWindow .\SmokeTest
+          Start-Process -NoNewWindow .\SmokeTest.exe
           sleep 1
           deno run --allow-net tests\smoke.mjs
           Stop-Process -Name SmokeTest
