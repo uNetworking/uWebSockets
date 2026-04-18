@@ -11,7 +11,6 @@ namespace {
 const std::string payload(16 * 1024 * 1024, 'x');
 
 struct ResponseState {
-    uintmax_t baseOffset = 0;
     bool aborted = false;
 };
 
@@ -21,7 +20,7 @@ bool tryWriteLoop(uWS::HttpResponse<SSL> *res, ResponseState *state) {
         return true;
     }
 
-    uintmax_t sent = res->getWriteOffset() - state->baseOffset;
+    uintmax_t sent = res->getWriteOffset();
     std::string_view remaining = payload;
     remaining.remove_prefix((size_t) sent);
     if (res->tryWrite(remaining)) {
@@ -42,7 +41,6 @@ int main() {
       .passphrase = "1234"
     }).get("/*", [](auto *res, auto */*req*/) {
         auto state = std::make_shared<ResponseState>();
-        state->baseOffset = res->getWriteOffset();
 
         res->writeHeader("Content-Type", "application/octet-stream");
         res->onAborted([state]() {

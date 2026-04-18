@@ -113,7 +113,7 @@ private:
         bool failed = false;
         if (data.length()) {
             if (!insideChunk) {
-                char chunkHeader[34];
+                char chunkHeader[12];
                 unsigned int chunkHeaderLength = formatChunkHeader((unsigned int) data.length(), chunkHeader);
                 /* A chunk header must never be optional, or getWriteOffset/onWritable semantics would break. */
                 failed = Super::write(chunkHeader, (int) chunkHeaderLength, false).second;
