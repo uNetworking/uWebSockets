@@ -97,7 +97,7 @@ private:
     /* Chunked writes can only be resumed by continuing the same body suffix. */
     std::pair<bool, bool> internalWriteChunk(std::string_view data, bool optional, bool terminate = false) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
-        bool continuingChunk = httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
+        bool insideChunk = httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
         bool needsUncork = !Super::isCorked() && Super::canCork();
         if (needsUncork) {
             Super::cork();
@@ -109,16 +109,18 @@ private:
             httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
         }
 
-        bool completed = !continuingChunk || data.length();
+        bool completed = !insideChunk || data.length();
         bool failed = false;
         if (data.length()) {
-            if (!continuingChunk) {
+            if (!insideChunk) {
                 char chunkHeader[34];
                 unsigned int chunkHeaderLength = formatChunkHeader((unsigned int) data.length(), chunkHeader);
-                failed = Super::write(chunkHeader, (int) chunkHeaderLength).second;
+                /* A chunk header must never be optional, or getWriteOffset/onWritable semantics would break. */
+                failed = Super::write(chunkHeader, (int) chunkHeaderLength, false).second;
             }
 
             auto writtenFailed = Super::write(data.data(), (int) data.length(), optional);
+            /* Offset tracks body bytes only, matching getWriteOffset and the offset passed to onWritable. */
             httpResponseData->offset += (uintmax_t) writtenFailed.first;
             failed = failed || writtenFailed.second;
 
