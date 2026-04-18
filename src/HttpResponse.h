@@ -71,7 +71,7 @@ private:
         Super::write(buf, length);
     }
 
-    unsigned int formatChunkHeader(unsigned int value, char *dst) {
+    unsigned int formatCRLFAndChunkHeader(unsigned int value, char *dst) {
         dst[0] = '\r';
         dst[1] = '\n';
         int hexLength = utils::u32toaHex(value, dst + 2);
@@ -114,7 +114,7 @@ private:
         if (data.length()) {
             if (!insideChunk) {
                 char chunkHeader[12];
-                unsigned int chunkHeaderLength = formatChunkHeader((unsigned int) data.length(), chunkHeader);
+                unsigned int chunkHeaderLength = formatCRLFAndChunkHeader((unsigned int) data.length(), chunkHeader);
                 /* A chunk header must never be optional, or getWriteOffset/onWritable semantics would break. */
                 failed = Super::write(chunkHeader, (int) chunkHeaderLength, false).second;
             }
