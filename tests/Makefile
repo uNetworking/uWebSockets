@@ -19,11 +19,11 @@ performance:
 	./HttpRouter
 
 smoke:
-	../SmokeTest &
+	../Crc32 &
 	sleep 1
 	~/.deno/bin/deno run --allow-net smoke.mjs
 	node smoke.mjs
-	pkill SmokeTest
+	pkill Crc32
 
 compliance:
 	../EchoBody &

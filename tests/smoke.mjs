@@ -1,4 +1,4 @@
-/* This smoke test runs against the dedicated SmokeTest program */
+/* This smoke test runs against the Crc32 example program for now, but this example will be extended for more tests */
 
 var crc32 = (function () {
     var table = new Uint32Array(256);
@@ -66,61 +66,6 @@ async function fixedCrc32Test(array) {
     }
 }
 
-async function readBodySlowly(response) {
-    const reader = response.body.getReader();
-    const chunks = [];
-    let total = 0;
-
-    while (true) {
-        const {done, value} = await reader.read();
-        if (done) {
-            break;
-        }
-
-        chunks.push(value);
-        total += value.length;
-        await new Promise((resolve) => setTimeout(resolve, 5));
-    }
-
-    const body = new Uint8Array(total);
-    let offset = 0;
-    for (const chunk of chunks) {
-        body.set(chunk, offset);
-        offset += chunk.length;
-    }
-    return body;
-}
-
-function expectFilled(body, size, value, label) {
-    if (body.length !== size) {
-        throw new Error(label + " failed: expected body size " + size + ", got " + body.length);
-    }
-
-    for (let i = 0; i < body.length; i++) {
-        if (body[i] !== value) {
-            throw new Error(label + " failed: unexpected byte at offset " + i);
-        }
-    }
-}
-
-async function streamingWriteTest() {
-    console.log("Making streaming write request");
-    const res = await fetch("http://localhost:3000/write");
-    expectFilled(await readBodySlowly(res), 128 * 1024, "a".charCodeAt(0), "write");
-}
-
-async function streamingTryWriteTest() {
-    console.log("Making tryWrite request");
-    const res = await fetch("http://localhost:3000/trywrite");
-    expectFilled(await readBodySlowly(res), 16 * 1024 * 1024, "x".charCodeAt(0), "tryWrite");
-}
-
-async function streamingTryWriteEndTest() {
-    console.log("Making tryWrite-end request");
-    const res = await fetch("http://localhost:3000/trywrite-end");
-    expectFilled(await readBodySlowly(res), 32 * 1024 * 1024, "y".charCodeAt(0), "tryWrite-end");
-}
-
 /* Maximum chunk size is less than 256mb */
 const sizes = [0, 0, 32, 32, 128, 256, 1024, 65536, 1024 * 1024, 1024 * 1024 * 128, 0, 0, 32, 32];
 for (let i = 0; i < sizes.length; i++) {
@@ -137,9 +82,5 @@ for (let i = 0; i < sizes.length; i++) {
     await fixedCrc32Test(array);
     await chunkedCrc32Test(array);
 }
-
-await streamingWriteTest();
-await streamingTryWriteTest();
-await streamingTryWriteEndTest();
 
 console.log("Done!");

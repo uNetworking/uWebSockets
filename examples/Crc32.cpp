@@ -31,6 +31,7 @@ uint32_t crc32(const char *s, size_t n, uint32_t crc = 0xFFFFFFFF) {
 }
 
 int main() {
+
     uWS::SSLApp({
       .key_file_name = "misc/key.pem",
       .cert_file_name = "misc/cert.pem",
