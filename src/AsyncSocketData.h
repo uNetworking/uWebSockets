@@ -18,27 +18,13 @@
 #ifndef UWS_ASYNCSOCKETDATA_H
 #define UWS_ASYNCSOCKETDATA_H
 
-#include <cstring>
 #include <string>
 
 namespace uWS {
 
 struct BackPressure {
-    static constexpr size_t TRIM_THRESHOLD = 64 * 1024;
-    static constexpr size_t RETAIN_CAPACITY = 32 * 1024;
-
     std::string buffer;
     unsigned int pendingRemoval = 0;
-
-    void normalize() {
-        size_t length = buffer.length() - pendingRemoval;
-        if (length) {
-            memmove(buffer.data(), buffer.data() + pendingRemoval, length);
-        }
-        buffer.resize(length);
-        pendingRemoval = 0;
-    }
-
     BackPressure(BackPressure &&other) {
         buffer = std::move(other.buffer);
         pendingRemoval = other.pendingRemoval;
@@ -48,32 +34,21 @@ struct BackPressure {
         buffer.append(data, length);
     }
     void erase(unsigned int length) {
-        size_t logicalLength = this->length();
-        if (length >= logicalLength) {
-            clear();
-            return;
-        }
-
         pendingRemoval += length;
         /* Always erase a minimum of 1/32th the current backpressure */
         if (pendingRemoval > (buffer.length() >> 5)) {
-            normalize();
+            std::string(buffer.begin() + pendingRemoval, buffer.end()).swap(buffer);
+            pendingRemoval = 0;
         }
     }
     size_t length() {
         return buffer.length() - pendingRemoval;
     }
-    /* Only used in AsyncSocket::write when buffered backpressure fully drains */
+    /* Only used in AsyncSocket::write - what about replacing it with the other functions like erase(length())? */
     void clear() {
         pendingRemoval = 0;
-        if (buffer.capacity() > TRIM_THRESHOLD) {
-            /* Trim pathological spikes but keep a warm buffer for normal bursts */
-            std::string retained;
-            retained.reserve(RETAIN_CAPACITY);
-            buffer.swap(retained);
-        } else {
-            buffer.clear();
-        }
+        buffer.clear();
+        buffer.shrink_to_fit();
     }
     /* Only used by AsyncSocket::write (optionally) before append */
     void reserve(size_t length) {
@@ -81,10 +56,7 @@ struct BackPressure {
     }
     /* Only used by getSendBuffer as last resort */
     void resize(size_t length) {
-        if (pendingRemoval) {
-            normalize();
-        }
-        buffer.resize(length);
+        buffer.resize(length + pendingRemoval);
     }
     const char *data() {
         return buffer.data() + pendingRemoval;
