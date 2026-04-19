@@ -69,7 +69,8 @@ private:
         HTTP_WRITE_CALLED = 2, // used
         HTTP_END_CALLED = 4, // used
         HTTP_RESPONSE_PENDING = 8, // used
-        HTTP_CONNECTION_CLOSE = 16 // used
+        HTTP_CONNECTION_CLOSE = 16, // used
+        HTTP_WRITE_CONTINUATION_PENDING = 32 // used
     };
 
     /* Per socket event handlers */
