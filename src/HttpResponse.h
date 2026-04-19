@@ -97,6 +97,7 @@ private:
     /* Chunked writes can only be resumed by continuing the same body suffix. */
     std::pair<bool, bool> internalWriteChunk(std::string_view data, bool optional, bool terminate = false) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+        constexpr const char *terminatingChunk = "\r\n0\r\n\r\n";
         bool insideChunk = httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
         bool needsUncork = !Super::isCorked() && Super::canCork();
         if (needsUncork) {
@@ -110,37 +111,58 @@ private:
         }
 
         bool completed = !insideChunk || data.length();
-        bool failed = false;
+        bool callerFailed = false;
+        bool hadBackpressure = false;
         if (data.length()) {
             if (!insideChunk) {
                 char chunkHeader[12];
                 unsigned int chunkHeaderLength = formatCRLFAndChunkHeader((unsigned int) data.length(), chunkHeader);
                 /* A chunk header must never be optional, or getWriteOffset/onWritable semantics would break. */
-                failed = Super::write(chunkHeader, (int) chunkHeaderLength, false).second;
+                hadBackpressure = Super::write(chunkHeader, (int) chunkHeaderLength, false).second;
             }
 
-            auto writtenFailed = Super::write(data.data(), (int) data.length(), optional);
+            auto writtenFailed = terminate ?
+                Super::write2(data.data(), (int) data.length(), terminatingChunk, 7, optional) :
+                Super::write(data.data(), (int) data.length(), optional);
+            int writtenBody = std::min(writtenFailed.first, (int) data.length());
             /* Offset tracks body bytes only, matching getWriteOffset and the offset passed to onWritable. */
-            httpResponseData->offset += (uintmax_t) writtenFailed.first;
-            failed = failed || writtenFailed.second;
+            httpResponseData->offset += (uintmax_t) writtenBody;
+            hadBackpressure = hadBackpressure || writtenFailed.second;
 
-            if (optional && (writtenFailed.first != (int) data.length() || failed)) {
+            if (optional && writtenBody != (int) data.length()) {
                 httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
                 completed = false;
+                callerFailed = true;
             } else {
                 httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
+
+                if (terminate && writtenFailed.first != (int) data.length() + 7) {
+                    int writtenTrailer = writtenFailed.first - writtenBody;
+                    hadBackpressure = hadBackpressure || Super::write(terminatingChunk + writtenTrailer, 7 - writtenTrailer, false).second;
+                } else if (optional && writtenFailed.second) {
+                    callerFailed = true;
+                }
             }
         }
 
-        if (terminate && completed) {
-            Super::write("\r\n0\r\n\r\n", 7);
+        if (terminate && completed && !data.length()) {
+            auto writtenFailed = Super::write(terminatingChunk, 7, optional);
+            hadBackpressure = hadBackpressure || writtenFailed.second;
+
+            if (optional && writtenFailed.first != 7) {
+                hadBackpressure = hadBackpressure || Super::write(terminatingChunk + writtenFailed.first, 7 - writtenFailed.first, false).second;
+            }
         }
 
         if (needsUncork) {
-            failed = failed || Super::uncork().second;
+            bool uncorkFailed = Super::uncork().second;
+            hadBackpressure = hadBackpressure || uncorkFailed;
+            if (!terminate && uncorkFailed) {
+                callerFailed = true;
+            }
         }
 
-        if (failed || terminate || !completed) {
+        if (hadBackpressure || terminate || !completed) {
             Super::timeout(HTTP_TIMEOUT_S);
         }
 
@@ -159,7 +181,7 @@ private:
             }
         }
 
-        return {completed, failed};
+        return {completed, callerFailed};
     }
 
     /* Returns true on success, indicating that it might be feasible to write more data.
@@ -499,15 +521,16 @@ public:
         return !internalWriteChunk(data, false).second;
     }
 
-    /* Try and write one chunk. Continue with the remaining body suffix on onWritable. */
-    bool tryWrite(std::string_view data) {
+    /* Try and write one chunk. Continue with the remaining body suffix on onWritable.
+     * Set finalChunk to also send the terminating 0-chunk on completion. */
+    bool tryWrite(std::string_view data, bool finalChunk = false) {
         writeStatus(HTTP_200_OK);
 
-        if (!data.length()) {
+        if (!data.length() && !finalChunk) {
             return !(getHttpResponseData()->state & HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING);
         }
 
-        auto [completed, failed] = internalWriteChunk(data, true);
+        auto [completed, failed] = internalWriteChunk(data, true, finalChunk);
         return completed && !failed;
     }
 

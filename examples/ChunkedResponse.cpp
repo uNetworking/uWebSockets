@@ -23,12 +23,7 @@ bool tryWriteLoop(uWS::HttpResponse<SSL> *res, ResponseState *state) {
     uintmax_t sent = res->getWriteOffset();
     std::string_view remaining = payload;
     remaining.remove_prefix((size_t) sent);
-    if (res->tryWrite(remaining)) {
-        res->end();
-        return true;
-    }
-
-    return false;
+    return res->tryWrite(remaining, true);
 }
 
 }
