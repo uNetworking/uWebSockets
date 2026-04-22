@@ -33,8 +33,6 @@
 
 #include "MoveOnlyFunction.h"
 
-/* todo: tryWrite is missing currently, only send smaller segments with write */
-
 namespace uWS {
 
 /* Some pre-defined status constants to use with writeStatus */
@@ -73,6 +71,15 @@ private:
         Super::write(buf, length);
     }
 
+    unsigned int formatCRLFAndChunkHeader(unsigned int value, char *dst) {
+        dst[0] = '\r';
+        dst[1] = '\n';
+        int hexLength = utils::u32toaHex(value, dst + 2);
+        dst[hexLength + 2] = '\r';
+        dst[hexLength + 3] = '\n';
+        return (unsigned int) hexLength + 4;
+    }
+
     /* Called only once per request */
     void writeMark() {
         /* Date is always written */
@@ -85,6 +92,96 @@ private:
             writeHeader("uWebSockets", "20");
         }
 #endif
+    }
+
+    /* Chunked writes can only be resumed by continuing the same body suffix. */
+    std::pair<bool, bool> internalWriteChunk(std::string_view data, bool optional, bool terminate = false) {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+        constexpr const char *terminatingChunk = "\r\n0\r\n\r\n";
+        bool insideChunk = httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
+        bool needsUncork = !Super::isCorked() && Super::canCork();
+        if (needsUncork) {
+            Super::cork();
+        }
+
+        if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
+            writeMark();
+            writeHeader("Transfer-Encoding", "chunked");
+            httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
+        }
+
+        bool completed = !insideChunk || data.length();
+        bool callerFailed = false;
+        bool hadBackpressure = false;
+        if (data.length()) {
+            if (!insideChunk) {
+                char chunkHeader[12];
+                unsigned int chunkHeaderLength = formatCRLFAndChunkHeader((unsigned int) data.length(), chunkHeader);
+                /* A chunk header must never be optional, or getWriteOffset/onWritable semantics would break. */
+                hadBackpressure = Super::write(chunkHeader, (int) chunkHeaderLength, false).second;
+            }
+
+            auto writtenFailed = terminate ?
+                Super::write2(data.data(), (int) data.length(), terminatingChunk, 7, optional) :
+                Super::write(data.data(), (int) data.length(), optional);
+            int writtenBody = std::min(writtenFailed.first, (int) data.length());
+            /* Offset tracks body bytes only, matching getWriteOffset and the offset passed to onWritable. */
+            httpResponseData->offset += (uintmax_t) writtenBody;
+            hadBackpressure = hadBackpressure || writtenFailed.second;
+
+            if (optional && writtenBody != (int) data.length()) {
+                httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
+                completed = false;
+                callerFailed = true;
+            } else {
+                httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
+
+                if (terminate && writtenFailed.first != (int) data.length() + 7) {
+                    int writtenTrailer = writtenFailed.first - writtenBody;
+                    hadBackpressure = hadBackpressure || Super::write(terminatingChunk + writtenTrailer, 7 - writtenTrailer, false).second;
+                } else if (optional && writtenFailed.second) {
+                    callerFailed = true;
+                }
+            }
+        }
+
+        if (terminate && completed && !data.length()) {
+            auto writtenFailed = Super::write(terminatingChunk, 7, optional);
+            hadBackpressure = hadBackpressure || writtenFailed.second;
+
+            if (optional && writtenFailed.first != 7) {
+                hadBackpressure = hadBackpressure || Super::write(terminatingChunk + writtenFailed.first, 7 - writtenFailed.first, false).second;
+            }
+        }
+
+        if (needsUncork) {
+            bool uncorkFailed = Super::uncork().second;
+            hadBackpressure = hadBackpressure || uncorkFailed;
+            if (!terminate && uncorkFailed) {
+                callerFailed = true;
+            }
+        }
+
+        if (hadBackpressure || terminate || !completed) {
+            Super::timeout(HTTP_TIMEOUT_S);
+        }
+
+        if (terminate && completed) {
+            httpResponseData->markDone();
+
+            if (!Super::isCorked()) {
+                if (httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) {
+                    if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
+                        if (((AsyncSocket<SSL> *) this)->getBufferedAmount() == 0) {
+                            ((AsyncSocket<SSL> *) this)->shutdown();
+                            ((AsyncSocket<SSL> *) this)->close();
+                        }
+                    }
+                }
+            }
+        }
+
+        return {completed, callerFailed};
     }
 
     /* Returns true on success, indicating that it might be feasible to write more data.
@@ -116,42 +213,7 @@ private:
         }
 
         if (httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED) {
-
-            /* We do not have tryWrite-like functionalities, so ignore optional in this path */
-
-            /* Do not allow sending 0 chunk here */
-            if (data.length()) {
-                Super::write("\r\n", 2);
-                writeUnsignedHex((unsigned int) data.length());
-                Super::write("\r\n", 2);
-
-                /* Ignoring optional for now */
-                Super::write(data.data(), (int) data.length());
-            }
-
-            /* Terminating 0 chunk */
-            Super::write("\r\n0\r\n\r\n", 7);
-
-            httpResponseData->markDone();
-
-            /* We need to check if we should close this socket here now */
-            if (!Super::isCorked()) {
-                if (httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) {
-                    if ((httpResponseData->state & HttpResponseData<SSL>::HTTP_RESPONSE_PENDING) == 0) {
-                        if (((AsyncSocket<SSL> *) this)->getBufferedAmount() == 0) {
-                            ((AsyncSocket<SSL> *) this)->shutdown();
-                            /* We need to force close after sending FIN since we want to hinder
-                                * clients from keeping to send their huge data */
-                            ((AsyncSocket<SSL> *) this)->close();
-                            return true;
-                        }
-                    }
-                }
-            }
-
-            /* tryEnd can never fail when in chunked mode, since we do not have tryWrite (yet), only write */
-            Super::timeout(HTTP_TIMEOUT_S);
-            return true;
+            return internalWriteChunk(data, false, true).first;
         } else {
             /* Write content-length on first call */
             if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_END_CALLED)) {
@@ -452,33 +514,24 @@ public:
     bool write(std::string_view data) {
         writeStatus(HTTP_200_OK);
 
-        /* Do not allow sending 0 chunks, they mark end of response */
         if (!data.length()) {
-            /* If you called us, then according to you it was fine to call us so it's fine to still call us */
-            return true;
+            return !(getHttpResponseData()->state & HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING);
         }
 
-        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+        return !internalWriteChunk(data, false).second;
+    }
 
-        if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
-            /* Write mark on first call to write */
-            writeMark();
+    /* Try and write one chunk. Continue with the remaining body suffix on onWritable.
+     * Set finalChunk to also send the terminating 0-chunk on completion. */
+    bool tryWrite(std::string_view data, bool finalChunk = false) {
+        writeStatus(HTTP_200_OK);
 
-            writeHeader("Transfer-Encoding", "chunked");
-            httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
+        if (!data.length() && !finalChunk) {
+            return !(getHttpResponseData()->state & HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING);
         }
 
-        Super::write("\r\n", 2);
-        writeUnsignedHex((unsigned int) data.length());
-        Super::write("\r\n", 2);
-
-        auto [written, failed] = Super::write(data.data(), (int) data.length());
-        if (failed) {
-            Super::timeout(HTTP_TIMEOUT_S);
-        }
-
-        /* If we did not fail the write, accept more */
-        return !failed;
+        auto [completed, failed] = internalWriteChunk(data, true, finalChunk);
+        return completed && !failed;
     }
 
     /* Get the current byte write offset for this Http response */
