@@ -68,7 +68,7 @@ T _cond_byte_swap(T value) {
 
 struct ProxyParser {
 private:
-    union proxy_addr addr;
+    union proxy_addr addr = {};
 
     /* Default family of 0 signals no proxy address */
     uint8_t family = 0;
