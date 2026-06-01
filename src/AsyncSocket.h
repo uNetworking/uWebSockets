@@ -333,6 +333,55 @@ protected:
         return {length, false};
     }
 
+    /* Same semantics as write, but for two buffers. */
+    std::pair<int, bool> write2(const char *header, int headerLength, const char *payload, int payloadLength, bool optionally = false) {
+        int length = headerLength + payloadLength;
+
+        /* Fake success if closed, simple fix to allow uncork of closed socket to succeed */
+        if (us_socket_is_closed(SSL, (us_socket_t *) this)) {
+            return {length, false};
+        }
+
+        if (!headerLength) {
+            return write(payload, payloadLength, optionally);
+        }
+        if (!payloadLength) {
+            return write(header, headerLength, optionally);
+        }
+
+        if constexpr (!SSL) {
+            AsyncSocketData<SSL> *asyncSocketData = getAsyncSocketData();
+            if (!asyncSocketData->buffer.length() && getLoopData()->corkedSocket != this) {
+                int written = us_socket_write2(0, (us_socket_t *) this, header, headerLength, payload, payloadLength);
+                if (written == length || optionally) {
+                    return {written, written != length};
+                }
+
+                if (written > headerLength) {
+                    asyncSocketData->buffer.append(payload + written - headerLength, (size_t) (length - written));
+                } else {
+                    asyncSocketData->buffer.append(header + written, (size_t) (headerLength - written));
+                    asyncSocketData->buffer.append(payload, (size_t) payloadLength);
+                }
+
+                return {length, true};
+            }
+        }
+
+        auto [headerWritten, failed] = write(header, headerLength, optionally, payloadLength);
+        if (failed) {
+            if (!optionally) {
+                getAsyncSocketData()->buffer.append(payload, (size_t) payloadLength);
+                return {length, true};
+            }
+
+            return {headerWritten, true};
+        }
+
+        auto [payloadWritten, payloadFailed] = write(payload, payloadLength, optionally);
+        return {headerLength + payloadWritten, payloadFailed};
+    }
+
     /* Uncork this socket and flush or buffer any corked and/or passed data. It is essential to remember doing this. */
     /* It does NOT count bytes written from cork buffer (they are already accounted for in the write call responsible for its corking)! */
     std::pair<int, bool> uncork(const char *src = nullptr, int length = 0, bool optionally = false) {
