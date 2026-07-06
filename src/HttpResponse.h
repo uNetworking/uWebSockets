@@ -532,6 +532,9 @@ public:
     HttpResponse *cork(MoveOnlyFunction<void()> &&handler) {
         if (!Super::isCorked() && Super::canCork()) {
             LoopData *loopData = Super::getLoopData();
+            /* Remember our socket context so we can detect a WebSocket upgrade in the
+             * handler even when the poll realloc kept our address (see below). */
+            struct us_socket_context_t *preCorkContext = us_socket_context(SSL, (struct us_socket_t *) this);
             Super::cork();
             handler();
 
@@ -552,7 +555,11 @@ public:
 
             /* If we are no longer an HTTP socket then early return the new "this".
              * We don't want to even overwrite timeout as it is set in upgrade already. */
-            if (this != newCorkedSocket) {
+            /* The pointer check alone is not enough: us_socket_context_adopt_socket() can
+             * realloc the poll in place, leaving the upgraded WebSocket at our old address
+             * (this == newCorkedSocket). The socket context always changes on upgrade. */
+            if (this != newCorkedSocket ||
+                us_socket_context(SSL, (struct us_socket_t *) newCorkedSocket) != preCorkContext) {
                 return static_cast<HttpResponse *>(newCorkedSocket);
             }
 
