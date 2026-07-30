@@ -244,7 +244,6 @@ protected:
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
      * Returns pair of bytes written (anywhere) and whether or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */
-    std::pair<int, bool> write(const char *src, int length, bool optionally = false, int nextLength = 0) {
     std::pair<int, bool> write(const char *src, int length, bool optionally = false, int nextLength = 0, bool hasMore = false) {
         /* Fake success if closed, simple fix to allow uncork of closed socket to succeed */
         if (us_socket_is_closed(SSL, (us_socket_t *) this)) {
@@ -257,7 +256,6 @@ protected:
         /* We are limited if we have a per-socket buffer */
         if (asyncSocketData->buffer.length()) {
             /* Write off as much as we can */
-            int written = us_socket_write(SSL, (us_socket_t *) this, asyncSocketData->buffer.data(), (int) asyncSocketData->buffer.length(), /*nextLength != 0 | */length);
             int written = us_socket_write(SSL, (us_socket_t *) this, asyncSocketData->buffer.data(), (int) asyncSocketData->buffer.length(), length || hasMore);
 
             /* On failure return, otherwise continue down the function */
@@ -306,7 +304,6 @@ protected:
                 }
             } else {
                 /* We are not corked */
-                int written = us_socket_write(SSL, (us_socket_t *) this, src, length, nextLength != 0);
                 int written = us_socket_write(SSL, (us_socket_t *) this, src, length, nextLength != 0 || hasMore);
 
                 /* Did we fail? */
@@ -410,7 +407,6 @@ protected:
 
             if (loopData->corkOffset) {
                 /* Corked data is already accounted for via its write call */
-                bool failed = write(loopData->corkBuffer, (int) loopData->corkOffset, false, length ? length : (int) hasMore).second;
                 bool failed = write(loopData->corkBuffer, (int) loopData->corkOffset, false, length, hasMore).second;
                 loopData->corkOffset = 0;
 
