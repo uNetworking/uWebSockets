@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2020.
+ * Authored by Alex Hultman, 2018-2026.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -68,7 +68,11 @@ T _cond_byte_swap(T value) {
 
 struct ProxyParser {
 private:
-    union proxy_addr addr;
+    union proxy_addr addr = {};
+    /* We must always consume all PROXY v2 data, even if done, but we may not overwrite our 
+     * parsed-out data one read for the first time. This property mainly fixes L4 TCP-only
+     * proxying where no HTTP-level cleaning is applied. */
+    bool done = false;
 
     /* Default family of 0 signals no proxy address */
     uint8_t family = 0;
@@ -161,11 +165,15 @@ public:
         //printf("Family: %d\n", (header.fam & 0xf0) >> 4);
         //printf("Transport: %d\n", (header.fam & 0x0f));
 
-        /* We have 0 family by default, and UNSPEC is 0 as well */
-        family = header.fam;
+        /* Copy payload (only if not already done so before) */
+        if (!done) {
+            /* We have 0 family by default, and UNSPEC is 0 as well */
+            family = header.fam;
 
-        /* Copy payload */
-        memcpy(&addr, data.data() + 16, hostLength);
+            memcpy(&addr, data.data() + 16, hostLength);
+
+            done = true;
+        }
 
         /* We consumed everything */
         return {true, 16 + hostLength};

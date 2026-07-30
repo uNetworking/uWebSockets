@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2025.
+ * Authored by Alex Hultman, 2018-2026.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -489,6 +489,25 @@ public:
         return this;
     }
 
+    /* Begin writing the response body. Useful for chunked encodings whose first chunk is not yet known */
+    void beginWrite() {
+        /* Write status if not already done */
+        writeStatus(HTTP_200_OK);
+
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
+            /* Write mark on first call to write */
+            writeMark();
+
+            writeHeader("Transfer-Encoding", "chunked");
+            httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
+
+            /* Start of the body */
+            Super::write("\r\n", 2);
+        }
+    }
+
     /* End without a body (no content-length) or end with a spoofed content-length. */
     void endWithoutBody(std::optional<size_t> reportedContentLength = std::nullopt, bool closeConnection = false) {
         if (reportedContentLength.has_value()) {
@@ -566,6 +585,9 @@ public:
     HttpResponse *cork(MoveOnlyFunction<void()> &&handler) {
         if (!Super::isCorked() && Super::canCork()) {
             LoopData *loopData = Super::getLoopData();
+            /* Remember our socket context so we can detect a WebSocket upgrade in the
+             * handler even when the poll realloc kept our address (see below). */
+            struct us_socket_context_t *preCorkContext = us_socket_context(SSL, (struct us_socket_t *) this);
             Super::cork();
             handler();
 
@@ -586,7 +608,11 @@ public:
 
             /* If we are no longer an HTTP socket then early return the new "this".
              * We don't want to even overwrite timeout as it is set in upgrade already. */
-            if (this != newCorkedSocket) {
+            /* The pointer check alone is not enough: us_socket_context_adopt_socket() can
+             * realloc the poll in place, leaving the upgraded WebSocket at our old address
+             * (this == newCorkedSocket). The socket context always changes on upgrade. */
+            if (this != newCorkedSocket ||
+                us_socket_context(SSL, (struct us_socket_t *) newCorkedSocket) != preCorkContext) {
                 return static_cast<HttpResponse *>(newCorkedSocket);
             }
 

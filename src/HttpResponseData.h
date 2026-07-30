@@ -43,23 +43,51 @@ struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
         state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
     }
 
-    /* Caller of onWritable. It is possible onWritable calls markDone so we need to borrow it. */
+    /* Caller of onWritable. It is possible onWritable calls markDone so we need to borrow it.
+     * It is also possible user code sets a new onWritable while running user registered onWritable. */
     bool callOnWritable(uintmax_t offset) {
-        /* Borrow real onWritable */
+        /* 1. Borrow the real callback */
         MoveOnlyFunction<bool(uintmax_t)> borrowedOnWritable = std::move(onWritable);
+    
+        /* 2. Setup the stack-based detection flag */
+        bool placeholderReplaced = false;
+    
+        struct Sentinel {
+            bool *replacedFlag;
+            Sentinel(bool *f) : replacedFlag(f) {}
 
-        /* Set onWritable to placeholder */
-        onWritable = [](uintmax_t) {return true;};
-
-        /* Run borrowed onWritable */
+            Sentinel(Sentinel &&other) noexcept : replacedFlag(other.replacedFlag) {
+                other.replacedFlag = nullptr; 
+            }
+            
+            ~Sentinel() {
+                if (replacedFlag) {
+                    *replacedFlag = true;
+                }
+            }
+    
+            /* Delete copy to ensure move-only semantics */
+            Sentinel(const Sentinel&) = delete;
+            Sentinel& operator=(const Sentinel&) = delete;
+        };
+    
+        /* 3. Set placeholder with the captured Sentinel */
+        onWritable = [tracker = Sentinel(&placeholderReplaced)](uintmax_t) {
+            return true;
+        };
+    
+        /* 4. Run the borrowed callback */
         bool ret = borrowedOnWritable(offset);
-
-        /* If we still have onWritable (the placeholder) then move back the real one */
-        if (onWritable) {
-            /* We haven't reset onWritable, so give it back */
+    
+        /* 
+           5. If placeholderReplaced is STILL false, it means the lambda (and its Sentinel) 
+           is still sitting inside 'onWritable'. If it's true, the lambda was destroyed 
+           to make room for a new one.
+        */
+        if (!placeholderReplaced) {
             onWritable = std::move(borrowedOnWritable);
         }
-
+    
         return ret;
     }
 private:
