@@ -364,7 +364,7 @@ protected:
             }
 #endif
 
-            if (!asyncSocketData->buffer.length() && loopData->corkedSocket != this) {
+            if (!asyncSocketData->buffer.length() && !isCorked()) {
                 int written = us_socket_write2(0, (us_socket_t *) this, header, headerLength, payload, payloadLength);
                 if (written == length || optionally) {
                     return {written, written != length};
