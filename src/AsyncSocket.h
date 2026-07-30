@@ -407,7 +407,7 @@ protected:
 
             if (loopData->corkOffset) {
                 /* Corked data is already accounted for via its write call */
-                auto [written, failed] = write(loopData->corkBuffer, (int) loopData->corkOffset, false, length ? length : (int) hasMore);
+                bool failed = write(loopData->corkBuffer, (int) loopData->corkOffset, false, length ? length : (int) hasMore).second;
                 loopData->corkOffset = 0;
 
                 if (failed) {
