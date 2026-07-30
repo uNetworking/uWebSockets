@@ -71,13 +71,17 @@ private:
         Super::write(buf, length);
     }
 
-    unsigned int formatCRLFAndChunkHeader(unsigned int value, char *dst) {
-        dst[0] = '\r';
-        dst[1] = '\n';
-        int hexLength = utils::u32toaHex(value, dst + 2);
-        dst[hexLength + 2] = '\r';
-        dst[hexLength + 3] = '\n';
-        return (unsigned int) hexLength + 4;
+    unsigned int formatChunkHeader(unsigned int value, char *dst, bool leadingCRLF) {
+        unsigned int offset = 0;
+        if (leadingCRLF) {
+            dst[offset++] = '\r';
+            dst[offset++] = '\n';
+        }
+        int hexLength = utils::u32toaHex(value, dst + offset);
+        offset += (unsigned int) hexLength;
+        dst[offset++] = '\r';
+        dst[offset++] = '\n';
+        return offset;
     }
 
     /* Called only once per request */
@@ -99,6 +103,7 @@ private:
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
         constexpr const char *terminatingChunk = "\r\n0\r\n\r\n";
         bool insideChunk = httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
+        bool headersFlushed = httpResponseData->state & HttpResponseData<SSL>::HTTP_CHUNKED_HEADER_FLUSHED;
         bool needsUncork = !Super::isCorked() && Super::canCork();
         if (needsUncork) {
             Super::cork();
@@ -115,13 +120,14 @@ private:
         bool hadBackpressure = false;
         if (data.length()) {
             if (!insideChunk) {
-                char chunkHeader[12];
-                unsigned int chunkHeaderLength = formatCRLFAndChunkHeader((unsigned int) data.length(), chunkHeader);
+                char chunkHeader[32];
+                unsigned int chunkHeaderLength = formatChunkHeader((unsigned int) data.length(), chunkHeader, !headersFlushed);
                 /* A chunk header must never be optional, or getWriteOffset/onWritable semantics would break. */
                 hadBackpressure = Super::write(chunkHeader, (int) chunkHeaderLength, false).second;
+                httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_CHUNKED_HEADER_FLUSHED;
             }
 
-            auto writtenFailed = terminate ?
+            auto writtenFailed = terminate && data.length() <= (size_t) INT_MAX - 7 ?
                 Super::write2(data.data(), (int) data.length(), terminatingChunk, 7, optional) :
                 Super::write(data.data(), (int) data.length(), optional);
             int writtenBody = std::min(writtenFailed.first, (int) data.length());
@@ -136,7 +142,7 @@ private:
             } else {
                 httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
 
-                if (terminate && writtenFailed.first != (int) data.length() + 7) {
+                if (terminate && (size_t) writtenFailed.first != data.length() + 7) {
                     int writtenTrailer = writtenFailed.first - writtenBody;
                     hadBackpressure = hadBackpressure || Super::write(terminatingChunk + writtenTrailer, 7 - writtenTrailer, false).second;
                 } else if (optional && writtenFailed.second) {
@@ -146,12 +152,15 @@ private:
         }
 
         if (terminate && completed && !data.length()) {
-            auto writtenFailed = Super::write(terminatingChunk, 7, optional);
+            const char *trailer = terminatingChunk + (headersFlushed ? 2 : 0);
+            int trailerLength = headersFlushed ? 5 : 7;
+            auto writtenFailed = Super::write(trailer, trailerLength, optional);
             hadBackpressure = hadBackpressure || writtenFailed.second;
 
-            if (optional && writtenFailed.first != 7) {
-                hadBackpressure = hadBackpressure || Super::write(terminatingChunk + writtenFailed.first, 7 - writtenFailed.first, false).second;
+            if (optional && writtenFailed.first != trailerLength) {
+                hadBackpressure = hadBackpressure || Super::write(trailer + writtenFailed.first, trailerLength - writtenFailed.first, false).second;
             }
+            httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_CHUNKED_HEADER_FLUSHED;
         }
 
         if (needsUncork) {
@@ -160,6 +169,10 @@ private:
             if (!terminate && uncorkFailed) {
                 callerFailed = true;
             }
+        }
+
+        if (!terminate && hadBackpressure) {
+            callerFailed = true;
         }
 
         if (hadBackpressure || terminate || !completed) {
@@ -505,6 +518,7 @@ public:
 
             /* Start of the body */
             Super::write("\r\n", 2);
+            httpResponseData->state |= HttpResponseData<SSL>::HTTP_CHUNKED_HEADER_FLUSHED;
         }
     }
 

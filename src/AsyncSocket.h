@@ -350,8 +350,21 @@ protected:
         }
 
         if constexpr (!SSL) {
+            /* io_uring has no two-buffer write implementation, so keep the generic fallback. */
+#ifndef LIBUS_USE_IO_URING
             AsyncSocketData<SSL> *asyncSocketData = getAsyncSocketData();
-            if (!asyncSocketData->buffer.length() && getLoopData()->corkedSocket != this) {
+            LoopData *loopData = getLoopData();
+
+#ifndef _WIN32
+            /* POSIX write2 maps to writev. Keep small writes in the cork buffer, but flush
+             * an existing prefix before a large write so both buffers can use that path. */
+            if (!asyncSocketData->buffer.length() && loopData->corkedSocket == this &&
+                (unsigned int) length > LoopData::CORK_BUFFER_SIZE - loopData->corkOffset) {
+                uncork(nullptr, 0, false, true);
+            }
+#endif
+
+            if (!asyncSocketData->buffer.length() && loopData->corkedSocket != this) {
                 int written = us_socket_write2(0, (us_socket_t *) this, header, headerLength, payload, payloadLength);
                 if (written == length || optionally) {
                     return {written, written != length};
@@ -366,6 +379,7 @@ protected:
 
                 return {length, true};
             }
+#endif
         }
 
         auto [headerWritten, failed] = write(header, headerLength, optionally, payloadLength);
@@ -384,7 +398,8 @@ protected:
 
     /* Uncork this socket and flush or buffer any corked and/or passed data. It is essential to remember doing this. */
     /* It does NOT count bytes written from cork buffer (they are already accounted for in the write call responsible for its corking)! */
-    std::pair<int, bool> uncork(const char *src = nullptr, int length = 0, bool optionally = false) {
+    /* hasMore preserves the transport's more-data hint when no source buffer is passed yet. */
+    std::pair<int, bool> uncork(const char *src = nullptr, int length = 0, bool optionally = false, bool hasMore = false) {
         LoopData *loopData = getLoopData();
 
         if (loopData->corkedSocket == this) {
@@ -392,7 +407,7 @@ protected:
 
             if (loopData->corkOffset) {
                 /* Corked data is already accounted for via its write call */
-                auto [written, failed] = write(loopData->corkBuffer, (int) loopData->corkOffset, false, length);
+                auto [written, failed] = write(loopData->corkBuffer, (int) loopData->corkOffset, false, length ? length : (int) hasMore);
                 loopData->corkOffset = 0;
 
                 if (failed) {
