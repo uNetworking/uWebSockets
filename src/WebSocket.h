@@ -115,24 +115,28 @@ public:
         WebSocketContextData<SSL, USERDATA> *webSocketContextData = (WebSocketContextData<SSL, USERDATA> *) us_socket_context_ext(SSL,
             (us_socket_context_t *) us_socket_context(SSL, (us_socket_t *) this)
         );
+        WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
 
-        /* Skip sending and report success if we are over the limit of maxBackpressure */
+        /* Once closing due to backpressure, never send another frame */
+        if (webSocketData->isClosingDueToBackpressure) {
+            return DROPPED;
+        }
+
+        /* Skip sending if we are over the limit of maxBackpressure */
         if (webSocketContextData->maxBackpressure && webSocketContextData->maxBackpressure < getBufferedAmount()) {
             /* Also defer a close if we should */
             if (webSocketContextData->closeOnBackpressureLimit) {
+                webSocketData->isClosingDueToBackpressure = true;
                 us_socket_shutdown_read(SSL, (us_socket_t *) this);
             }
 
-            /* It is okay to call send again from within this callback since we immediately return with DROPPED afterwards */
+            /* Inform the application about the triggering dropped message */
             if (webSocketContextData->droppedHandler) {
                 webSocketContextData->droppedHandler(this, message, opCode);
             }
 
             return DROPPED;
         }
-
-        /* If we are subscribers and have messages to drain we need to drain them here to stay synced */
-        WebSocketData *webSocketData = (WebSocketData *) Super::getAsyncSocketData();
 
         /* Special path for long sends of non-compressed, non-SSL messages */
         if (message.length() >= 16 * 1024 && !compress && !SSL && !webSocketData->subscriber && getBufferedAmount() == 0 && Super::getLoopData()->corkOffset == 0) {
@@ -156,6 +160,7 @@ public:
             }
         } else {
 
+            /* If we are subscribers and have messages to drain we need to drain them here to stay synced */
             if (webSocketData->subscriber) {
                 /* This will call back into us, send. */
                 webSocketContextData->topicTree->drain(webSocketData->subscriber);
