@@ -36,6 +36,14 @@ void test() {
             listen_socket = listenSocket;
         });
 
+        /* Publishing without WebSocket contexts must be a no-op */
+        uWS::PreparedMessage preparedMessage = {};
+        if (app.publish("unused", "hi", uWS::TEXT) ||
+            app.publishPrepared("unused", preparedMessage) ||
+            app.numSubscribers("unused")) {
+            exit(-1);
+        }
+
         app.run();
     }
     uWS::Loop::get()->free();
