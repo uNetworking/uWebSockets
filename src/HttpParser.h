@@ -398,7 +398,8 @@ private:
             headers->key = std::string_view(preliminaryKey, (size_t) (postPaddedBuffer - preliminaryKey));
 
             /* We should not accept whitespace between key and colon, so colon must foloow immediately */
-            if (postPaddedBuffer[0] != ':') {
+            /* We also cannot accept empty strings as keys */
+            if (postPaddedBuffer[0] != ':' || preliminaryKey == postPaddedBuffer) {
                 /* If we stand at the end, we are fragmented */
                 if (postPaddedBuffer == end) {
                     return 0;
