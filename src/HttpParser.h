@@ -1,5 +1,5 @@
 /*
- * Authored by Alex Hultman, 2018-2024.
+ * Authored by Alex Hultman, 2018-2026.
  * Intellectual property of third-party.
 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -385,8 +385,8 @@ private:
         /* The request line is different from the field names / field values */
         if ((char *) 2 > (postPaddedBuffer = consumeRequestLine(postPaddedBuffer, end, headers[0]))) {
             /* Error - invalid request line */
-            /* Assuming it is 505 HTTP Version Not Supported */
-            err = postPaddedBuffer ? HTTP_ERROR_505_HTTP_VERSION_NOT_SUPPORTED : 0;
+            /* Assuming it is 400 Bad Gateway */
+            err = postPaddedBuffer ? HTTP_ERROR_400_BAD_GATEWAY : 0;
             return 0;
         }
         headers++;
