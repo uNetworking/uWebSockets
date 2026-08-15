@@ -385,8 +385,8 @@ private:
         /* The request line is different from the field names / field values */
         if ((char *) 2 > (postPaddedBuffer = consumeRequestLine(postPaddedBuffer, end, headers[0]))) {
             /* Error - invalid request line */
-            /* Assuming it is 400 Bad Gateway */
-            err = postPaddedBuffer ? HTTP_ERROR_400_BAD_GATEWAY : 0;
+            /* Assuming it is 400 Bad Request */
+            err = postPaddedBuffer ? HTTP_ERROR_400_BAD_REQUEST : 0;
             return 0;
         }
         headers++;
