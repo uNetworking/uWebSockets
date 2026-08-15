@@ -511,8 +511,8 @@ private:
                 req->bf.add(h->key);
             }
             
-            /* Break if no host header (but we can have empty string which is different from nullptr) */
-            if (!req->getHeader("host").data()) {
+            /* Break if no host header or empty string */
+            if (!req->getHeader("host").length()) {
                 return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
             }
 
