@@ -523,7 +523,7 @@ private:
             * ought to be handled as an error. */
             std::string_view transferEncodingString = req->getHeader("transfer-encoding");
             std::string_view contentLengthString = req->getHeader("content-length");
-            if (transferEncodingString.length() && contentLengthString.length()) {
+            if (transferEncodingString.data() != nullptr && contentLengthString.data() != nullptr) {
                 /* Returning fullptr is the same as calling the errorHandler */
                 /* We could be smart and set an error in the context along with this, to indicate what 
                  * http error response we might want to return */
@@ -552,7 +552,12 @@ private:
             /* RFC 9112 6.3
              * If a message is received with both a Transfer-Encoding and a Content-Length header field,
              * the Transfer-Encoding overrides the Content-Length. */
-            if (transferEncodingString.length()) {
+            if (transferEncodingString.data() != nullptr) {
+
+                /* We only support chunked */
+                if (transferEncodingString != "chunked") {
+                    return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
+                }
 
                 /* If a proxy sent us the transfer-encoding header that 100% means it must be chunked or else the proxy is
                  * not RFC 9112 compliant. Therefore it is always better to assume this is the case, since that entirely eliminates 
@@ -582,7 +587,7 @@ private:
                     length = (unsigned int) dataToConsume.length();
                     consumedTotal += consumed;
                 }
-            } else if (contentLengthString.length()) {
+            } else if (contentLengthString.data() != nullptr) {
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
                 if (remainingStreamingBytes == UINT64_MAX) {
                     /* Parser error */
