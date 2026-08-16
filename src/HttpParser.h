@@ -493,7 +493,7 @@ private:
 
             /* Even if we could parse it, check for length here as well */
             if (consumed > MAX_FALLBACK_SIZE) {
-                return {HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE, FULLPTR};
+                return {HTTP_ERROR_400_BAD_REQUEST /*HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE*/, FULLPTR};
             }
 
             /* Store HTTP version (ancient 1.0 or 1.1) */
@@ -721,7 +721,7 @@ public:
 
             } else {
                 if (fallback.length() == MAX_FALLBACK_SIZE) {
-                    return {HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE, FULLPTR};
+                    return {HTTP_ERROR_400_BAD_REQUEST /*HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE*/, FULLPTR};
                 }
                 return {0, user};
             }
