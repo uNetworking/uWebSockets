@@ -112,6 +112,15 @@ public:
         didYield = yield;
     }
 
+    std::string_view areIdentical(std::string_view lowerCasedHeader) {
+        for (Header *h = headers; (++h)->key.length(); ) {
+            if (h->key.length() == lowerCasedHeader.length() && strncmp(h->key.data(), lowerCasedHeader.data(), lowerCasedHeader.length())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     std::string_view getHeader(std::string_view lowerCasedHeader) {
         if (bf.mightHave(lowerCasedHeader)) {
             for (Header *h = headers; (++h)->key.length(); ) {
@@ -588,6 +597,12 @@ private:
                     consumedTotal += consumed;
                 }
             } else if (contentLengthString.data() != nullptr) {
+
+                /* Content-Length must be the same */
+                if (!req->areIdentical("content-length")) {
+                    return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
+                }
+                
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
                 if (remainingStreamingBytes == UINT64_MAX || contentLengthString.length() == 0) {
                     /* Parser error */
