@@ -739,7 +739,7 @@ public:
             if (length < MAX_FALLBACK_SIZE) {
                 fallback.append(data, length);
             } else {
-                return {HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE, FULLPTR};
+                return {HTTP_ERROR_400_BAD_REQUEST /*HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE*/, FULLPTR};
             }
         }
 
