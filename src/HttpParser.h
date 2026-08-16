@@ -589,7 +589,7 @@ private:
                 }
             } else if (contentLengthString.data() != nullptr) {
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
-                if (remainingStreamingBytes == UINT64_MAX) {
+                if (remainingStreamingBytes == UINT64_MAX || contentLengthString.length() == 0) {
                     /* Parser error */
                     return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
                 }
