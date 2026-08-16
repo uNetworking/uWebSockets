@@ -112,7 +112,7 @@ public:
         didYield = yield;
     }
 
-    std::string_view areIdentical(std::string_view lowerCasedHeader) {
+    bool areIdentical(std::string_view lowerCasedHeader) {
         for (Header *h = headers; (++h)->key.length(); ) {
             if (h->key.length() == lowerCasedHeader.length() && strncmp(h->key.data(), lowerCasedHeader.data(), lowerCasedHeader.length())) {
                 return false;
