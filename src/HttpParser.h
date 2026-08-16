@@ -112,10 +112,12 @@ public:
         didYield = yield;
     }
 
-    bool areIdentical(std::string_view lowerCasedHeader) {
+    bool areIdentical(std::string_view lowerCasedHeader, std::string_view expectedValue) {
         for (Header *h = headers; (++h)->key.length(); ) {
-            if (h->key.length() == lowerCasedHeader.length() && strncmp(h->key.data(), lowerCasedHeader.data(), lowerCasedHeader.length())) {
-                return false;
+            if (h->key.length() == lowerCasedHeader.length() && !strncmp(h->key.data(), lowerCasedHeader.data(), lowerCasedHeader.length())) {
+                if (expectedValue != h->value) {
+                    return false;
+                }
             }
         }
         return true;
@@ -599,7 +601,7 @@ private:
             } else if (contentLengthString.data() != nullptr) {
 
                 /* Content-Length must be the same */
-                if (!req->areIdentical("content-length")) {
+                if (!req->areIdentical("content-length", contentLengthString)) {
                     return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
                 }
                 
