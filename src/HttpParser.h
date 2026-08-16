@@ -466,7 +466,7 @@ private:
             }
         }
         /* We ran out of header space, too large request */
-        err = HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE;
+        err = HTTP_ERROR_400_BAD_REQUEST;//HTTP_ERROR_431_REQUEST_HEADER_FIELDS_TOO_LARGE;
         return 0;
     }
 
