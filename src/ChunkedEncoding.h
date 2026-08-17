@@ -42,6 +42,25 @@ namespace uWS {
         return state & STATE_SIZE_MASK;
     }
 
+    bool is_token_char(char c) {
+        // 1. Check for alphanumeric (0-9, a-z, A-Z)
+        if ((c >= '0' && c <= '9') || 
+            (c >= 'a' && c <= 'z') || 
+            (c >= 'A' && c <= 'Z')) {
+            return true;
+        }
+    
+        // 2. Check for the 15 allowed special tchar symbols: ! # $ % & ' * + - . ^ _ ` | ~
+        switch (c) {
+            case '!': case '#': case '$': case '%': case '&':
+            case '\'': case '*': case '+': case '-': case '.':
+            case '^': case '_': case '`': case '|': case '~':
+                return true;
+            default:
+                return false;
+        }
+    }
+
     /* Reads hex number until CR or out of data to consume. Updates state. Returns bytes consumed. */
     inline void consumeHexNumber(std::string_view &data, uint64_t &state) {
         /* Consume everything hex */
@@ -78,6 +97,10 @@ namespace uWS {
             state = STATE_IS_ERROR;
             return;
         }
+
+        /* While we stand on semicolon, parse an extension */
+        
+        
         /* Consume everything not /n */
         while (data.length() && data.data()[0] != '\n') {
             data.remove_prefix(1);
