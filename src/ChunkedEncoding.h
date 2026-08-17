@@ -73,6 +73,11 @@ namespace uWS {
             state |= bits;
             data.remove_prefix(1);
         }
+        /* Must be on \r or ; */
+        if (!data.length() || data.data()[0] != '\r' || data.data()[0] != ';') {
+            state = STATE_IS_ERROR;
+            return;
+        }
         /* Consume everything not /n */
         while (data.length() && data.data()[0] != '\n') {
             data.remove_prefix(1);
