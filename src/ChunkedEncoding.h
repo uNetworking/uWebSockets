@@ -28,6 +28,8 @@
 #include "MoveOnlyFunction.h"
 #include <optional>
 
+#include <cctype>
+
 namespace uWS {
 
     constexpr uint64_t STATE_HAS_SIZE = 1ull << (sizeof(uint64_t) * 8 - 1);//0x80000000;
@@ -42,8 +44,12 @@ namespace uWS {
 
     /* Reads hex number until CR or out of data to consume. Updates state. Returns bytes consumed. */
     inline void consumeHexNumber(std::string_view &data, uint64_t &state) {
-        /* Consume everything higher than 32 */
-        while (data.length() && data.data()[0] > 32) {
+        /* Consume everything hex */
+        if (!data.length() || !std::isxdigit(data.data()[0])) {
+            state = STATE_IS_ERROR;
+            return;
+        }
+        while (data.length() && std::isxdigit(data.data()[0])) {
 
             unsigned char digit = (unsigned char)data.data()[0];
             if (digit >= 'a') {
