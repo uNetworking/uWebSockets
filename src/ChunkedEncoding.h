@@ -74,7 +74,7 @@ namespace uWS {
             data.remove_prefix(1);
         }
         /* Must be on \r or ; */
-        if (!data.length() || data.data()[0] != '\r' || data.data()[0] != ';') {
+        if (!data.length() || (data.data()[0] != '\r' && data.data()[0] != ';')) {
             state = STATE_IS_ERROR;
             return;
         }
