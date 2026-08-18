@@ -28,5 +28,6 @@ smoke:
 compliance:
 	../EchoBody &
 	sleep 1
+	~/.deno/bin/deno run --allow-net fragment_test.ts --host localhost --port 3000
 	~/.deno/bin/deno run --allow-net ../h1spec/http_test.ts localhost 3000
 	pkill EchoBody
