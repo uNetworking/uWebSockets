@@ -244,7 +244,7 @@ protected:
     /* Write in three levels of prioritization: cork-buffer, syscall, socket-buffer. Always drain if possible.
      * Returns pair of bytes written (anywhere) and whether or not this call resulted in the polling for
      * writable (or we are in a state that implies polling for writable). */
-    std::pair<int, bool> write(const char *src, int length, bool optionally = false, int nextLength = 0) {
+    std::pair<int, bool> write(const char *src, int length, bool optionally = false, int nextLength = 0, bool hasMore = false) {
         /* Fake success if closed, simple fix to allow uncork of closed socket to succeed */
         if (us_socket_is_closed(SSL, (us_socket_t *) this)) {
             return {length, false};
@@ -256,7 +256,7 @@ protected:
         /* We are limited if we have a per-socket buffer */
         if (asyncSocketData->buffer.length()) {
             /* Write off as much as we can */
-            int written = us_socket_write(SSL, (us_socket_t *) this, asyncSocketData->buffer.data(), (int) asyncSocketData->buffer.length(), /*nextLength != 0 | */length);
+            int written = us_socket_write(SSL, (us_socket_t *) this, asyncSocketData->buffer.data(), (int) asyncSocketData->buffer.length(), length || hasMore);
 
             /* On failure return, otherwise continue down the function */
             if ((unsigned int) written < asyncSocketData->buffer.length()) {
@@ -304,7 +304,7 @@ protected:
                 }
             } else {
                 /* We are not corked */
-                int written = us_socket_write(SSL, (us_socket_t *) this, src, length, nextLength != 0);
+                int written = us_socket_write(SSL, (us_socket_t *) this, src, length, nextLength != 0 || hasMore);
 
                 /* Did we fail? */
                 if (written < length) {
@@ -333,9 +333,73 @@ protected:
         return {length, false};
     }
 
+    /* Same semantics as write, but for two buffers. */
+    std::pair<int, bool> write2(const char *header, int headerLength, const char *payload, int payloadLength, bool optionally = false) {
+        int length = headerLength + payloadLength;
+
+        /* Fake success if closed, simple fix to allow uncork of closed socket to succeed */
+        if (us_socket_is_closed(SSL, (us_socket_t *) this)) {
+            return {length, false};
+        }
+
+        if (!headerLength) {
+            return write(payload, payloadLength, optionally);
+        }
+        if (!payloadLength) {
+            return write(header, headerLength, optionally);
+        }
+
+        if constexpr (!SSL) {
+            /* io_uring has no two-buffer write implementation, so keep the generic fallback. */
+#ifndef LIBUS_USE_IO_URING
+            AsyncSocketData<SSL> *asyncSocketData = getAsyncSocketData();
+            LoopData *loopData = getLoopData();
+
+#ifndef _WIN32
+            /* POSIX write2 maps to writev. Keep small writes in the cork buffer, but flush
+             * an existing prefix before a large write so both buffers can use that path. */
+            if (!asyncSocketData->buffer.length() && loopData->corkedSocket == this &&
+                (unsigned int) length > LoopData::CORK_BUFFER_SIZE - loopData->corkOffset) {
+                uncork(nullptr, 0, false, true);
+            }
+#endif
+
+            if (!asyncSocketData->buffer.length() && !isCorked()) {
+                int written = us_socket_write2(0, (us_socket_t *) this, header, headerLength, payload, payloadLength);
+                if (written == length || optionally) {
+                    return {written, written != length};
+                }
+
+                if (written > headerLength) {
+                    asyncSocketData->buffer.append(payload + written - headerLength, (size_t) (length - written));
+                } else {
+                    asyncSocketData->buffer.append(header + written, (size_t) (headerLength - written));
+                    asyncSocketData->buffer.append(payload, (size_t) payloadLength);
+                }
+
+                return {length, true};
+            }
+#endif
+        }
+
+        auto [headerWritten, failed] = write(header, headerLength, optionally, payloadLength);
+        if (failed) {
+            if (!optionally) {
+                getAsyncSocketData()->buffer.append(payload, (size_t) payloadLength);
+                return {length, true};
+            }
+
+            return {headerWritten, true};
+        }
+
+        auto [payloadWritten, payloadFailed] = write(payload, payloadLength, optionally);
+        return {headerLength + payloadWritten, payloadFailed};
+    }
+
     /* Uncork this socket and flush or buffer any corked and/or passed data. It is essential to remember doing this. */
     /* It does NOT count bytes written from cork buffer (they are already accounted for in the write call responsible for its corking)! */
-    std::pair<int, bool> uncork(const char *src = nullptr, int length = 0, bool optionally = false) {
+    /* hasMore preserves the transport's more-data hint when no source buffer is passed yet. */
+    std::pair<int, bool> uncork(const char *src = nullptr, int length = 0, bool optionally = false, bool hasMore = false) {
         LoopData *loopData = getLoopData();
 
         if (loopData->corkedSocket == this) {
@@ -343,7 +407,7 @@ protected:
 
             if (loopData->corkOffset) {
                 /* Corked data is already accounted for via its write call */
-                auto [written, failed] = write(loopData->corkBuffer, (int) loopData->corkOffset, false, length);
+                bool failed = write(loopData->corkBuffer, (int) loopData->corkOffset, false, length, hasMore).second;
                 loopData->corkOffset = 0;
 
                 if (failed) {
