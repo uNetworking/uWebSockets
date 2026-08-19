@@ -156,6 +156,11 @@ public:
         return std::string_view(headers->key.data(), headers->key.length());
     }
 
+    /* Returns whether the request declares a body that can be delivered through onData. */
+    bool hasBody() {
+        return getHeader("content-length").length() || getHeader("transfer-encoding").length();
+    }
+
     /* Returns the raw querystring as a whole, still encoded */
     std::string_view getQuery() {
         if (querySeparator < headers->value.length()) {
