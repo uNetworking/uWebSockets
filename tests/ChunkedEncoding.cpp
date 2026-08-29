@@ -11,7 +11,7 @@ void consumeChunkEncoding(int maxConsume, std::string_view &chunkEncoded, uint64
     //int maxConsume = 200;
 
     if (uWS::isParsingChunkedEncoding(state)) {
-        std::cout << "already in chunked parsing state!" << std::endl;
+        std::cerr << "already in chunked parsing state!" << std::endl;
         std::abort();
     }
 
@@ -35,6 +35,7 @@ void consumeChunkEncoding(int maxConsume, std::string_view &chunkEncoded, uint64
             if (chunkEncoded.length() == 0 || chunkEncoded.length() == 74) {
                 break;
             } else {
+                std::cerr << "consumeChunkEncoding failed" << std::endl;
                 std::abort();
             }
 
@@ -48,7 +49,7 @@ void consumeChunkEncoding(int maxConsume, std::string_view &chunkEncoded, uint64
 
         /* Here we must be in parsingchunked state */
         if (!uWS::isParsingChunkedEncoding(state)) {
-            std::cout << "not in parsing chunked strate!" << std::endl;
+            std::cerr << "not in parsing chunked strate!" << std::endl;
             std::abort();
         }
 
@@ -78,14 +79,17 @@ void runBetterTest(unsigned int maxConsume) {
     uint64_t state = 0;
 
     if (uWS::isParsingChunkedEncoding(state)) {
+        std::cerr << "runBetterTest failed" << std::endl;
         std::abort();
     }
     consumeChunkEncoding(maxConsume, chunkEncoded, state);
     if (state != 0) {
+        std::cerr << "runBetterTest failed" << std::endl;
         std::abort();
     }
     consumeChunkEncoding(maxConsume, chunkEncoded, state);
     if (state != 0) {
+        std::cerr << "runBetterTest failed" << std::endl;
         std::abort();
     }
 
@@ -143,7 +147,7 @@ void runTest(unsigned int maxConsume) {
 
             /* Run check here */
             if (!chunk.length() && chunks[chunkOffset].length()) {
-                std::cout << "We got emitted an empty chunk but expected a non-empty one" << std::endl;
+                std::cerr << "We got emitted an empty chunk but expected a non-empty one" << std::endl;
                 std::abort();
             }
 
@@ -197,6 +201,7 @@ void testWithoutTrailer() {
     }
 
     if (state) {
+        std::cerr << "testWithoutTrailer failed" << std::endl;
         std::abort();
     }
 }
