@@ -36,6 +36,7 @@ void consumeChunkEncoding(int maxConsume, std::string_view &chunkEncoded, uint64
                 break;
             } else {
                 std::cerr << "consumeChunkEncoding failed" << std::endl;
+                std::cerr << "remaining chunk:" << chunkEncoded.length() << std::endl;
                 std::abort();
             }
 
