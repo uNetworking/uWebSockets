@@ -34,10 +34,11 @@ namespace uWS {
     constexpr uint64_t STATE_IS_CHUNKED = 1ull << (sizeof(uint64_t) * 8 - 2);
     
     // Internal sub-states encoded in top bits reserved for control state
-    constexpr uint64_t STATE_EXTENSION_MODE = 1ull << (sizeof(uint64_t) * 8 - 3);
-    constexpr uint64_t STATE_TRAILER_MODE   = 1ull << (sizeof(uint64_t) * 8 - 4);
+    constexpr uint64_t STATE_EXTENSION_MODE         = 1ull << (sizeof(uint64_t) * 8 - 3);
+    constexpr uint64_t STATE_TRAILER_MODE           = 1ull << (sizeof(uint64_t) * 8 - 4);
+    constexpr uint64_t STATE_EXTENSION_EXPECTS_NAME = 1ull << (sizeof(uint64_t) * 8 - 5);
     
-    constexpr uint64_t STATE_SIZE_MASK = ~(0xFull << (sizeof(uint64_t) * 8 - 4));
+    constexpr uint64_t STATE_SIZE_MASK = ~(0x1Full << (sizeof(uint64_t) * 8 - 5));
     constexpr uint64_t STATE_IS_ERROR = ~0ull;
     constexpr uint64_t STATE_SIZE_OVERFLOW = 0x0Full << (sizeof(uint64_t) * 8 - 12);
 
@@ -75,13 +76,12 @@ namespace uWS {
                         state = STATE_IS_ERROR;
                         return;
                     }
-                    state |= STATE_EXTENSION_MODE;
+                    state |= STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME;
                     data.remove_prefix(1);
                     continue;
                 }
 
                 if (c == '\r') {
-                    // Handled when reaching \n or expecting \n
                     state |= STATE_EXTENSION_MODE;
                     data.remove_prefix(1);
                     continue;
@@ -91,7 +91,7 @@ namespace uWS {
                     data.remove_prefix(1);
                     state += 2; // Keep compatibility offset for trailing CRLF
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~STATE_EXTENSION_MODE;
+                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME);
                     return;
                 }
 
@@ -122,11 +122,22 @@ namespace uWS {
             } 
             // 2. Skipping Extension / Waiting for Line-Feed
             else {
+                if (state & STATE_EXTENSION_EXPECTS_NAME) {
+                    // RFC 9112: A semicolon MUST be followed by a token (chunk-ext-name).
+                    // Bare CRLF or space immediately after ';' is an error.
+                    if (c == '\r' || c == '\n' || c == ' ' || c == '\t' || c == ';') {
+                        state = STATE_IS_ERROR;
+                        return;
+                    }
+                    // Received first character of extension name; clear expected flag
+                    state &= ~STATE_EXTENSION_EXPECTS_NAME;
+                }
+
                 data.remove_prefix(1);
                 if (c == '\n') {
                     state += 2; // Include boundary tracking compatibility
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~STATE_EXTENSION_MODE;
+                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME);
                     return;
                 }
             }
