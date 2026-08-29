@@ -37,10 +37,25 @@ namespace uWS {
     constexpr uint64_t STATE_EXTENSION_MODE         = 1ull << (sizeof(uint64_t) * 8 - 3);
     constexpr uint64_t STATE_TRAILER_MODE           = 1ull << (sizeof(uint64_t) * 8 - 4);
     constexpr uint64_t STATE_EXTENSION_EXPECTS_NAME = 1ull << (sizeof(uint64_t) * 8 - 5);
+    constexpr uint64_t STATE_EXTENSION_QUOTED       = 1ull << (sizeof(uint64_t) * 8 - 6);
     
-    constexpr uint64_t STATE_SIZE_MASK = ~(0x1Full << (sizeof(uint64_t) * 8 - 5));
+    constexpr uint64_t STATE_SIZE_MASK = ~(0x3Full << (sizeof(uint64_t) * 8 - 6));
     constexpr uint64_t STATE_IS_ERROR = ~0ull;
     constexpr uint64_t STATE_SIZE_OVERFLOW = 0x0Full << (sizeof(uint64_t) * 8 - 12);
+
+    /* Helper: RFC 9110 Section 5.6.2 Token character check */
+    inline bool isValidTokenChar(unsigned char c) {
+        if (c < 0x20 || c >= 0x7F) return false; // Reject NUL, control chars, non-ASCII
+        switch (c) {
+            case '(': case ')': case '<': case '>': case '@':
+            case ',': case ';': case ':': case '\\': case '"':
+            case '/': case '[': case ']': case '?': case '=':
+            case '{': case '}': case ' ': case '\t':
+                return false;
+            default:
+                return true;
+        }
+    }
 
     inline uint64_t chunkSize(uint64_t state) {
         return state & STATE_SIZE_MASK;
@@ -66,13 +81,12 @@ namespace uWS {
     /* Standard-compliant hex and extension/CRLF state machine */
     inline void consumeHexNumber(std::string_view &data, uint64_t &state) {
         while (data.length()) {
-            char c = data.data()[0];
+            unsigned char c = (unsigned char)data.data()[0];
 
             // 1. Parsing Hex Chunk Size
             if (!(state & STATE_EXTENSION_MODE)) {
                 if (c == ';') { // Start of chunk extensions
                     if (!hasChunkSize(state) && (state & STATE_SIZE_MASK) == 0 && !(state & STATE_IS_CHUNKED)) {
-                        // Extension started without any hex digits
                         state = STATE_IS_ERROR;
                         return;
                     }
@@ -91,21 +105,20 @@ namespace uWS {
                     data.remove_prefix(1);
                     state += 2; // Keep compatibility offset for trailing CRLF
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME);
+                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_QUOTED);
                     return;
                 }
 
                 // Parse Hex Digit
-                unsigned char digit = (unsigned char)c;
                 unsigned int number = 0;
-                if (digit >= '0' && digit <= '9') {
-                    number = digit - '0';
-                } else if (digit >= 'a' && digit <= 'f') {
-                    number = digit - 'a' + 10;
-                } else if (digit >= 'A' && digit <= 'F') {
-                    number = digit - 'A' + 10;
+                if (c >= '0' && c <= '9') {
+                    number = c - '0';
+                } else if (c >= 'a' && c <= 'f') {
+                    number = c - 'a' + 10;
+                } else if (c >= 'A' && c <= 'F') {
+                    number = c - 'A' + 10;
                 } else {
-                    // Invalid character in hex size line
+                    // Invalid character in hex size line (e.g. NUL or garbage)
                     state = STATE_IS_ERROR;
                     return;
                 }
@@ -120,24 +133,38 @@ namespace uWS {
                 state |= bits;
                 data.remove_prefix(1);
             } 
-            // 2. Skipping Extension / Waiting for Line-Feed
+            // 2. Parsing & Validating Chunk Extensions
             else {
+                // Reject NUL bytes (0x00) and unprintable control chars in extensions
+                if (c == 0x00 || (c < 0x20 && c != '\r' && c != '\n' && c != '\t')) {
+                    state = STATE_IS_ERROR;
+                    return;
+                }
+
                 if (state & STATE_EXTENSION_EXPECTS_NAME) {
-                    // RFC 9112: A semicolon MUST be followed by a token (chunk-ext-name).
-                    // Bare CRLF or space immediately after ';' is an error.
-                    if (c == '\r' || c == '\n' || c == ' ' || c == '\t' || c == ';') {
+                    // A semicolon MUST be immediately followed by a valid HTTP token character
+                    if (!isValidTokenChar(c)) {
                         state = STATE_IS_ERROR;
                         return;
                     }
-                    // Received first character of extension name; clear expected flag
                     state &= ~STATE_EXTENSION_EXPECTS_NAME;
                 }
 
+                // Toggle quoted string state handling inside extension values
+                if (c == '"') {
+                    state ^= STATE_EXTENSION_QUOTED;
+                }
+
+                // Encountered another ';' outside quotes -> expect next extension name
+                if (c == ';' && !(state & STATE_EXTENSION_QUOTED)) {
+                    state |= STATE_EXTENSION_EXPECTS_NAME;
+                }
+
                 data.remove_prefix(1);
-                if (c == '\n') {
+                if (c == '\n' && !(state & STATE_EXTENSION_QUOTED)) {
                     state += 2; // Include boundary tracking compatibility
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME);
+                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_QUOTED);
                     return;
                 }
             }
