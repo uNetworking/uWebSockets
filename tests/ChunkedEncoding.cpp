@@ -71,11 +71,6 @@ void runBetterTest(unsigned int maxConsume) {
     for (std::string_view chunk : chunks) {
         /* Generic chunked encoding format */
         ss << std::hex << chunk.length() << "\r\n" << chunk << "\r\n";
-
-        /* Every null chunk is followed by an empty trailer */
-        if (chunk.length() == 0) {
-            ss << "\r\n";
-        }
     }
     std::string buffer = ss.str();
     std::string_view chunkEncoded = buffer;
