@@ -39,8 +39,9 @@ namespace uWS {
     constexpr uint64_t STATE_EXTENSION_EXPECTS_NAME = 1ull << (sizeof(uint64_t) * 8 - 5);
     constexpr uint64_t STATE_EXTENSION_QUOTED       = 1ull << (sizeof(uint64_t) * 8 - 6);
     constexpr uint64_t STATE_EXTENSION_EXPECTS_LF   = 1ull << (sizeof(uint64_t) * 8 - 7);
+    constexpr uint64_t STATE_EXTENSION_IN_NAME      = 1ull << (sizeof(uint64_t) * 8 - 8);
     
-    constexpr uint64_t STATE_SIZE_MASK = ~(0x7Full << (sizeof(uint64_t) * 8 - 7));
+    constexpr uint64_t STATE_SIZE_MASK = ~(0xFFull << (sizeof(uint64_t) * 8 - 8));
     constexpr uint64_t STATE_IS_ERROR = ~0ull;
     constexpr uint64_t STATE_SIZE_OVERFLOW = 0x0Full << (sizeof(uint64_t) * 8 - 12);
 
@@ -106,7 +107,7 @@ namespace uWS {
                     data.remove_prefix(1);
                     state += 2; // Keep compatibility offset for trailing CRLF
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
+                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_IN_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
                     return;
                 }
 
@@ -145,7 +146,7 @@ namespace uWS {
                     data.remove_prefix(1);
                     state += 2; // Include boundary tracking compatibility
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
+                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_IN_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
                     return;
                 }
 
@@ -156,6 +157,10 @@ namespace uWS {
                 }
 
                 if (c == '\r') {
+                    if (state & STATE_EXTENSION_EXPECTS_NAME) {
+                        state = STATE_IS_ERROR;
+                        return;
+                    }
                     state |= STATE_EXTENSION_EXPECTS_LF;
                     data.remove_prefix(1);
                     continue;
@@ -168,23 +173,40 @@ namespace uWS {
                         return;
                     }
                     state &= ~STATE_EXTENSION_EXPECTS_NAME;
+                    state |= STATE_EXTENSION_IN_NAME;
                 }
-
-                // Toggle quoted string state handling inside extension values
-                if (c == '"') {
-                    state ^= STATE_EXTENSION_QUOTED;
+                else if (state & STATE_EXTENSION_IN_NAME) {
+                    if (c == '=') {
+                        state &= ~STATE_EXTENSION_IN_NAME;
+                    } else if (c == ';') {
+                        state &= ~STATE_EXTENSION_IN_NAME;
+                        state |= STATE_EXTENSION_EXPECTS_NAME;
+                    } else if (!isValidTokenChar(c)) {
+                        state = STATE_IS_ERROR;
+                        return;
+                    }
                 }
+                else {
+                    // Toggle quoted string state handling inside extension values
+                    if (c == '"') {
+                        state ^= STATE_EXTENSION_QUOTED;
+                    }
 
-                // Encountered another ';' outside quotes -> expect next extension name
-                if (c == ';' && !(state & STATE_EXTENSION_QUOTED)) {
-                    state |= STATE_EXTENSION_EXPECTS_NAME;
+                    // Encountered another ';' outside quotes -> expect next extension name
+                    if (c == ';' && !(state & STATE_EXTENSION_QUOTED)) {
+                        state |= STATE_EXTENSION_EXPECTS_NAME;
+                    }
                 }
 
                 data.remove_prefix(1);
                 if (c == '\n' && !(state & STATE_EXTENSION_QUOTED)) {
+                    if (state & STATE_EXTENSION_EXPECTS_NAME) {
+                        state = STATE_IS_ERROR;
+                        return;
+                    }
                     state += 2; // Include boundary tracking compatibility
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
+                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_IN_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
                     return;
                 }
             }
@@ -204,7 +226,7 @@ namespace uWS {
 
                     if (c == '\n') {
                         // Single LF on empty line or end of trailer line reduces counter state
-                        if (chunkSize(state) <= 2) {
+                        if (chunkSize(state) <= 3) {
                             state = 0; // Terminate trailer state machine cleanly
                             return std::nullopt;
                         }
@@ -241,7 +263,7 @@ namespace uWS {
                 if (hasChunkSize(state) && chunkSize(state) == 2) {
                     if (trailer) {
                         // Transition to Trailer Parsing State
-                        state = STATE_TRAILER_MODE | 4; 
+                        state = STATE_TRAILER_MODE | 3; 
                     } else {
                         state = 2 | STATE_HAS_SIZE;
                     }
