@@ -277,10 +277,27 @@ namespace uWS {
             if (data.length() >= chunkSize(state)) {
                 std::string_view emitSoon;
                 bool shouldEmit = false;
+                
+                // Validate trailing CRLF exactly conforms to protocol expectations
                 if (chunkSize(state) > 2) {
+                    if (data[chunkSize(state) - 2] != '\r' || data[chunkSize(state) - 1] != '\n') {
+                        state = STATE_IS_ERROR;
+                        return std::nullopt;
+                    }
                     emitSoon = std::string_view(data.data(), chunkSize(state) - 2);
                     shouldEmit = true;
+                } else if (chunkSize(state) == 2) {
+                    if (data[0] != '\r' || data[1] != '\n') {
+                        state = STATE_IS_ERROR;
+                        return std::nullopt;
+                    }
+                } else if (chunkSize(state) == 1) {
+                    if (data[0] != '\n') {
+                        state = STATE_IS_ERROR;
+                        return std::nullopt;
+                    }
                 }
+
                 data.remove_prefix(chunkSize(state));
                 state = STATE_IS_CHUNKED;
                 if (shouldEmit) {
@@ -292,11 +309,22 @@ namespace uWS {
                 if (chunkSize(state) > 2) {
                     uint64_t maximalAppEmit = chunkSize(state) - 2;
                     if (data.length() > maximalAppEmit) {
+                        // Enforce partial CRLF boundary safety limits
+                        if (data[maximalAppEmit] != '\r') {
+                            state = STATE_IS_ERROR;
+                            return std::nullopt;
+                        }
                         emitSoon = data.substr(0, maximalAppEmit);
                     } else {
                         emitSoon = data;
                     }
+                } else if (chunkSize(state) == 2) {
+                    if (data[0] != '\r') {
+                        state = STATE_IS_ERROR;
+                        return std::nullopt;
+                    }
                 }
+
                 decChunkSize(state, (unsigned int) data.length());
                 state |= STATE_IS_CHUNKED;
                 data.remove_prefix(data.length());
