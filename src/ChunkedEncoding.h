@@ -47,7 +47,7 @@ namespace uWS {
 
     /* Helper: RFC 9110 Section 5.6.2 Token character check */
     inline bool isValidTokenChar(unsigned char c) {
-        if (c < 0x20 || c >= 0x7F) return false; // Reject NUL, control chars, non-ASCII
+        if (c < 0x20 || c >= 0x7F) return false;
         switch (c) {
             case '(': case ')': case '<': case '>': case '@':
             case ',': case ';': case ':': case '\\': case '"':
@@ -71,7 +71,6 @@ namespace uWS {
         return state & STATE_HAS_SIZE;
     }
 
-    /* Are we in the middle of parsing chunked encoding? */
     inline bool isParsingChunkedEncoding(uint64_t state) {
         return state & ~STATE_SIZE_MASK;
     }
@@ -80,14 +79,12 @@ namespace uWS {
         return state == STATE_IS_ERROR;
     }
 
-    /* Standard-compliant hex and extension/CRLF state machine */
     inline void consumeHexNumber(std::string_view &data, uint64_t &state) {
         while (data.length()) {
             unsigned char c = (unsigned char)data.data()[0];
 
-            // 1. Parsing Hex Chunk Size
             if (!(state & STATE_EXTENSION_MODE)) {
-                if (c == ';') { // Start of chunk extensions
+                if (c == ';') { 
                     if (!hasChunkSize(state) && (state & STATE_SIZE_MASK) == 0 && !(state & STATE_IS_CHUNKED)) {
                         state = STATE_IS_ERROR;
                         return;
@@ -105,22 +102,17 @@ namespace uWS {
 
                 if (c == '\n') {
                     data.remove_prefix(1);
-                    state += 2; // Keep compatibility offset for trailing CRLF
+                    state += 2; 
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
                     state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_IN_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
                     return;
                 }
 
-                // Parse Hex Digit
                 unsigned int number = 0;
-                if (c >= '0' && c <= '9') {
-                    number = c - '0';
-                } else if (c >= 'a' && c <= 'f') {
-                    number = c - 'a' + 10;
-                } else if (c >= 'A' && c <= 'F') {
-                    number = c - 'A' + 10;
-                } else {
-                    // Invalid character in hex size line (e.g. NUL or garbage)
+                if (c >= '0' && c <= '9') number = c - '0';
+                else if (c >= 'a' && c <= 'f') number = c - 'a' + 10;
+                else if (c >= 'A' && c <= 'F') number = c - 'A' + 10;
+                else {
                     state = STATE_IS_ERROR;
                     return;
                 }
@@ -134,23 +126,19 @@ namespace uWS {
                 state = (state & STATE_SIZE_MASK) * 16ull + number;
                 state |= bits;
                 data.remove_prefix(1);
-            } 
-            // 2. Parsing & Validating Chunk Extensions
-            else {
-                // If previous byte was '\r', the current byte MUST be '\n'
+            } else {
                 if (state & STATE_EXTENSION_EXPECTS_LF) {
                     if (c != '\n') {
                         state = STATE_IS_ERROR;
                         return;
                     }
                     data.remove_prefix(1);
-                    state += 2; // Include boundary tracking compatibility
+                    state += 2; 
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
                     state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_IN_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
                     return;
                 }
 
-                // Reject NUL bytes (0x00) and unprintable control chars in extensions
                 if (c == 0x00 || (c < 0x20 && c != '\r' && c != '\n' && c != '\t')) {
                     state = STATE_IS_ERROR;
                     return;
@@ -167,35 +155,24 @@ namespace uWS {
                 }
 
                 if (state & STATE_EXTENSION_EXPECTS_NAME) {
-                    // A semicolon MUST be immediately followed by a valid HTTP token character
                     if (!isValidTokenChar(c)) {
                         state = STATE_IS_ERROR;
                         return;
                     }
                     state &= ~STATE_EXTENSION_EXPECTS_NAME;
                     state |= STATE_EXTENSION_IN_NAME;
-                }
-                else if (state & STATE_EXTENSION_IN_NAME) {
-                    if (c == '=') {
-                        state &= ~STATE_EXTENSION_IN_NAME;
-                    } else if (c == ';') {
+                } else if (state & STATE_EXTENSION_IN_NAME) {
+                    if (c == '=') state &= ~STATE_EXTENSION_IN_NAME;
+                    else if (c == ';') {
                         state &= ~STATE_EXTENSION_IN_NAME;
                         state |= STATE_EXTENSION_EXPECTS_NAME;
                     } else if (!isValidTokenChar(c)) {
                         state = STATE_IS_ERROR;
                         return;
                     }
-                }
-                else {
-                    // Toggle quoted string state handling inside extension values
-                    if (c == '"') {
-                        state ^= STATE_EXTENSION_QUOTED;
-                    }
-
-                    // Encountered another ';' outside quotes -> expect next extension name
-                    if (c == ';' && !(state & STATE_EXTENSION_QUOTED)) {
-                        state |= STATE_EXTENSION_EXPECTS_NAME;
-                    }
+                } else {
+                    if (c == '"') state ^= STATE_EXTENSION_QUOTED;
+                    if (c == ';' && !(state & STATE_EXTENSION_QUOTED)) state |= STATE_EXTENSION_EXPECTS_NAME;
                 }
 
                 data.remove_prefix(1);
@@ -204,7 +181,7 @@ namespace uWS {
                         state = STATE_IS_ERROR;
                         return;
                     }
-                    state += 2; // Include boundary tracking compatibility
+                    state += 2; 
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
                     state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_IN_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
                     return;
@@ -213,35 +190,40 @@ namespace uWS {
         }
     }
 
-    /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
     static std::optional<std::string_view> getNextChunk(std::string_view &data, uint64_t &state, bool trailer = false) {
-
         while (data.length()) {
-
-            // Parsing Trailers Mode (Processes key-value headers byte-by-byte up to double CRLF)
+            
+            // Standard-compliant Trailer parsing state machine
             if (state & STATE_TRAILER_MODE) {
                 while (data.length()) {
                     char c = data.data()[0];
                     data.remove_prefix(1);
 
-                    if (c == '\n') {
-                        // Single LF on empty line or end of trailer line reduces counter state
-                        if (chunkSize(state) <= 3) {
-                            state = 0; // Terminate trailer state machine cleanly
+                    if (chunkSize(state) == 0) {
+                        // Start of line: \r means final empty line, else it's a trailer header
+                        if (c == '\r') state = (state & ~STATE_SIZE_MASK) | 1;
+                        else state = (state & ~STATE_SIZE_MASK) | 2;
+                    } else if (chunkSize(state) == 1) {
+                        // Expecting \n of final empty line
+                        if (c == '\n') {
+                            state = 0; 
                             return std::nullopt;
                         }
-                        decChunkSize(state, 1);
-                    } else if (c == '\r') {
-                        continue;
-                    } else {
-                        // Reset trailer byte line counter when content exists
-                        state = (state & ~STATE_SIZE_MASK) | 4;
+                        state = STATE_IS_ERROR;
+                        return std::nullopt;
+                    } else if (chunkSize(state) == 2) {
+                        // Inside trailer header, wait for \r
+                        if (c == '\r') state = (state & ~STATE_SIZE_MASK) | 3;
+                    } else if (chunkSize(state) == 3) {
+                        // Expecting \n to terminate the header line
+                        if (c == '\n') state = (state & ~STATE_SIZE_MASK) | 0;
+                        else if (c != '\r') state = (state & ~STATE_SIZE_MASK) | 2;
                     }
                 }
                 return std::nullopt;
             }
 
-            // Drop Trailer Mode (Legacy fallback mode when trailer flag was set but ignored)
+            // Drop Trailer Mode (Legacy fallback)
             if (((state & STATE_IS_CHUNKED) == 0) && hasChunkSize(state) && chunkSize(state)) {
                 while (data.length() && chunkSize(state)) {
                     data.remove_prefix(1);
@@ -262,23 +244,20 @@ namespace uWS {
                 }
                 if (hasChunkSize(state) && chunkSize(state) == 2) {
                     if (trailer) {
-                        // Transition to Trailer Parsing State
-                        state = STATE_TRAILER_MODE | 3; 
+                        state = STATE_TRAILER_MODE | 0; 
                     } else {
                         state = 2 | STATE_HAS_SIZE;
                     }
-
                     return std::string_view(nullptr, 0);
                 }
                 continue;
             }
 
-            // Emit Body Payload Data
+            // Emit Body Payload Data with strict CRLF enforcement
             if (data.length() >= chunkSize(state)) {
                 std::string_view emitSoon;
                 bool shouldEmit = false;
                 
-                // Validate trailing CRLF exactly conforms to protocol expectations
                 if (chunkSize(state) > 2) {
                     if (data[chunkSize(state) - 2] != '\r' || data[chunkSize(state) - 1] != '\n') {
                         state = STATE_IS_ERROR;
@@ -300,16 +279,14 @@ namespace uWS {
 
                 data.remove_prefix(chunkSize(state));
                 state = STATE_IS_CHUNKED;
-                if (shouldEmit) {
-                    return emitSoon;
-                }
+                if (shouldEmit) return emitSoon;
                 continue;
             } else {
                 std::string_view emitSoon;
                 if (chunkSize(state) > 2) {
                     uint64_t maximalAppEmit = chunkSize(state) - 2;
                     if (data.length() > maximalAppEmit) {
-                        // Enforce partial CRLF boundary safety limits
+                        // Enforce partial CRLF boundary safety limit
                         if (data[maximalAppEmit] != '\r') {
                             state = STATE_IS_ERROR;
                             return std::nullopt;
@@ -328,20 +305,15 @@ namespace uWS {
                 decChunkSize(state, (unsigned int) data.length());
                 state |= STATE_IS_CHUNKED;
                 data.remove_prefix(data.length());
-                if (emitSoon.length()) {
-                    return emitSoon;
-                } else {
-                    return std::nullopt;
-                }
+                if (emitSoon.length()) return emitSoon;
+                else return std::nullopt;
             }
         }
 
         return std::nullopt;
     }
 
-    /* Convenience Iterator Wrapper */
     struct ChunkIterator {
-
         std::string_view *data;
         std::optional<std::string_view> chunk;
         uint64_t *state;
@@ -353,18 +325,11 @@ namespace uWS {
 
         ChunkIterator() {}
 
-        ChunkIterator begin() {
-            return *this;
-        }
-
-        ChunkIterator end() {
-            return ChunkIterator();
-        }
+        ChunkIterator begin() { return *this; }
+        ChunkIterator end() { return ChunkIterator(); }
 
         std::string_view operator*() {
-            if (!chunk.has_value()) {
-                std::abort();
-            }
+            if (!chunk.has_value()) std::abort();
             return chunk.value();
         }
 
@@ -376,7 +341,6 @@ namespace uWS {
             chunk = uWS::getNextChunk(*data, *state, trailer);
             return *this;
         }
-
     };
 }
 
