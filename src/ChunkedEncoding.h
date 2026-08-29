@@ -37,7 +37,7 @@ namespace uWS {
     constexpr uint64_t STATE_EXTENSION_MODE = 1ull << (sizeof(uint64_t) * 8 - 3);
     constexpr uint64_t STATE_TRAILER_MODE   = 1ull << (sizeof(uint64_t) * 8 - 4);
     
-    constexpr uint64_t STATE_SIZE_MASK = ~(0Full << (sizeof(uint64_t) * 8 - 4));
+    constexpr uint64_t STATE_SIZE_MASK = ~(0xFull << (sizeof(uint64_t) * 8 - 4));
     constexpr uint64_t STATE_IS_ERROR = ~0ull;
     constexpr uint64_t STATE_SIZE_OVERFLOW = 0x0Full << (sizeof(uint64_t) * 8 - 12);
 
