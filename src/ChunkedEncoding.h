@@ -38,8 +38,9 @@ namespace uWS {
     constexpr uint64_t STATE_TRAILER_MODE           = 1ull << (sizeof(uint64_t) * 8 - 4);
     constexpr uint64_t STATE_EXTENSION_EXPECTS_NAME = 1ull << (sizeof(uint64_t) * 8 - 5);
     constexpr uint64_t STATE_EXTENSION_QUOTED       = 1ull << (sizeof(uint64_t) * 8 - 6);
+    constexpr uint64_t STATE_EXTENSION_EXPECTS_LF   = 1ull << (sizeof(uint64_t) * 8 - 7);
     
-    constexpr uint64_t STATE_SIZE_MASK = ~(0x3Full << (sizeof(uint64_t) * 8 - 6));
+    constexpr uint64_t STATE_SIZE_MASK = ~(0x7Full << (sizeof(uint64_t) * 8 - 7));
     constexpr uint64_t STATE_IS_ERROR = ~0ull;
     constexpr uint64_t STATE_SIZE_OVERFLOW = 0x0Full << (sizeof(uint64_t) * 8 - 12);
 
@@ -96,7 +97,7 @@ namespace uWS {
                 }
 
                 if (c == '\r') {
-                    state |= STATE_EXTENSION_MODE;
+                    state |= STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_LF;
                     data.remove_prefix(1);
                     continue;
                 }
@@ -105,7 +106,7 @@ namespace uWS {
                     data.remove_prefix(1);
                     state += 2; // Keep compatibility offset for trailing CRLF
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_QUOTED);
+                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
                     return;
                 }
 
@@ -135,10 +136,29 @@ namespace uWS {
             } 
             // 2. Parsing & Validating Chunk Extensions
             else {
+                // If previous byte was '\r', the current byte MUST be '\n'
+                if (state & STATE_EXTENSION_EXPECTS_LF) {
+                    if (c != '\n') {
+                        state = STATE_IS_ERROR;
+                        return;
+                    }
+                    data.remove_prefix(1);
+                    state += 2; // Include boundary tracking compatibility
+                    state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
+                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
+                    return;
+                }
+
                 // Reject NUL bytes (0x00) and unprintable control chars in extensions
                 if (c == 0x00 || (c < 0x20 && c != '\r' && c != '\n' && c != '\t')) {
                     state = STATE_IS_ERROR;
                     return;
+                }
+
+                if (c == '\r') {
+                    state |= STATE_EXTENSION_EXPECTS_LF;
+                    data.remove_prefix(1);
+                    continue;
                 }
 
                 if (state & STATE_EXTENSION_EXPECTS_NAME) {
@@ -164,7 +184,7 @@ namespace uWS {
                 if (c == '\n' && !(state & STATE_EXTENSION_QUOTED)) {
                     state += 2; // Include boundary tracking compatibility
                     state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_QUOTED);
+                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
                     return;
                 }
             }
