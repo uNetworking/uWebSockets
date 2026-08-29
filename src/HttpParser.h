@@ -481,6 +481,16 @@ private:
         return 0;
     }
 
+    bool isInvalidHost(std::string_view host) {
+        for (char c : host) {
+            unsigned char uc = static_cast<unsigned char>(c);
+            if (uc < 33 || c == ',' || c == '@') {
+                return true; // Invalid character found
+            }
+        }
+        return false;
+    }
+    
     /* This is the only caller of getHeaders and is thus the deepest part of the parser.
      * From here we return either [consumed, user] for "keep going",
       * or [consumed, nullptr] for "break; I am closed or upgraded to websocket"
@@ -524,6 +534,11 @@ private:
             
             /* Break if no host header or empty string */
             if (!req->getHeader("host").length()) {
+                return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
+            }
+
+            /* Break if invalid host */
+            if (isInvalidHost(req->getHeader("host"))) {
                 return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
             }
 
