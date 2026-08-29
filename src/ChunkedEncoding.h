@@ -207,7 +207,7 @@ namespace uWS {
                         // Expecting \n of final empty line
                         if (c == '\n') {
                             state = 0; 
-                            return std::string_view(nullptr, 0); // CORRECT: Emit end-of-body ONLY after parsing finishes!
+                            return std::nullopt;
                         }
                         state = STATE_IS_ERROR;
                         return std::nullopt;
@@ -231,7 +231,7 @@ namespace uWS {
 
                     if (chunkSize(state) == 0) {
                         state = 0;
-                        return std::string_view(nullptr, 0); // CORRECT: Emit end-of-body ONLY after trailing \r\n
+                        return std::nullopt;
                     }
                 }
                 continue;
@@ -248,7 +248,7 @@ namespace uWS {
                     } else {
                         state = 2 | STATE_HAS_SIZE;
                     }
-                    continue; // CORRECT: Proceed into trailer machine, DO NOT emit early
+                    return std::string_view(nullptr, 0);
                 }
                 continue;
             }
