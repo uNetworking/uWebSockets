@@ -30,62 +30,23 @@
 
 namespace uWS {
 
-    constexpr uint64_t STATE_HAS_SIZE = 1ull << (sizeof(uint64_t) * 8 - 1);//0x80000000;
-    constexpr uint64_t STATE_IS_CHUNKED = 1ull << (sizeof(uint64_t) * 8 - 2);//0x40000000;
-    constexpr uint64_t STATE_SIZE_MASK = ~(3ull << (sizeof(uint64_t) * 8 - 2));//0x3FFFFFFF;
-    constexpr uint64_t STATE_IS_ERROR = ~0ull;//0xFFFFFFFF;
-    constexpr uint64_t STATE_SIZE_OVERFLOW = 0x0Full << (sizeof(uint64_t) * 8 - 8);//0x0F000000;
+    constexpr uint64_t STATE_HAS_SIZE = 1ull << (sizeof(uint64_t) * 8 - 1);
+    constexpr uint64_t STATE_IS_CHUNKED = 1ull << (sizeof(uint64_t) * 8 - 2);
+    
+    // Internal sub-states encoded in top bits reserved for control state
+    constexpr uint64_t STATE_EXTENSION_MODE = 1ull << (sizeof(uint64_t) * 8 - 3);
+    constexpr uint64_t STATE_TRAILER_MODE   = 1ull << (sizeof(uint64_t) * 8 - 4);
+    
+    constexpr uint64_t STATE_SIZE_MASK = ~(0Full << (sizeof(uint64_t) * 8 - 4));
+    constexpr uint64_t STATE_IS_ERROR = ~0ull;
+    constexpr uint64_t STATE_SIZE_OVERFLOW = 0x0Full << (sizeof(uint64_t) * 8 - 12);
 
     inline uint64_t chunkSize(uint64_t state) {
         return state & STATE_SIZE_MASK;
     }
 
-    /* Reads hex number until CR or out of data to consume. Updates state. Returns bytes consumed. */
-    inline void consumeHexNumber(std::string_view &data, uint64_t &state) {
-        /* Consume everything higher than 32 */
-        while (data.length() && data.data()[0] > 32) {
-
-            unsigned char digit = (unsigned char)data.data()[0];
-            if (digit >= 'a') {
-                digit = (unsigned char) (digit - ('a' - ':'));
-            } else if (digit >= 'A') {
-                digit = (unsigned char) (digit - ('A' - ':'));
-            }
-
-            unsigned int number = ((unsigned int) digit - (unsigned int) '0');
-
-            if (number > 16 || (chunkSize(state) & STATE_SIZE_OVERFLOW)) {
-                state = STATE_IS_ERROR;
-                return;
-            }
-
-            // extract state bits
-            uint64_t bits = /*state &*/ STATE_IS_CHUNKED;
-
-            state = (state & STATE_SIZE_MASK) * 16ull + number;
-
-            state |= bits;
-            data.remove_prefix(1);
-        }
-        /* Consume everything not /n */
-        while (data.length() && data.data()[0] != '\n') {
-            data.remove_prefix(1);
-        }
-        /* Now we stand on \n so consume it and enable size */
-        if (data.length()) {
-            state += 2; // include the two last /r/n
-            state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-            data.remove_prefix(1);
-        }
-    }
-
     inline void decChunkSize(uint64_t &state, unsigned int by) {
-
-        //unsigned int bits = state & STATE_IS_CHUNKED;
-
         state = (state & ~STATE_SIZE_MASK) | (chunkSize(state) - by);
-
-        //state |= bits;
     }
 
     inline bool hasChunkSize(uint64_t state) {
@@ -101,26 +62,113 @@ namespace uWS {
         return state == STATE_IS_ERROR;
     }
 
+    /* Standard-compliant hex and extension/CRLF state machine */
+    inline void consumeHexNumber(std::string_view &data, uint64_t &state) {
+        while (data.length()) {
+            char c = data.data()[0];
+
+            // 1. Parsing Hex Chunk Size
+            if (!(state & STATE_EXTENSION_MODE)) {
+                if (c == ';') { // Start of chunk extensions
+                    if (!hasChunkSize(state) && (state & STATE_SIZE_MASK) == 0 && !(state & STATE_IS_CHUNKED)) {
+                        // Extension started without any hex digits
+                        state = STATE_IS_ERROR;
+                        return;
+                    }
+                    state |= STATE_EXTENSION_MODE;
+                    data.remove_prefix(1);
+                    continue;
+                }
+
+                if (c == '\r') {
+                    // Handled when reaching \n or expecting \n
+                    state |= STATE_EXTENSION_MODE;
+                    data.remove_prefix(1);
+                    continue;
+                }
+
+                if (c == '\n') {
+                    data.remove_prefix(1);
+                    state += 2; // Keep compatibility offset for trailing CRLF
+                    state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
+                    state &= ~STATE_EXTENSION_MODE;
+                    return;
+                }
+
+                // Parse Hex Digit
+                unsigned char digit = (unsigned char)c;
+                unsigned int number = 0;
+                if (digit >= '0' && digit <= '9') {
+                    number = digit - '0';
+                } else if (digit >= 'a' && digit <= 'f') {
+                    number = digit - 'a' + 10;
+                } else if (digit >= 'A' && digit <= 'F') {
+                    number = digit - 'A' + 10;
+                } else {
+                    // Invalid character in hex size line
+                    state = STATE_IS_ERROR;
+                    return;
+                }
+
+                if (chunkSize(state) & STATE_SIZE_OVERFLOW) {
+                    state = STATE_IS_ERROR;
+                    return;
+                }
+
+                uint64_t bits = state & STATE_IS_CHUNKED;
+                state = (state & STATE_SIZE_MASK) * 16ull + number;
+                state |= bits;
+                data.remove_prefix(1);
+            } 
+            // 2. Skipping Extension / Waiting for Line-Feed
+            else {
+                data.remove_prefix(1);
+                if (c == '\n') {
+                    state += 2; // Include boundary tracking compatibility
+                    state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
+                    state &= ~STATE_EXTENSION_MODE;
+                    return;
+                }
+            }
+        }
+    }
+
     /* Returns next chunk (empty or not), or if all data was consumed, nullopt is returned. */
     static std::optional<std::string_view> getNextChunk(std::string_view &data, uint64_t &state, bool trailer = false) {
 
         while (data.length()) {
 
-            // if in "drop trailer mode", just drop up to what we have as size
+            // Parsing Trailers Mode (Processes key-value headers byte-by-byte up to double CRLF)
+            if (state & STATE_TRAILER_MODE) {
+                while (data.length()) {
+                    char c = data.data()[0];
+                    data.remove_prefix(1);
+
+                    if (c == '\n') {
+                        // Single LF on empty line or end of trailer line reduces counter state
+                        if (chunkSize(state) <= 2) {
+                            state = 0; // Terminate trailer state machine cleanly
+                            return std::nullopt;
+                        }
+                        decChunkSize(state, 1);
+                    } else if (c == '\r') {
+                        continue;
+                    } else {
+                        // Reset trailer byte line counter when content exists
+                        state = (state & ~STATE_SIZE_MASK) | 4;
+                    }
+                }
+                return std::nullopt;
+            }
+
+            // Drop Trailer Mode (Legacy fallback mode when trailer flag was set but ignored)
             if (((state & STATE_IS_CHUNKED) == 0) && hasChunkSize(state) && chunkSize(state)) {
-
-                //printf("Parsing trailer now\n");
-
-                while(data.length() && chunkSize(state)) {
+                while (data.length() && chunkSize(state)) {
                     data.remove_prefix(1);
                     decChunkSize(state, 1);
 
                     if (chunkSize(state) == 0) {
-
-                        /* This is an actual place where we need 0 as state */
                         state = 0;
-
-                        /* The parser MUST stop consuming here */
                         return std::nullopt;
                     }
                 }
@@ -133,14 +181,11 @@ namespace uWS {
                     return std::nullopt;
                 }
                 if (hasChunkSize(state) && chunkSize(state) == 2) {
-
-                    //printf("Setting state to trailer-parsing and emitting empty chunk\n");
-
-                    // set trailer state and increase size to 4
                     if (trailer) {
-                        state = 4 /*| STATE_IS_CHUNKED*/ | STATE_HAS_SIZE;
+                        // Transition to Trailer Parsing State
+                        state = STATE_TRAILER_MODE | 4; 
                     } else {
-                        state = 2 /*| STATE_IS_CHUNKED*/ | STATE_HAS_SIZE;
+                        state = 2 | STATE_HAS_SIZE;
                     }
 
                     return std::string_view(nullptr, 0);
@@ -148,10 +193,8 @@ namespace uWS {
                 continue;
             }
 
-            // do we have data to emit all?
+            // Emit Body Payload Data
             if (data.length() >= chunkSize(state)) {
-                // emit all but 2 bytes then reset state to 0 and goto beginning
-                // not fin
                 std::string_view emitSoon;
                 bool shouldEmit = false;
                 if (chunkSize(state) > 2) {
@@ -165,21 +208,18 @@ namespace uWS {
                 }
                 continue;
             } else {
-                /* We will consume all our input data */
                 std::string_view emitSoon;
                 if (chunkSize(state) > 2) {
                     uint64_t maximalAppEmit = chunkSize(state) - 2;
                     if (data.length() > maximalAppEmit) {
                         emitSoon = data.substr(0, maximalAppEmit);
                     } else {
-                        //cb(data);
                         emitSoon = data;
                     }
                 }
                 decChunkSize(state, (unsigned int) data.length());
                 state |= STATE_IS_CHUNKED;
-                // new: decrease data by its size (bug)
-                data.remove_prefix(data.length()); // ny bug fix för getNextChunk
+                data.remove_prefix(data.length());
                 if (emitSoon.length()) {
                     return emitSoon;
                 } else {
@@ -191,7 +231,7 @@ namespace uWS {
         return std::nullopt;
     }
 
-    /* This is really just a wrapper for convenience */
+    /* Convenience Iterator Wrapper */
     struct ChunkIterator {
 
         std::string_view *data;
@@ -203,9 +243,7 @@ namespace uWS {
             chunk = uWS::getNextChunk(*data, *state, trailer);
         }
 
-        ChunkIterator() {
-
-        }
+        ChunkIterator() {}
 
         ChunkIterator begin() {
             return *this;
