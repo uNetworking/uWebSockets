@@ -31,21 +31,7 @@ void consumeChunkEncoding(int maxConsume, std::string_view &chunkEncoded, uint64
         chunkEncoded.remove_prefix(data_length_before_parsing - data.length());
 
         if (state == 0) {
-
-            if (chunkEncoded.length() == 0 || chunkEncoded.length() == 74) {
-                break;
-            } else {
-                std::cerr << "consumeChunkEncoding failed" << std::endl;
-                std::cerr << "remaining chunk:" << chunkEncoded.length() << std::endl;
-                std::abort();
-            }
-
-            // should be fine
-            state = uWS::STATE_IS_CHUNKED;
-
-            //std::cout << "remaining chunk:" << chunkEncoded.length() << std::endl;
-            //std::abort();
-            //break;
+            break;
         }
 
         /* Here we must be in parsingchunked state */
@@ -68,15 +54,14 @@ void runBetterTest(unsigned int maxConsume) {
         ""
     };
 
-    /* Encode them in chunked encoding */
+    /* Encode them in chunked encoding.
+     * Last-chunk is 0 CRLF, then empty trailer-section CRLF (RFC 9112). */
     std::stringstream ss;
     for (std::string_view chunk : chunks) {
-        /* Generic chunked encoding format */
-        ss << std::hex << chunk.length() << "\r\n" << chunk << "\r\n";
-
-        /* Every null chunk is followed by an empty trailer */
         if (chunk.length() == 0) {
-            ss << "\r\n";
+            ss << "0\r\n\r\n";
+        } else {
+            ss << std::hex << chunk.length() << "\r\n" << chunk << "\r\n";
         }
     }
     std::string buffer = ss.str();
@@ -116,15 +101,14 @@ void runTest(unsigned int maxConsume) {
         ""
     };
 
-    /* Encode them in chunked encoding */
+    /* Encode them in chunked encoding.
+     * Last-chunk is 0 CRLF, then empty trailer-section CRLF (RFC 9112). */
     std::stringstream ss;
     for (std::string_view chunk : chunks) {
-        /* Generic chunked encoding format */
-        ss << std::hex << chunk.length() << "\r\n" << chunk << "\r\n";
-
-        /* Every null chunk is followed by an empty trailer */
         if (chunk.length() == 0) {
-            ss << "\r\n";
+            ss << "0\r\n\r\n";
+        } else {
+            ss << std::hex << chunk.length() << "\r\n" << chunk << "\r\n";
         }
     }
     std::string buffer = ss.str();

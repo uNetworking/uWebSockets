@@ -73,6 +73,32 @@ private:
         Super::write(buf, length);
     }
 
+    /* Switch to chunked encoding and terminate headers if we have not already.
+     * The header/body separator is written here, once. Chunks themselves always
+     * include their own trailing CRLF (RFC 9112). */
+    void ensureChunkedBodyStarted() {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
+            writeMark();
+            writeHeader("Transfer-Encoding", "chunked");
+            httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
+
+            /* Start of the body */
+            Super::write("\r\n", 2);
+        }
+    }
+
+    /* Emit one complete chunk: chunk-size CRLF chunk-data CRLF.
+     * Super::write reports failed=true for backpressure even when all bytes
+     * were queued, so the trailer must still be written. */
+    bool writeChunk(std::string_view data) {
+        writeUnsignedHex((unsigned int) data.length());
+        Super::write("\r\n", 2);
+        Super::write(data.data(), (int) data.length());
+        return !Super::write("\r\n", 2).second;
+    }
+
     /* Called only once per request */
     void writeMark() {
         /* Date is always written */
@@ -121,16 +147,12 @@ private:
 
             /* Do not allow sending 0 chunk here */
             if (data.length()) {
-                Super::write("\r\n", 2);
-                writeUnsignedHex((unsigned int) data.length());
-                Super::write("\r\n", 2);
-
                 /* Ignoring optional for now */
-                Super::write(data.data(), (int) data.length());
+                writeChunk(data);
             }
 
             /* Terminating 0 chunk */
-            Super::write("\r\n0\r\n\r\n", 7);
+            Super::write("0\r\n\r\n", 5);
 
             httpResponseData->markDone();
 
@@ -432,18 +454,8 @@ public:
         /* Write status if not already done */
         writeStatus(HTTP_200_OK);
 
-        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
-
-        if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
-            /* Write mark on first call to write */
-            writeMark();
-
-            writeHeader("Transfer-Encoding", "chunked");
-            httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
-
-            /* Start of the body */
-            Super::write("\r\n", 2);
-        }
+        /* Terminate headers now; later write()/end() emit complete chunks only */
+        ensureChunkedBodyStarted();
     }
 
     /* End without a body (no content-length) or end with a spoofed content-length. */
@@ -477,27 +489,15 @@ public:
             return true;
         }
 
-        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+        ensureChunkedBodyStarted();
 
-        if (!(httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED)) {
-            /* Write mark on first call to write */
-            writeMark();
-
-            writeHeader("Transfer-Encoding", "chunked");
-            httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CALLED;
-        }
-
-        Super::write("\r\n", 2);
-        writeUnsignedHex((unsigned int) data.length());
-        Super::write("\r\n", 2);
-
-        auto [written, failed] = Super::write(data.data(), (int) data.length());
-        if (failed) {
+        bool ok = writeChunk(data);
+        if (!ok) {
             Super::timeout(HTTP_TIMEOUT_S);
         }
 
         /* If we did not fail the write, accept more */
-        return !failed;
+        return ok;
     }
 
     /* Get the current byte write offset for this Http response */
