@@ -13,6 +13,9 @@ default:
 	./ExtensionsNegotiator
 	$(CXX) -std=c++17 -fsanitize=address HttpParser.cpp -o HttpParser
 	./HttpParser
+	$(MAKE) -C ../uSockets
+	$(CXX) -std=c++17 -fsanitize=address -flto=auto -I../src -I../uSockets/src HttpResponse.cpp ../uSockets/*.o -lz -pthread -o HttpResponse
+	./HttpResponse
 
 performance:
 	$(CXX) -std=c++17 HttpRouter.cpp -O3 -o HttpRouter
