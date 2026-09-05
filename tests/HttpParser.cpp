@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cassert>
+#include <string>
 
 #include "../src/HttpParser.h"
 
@@ -15,6 +16,8 @@ int main() {
     auto [err, returnedUser] = httpParser.consumePostPadded((char *) data, size, user, reserved, [reserved](void *s, uWS::HttpRequest *httpRequest) -> void * {
 
         std::cout << httpRequest->getMethod() << std::endl;
+
+        assert(!httpRequest->hasBody());
 
         for (auto [key, value] : *httpRequest) {
             std::cout << key << ": " << value << std::endl;
@@ -34,5 +37,22 @@ int main() {
     });
 
     std::cout << "HTTP DONE" << std::endl;
+
+    std::string bodyRequest = "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 4\r\n\r\ntest";
+    bodyRequest.append(8, '\0');
+    uWS::HttpParser bodyParser;
+    auto [bodyErr, bodyUser] = bodyParser.consumePostPadded(
+        bodyRequest.data(), (unsigned int) bodyRequest.length() - 8, user, reserved,
+        [](void *user, uWS::HttpRequest *httpRequest) -> void * {
+            assert(httpRequest->hasBody());
+            return user;
+        },
+        [](void *user, std::string_view data, bool) -> void * {
+            assert(data == "test");
+            return user;
+        }
+    );
+    assert(bodyErr == 0);
+    assert(bodyUser == user);
 
 }
