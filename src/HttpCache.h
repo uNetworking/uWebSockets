@@ -1,5 +1,22 @@
-#ifndef UWS_CACHINGAPP_H
-#define UWS_CACHINGAPP_H
+/*
+ * Authored by Alex Hultman, 2018-2026.
+ * Intellectual property of third-party.
+
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ *     http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef UWS_HTTPCACHE_H
+#define UWS_HTTPCACHE_H
 
 #include "App.h"
 #include <unordered_map>
@@ -23,9 +40,9 @@ struct StringViewEqual {
 
 
 
-class CachingHttpResponse {
+class HttpCacheResponse {
 public:
-    CachingHttpResponse(uWS::HttpResponse<false> *res)
+    HttpCacheResponse(uWS::HttpResponse<false> *res)
         : res(res) {}
 
     void write(std::string_view data) {
@@ -51,16 +68,19 @@ public:
     time_t created;
 };
 
-typedef std::unordered_map<std::string_view, CachingHttpResponse *, 
+typedef std::unordered_map<std::string_view, HttpCacheResponse *, 
                        StringViewHash, 
                        StringViewEqual> CacheType;
 
 template <typename Derived>
-struct CachingApp {
+struct HttpCache {
 public:
 
     // variant 1: only taking URL into account
-    Derived &&get(const std::string& url, uWS::MoveOnlyFunction<void(CachingHttpResponse*, uWS::HttpRequest*)> &&handler, unsigned int secondsToExpiry) {
+    Derived &&get(const std::string& url, uWS::MoveOnlyFunction<void(HttpCacheResponse*, uWS::HttpRequest*)> &&handler, unsigned int secondsToExpiry) {
+        
+        std::cerr << "Registering experimental cached GET handler for " << url << std::endl;
+        
         ((Derived *)this)->get(url, [this, handler = std::move(handler), secondsToExpiry](auto* res, auto* req) mutable {
             /* We need to know the cache key and the time of now */
             std::string_view cache_key = req->getFullUrl();
@@ -83,8 +103,10 @@ public:
             }
 
             // immediately take the place in the cache
-            CachingHttpResponse *cachingRes;
-            cache[cache_key] = (cachingRes = new CachingHttpResponse(res));
+            HttpCacheResponse *cachingRes;
+            cache[cache_key] = (cachingRes = new HttpCacheResponse(res));
+
+            std::cerr << "Cache miss for " << cache_key << std::endl;
 
             handler(cachingRes, req);
         });
