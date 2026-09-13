@@ -56,6 +56,7 @@ namespace uWS {
 #include "WebSocketContext.h"
 #include "WebSocket.h"
 #include "PerMessageDeflate.h"
+#include "CachingApp.h"
 
 namespace uWS {
 
@@ -80,7 +81,8 @@ namespace uWS {
     static_assert(sizeof(struct us_socket_context_options_t) == sizeof(SocketContextOptions), "Mismatching uSockets/uWebSockets ABI");
 
 template <bool SSL>
-struct TemplatedApp {
+struct TemplatedApp : public CachingApp<TemplatedApp<SSL>> {
+    using CachingApp<TemplatedApp<SSL>>::get;
 private:
     /* The app always owns at least one http context, but creates websocket contexts on demand */
     HttpContext<SSL> *httpContext;
