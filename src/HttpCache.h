@@ -60,6 +60,11 @@ public:
         std::ignore = closeConnection;
     }
 
+    HttpCacheResponse *onAborted(MoveOnlyFunction<void()> &&handler) {
+        res->onAborted(std::move(handler));
+        return this;
+    }
+
 public:
     uWS::HttpResponse<false>* res; // should be a vector of waiting sockets
 
