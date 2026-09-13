@@ -580,8 +580,16 @@ private:
              * the Transfer-Encoding overrides the Content-Length. */
             if (transferEncodingString.data() != nullptr) {
 
-                /* We only support chunked */
-                if (transferEncodingString != "chunked") {
+                /* Transfer-coding names are case-insensitive (RFC 9112 7), so lowercase the value */
+                for (unsigned int i = 0; i < transferEncodingString.length(); i++) {
+                    char &c = ((char *) transferEncodingString.data())[i];
+                    if (c >= 'A' && c <= 'Z') {
+                        c |= 32;
+                    }
+                }
+
+                /* The app can support any framing including gzip, deflate, but it always needs to end with chunked */
+                if (transferEncodingString.length() < 7 || transferEncodingString.substr(transferEncodingString.length() - 7) != "chunked") {
                     return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
                 }
 
