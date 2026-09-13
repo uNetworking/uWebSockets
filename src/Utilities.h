@@ -25,7 +25,7 @@
 namespace uWS {
 namespace utils {
 
-inline int u32toaHex(uint32_t value, char *dst) {
+inline int u32toaHex(uint32_t value, char *dst) noexcept {
     char palette[] = "0123456789abcdef";
     char temp[10];
     char *p = temp;
@@ -43,7 +43,7 @@ inline int u32toaHex(uint32_t value, char *dst) {
     return ret;
 }
 
-inline int u64toa(uint64_t value, char *dst) {
+inline int u64toa(uint64_t value, char *dst) noexcept {
     char temp[20];
     char *p = temp;
     do {

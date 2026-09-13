@@ -30,7 +30,7 @@ namespace uWS {
 struct BloomFilter {
 private:
     std::bitset<256> filter;
-    static inline uint32_t perfectHash(uint32_t features) {
+    static inline uint32_t perfectHash(uint32_t features) noexcept {
         return features * 1843993368;
     }
 
@@ -39,7 +39,7 @@ private:
         uint32_t val;
     };
 
-    ScrambleArea getFeatures(std::string_view key) {
+    ScrambleArea getFeatures(std::string_view key) noexcept {
         ScrambleArea s;
         s.p[0] = reinterpret_cast<const unsigned char&>(key[0]);
         s.p[1] = reinterpret_cast<const unsigned char&>(key[key.length() - 1]);
@@ -49,7 +49,7 @@ private:
     }
 
 public:
-    bool mightHave(std::string_view key) {
+    bool mightHave(std::string_view key) noexcept {
         if (key.length() < 2) {
             return true;
         }
@@ -62,7 +62,7 @@ public:
         filter[s.p[3]];
     }
 
-    void add(std::string_view key) {
+    void add(std::string_view key) noexcept {
         if (key.length() >= 2) {
             ScrambleArea s = getFeatures(key);
             s.val = perfectHash(s.val);
@@ -73,7 +73,7 @@ public:
         }
     }
 
-    void reset() {
+    void reset() noexcept {
         filter.reset();
     }
 };
