@@ -46,7 +46,7 @@ namespace uWS {
     constexpr uint64_t STATE_SIZE_OVERFLOW = 0x0Full << (sizeof(uint64_t) * 8 - 12);
 
     /* Helper: RFC 9110 Section 5.6.2 Token character check */
-    inline bool isValidTokenChar(unsigned char c) {
+    inline bool isValidTokenChar(unsigned char c) noexcept {
         if (c < 0x20 || c >= 0x7F) return false;
         switch (c) {
             case '(': case ')': case '<': case '>': case '@':
@@ -59,27 +59,27 @@ namespace uWS {
         }
     }
 
-    inline uint64_t chunkSize(uint64_t state) {
+    inline uint64_t chunkSize(uint64_t state) noexcept {
         return state & STATE_SIZE_MASK;
     }
 
-    inline void decChunkSize(uint64_t &state, unsigned int by) {
+    inline void decChunkSize(uint64_t &state, unsigned int by) noexcept {
         state = (state & ~STATE_SIZE_MASK) | (chunkSize(state) - by);
     }
 
-    inline bool hasChunkSize(uint64_t state) {
+    inline bool hasChunkSize(uint64_t state) noexcept {
         return state & STATE_HAS_SIZE;
     }
 
-    inline bool isParsingChunkedEncoding(uint64_t state) {
+    inline bool isParsingChunkedEncoding(uint64_t state) noexcept {
         return state & ~STATE_SIZE_MASK;
     }
 
-    inline bool isParsingInvalidChunkedEncoding(uint64_t state) {
+    inline bool isParsingInvalidChunkedEncoding(uint64_t state) noexcept {
         return state == STATE_IS_ERROR;
     }
 
-    inline void consumeHexNumber(std::string_view &data, uint64_t &state) {
+    inline void consumeHexNumber(std::string_view &data, uint64_t &state) noexcept {
         while (data.length()) {
             unsigned char c = (unsigned char)data.data()[0];
 
@@ -190,7 +190,7 @@ namespace uWS {
         }
     }
 
-    static std::optional<std::string_view> getNextChunk(std::string_view &data, uint64_t &state, bool trailer = false) {
+    static std::optional<std::string_view> getNextChunk(std::string_view &data, uint64_t &state, bool trailer = false) noexcept {
         while (data.length()) {
             
             // Standard-compliant Trailer parsing state machine
@@ -319,25 +319,25 @@ namespace uWS {
         uint64_t *state;
         bool trailer;
 
-        ChunkIterator(std::string_view *data, uint64_t *state, bool trailer = false) : data(data), state(state), trailer(trailer) {
+        ChunkIterator(std::string_view *data, uint64_t *state, bool trailer = false) noexcept : data(data), state(state), trailer(trailer) {
             chunk = uWS::getNextChunk(*data, *state, trailer);
         }
 
-        ChunkIterator() {}
+        ChunkIterator() noexcept {}
 
-        ChunkIterator begin() { return *this; }
-        ChunkIterator end() { return ChunkIterator(); }
+        ChunkIterator begin() noexcept { return *this; }
+        ChunkIterator end() noexcept { return ChunkIterator(); }
 
-        std::string_view operator*() {
+        std::string_view operator*() noexcept {
             if (!chunk.has_value()) std::abort();
             return chunk.value();
         }
 
-        bool operator!=(const ChunkIterator &other) const {
+        bool operator!=(const ChunkIterator &other) const noexcept {
             return other.chunk.has_value() != chunk.has_value();
         }
 
-        ChunkIterator &operator++() {
+        ChunkIterator &operator++() noexcept {
             chunk = uWS::getNextChunk(*data, *state, trailer);
             return *this;
         }
