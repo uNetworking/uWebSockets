@@ -45,7 +45,24 @@
 #include <functional>
 #include <string_view>
 
+#include <chrono>
+
 namespace uWS {
+
+struct HttpCacheOptions {
+    unsigned int lowerExpiry, upperExpiry;
+};
+
+unsigned long time_ms() {
+    auto now = std::chrono::steady_clock::now();
+
+    // 2. Extract duration since epoch and cast to milliseconds
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()
+    ).count();
+
+    return ms / 1000;
+}
 
 struct StringViewHash {
     size_t operator()(std::string_view sv) const {
@@ -78,27 +95,58 @@ public:
     bool updatingCache = true; // irrelevant
     bool neverInitialized = true; // relevant
 
-    time_t created; // when the updating socket finished
+    time_t created = 0; // when the updating socket finished
 
-    void addDependentWaitingRequest(HttpResponse<false> *res) {
+    unsigned int addDependentWaitingRequest(HttpResponse<false> *res) {
+        // this shjould be fine but consider the case where keep-alive and we have a JS-level onAborted that gets overridden here
+        // basically, consider when JS land holds on to a uWS.HttpResponse object past the .end call of a previous event and then we
+        // become dependent on cahce in the next call, and here we now override the onAborted
+        // then the JS user invalidly call the stored uWS.HttpResponse and you get segfault rather than a proper exception from V8
+        // that case is edge case, but still needs to be handled gracefully somehow
         res->onAborted([this, res]() {
+            //std::cout << "A dependent socket was aborted" << std::endl;
+            // note: we cannot really override onaborted liek this, becuse the JS wrapper needs to mark resObj invalid
+            // so we need to expose some way to "decorate" our onAborted with extra work so that the JS wrapper can do its stuff
             waitingHttpResponses.erase(res);
         });
 
         waitingHttpResponses.insert(res);
+
+        /* Mosly for debugging */
+        return waitingHttpResponses.size();
     }
 
     void append(std::string_view data) {
         buffer.second.append(data);
     }
 
+    void markAborted() {
+        std::cout << "The updating socket was aborted so we reset the cache's status" << std::endl;
+        updatingCache = false;
+
+        // if we have sockets in the waiting state, pick one to be the new leader?
+        // this probably needs to wait to next loop tick so we don't do this promotion 400 times if 400 sockets closed this tick
+    }
+
     /* This marks the cache updated and sends the response to all waiting sockets in the next postIteration */
     void markUpdated(HttpResponse<false> *res) {
+        std::cout << "A socket marked cache as done now" << std::endl;
         neverInitialized = false;
         updatingCache = false;
         std::swap(buffer.first, buffer.second);
         buffer.second.clear();
-        created = time(0);
+
+        time_t now = static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
+
+
+        /* HOw the fuck does this happen? the cachedTime is lagging by a lot!?
+            Created is now 1789496084
+            time(0) is now 1789496088
+        */
+        created = time_ms();//time(0);//now;//time(0);
+        std::cout << "Created is now " << created << std::endl;
+        std::cout << "time(0) is now " << time(0) << std::endl;
+        std::cout << "time_ms is now " << time_ms() << std::endl;
 
         /* Emit the response to our socket (in whatever cork mode our socket may be) */
         if (res) {
@@ -113,6 +161,8 @@ public:
                 dependentRes->end(buffer.first);
             //});
         }
+        // end above removes the onAborted handler? if so, that's why missing a clear here below made it segfault
+        waitingHttpResponses.clear();
     }
 };
 
@@ -157,7 +207,29 @@ public:
          * they need (which can handle user-controlled DB unlocking).
          * This alone is reason enough to split CacheEntry and HttpCacheResponse into 2 classes. */
 
-        res->onAborted(std::move(handler));
+        res->onAborted([handler = std::move(handler), this]() mutable {
+            // when a cache updating socket dies, we need to reset the cache updating status of the cache entry so that
+            // someone else will update it instead
+
+            // but really, we should not have abortions based on a leader socket,
+            // just decouple it and work with abstract HttpCacheResponse that entirely relies on the waiting list!!!
+            // in other words; HttpCacheResponse->end should never actually call res->end, the entire thing always calls waitingSockets->end
+            // that way a disconnect over HTTP does not affect the updating of the cache!!!!
+            // A HttpCacheResponse should not even own a HttpResponse, it should be entirely abstracted
+            cacheEntry->markAborted();
+
+            handler();
+        });
+
+
+
+
+
+        return this;
+    }
+
+    HttpCacheResponse *cork(MoveOnlyFunction<void()> &&handler) {
+        res->cork(std::move(handler));
         return this;
     }
 
@@ -173,35 +245,43 @@ struct HttpCache {
 public:
 
     // variant 1: only taking URL into account
-    Derived &&get(const std::string& url, uWS::MoveOnlyFunction<void(HttpCacheResponse*, uWS::HttpRequest*)> &&handler, unsigned int lowerExpiry, unsigned int upperExpiry) {
+    Derived &&get(const std::string& url, uWS::MoveOnlyFunction<void(HttpCacheResponse*, uWS::HttpRequest*)> &&handler, HttpCacheOptions cacheOptions) {
         
         std::cerr << "Registering experimental cached GET handler for " << url << std::endl;
         
-        ((Derived *)this)->get(url, [this, handler = std::move(handler), lowerExpiry, upperExpiry](auto* res, auto* req) mutable {
+        ((Derived *)this)->get(url, [this, handler = std::move(handler), cacheOptions](auto *res, auto *req) mutable {
             /* We need to know the cache key and the time of now */
             std::string_view cache_key = req->getFullUrl();
-            time_t now = static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
+            time_t now = time_ms();//static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
 
+            unsigned int lowerExpiry = cacheOptions.lowerExpiry;
+            unsigned int upperExpiry = cacheOptions.upperExpiry;
 
             auto it = cache.find(cache_key);
             if (it != cache.end()) {
 
-                /* If the cache does exist, use it as long as it is within upperExpiry */
-                if (it->second->created + upperExpiry > now) {
+                // how the fuck do we land here more than once?
+                if (it->second->neverInitialized) {
+                    unsigned int size = it->second->addDependentWaitingRequest(res);
+
+                    std::cout << "We are waiting for an uninitialized cache entry for " << cache_key << " with dependent size " << size << std::endl;
+
+                    /* If we are dependent, then no further logic is needed */
+                    return;
+
+                    /* If the cache does exist, use it as long as it is within upperExpiry */
+                } else if (it->second->created + upperExpiry > now) {
                     /* Use the cache to end the request immediately */
 
                     // what if the cahe is on its first update? that is, not still valid?
                     // this is not a matter of updatingCache, it's a matter of first uniniticalizsed
                     
-                    if (it->second->neverInitialized) {
-                        it->second->addDependentWaitingRequest(res);
+                    res->end(it->second->buffer.first); // tryEnd!
 
-                        /* If we are dependent, then no further logic is needed */
-                        return;
-                    } else {
-                        res->end(it->second->buffer.first); // tryEnd!
+                    // if the margin of cache is small (less than 2 seconds) print it
+                    if ((it->second->created + upperExpiry) - now < 3) {
+                        std::cout << "We hit cache within just " << ((it->second->created + upperExpiry) - now) << " seconds" << std::endl;
                     }
-                    
                     
                     /* While here, check if we should start an updating of the cache */
                     if (it->second->created + lowerExpiry < now) {
@@ -214,6 +294,7 @@ public:
                             std::cerr << "Cache hit for " << cache_key << " but starting an update job for it" << std::endl;
 
                             HttpCacheResponse *cachingRes = new HttpCacheResponse(res, it->second);
+                            cachingRes->alreadyServed = true; // fucking important detail we missed (double end!)
                             handler(cachingRes, req);
                         }
                     }
@@ -226,20 +307,31 @@ public:
 
                 // }
 
+                std::cout << "Now = " << now << std::endl;
+                std::cout << "UpperExpiry = " << (it->second->created + upperExpiry) << std::endl;
+                std::cout << "UpperExpiry relative = " << upperExpiry << std::endl;
+                std::cout << "Created = " << (it->second->created) << std::endl;
+
                 /* We are no longer valid, delete old cache and fall through to create a new entry */
-                delete it->second;
+                //delete it->second;
 
                 /* Fallthrough to cache entry creation */
+            } else {
+                std::cout << "CacheEntry was missing altogether for " << cache_key << std::endl;
             }
+
+
 
             /* The cache either does not exist or upperExpiry has passed, all sockets must wait. */
             CacheEntry *cacheEntry = new CacheEntry();
             cache[cache_key] = cacheEntry;
 
             HttpCacheResponse *cachingRes = new HttpCacheResponse(res, cacheEntry);
-            cacheEntry->addDependentWaitingRequest(res);
+
+            // we cannot add ourselves twice! if we are the fetcher of new data, we sjould not be added here!
+            //unsigned int size = cacheEntry->addDependentWaitingRequest(res);
          
-            std::cerr << "Cache miss for " << cache_key << std::endl;
+            std::cerr << "Cache miss for " << cache_key << " we have " << 0 << " dependent sockets" << std::endl;
 
             handler(cachingRes, req);
         });

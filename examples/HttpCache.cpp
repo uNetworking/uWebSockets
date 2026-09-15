@@ -1,10 +1,6 @@
 #include "App.h"
 #include <iostream>
 
-/* Passing two integers as last arguments (lower and upper expiry) makes the route cached */
-#define LOWER_EXPIRY 1
-#define UPPER_EXPIRY 5
-
 int main() {
     uWS::App app;
 
@@ -15,7 +11,11 @@ int main() {
         /* A cached response with 5 seconds of lifetime */
         std::cout << "Filling cache now" << std::endl;
         res->end("This is a response");
-    }, LOWER_EXPIRY, UPPER_EXPIRY).listen(8080, [](bool success) {
+    }, {
+        /* These enable microcaching for the above route handler */
+        .lowerExpiry = 1,
+        .upperExpiry = 5
+    }).listen(8080, [](bool success) {
         if (success) {
             std::cout << "Listening on port 8080" << std::endl;
         } else {
