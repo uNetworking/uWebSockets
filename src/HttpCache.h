@@ -173,12 +173,8 @@ public:
     /* One HttpCacheResponse always has res and cacheEntry,
      * but a cacheEntry can have many res and never any HttpCacheResponse */
     CacheEntry *cacheEntry;
-    HttpResponse<false> *res;
 
-    /* Some of these have been served from cache already, so exclude them from markUpdated */
-    bool alreadyServed = false;
-
-    HttpCacheResponse(HttpResponse<false> *res, CacheEntry *cacheEntry) : cacheEntry(cacheEntry), res(res) {
+    HttpCacheResponse(CacheEntry *cacheEntry) : cacheEntry(cacheEntry) {
 
     }
 
@@ -190,46 +186,18 @@ public:
     void end(std::string_view data = "", bool closeConnection = false) {
         /* Append, swap and mark non-updating */
         cacheEntry->append(data);
-        if (alreadyServed) {
-            cacheEntry->markUpdated(nullptr); //will queue sending to postItertaion
-        } else {
-            cacheEntry->markUpdated(res); //will queue sending to postItertaion
-        }
-
+        cacheEntry->markUpdated(nullptr); //will queue sending to postItertaion
         std::ignore = closeConnection;
     }
 
     /* We need to decorate the */
     HttpCacheResponse *onAborted(MoveOnlyFunction<void()> &&handler) {
-        /* Sockets managed by the cache should not be affected by user-controlled onAborted,
-         * Sockets manages by the cache have their own onAborted behavior.
-         * But the user-controlled HttpCacheResponse can have whatever onAborted
-         * they need (which can handle user-controlled DB unlocking).
-         * This alone is reason enough to split CacheEntry and HttpCacheResponse into 2 classes. */
-
-        res->onAborted([handler = std::move(handler), this]() mutable {
-            // when a cache updating socket dies, we need to reset the cache updating status of the cache entry so that
-            // someone else will update it instead
-
-            // but really, we should not have abortions based on a leader socket,
-            // just decouple it and work with abstract HttpCacheResponse that entirely relies on the waiting list!!!
-            // in other words; HttpCacheResponse->end should never actually call res->end, the entire thing always calls waitingSockets->end
-            // that way a disconnect over HTTP does not affect the updating of the cache!!!!
-            // A HttpCacheResponse should not even own a HttpResponse, it should be entirely abstracted
-            cacheEntry->markAborted();
-
-            handler();
-        });
-
-
-
-
-
+        // cannot be aborted
         return this;
     }
 
     HttpCacheResponse *cork(MoveOnlyFunction<void()> &&handler) {
-        res->cork(std::move(handler));
+        handler();
         return this;
     }
 
@@ -293,8 +261,9 @@ public:
 
                             std::cerr << "Cache hit for " << cache_key << " but starting an update job for it" << std::endl;
 
-                            HttpCacheResponse *cachingRes = new HttpCacheResponse(res, it->second);
-                            cachingRes->alreadyServed = true; // fucking important detail we missed (double end!)
+                            HttpCacheResponse *cachingRes = new HttpCacheResponse(it->second);
+                            //cachingRes->alreadyServed = true; // fucking important detail we missed (double end!)
+                            // we are already served so do not add us to the dependent list
                             handler(cachingRes, req);
                         }
                     }
@@ -326,12 +295,13 @@ public:
             CacheEntry *cacheEntry = new CacheEntry();
             cache[cache_key] = cacheEntry;
 
-            HttpCacheResponse *cachingRes = new HttpCacheResponse(res, cacheEntry);
+            HttpCacheResponse *cachingRes = new HttpCacheResponse(cacheEntry);
 
-            // we cannot add ourselves twice! if we are the fetcher of new data, we sjould not be added here!
-            //unsigned int size = cacheEntry->addDependentWaitingRequest(res);
+
+            // add us here since we have not been served already
+            unsigned int size = cacheEntry->addDependentWaitingRequest(res);
          
-            std::cerr << "Cache miss for " << cache_key << " we have " << 0 << " dependent sockets" << std::endl;
+            std::cerr << "Cache miss for " << cache_key << " we have " << size << " dependent sockets" << std::endl;
 
             handler(cachingRes, req);
         });
