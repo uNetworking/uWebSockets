@@ -120,52 +120,31 @@ public:
         buffer.second.append(data);
     }
 
-    void markAborted() {
-        std::cout << "The updating socket was aborted so we reset the cache's status" << std::endl;
-        updatingCache = false;
-
-        // if we have sockets in the waiting state, pick one to be the new leader?
-        // this probably needs to wait to next loop tick so we don't do this promotion 400 times if 400 sockets closed this tick
-    }
-
     /* This marks the cache updated and sends the response to all waiting sockets in the next postIteration */
-    void markUpdated(HttpResponse<false> *res) {
+    void markUpdated() {
         std::cout << "A socket marked cache as done now" << std::endl;
         neverInitialized = false;
         updatingCache = false;
         std::swap(buffer.first, buffer.second);
         buffer.second.clear();
 
-        time_t now = static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
+        // todo: for now we do not use the proper "now"
+        time_t now = time_ms();//static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
 
-
-        /* HOw the fuck does this happen? the cachedTime is lagging by a lot!?
-            Created is now 1789496084
-            time(0) is now 1789496088
-        */
-        created = time_ms();//time(0);//now;//time(0);
-        std::cout << "Created is now " << created << std::endl;
-        std::cout << "time(0) is now " << time(0) << std::endl;
-        std::cout << "time_ms is now " << time_ms() << std::endl;
-
-        /* Emit the response to our socket (in whatever cork mode our socket may be) */
-        if (res) {
-            res->end(buffer.first);
-        }
+        created = now;
 
         /* Emit the response to all waiting (dependent) sockets with their own corking */
-        // TODO: this corking will never work if the handler uses proper corking already!
-        // we need to essentially mark this response as done, then respond from a defer so we can grab the cork buffer!
         for (auto dependentRes : waitingHttpResponses) {
-            //res->cork([res, this]() {
+            /* If the handler is sync (fills the cache sync), then we cannot have more than 1 socket in the waitingHttpRespones list (ourselves).
+            * So cokring is fine, it will succeed (in doing nothing).
+            * If the handler is not sync, then we must stand in some out-of-uWS handler, so corking will succeed even then */
+            dependentRes->cork([dependentRes, this]() {
                 dependentRes->end(buffer.first);
-            //});
+            });
         }
-        // end above removes the onAborted handler? if so, that's why missing a clear here below made it segfault
         waitingHttpResponses.clear();
     }
 };
-
 
 // This class simply "decorates" or "overrides" the HttpResponse to whatever behavior we need
 class HttpCacheResponse {
@@ -186,7 +165,7 @@ public:
     void end(std::string_view data = "", bool closeConnection = false) {
         /* Append, swap and mark non-updating */
         cacheEntry->append(data);
-        cacheEntry->markUpdated(nullptr); //will queue sending to postItertaion
+        cacheEntry->markUpdated(); //will queue sending to postItertaion
         std::ignore = closeConnection;
     }
 
