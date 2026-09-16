@@ -44,8 +44,8 @@
 #include <string>
 #include <functional>
 #include <string_view>
-
 #include <chrono>
+#include <set>
 
 namespace uWS {
 
@@ -77,9 +77,8 @@ struct StringViewEqual {
 };
 
 
-// we needto split this class into two; one class for what the caching handler sees (a user interface)
+// we need to split this class into two; one class for what the caching handler sees (a user interface)
 // and one class for the data entry in the cache itself (which does not necessarily need to map 1-to-1 with the user facing API)
-
 
 class CacheEntry {
 public:
@@ -110,15 +109,12 @@ public:
         // then the JS user invalidly call the stored uWS.HttpResponse and you get segfault rather than a proper exception from V8
         // that case is edge case, but still needs to be handled gracefully somehow
         res->onAborted([this, res]() {
-            //std::cout << "A dependent socket was aborted" << std::endl;
             // note: we cannot really override onaborted liek this, becuse the JS wrapper needs to mark resObj invalid
             // so we need to expose some way to "decorate" our onAborted with extra work so that the JS wrapper can do its stuff
             waitingHttpResponses.erase(res);
         });
 
         waitingHttpResponses.insert(res);
-
-        /* Mosly for debugging */
         return waitingHttpResponses.size();
     }
 
@@ -128,14 +124,13 @@ public:
 
     /* This marks the cache updated and sends the response to all waiting sockets in the next postIteration */
     void markUpdated() {
-        std::cout << "A socket marked cache as done now" << std::endl;
         neverInitialized = false;
         updatingCache = false;
         std::swap(buffer.first, buffer.second);
         buffer.second.clear();
 
         // todo: for now we do not use the proper "now"
-        time_t now = time_ms();//static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
+        time_t now = /*time_ms();*/static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
 
         created = now;
 
@@ -167,7 +162,6 @@ public:
         cacheEntry->append(data);
     }
 
-    // If we are 
     void end(std::string_view data = "", bool closeConnection = false) {
         /* Append, swap and mark non-updating */
         cacheEntry->append(data);
@@ -185,8 +179,6 @@ public:
         handler();
         return this;
     }
-
-public:
 };
 
 typedef std::unordered_map<std::string_view, CacheEntry *, 
@@ -196,113 +188,51 @@ typedef std::unordered_map<std::string_view, CacheEntry *,
 template <typename Derived>
 struct HttpCache {
 public:
-
     // variant 1: only taking URL into account
     Derived &&get(const std::string& url, uWS::MoveOnlyFunction<void(HttpCacheResponse*, uWS::HttpRequest*)> &&handler, HttpCacheOptions cacheOptions) {
-        
-        std::cerr << "Registering experimental cached GET handler for " << url << std::endl;
         
         ((Derived *)this)->get(url, [this, handler = std::move(handler), cacheOptions](auto *res, auto *req) mutable {
             /* We need to know the cache key and the time of now */
             std::string_view cache_key = req->getFullUrl();
-            time_t now = time_ms();//static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
+            time_t now = /*time_ms();*/static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
 
             unsigned int lowerExpiry = cacheOptions.lowerExpiry;
             unsigned int upperExpiry = cacheOptions.upperExpiry;
 
             auto it = cache.find(cache_key);
             if (it != cache.end()) {
+                CacheEntry* entry = it->second;
 
-                // how the fuck do we land here more than once?
-                if (it->second->neverInitialized) {
-                    unsigned int size = it->second->addDependentWaitingRequest(res);
-
-                    std::cout << "We are waiting for an uninitialized cache entry for " << cache_key << " with dependent size " << size << std::endl;
-
+                if (entry->neverInitialized) {
+                    entry->addDependentWaitingRequest(res);
                     /* If we are dependent, then no further logic is needed */
                     return;
-
+                } else if (entry->created + upperExpiry > now) {
                     /* If the cache does exist, use it as long as it is within upperExpiry */
-                } else if (it->second->created + upperExpiry > now) {
-                    /* Use the cache to end the request immediately */
-
-                    // what if the cahe is on its first update? that is, not still valid?
-                    // this is not a matter of updatingCache, it's a matter of first uniniticalizsed
-                    
-                    res->end(it->second->buffer.first); // tryEnd!
-
-                    // if the margin of cache is small (less than 2 seconds) print it
-                    // if ((it->second->created + upperExpiry) - now < 3) {
-                    //     std::cout << "We hit cache within just " << ((it->second->created + upperExpiry) - now) << " seconds" << std::endl;
-                    // }
+                    res->end(entry->buffer.first); // tryEnd!
                     
                     /* While here, check if we should start an updating of the cache */
-                    if (it->second->created + lowerExpiry < now) {
+                    if (entry->created + lowerExpiry < now) {
                         /* Put a non-responding cache updating job in the cache */
-
-                        /* If we are not already updating the cache */
-                        if (!it->second->updatingCache) {
-                            it->second->updatingCache = true;
-
-                            std::cerr << "Cache hit for " << cache_key << " but starting an update job for it" << std::endl;
-
-                            HttpCacheResponse *cachingRes = new HttpCacheResponse(it->second);
-                            //cachingRes->alreadyServed = true; // fucking important detail we missed (double end!)
-                            // we are already served so do not add us to the dependent list
+                        if (!entry->updatingCache) {
+                            entry->updatingCache = true;
+                            HttpCacheResponse *cachingRes = new HttpCacheResponse(entry);
                             handler(cachingRes, req);
                         }
                     }
-
                     return;
                 }
 
-                /* If the (upperExpiry) expired cache entry is currently updating, do not delete it, just want on it. */
-                // if () {
-
-                // }
-
-                std::cout << "Now = " << now << std::endl;
-                std::cout << "UpperExpiry = " << (it->second->created + upperExpiry) << std::endl;
-                std::cout << "UpperExpiry relative = " << upperExpiry << std::endl;
-                std::cout << "Created = " << (it->second->created) << std::endl;
-
-                /* We are no longer valid, delete old cache and fall through to create a new entry */
-                //delete it->second;
-
-                /* Fallthrough to cache entry creation */
-            } else {
-                std::cout << "CacheEntry was missing altogether for " << cache_key << std::endl;
-            }
-
-            /* If we come here from upperExpiry timeout, we will delete a CacheEntry that could have pending updates!
-             * That's definitely why it segfaults! */
-            if (it != cache.end()) {
-                std::cout << "We fell through because of upperExpiry, now we will overwrite a CahceEntry with updatingCache = " << it->second->updatingCache << std::endl;
-                if (it->second->updatingCache) {
-
+                /* We are no longer valid (upperExpiry passed). */
+                if (entry->updatingCache) {
                     /* There is already an update pending, just wait on it */
-                    it->second->addDependentWaitingRequest(res);
+                    entry->addDependentWaitingRequest(res);
                     return;
-
-
-                    std::cout << "We are about to delete a CacheEntry with pending updates!" << std::endl;
-                    std::terminate();
                 } else {
-                    // below is a memory leak unless
-                    delete it->second;
-
-                    // this path is unnecessarily slow, we don't need to reallocate the CacheEntry
-                    // but this is the slow path anywys,
+                    /* Free the expired entry so we can create a fresh one below */
+                    delete entry;
                 }
-
-                /* Simply start an update if we don't already have one */
-
-                //return;
             }
-
-            // This is a memory leak otherwise
-
-
 
             /* The cache either does not exist or upperExpiry has passed, all sockets must wait. */
             CacheEntry *cacheEntry = new CacheEntry();
@@ -310,12 +240,9 @@ public:
 
             HttpCacheResponse *cachingRes = new HttpCacheResponse(cacheEntry);
 
-
             // add us here since we have not been served already
-            unsigned int size = cacheEntry->addDependentWaitingRequest(res);
+            cacheEntry->addDependentWaitingRequest(res);
          
-            std::cerr << "Cache miss for " << cache_key << " we have " << size << " dependent sockets" << std::endl;
-
             handler(cachingRes, req);
         });
         return std::move(static_cast<Derived &>(*this));
