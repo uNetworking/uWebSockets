@@ -98,6 +98,12 @@ public:
     time_t created = 0; // when the updating socket finished
 
     unsigned int addDependentWaitingRequest(HttpResponse<false> *res) {
+
+        // this is okay because res->end will mark the JS socket as done, so even if we replace the onaborted, someone must have clled res.end before we got here
+        // and since a whole route is either cached or not (it only ever sees either HttpCachedResponse or HttpRresponse), then
+        // we cannot have any onAborted from ourselves (they need to have come from a kept-alive socket that previously visited a non-cached route that set the onAborted
+        // that we now override but again - since that request mumst have been ended for us to even end up here, that's fine either way)
+
         // this shjould be fine but consider the case where keep-alive and we have a JS-level onAborted that gets overridden here
         // basically, consider when JS land holds on to a uWS.HttpResponse object past the .end call of a previous event and then we
         // become dependent on cahce in the next call, and here we now override the onAborted
@@ -226,9 +232,9 @@ public:
                     res->end(it->second->buffer.first); // tryEnd!
 
                     // if the margin of cache is small (less than 2 seconds) print it
-                    if ((it->second->created + upperExpiry) - now < 3) {
-                        std::cout << "We hit cache within just " << ((it->second->created + upperExpiry) - now) << " seconds" << std::endl;
-                    }
+                    // if ((it->second->created + upperExpiry) - now < 3) {
+                    //     std::cout << "We hit cache within just " << ((it->second->created + upperExpiry) - now) << " seconds" << std::endl;
+                    // }
                     
                     /* While here, check if we should start an updating of the cache */
                     if (it->second->created + lowerExpiry < now) {
@@ -268,6 +274,25 @@ public:
                 std::cout << "CacheEntry was missing altogether for " << cache_key << std::endl;
             }
 
+            /* If we come here from upperExpiry timeout, we will delete a CacheEntry that could have pending updates!
+             * That's definitely why it segfaults! */
+            if (it != cache.end()) {
+                std::cout << "We fell through because of upperExpiry, now we will overwrite a CahceEntry with updatingCache = " << it->second->updatingCache << std::endl;
+                if (it->second->updatingCache) {
+
+                    /* There is already an update pending, just wait on it */
+                    it->second->addDependentWaitingRequest(res);
+                    return;
+
+
+                    std::cout << "We are about to delete a CacheEntry with pending updates!" << std::endl;
+                    std::terminate();
+                }
+
+                /* Simply start an update if we don't already have one */
+
+                //return;
+            }
 
 
             /* The cache either does not exist or upperExpiry has passed, all sockets must wait. */
