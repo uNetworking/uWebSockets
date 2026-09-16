@@ -287,12 +287,21 @@ public:
 
                     std::cout << "We are about to delete a CacheEntry with pending updates!" << std::endl;
                     std::terminate();
+                } else {
+                    // below is a memory leak unless
+                    delete it->second;
+
+                    // this path is unnecessarily slow, we don't need to reallocate the CacheEntry
+                    // but this is the slow path anywys,
                 }
 
                 /* Simply start an update if we don't already have one */
 
                 //return;
             }
+
+            // This is a memory leak otherwise
+
 
 
             /* The cache either does not exist or upperExpiry has passed, all sockets must wait. */
