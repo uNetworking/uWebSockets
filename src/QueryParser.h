@@ -26,7 +26,7 @@ namespace uWS {
 
     /* A key without equal sign (?debug) is given as empty string pointing here, so that it can be
      * told apart from an empty value (?debug=) by comparing data() == UWS_VALUELESS_QUERY */
-    inline constexpr char UWS_VALUELESS_QUERY[1] = {};
+    inline constexpr char UWS_VALUELESS_QUERY[] = "";
 
     /* Takes raw query including initial '?' sign. Will inplace decode, so input will mutate */
     static inline std::string_view getDecodedQueryValue(std::string_view key, std::string_view rawQuery) {
