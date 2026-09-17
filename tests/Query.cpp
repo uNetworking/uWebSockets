@@ -38,5 +38,12 @@ int main() {
         assert(uWS::getDecodedQueryValue("test2", (char *) buf.data()) == "some Value");
     }
 
+    {
+        /* A key without value sharing the first letter must not end the search */
+        std::string buf = "?debug&dx=5";
+        assert(uWS::getDecodedQueryValue("dx", (char *) buf.data()) == "5");
+        assert(uWS::getDecodedQueryValue("debug", (char *) buf.data()).data() == nullptr);
+    }
+
     return 0;
 }

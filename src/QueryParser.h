@@ -102,10 +102,8 @@ namespace uWS {
 
                         return statementValue.substr(0, out);
                     }
-                } else {
-                    /* This querystring is invalid, cannot parse it */
-                    return {nullptr, 0};
                 }
+                /* A statement without equal sign has no value, skip it and keep looking */
             }
 
             queryString.remove_prefix(statement.length() + 1);
