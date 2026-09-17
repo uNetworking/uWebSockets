@@ -24,6 +24,10 @@
 
 namespace uWS {
 
+    /* A key without equal sign (?debug) is given as empty string pointing here, so that it can be
+     * told apart from an empty value (?debug=) by comparing data() == UWS_VALUELESS_QUERY */
+    inline constexpr char UWS_VALUELESS_QUERY[] = "";
+
     /* Takes raw query including initial '?' sign. Will inplace decode, so input will mutate */
     static inline std::string_view getDecodedQueryValue(std::string_view key, std::string_view rawQuery) {
 
@@ -42,9 +46,13 @@ namespace uWS {
 
             /* Only bother if first char of key match (early exit) */
             if (statement.length() && statement[0] == key[0]) {
-                /* Equal sign must be present and not in the end of statement */
+                /* A statement without equal sign has no value */
                 auto equality = statement.find('=');
-                if (equality != std::string_view::npos) {
+                if (equality == std::string_view::npos) {
+                    if (key == statement) {
+                        return {UWS_VALUELESS_QUERY, 0};
+                    }
+                } else {
 
                     std::string_view statementKey = statement.substr(0, equality);
                     std::string_view statementValue = statement.substr(equality + 1);
@@ -102,16 +110,13 @@ namespace uWS {
 
                         return statementValue.substr(0, out);
                     }
-                } else {
-                    /* This querystring is invalid, cannot parse it */
-                    return {nullptr, 0};
                 }
             }
 
             queryString.remove_prefix(statement.length() + 1);
         }
 
-        /* Nothing found is given as nullptr, while empty string is given as some pointer to the given buffer */
+        /* Nothing found is given as nullptr, while empty value is given as some pointer to the given buffer */
         return {nullptr, 0};
     }
 
