@@ -146,6 +146,12 @@ public:
             * So cokring is fine, it will succeed (in doing nothing).
             * If the handler is not sync, then we must stand in some out-of-uWS handler, so corking will succeed even then */
             dependentRes->cork([dependentRes, this]() {
+                if (status.length()) {
+                    dependentRes->writeStatus(status);
+                }
+                for (int i = 0; i < headers.first.size(); i += 2) {
+                    dependentRes->writeHeader(headers.first[i], headers.first[i + 1]);
+                }
                 dependentRes->end(buffer.first);
             });
         }
@@ -173,8 +179,8 @@ public:
     }
 
     void writeHeader(std::string_view key, std::string_view value) {
-        cacheEntry->headers.second.push_back(key);
-        cacheEntry->headers.second.push_back(value);
+        cacheEntry->headers.second.emplace_back(key);
+        cacheEntry->headers.second.emplace_back(value);
     }
 
     void end(std::string_view data = "", bool closeConnection = false) {
@@ -241,7 +247,7 @@ public:
                     if (entry->status.length()) {
                         res->writeStatus(entry->status);
                     }
-                    for (int i = 0; i < headers.first.size(); i += 2) {
+                    for (int i = 0; i < entry->headers.first.size(); i += 2) {
                         res->writeHeader(entry->headers.first[i], entry->headers.first[i + 1]);
                     }
                     res->end(entry->buffer.first); // tryEnd!
