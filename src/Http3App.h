@@ -16,6 +16,8 @@ namespace uWS {
             h3options.key_file_name = strdup(options.key_file_name);
             h3options.cert_file_name = strdup(options.cert_file_name);
             h3options.passphrase = strdup(options.passphrase);
+            h3options.key_data_inline = options.key_data_inline;
+            h3options.cert_data_inline = options.cert_data_inline;
 
             /* Create the http3 context */
             http3Context = Http3Context::create((us_loop_t *)Loop::get(), h3options);
