@@ -239,10 +239,10 @@ public:
                 } else if (entry->created + upperExpiry > now) {
                     /* If the cache does exist, use it as long as it is within upperExpiry */
                     if (status.length()) {
-                        writeStatus(status);
+                        res->writeStatus(status);
                     }
                     for (int i = 0; i < headers.first.size(); i += 2) {
-                        writeHeader(headers.first[i], headers.first[i + 1]);
+                        res->writeHeader(headers.first[i], headers.first[i + 1]);
                     }
                     res->end(entry->buffer.first); // tryEnd!
                     
