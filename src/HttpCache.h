@@ -169,12 +169,12 @@ public:
     }
 
     void writeStatus(std::string_view status) {
-        this->status = status;
+        cacheEntry->status = status;
     }
 
     void writeHeader(std::string_view key, std::string_view value) {
-        headers.second.push_back(key);
-        headers.second.push_back(value);
+        cacheEntry->headers.second.push_back(key);
+        cacheEntry->headers.second.push_back(value);
     }
 
     void end(std::string_view data = "", bool closeConnection = false) {
@@ -238,11 +238,11 @@ public:
                     return;
                 } else if (entry->created + upperExpiry > now) {
                     /* If the cache does exist, use it as long as it is within upperExpiry */
-                    if (status.length()) {
-                        res->writeStatus(status);
+                    if (entry->status.length()) {
+                        res->writeStatus(entry->status);
                     }
                     for (int i = 0; i < headers.first.size(); i += 2) {
-                        res->writeHeader(headers.first[i], headers.first[i + 1]);
+                        res->writeHeader(entry->headers.first[i], entry->headers.first[i + 1]);
                     }
                     res->end(entry->buffer.first); // tryEnd!
                     
