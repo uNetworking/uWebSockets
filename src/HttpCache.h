@@ -40,6 +40,7 @@
  */
 
 #include "App.h"
+#include "HttpErrors.h"
 #include <unordered_map>
 #include <string>
 #include <functional>
@@ -167,6 +168,20 @@ public:
         cacheEntry->append(data);
         cacheEntry->markUpdated(); //will queue sending to postItertaion
         std::ignore = closeConnection;
+    }
+
+    void endWithoutBody(bool closeConnection = false) {
+        /* Clear, swap and mark non-updating */
+        cacheEntry->buffer.second.clear();
+        cacheEntry->markUpdated(); //will queue sending to postItertaion
+        std::ignore = closeConnection;
+    }
+
+    void close() {
+        /* On close we simply replace the "origin server" with bad gateway error page */
+        cacheEntry->buffer.second.clear();
+        cacheEntry->append(httpErrorResponses[HTTP_ERROR_502_BAD_GATEWAY]);
+        cacheEntry->markUpdated();
     }
 
     /* We need to decorate the */
