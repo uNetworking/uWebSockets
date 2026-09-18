@@ -92,6 +92,8 @@ public:
 
     /* First body is the complete one, second is the being-updated one */
     std::pair<std::string, std::string> buffer;
+    std::pair<std::vector<std::string>, std::vector<std::string>> headers;
+    std::string status;
     bool updatingCache = true; // irrelevant
     bool neverInitialized = true; // relevant
 
@@ -128,7 +130,10 @@ public:
         neverInitialized = false;
         updatingCache = false;
         std::swap(buffer.first, buffer.second);
+        std::swap(headers.first, headers.second);
         buffer.second.clear();
+        headers.second.clear();
+        status.clear();
 
         // todo: for now we do not use the proper "now"
         time_t now = /*time_ms();*/static_cast<LoopData *>(us_loop_ext((us_loop_t *)uWS::Loop::get()))->cacheTimepoint;
@@ -161,6 +166,15 @@ public:
 
     void write(std::string_view data) {
         cacheEntry->append(data);
+    }
+
+    void writeStatus(std::string_view status) {
+        this->status = status;
+    }
+
+    void writeHeader(std::string_view key, std::string_view value) {
+        headers.second.push_back(key);
+        headers.second.push_back(value);
     }
 
     void end(std::string_view data = "", bool closeConnection = false) {
@@ -224,6 +238,12 @@ public:
                     return;
                 } else if (entry->created + upperExpiry > now) {
                     /* If the cache does exist, use it as long as it is within upperExpiry */
+                    if (status.length()) {
+                        writeStatus(status);
+                    }
+                    for (int i = 0; i < headers.first.size(); i += 2) {
+                        writeHeader(headers.first[i], headers.first[i + 1]);
+                    }
                     res->end(entry->buffer.first); // tryEnd!
                     
                     /* While here, check if we should start an updating of the cache */
