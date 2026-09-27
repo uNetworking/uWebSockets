@@ -25,6 +25,7 @@
 #include <map>
 #include <ctime>
 #include <cstdint>
+#include <atomic>
 
 #include "PerMessageDeflate.h"
 #include "MoveOnlyFunction.h"
@@ -37,6 +38,8 @@ struct Loop;
 
 struct alignas(16) LoopData {
     friend struct Loop;
+public:
+    std::atomic_flag hasWeakUpFlag = ATOMIC_FLAG_INIT;
 private:
     std::mutex deferMutex;
     int currentDeferQueue = 0;
