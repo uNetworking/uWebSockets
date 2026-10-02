@@ -5,6 +5,27 @@
 #include "../src/HttpParser.h"
 
 int main() {
+    /* RFC 9112 3.2: the request target is visible ASCII, so raw UTF-8 and DEL get a 400.
+     * The long one puts the UTF-8 in a word with no space, where only the word scan can see it */
+    for (const char *target : {"/caf\xc3\xa9", "/caf\xc3\xa9/long/enough/to/fill/a/word", "/\xc0\xaf", "/a\x7f"}) {
+        std::string req = std::string("GET ") + target + " HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
+        unsigned int length = (unsigned int) req.size();
+        req.append(32, 'E');
+
+        void *targetUser = (void *) 13;
+        uWS::HttpParser targetParser;
+        auto [targetErr, targetReturned] = targetParser.consumePostPadded(req.data(), length, targetUser, nullptr, [](void *s, uWS::HttpRequest *) -> void * {
+            return s;
+        }, [](void *s, std::string_view, bool) -> void * {
+            return s;
+        });
+
+        if (targetReturned == targetUser) {
+            std::cerr << "Target \"" << target << "\" expected 400" << std::endl;
+            return 1;
+        }
+    }
+
     /* Parser needs at least 8 bytes post padding */
     unsigned char data[] = {0x47, 0x45, 0x54, 0x20, 0x2f, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x31, 0x2e, 0x31, 0xd, 0xa, 0x61, 0x73, 0x63, 0x69, 0x69, 0x3a, 0x20, 0x74, 0x65, 0x73, 0x74, 0xd, 0xa, 0x75, 0x74, 0x66, 0x38, 0x3a, 0x20, 0xd1, 0x82, 0xd0, 0xb5, 0xd1, 0x81, 0xd1, 0x82, 0xd, 0xa, 0x48, 0x6f, 0x73, 0x74, 0x3a, 0x20, 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31, 0xd, 0xa, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x3a, 0x20, 0x63, 0x6c, 0x6f, 0x73, 0x65, 0xd, 0xa, 0xd, 0xa, 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E'};
     int size = sizeof(data) - 8;

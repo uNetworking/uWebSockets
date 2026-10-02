@@ -312,13 +312,13 @@ private:
         if (data[0] == 32 && data[1] == '/') [[likely]] {
             header.key = {start, (size_t) (data - start)};
             data++;
-            /* Scan for less than 33 (catches post padded CR and fails) */
+            /* Scan for less than 33 (catches post padded CR and fails) or more than 126 (not ASCII, fails) */
             start = data;
             for (; true; data += 8) {
                 uint64_t word;
                 memcpy(&word, data, sizeof(uint64_t));
-                if (hasLess(word, 33)) {
-                    while (*(unsigned char *)data > 32) data++;
+                if (hasLess(word, 33) | hasMore(word, 126)) {
+                    while (*(unsigned char *)data > 32 && *(unsigned char *)data < 127) data++;
                     /* Now we stand on space */
                     header.value = {start, (size_t) (data - start)};
                     /* Check that the following is http 1.1 */
