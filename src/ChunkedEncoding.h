@@ -203,6 +203,7 @@ namespace uWS {
                     if (chunkSize(state) == 0) {
                         // Start of line: \r means final empty line, else it's a trailer header
                         if (c == '\r') state = (state & ~STATE_SIZE_MASK) | 1;
+                        else if (c == '\n') { state = STATE_IS_ERROR; return std::nullopt; }
                         else state = (state & ~STATE_SIZE_MASK) | 2;
                     } else if (chunkSize(state) == 1) {
                         // Expecting \n of final empty line
@@ -215,6 +216,7 @@ namespace uWS {
                     } else if (chunkSize(state) == 2) {
                         // Inside trailer header, wait for \r
                         if (c == '\r') state = (state & ~STATE_SIZE_MASK) | 3;
+                        else if (c == '\n') { state = STATE_IS_ERROR; return std::nullopt; }
                     } else if (chunkSize(state) == 3) {
                         // Expecting \n to terminate the header line
                         if (c == '\n') state = (state & ~STATE_SIZE_MASK) | 0;
