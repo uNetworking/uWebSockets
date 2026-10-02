@@ -484,7 +484,7 @@ private:
     bool isInvalidHost(std::string_view host) {
         for (char c : host) {
             unsigned char uc = static_cast<unsigned char>(c);
-            if (uc < 33 || c == ',' || c == '@') {
+            if (uc < 33 || c == ',' || c == '@' || c == '/' || c == '?' || c == '#') {
                 return true; // Invalid character found
             }
         }

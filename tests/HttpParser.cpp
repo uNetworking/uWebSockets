@@ -71,4 +71,24 @@ int main() {
             return 1;
         }
     }
+
+    /* RFC 9112 3.2: a Host with a path, a query or a fragment is invalid */
+    for (const char *host : {"localhost:8080/path", "localhost?a", "localhost#a"}) {
+        std::string req = std::string("GET / HTTP/1.1\r\nHost: ") + host + "\r\n\r\n";
+        unsigned int length = (unsigned int) req.size();
+        req.append(32, 'E');
+
+        void *hostUser = (void *) 13;
+        uWS::HttpParser hostParser;
+        auto [hostErr, hostReturned] = hostParser.consumePostPadded(req.data(), length, hostUser, nullptr, [](void *s, uWS::HttpRequest *) -> void * {
+            return s;
+        }, [](void *s, std::string_view, bool) -> void * {
+            return s;
+        });
+
+        if (hostReturned == hostUser) {
+            std::cerr << "Host \"" << host << "\" expected 400" << std::endl;
+            return 1;
+        }
+    }
 }
