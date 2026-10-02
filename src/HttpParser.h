@@ -610,7 +610,7 @@ private:
                 if (!CONSUME_MINIMALLY) {
                     /* Go ahead and parse it (todo: better heuristics for emitting FIN to the app level) */
                     std::string_view dataToConsume(data, length);
-                    for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                    for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes, true)) {
                         dataHandler(user, chunk, chunk.length() ? UINT64_MAX : 0);
                     }
                     if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {
@@ -672,7 +672,7 @@ public:
             /* It's either chunked or with a content-length */
             if (isParsingChunkedEncoding(remainingStreamingBytes)) {
                 std::string_view dataToConsume(data, length);
-                for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes, true)) {
                     /* If we got the zero size chunk, maxRemainingBodyLength is 0, else it is practically infinity */
                     dataHandler(user, chunk, chunk.length() ? UINT64_MAX : 0);
                 }
@@ -730,7 +730,7 @@ public:
                     /* It's either chunked or with a content-length */
                     if (isParsingChunkedEncoding(remainingStreamingBytes)) {
                         std::string_view dataToConsume(data, length);
-                        for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes)) {
+                        for (auto chunk : uWS::ChunkIterator(&dataToConsume, &remainingStreamingBytes, true)) {
                             dataHandler(user, chunk, chunk.length() ? UINT64_MAX : 0);
                         }
                         if (isParsingInvalidChunkedEncoding(remainingStreamingBytes)) {

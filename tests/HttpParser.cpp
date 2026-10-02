@@ -36,6 +36,41 @@ int main() {
 
     std::cout << "HTTP DONE" << std::endl;
 
+    /* RFC 9112 7.1.2: trailer fields after the last chunk are skipped and the next request still parses.
+     * A bare LF there is a 400, else the next request would be read as a trailer field */
+    struct {
+        const char *trailer;
+        bool accept;
+    } trailerCases[] = {
+        {"X-Checksum: abc\r\n\r\n", true},
+        {"\n", false},
+        {"X-Checksum: abc\n\r\n", false},
+    };
+
+    for (auto &c : trailerCases) {
+        std::string req = std::string("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n") + c.trailer
+                          + "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
+        unsigned int length = (unsigned int) req.size();
+        req.append(32, 'E');
+
+        int requests = 0;
+        void *trailerUser = (void *) 13;
+        uWS::HttpParser trailerParser;
+        auto [trailerErr, trailerReturned] = trailerParser.consumePostPadded(req.data(), length, trailerUser, nullptr, [&requests](void *s, uWS::HttpRequest *) -> void * {
+            requests++;
+            return s;
+        }, [](void *s, std::string_view, bool) -> void * {
+            return s;
+        });
+
+        bool ok = c.accept ? (trailerReturned == trailerUser && requests == 2) : trailerReturned != trailerUser;
+        if (!ok) {
+            std::cerr << "Trailer \"" << c.trailer << "\" expected " << (c.accept ? "accept" : "400")
+                      << ", got err=" << trailerErr << " requests=" << requests << std::endl;
+            return 1;
+        }
+    }
+
     /* Issue 1941: accept Transfer-Encoding when the final coding is chunked (case-insensitive). */
     struct {
         const char *te;
