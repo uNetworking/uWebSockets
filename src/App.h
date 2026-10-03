@@ -261,6 +261,7 @@ public:
         std::swap(this->topicTree, other.topicTree);
         std::swap(this->webSocketContextDeleters, other.webSocketContextDeleters);
         std::swap(this->webSocketContexts, other.webSocketContexts);
+        return *this;
     }
 
     bool constructorFailed() {
