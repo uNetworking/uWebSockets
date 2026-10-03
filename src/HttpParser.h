@@ -302,14 +302,14 @@ private:
 
     /* Puts method as key, target as value and returns non-null (or nullptr on error). */
     static inline char *consumeRequestLine(char *data, char *end, HttpRequest::Header &header) {
-        /* Scan until single SP, assume next is / (origin request) */
+        /* Scan until single SP, assume next is / (origin request), or * for OPTIONS (asterisk form) */
         char *start = data;
         /* This catches the post padded CR and fails */
         while (data[0] > 32) data++;
         if (&data[1] == end) [[unlikely]] {
             return nullptr;
         }
-        if (data[0] == 32 && data[1] == '/') [[likely]] {
+        if (data[0] == 32 && (data[1] == '/' || (data[1] == '*' && data[2] == 32 && data - start == 7 && !memcmp(start, "OPTIONS", 7)))) [[likely]] {
             header.key = {start, (size_t) (data - start)};
             data++;
             /* Scan for less than 33 (catches post padded CR and fails) or more than 126 (not ASCII, fails) */

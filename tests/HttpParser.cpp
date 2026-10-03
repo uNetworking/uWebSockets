@@ -147,4 +147,27 @@ int main() {
             return 1;
         }
     }
+
+    /* RFC 9112 3.2.4: the asterisk form is only for OPTIONS, the app gets "*" as URL */
+    for (std::string method : {"OPTIONS", "GET"}) {
+        std::string req = method + " * HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
+        unsigned int length = (unsigned int) req.size();
+        req.append(32, 'E');
+
+        std::string url;
+        void *starUser = (void *) 13;
+        uWS::HttpParser starParser;
+        auto [starErr, starReturned] = starParser.consumePostPadded(req.data(), length, starUser, nullptr, [&url](void *s, uWS::HttpRequest *httpRequest) -> void * {
+            url = httpRequest->getUrl();
+            return s;
+        }, [](void *s, std::string_view, bool) -> void * {
+            return s;
+        });
+
+        bool accepted = starReturned == starUser && url == "*";
+        if (accepted != (method == "OPTIONS")) {
+            std::cerr << method << " * expected " << (method == "OPTIONS" ? "accept" : "400") << ", got err=" << starErr << std::endl;
+            return 1;
+        }
+    }
 }
