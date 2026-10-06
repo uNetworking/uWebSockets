@@ -58,7 +58,7 @@ uWS::App().get("/hello", [](auto *res, auto *req) {
 
 Important for all routes is that "req", the `uWS::HttpRequest *` dies with return. In other words, req is stack allocated so don't keep it in your pocket.
 
-res, the `uWS::HttpResponse<SSL> *` will be alive and accessible until either its .onAborted callback emits, or you've responded to the request via res.end or res.tryEnd.
+res, the `uWS::HttpResponse<SSL> *` will be alive and accessible until either its .onAborted callback emits, or you've responded to the request via res.end or res.tryEnd. Instead of .onAborted you can use .onDataOrAborted and .onWritableOrAborted, which take the response as first argument: they get the abort as a null response.
 
 In other words, you either respond to the request immediately and return, or you attach lambdas to the res (which may hold captured data), and respond later on in some other async callback.
 

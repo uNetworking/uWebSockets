@@ -44,22 +44,22 @@ int main() {
             std::cout << key << ": " << value << std::endl;
         }
 
-        auto isAborted = std::make_shared<bool>(false);
         uint32_t crc = 0xFFFFFFFF;
-        res->onData([res, isAborted, crc](std::string_view chunk, bool isFin) mutable {
+        res->onDataOrAborted([crc](auto *res, std::string_view chunk, uint64_t maxRemainingBodyLength) mutable {
+            /* Aborted, there is no response anymore */
+            if (!res) {
+                return;
+            }
+
             if (chunk.length()) {
                 crc = crc32(chunk.data(), chunk.length(), crc);
             }
 
-            if (isFin && !*isAborted) {
+            if (maxRemainingBodyLength == 0) {
                 std::stringstream s;
                 s << std::hex << (~crc) << std::endl;
                 res->end(s.str());
             }
-        });
-
-        res->onAborted([isAborted]() {
-            *isAborted = true;
         });
     }).listen(3000, [](auto *listen_socket) {
         if (listen_socket) {

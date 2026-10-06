@@ -26,7 +26,11 @@
 
 #include "MoveOnlyFunction.h"
 
+#include <type_traits>
+
 namespace uWS {
+
+template <bool> struct HttpResponse;
 
 template <bool SSL>
 struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
@@ -38,6 +42,9 @@ struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
         onAborted = nullptr;
         /* Also remove onWritable so that we do not emit when draining behind the scenes. */
         onWritable = nullptr;
+        /* The handlers that get the abort get nothing more, not even the rest of the body */
+        onWritableOrAborted = nullptr;
+        inStreamOrAborted = nullptr;
 
         /* We are done with this request */
         state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
@@ -46,8 +53,22 @@ struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
     /* Caller of onWritable. It is possible onWritable calls markDone so we need to borrow it.
      * It is also possible user code sets a new onWritable while running user registered onWritable. */
     bool callOnWritable(uintmax_t offset) {
+        return callBorrowed(onWritable, offset);
+    }
+
+    /* Callers of the handlers that get the abort, borrowed for the same reasons */
+    bool callOnWritableOrAborted(HttpResponse<SSL> *res, uintmax_t offset) {
+        return callBorrowed(onWritableOrAborted, res, offset);
+    }
+
+    void callInStreamOrAborted(HttpResponse<SSL> *res, std::string_view data, uint64_t maxRemainingBodyLength) {
+        callBorrowed(inStreamOrAborted, res, data, maxRemainingBodyLength);
+    }
+private:
+    template <typename R, typename... Args>
+    static R callBorrowed(MoveOnlyFunction<R(Args...)> &slot, Args... args) {
         /* 1. Borrow the real callback */
-        MoveOnlyFunction<bool(uintmax_t)> borrowedOnWritable = std::move(onWritable);
+        MoveOnlyFunction<R(Args...)> borrowed = std::move(slot);
     
         /* 2. Setup the stack-based detection flag */
         bool placeholderReplaced = false;
@@ -72,25 +93,28 @@ struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
         };
     
         /* 3. Set placeholder with the captured Sentinel */
-        onWritable = [tracker = Sentinel(&placeholderReplaced)](uintmax_t) {
-            return true;
+        slot = [tracker = Sentinel(&placeholderReplaced)](Args...) -> R {
+            if constexpr (!std::is_void_v<R>) {
+                return true;
+            }
         };
     
-        /* 4. Run the borrowed callback */
-        bool ret = borrowedOnWritable(offset);
-    
-        /* 
-           5. If placeholderReplaced is STILL false, it means the lambda (and its Sentinel) 
-           is still sitting inside 'onWritable'. If it's true, the lambda was destroyed 
-           to make room for a new one.
-        */
-        if (!placeholderReplaced) {
-            onWritable = std::move(borrowedOnWritable);
-        }
-    
-        return ret;
+        /* 4. Run the borrowed callback. 5. When done, if placeholderReplaced is STILL false, it means the lambda (and
+           its Sentinel) is still sitting inside the slot, so put the callback back. If it's true, the lambda was
+           destroyed to make room for a new one. */
+        struct PutBack {
+            MoveOnlyFunction<R(Args...)> &slot, &borrowed;
+            bool &placeholderReplaced;
+            ~PutBack() {
+                if (!placeholderReplaced) {
+                    slot = std::move(borrowed);
+                }
+            }
+        } putBack{slot, borrowed, placeholderReplaced};
+
+        return borrowed(args...);
     }
-private:
+
     /* Bits of status */
     enum {
         HTTP_STATUS_CALLED = 1, // used
@@ -104,6 +128,10 @@ private:
     MoveOnlyFunction<bool(uintmax_t)> onWritable;
     MoveOnlyFunction<void()> onAborted;
     MoveOnlyFunction<void(std::string_view, uint64_t)> inStream; // onData
+    /* onWritableOrAborted and onDataOrAborted: they get the response first, and the abort as a null response until
+     * markDone. Each one replaces onWritable and onData, and the other way around */
+    MoveOnlyFunction<bool(HttpResponse<SSL> *, uintmax_t)> onWritableOrAborted;
+    MoveOnlyFunction<void(HttpResponse<SSL> *, std::string_view, uint64_t)> inStreamOrAborted;
     /* Outgoing offset */
     uintmax_t offset = 0;
 

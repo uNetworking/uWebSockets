@@ -260,6 +260,49 @@ static void expectChunked(int port, const char *path, std::string_view expectedB
     std::cout << "OK " << path << std::endl;
 }
 
+/* Sends a raw request and closes the socket after delayMs without reading, or after reading the
+ * response when readResponse is set: the server sees an abort, or a close after the response. */
+static void sendThenClose(int port, const std::string &raw, int delayMs, bool readResponse) {
+    int fd = (int) ::socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons((uint16_t) port);
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    if (fd < 0 || ::connect(fd, (sockaddr *) &addr, sizeof(addr)) != 0) {
+        std::cerr << "connect failed: " << std::strerror(errno) << std::endl;
+        std::abort();
+    }
+    if (::send(fd, raw.data(), raw.size(), 0) != (ssize_t) raw.size()) {
+        std::cerr << "send failed: " << std::strerror(errno) << std::endl;
+        std::abort();
+    }
+    if (readResponse) {
+        timeval tv{};
+        tv.tv_sec = 2;
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        char buf[2048];
+        if (::recv(fd, buf, sizeof(buf), 0) <= 0) {
+            std::cerr << "no response for " << raw << std::endl;
+            std::abort();
+        }
+    }
+    usleep(delayMs * 1000);
+    ::close(fd);
+}
+
+static void expectCount(const char *what, std::atomic<int> &value, int expected) {
+    for (int i = 0; i < 200 && value.load() < expected; i++) {
+        usleep(10000);
+    }
+    /* Give a wrong extra call the time to show up */
+    usleep(50000);
+    if (value.load() != expected) {
+        std::cerr << what << ": expected " << expected << ", got " << value.load() << std::endl;
+        std::abort();
+    }
+    std::cout << "OK " << what << std::endl;
+}
+
 int main() {
     uWS::App app;
     uWS::Loop *loop = uWS::Loop::get();
@@ -267,6 +310,17 @@ int main() {
     std::atomic<bool> backpressureWritten{false};
     constexpr int chunkSize = 64 * 1024;
     constexpr int maxFillChunks = 512;
+    /* onDataOrAborted and onWritableOrAborted get the abort, as a null response, until the response ends */
+    std::atomic<int> waitEmptyChunks{0}, waitAborts{0};
+    std::atomic<int> bodyBytes{0}, bodyAborts{0};
+    std::atomic<int> allOrder{0}, allCalls{0};
+    std::atomic<int> endedAborts{0};
+    std::atomic<int> countedBytes{0};
+    std::atomic<int> oldChunks{0}, oldAborts{0}, replacedCalls{0};
+    std::atomic<int> newChunks{0}, newAborts{0}, replacedOldCalls{0};
+    std::atomic<int> writableCalls{0}, writableAborts{0};
+    std::atomic<bool> writableAttached{false};
+    static const std::string big((size_t) 4 * 1024 * 1024, 'b');
 
     app.get("/write-end", [](auto *res, auto * /*req*/) {
         res->onAborted([]() {});
@@ -355,6 +409,98 @@ int main() {
             res->end();
         });
         backpressureWritten.store(true);
+    }).get("/abort-wait", [&](auto *res, auto * /*req*/) {
+        /* Only waiting, no onAborted: a GET gets the empty last chunk, then the abort */
+        res->onDataOrAborted([&](auto *res, std::string_view chunk, uint64_t maxRemainingBodyLength) {
+            if (!res) {
+                waitAborts++;
+            } else if (chunk.empty() && maxRemainingBodyLength == 0) {
+                waitEmptyChunks++;
+            }
+        });
+    }).post("/abort-after-body", [&](auto *res, auto * /*req*/) {
+        /* The whole body arrives, the response does not: the abort comes after the last chunk */
+        res->onDataOrAborted([&](auto *res, std::string_view chunk, uint64_t) {
+            if (!res) {
+                bodyAborts++;
+            } else {
+                bodyBytes += (int) chunk.length();
+            }
+        });
+    }).get("/abort-all", [&](auto *res, auto * /*req*/) {
+        /* onAborted, onDataOrAborted and onWritableOrAborted all get the abort, in this order */
+        res->onAborted([&]() {
+            allCalls++;
+            allOrder = allOrder * 10 + 1;
+        });
+        res->onDataOrAborted([&](auto *res, std::string_view, uint64_t) {
+            if (!res) {
+                allCalls++;
+                allOrder = allOrder * 10 + 2;
+            }
+        });
+        res->onWritableOrAborted([&](auto *res, uintmax_t) {
+            if (!res) {
+                allCalls++;
+                allOrder = allOrder * 10 + 3;
+            }
+            return true;
+        });
+    }).post("/no-abort-after-end", [&](auto *res, auto * /*req*/) {
+        /* Answered on the last chunk: closing afterwards is no abort */
+        res->onDataOrAborted([&](auto *res, std::string_view, uint64_t maxRemainingBodyLength) {
+            if (!res) {
+                endedAborts++;
+            } else if (maxRemainingBodyLength == 0) {
+                res->end("done");
+            }
+        });
+    }).post("/count-body", [&](auto *res, auto * /*req*/) {
+        /* Ended on the last chunk: the next request on the socket must not reach this handler */
+        res->onDataOrAborted([&](auto *res, std::string_view chunk, uint64_t maxRemainingBodyLength) {
+            if (res) {
+                countedBytes += (int) chunk.length();
+                if (maxRemainingBodyLength == 0) {
+                    res->end("counted");
+                }
+            }
+        });
+    }).post("/no-data-handler", [](auto *res, auto * /*req*/) {
+        res->end("ok");
+    }).post("/old-replaces-new", [&](auto *res, auto * /*req*/) {
+        res->onDataOrAborted([&](auto *, std::string_view, uint64_t) {
+            replacedCalls++;
+        });
+        res->onDataV2([&](std::string_view, uint64_t) {
+            oldChunks++;
+        });
+        res->onAborted([&]() {
+            oldAborts++;
+        });
+    }).post("/new-replaces-old", [&](auto *res, auto * /*req*/) {
+        res->onDataV2([&](std::string_view, uint64_t) {
+            replacedOldCalls++;
+        });
+        res->onDataOrAborted([&](auto *res, std::string_view, uint64_t) {
+            if (!res) {
+                newAborts++;
+            } else {
+                newChunks++;
+            }
+        });
+    }).get("/writable-stream", [&](auto *res, auto * /*req*/) {
+        /* Streamed with tryEnd, no onAborted: onWritableOrAborted gets the response to go on */
+        if (!res->tryEnd(big, big.size()).first) {
+            res->onWritableOrAborted([&](auto *res, uintmax_t offset) {
+                if (!res) {
+                    writableAborts++;
+                    return true;
+                }
+                writableCalls++;
+                return res->tryEnd(std::string_view(big).substr((size_t) offset), big.size()).first;
+            });
+        }
+        writableAttached.store(true);
     }).listen(0, [&](us_listen_socket_t *listenSocket) {
         if (!listenSocket) {
             std::cerr << "Failed to listen" << std::endl;
@@ -368,7 +514,7 @@ int main() {
         return 1;
     }
 
-    std::thread client([loop, &app, port, &backpressureWritten]() {
+    std::thread client([&, loop, port]() {
         expectChunked(port, "/write-end", "3\r\nfoo\r\n0\r\n\r\n");
         expectChunked(port, "/begin-write-end", "3\r\nfoo\r\n0\r\n\r\n");
         expectChunked(port, "/begin-end", "0\r\n\r\n");
@@ -397,6 +543,43 @@ int main() {
             }
         }
         std::cout << "OK /backpressure (" << decoded.size() << " decoded bytes)" << std::endl;
+
+        sendThenClose(port, "GET /abort-wait HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n", 100, false);
+        expectCount("/abort-wait empty last chunk", waitEmptyChunks, 1);
+        expectCount("/abort-wait abort", waitAborts, 1);
+
+        sendThenClose(port, "POST /abort-after-body HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 5\r\n\r\nhello", 100, false);
+        expectCount("/abort-after-body abort", bodyAborts, 1);
+        expectCount("/abort-after-body bytes", bodyBytes, 5);
+
+        sendThenClose(port, "GET /abort-all HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n", 100, false);
+        expectCount("/abort-all calls", allCalls, 3);
+        expectCount("/abort-all order", allOrder, 123);
+
+        sendThenClose(port, "POST /no-abort-after-end HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 2\r\n\r\nhi", 50, true);
+        expectCount("/no-abort-after-end", endedAborts, 0);
+
+        sendThenClose(port, "POST /count-body HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 5\r\n\r\nhello"
+                            "POST /no-data-handler HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 5\r\n\r\nworld", 50, true);
+        expectCount("/count-body then /no-data-handler on the same socket", countedBytes, 5);
+
+        sendThenClose(port, "POST /old-replaces-new HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 5\r\n\r\nhello", 100, false);
+        expectCount("/old-replaces-new old chunks", oldChunks, 1);
+        expectCount("/old-replaces-new onAborted", oldAborts, 1);
+        expectCount("/old-replaces-new replaced", replacedCalls, 0);
+
+        sendThenClose(port, "POST /new-replaces-old HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 5\r\n\r\nhello", 100, false);
+        expectCount("/new-replaces-old chunks", newChunks, 1);
+        expectCount("/new-replaces-old abort", newAborts, 1);
+        expectCount("/new-replaces-old replaced", replacedOldCalls, 0);
+
+        response = requestAfterBackpressure(port, "/writable-stream", writableAttached);
+        if (bodyOf(response).size() != big.size() || writableCalls.load() == 0 || writableAborts.load() != 0) {
+            std::cerr << "/writable-stream got " << bodyOf(response).size() << " bytes, " << writableCalls.load()
+                      << " writable calls, " << writableAborts.load() << " aborts" << std::endl;
+            std::abort();
+        }
+        std::cout << "OK /writable-stream (" << writableCalls.load() << " writable calls)" << std::endl;
 
         loop->defer([&app]() {
             app.close();
