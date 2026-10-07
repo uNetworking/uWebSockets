@@ -310,7 +310,7 @@ int main() {
     std::atomic<bool> backpressureWritten{false};
     constexpr int chunkSize = 64 * 1024;
     constexpr int maxFillChunks = 512;
-    /* onDataOrAborted and onWritableOrAborted get the abort, as a null response, until the response ends */
+    /* The onData and onWritable overloads that get the response also get the abort, as a null response, until the response ends */
     std::atomic<int> waitEmptyChunks{0}, waitAborts{0};
     std::atomic<int> bodyBytes{0}, bodyAborts{0};
     std::atomic<int> allOrder{0}, allCalls{0};
@@ -319,6 +319,7 @@ int main() {
     std::atomic<int> oldChunks{0}, oldAborts{0}, replacedCalls{0};
     std::atomic<int> newChunks{0}, newAborts{0}, replacedOldCalls{0};
     std::atomic<int> writableCalls{0}, writableAborts{0};
+    std::atomic<int> removedCalls{0}, removedAborts{0};
     std::atomic<bool> writableAttached{false};
     static const std::string big((size_t) 4 * 1024 * 1024, 'b');
 
@@ -411,7 +412,7 @@ int main() {
         backpressureWritten.store(true);
     }).get("/abort-wait", [&](auto *res, auto * /*req*/) {
         /* Only waiting, no onAborted: a GET gets the empty last chunk, then the abort */
-        res->onDataOrAborted([&](auto *res, std::string_view chunk, uint64_t maxRemainingBodyLength) {
+        res->onData([&](auto *res, std::string_view chunk, uint64_t maxRemainingBodyLength) {
             if (!res) {
                 waitAborts++;
             } else if (chunk.empty() && maxRemainingBodyLength == 0) {
@@ -420,7 +421,7 @@ int main() {
         });
     }).post("/abort-after-body", [&](auto *res, auto * /*req*/) {
         /* The whole body arrives, the response does not: the abort comes after the last chunk */
-        res->onDataOrAborted([&](auto *res, std::string_view chunk, uint64_t) {
+        res->onData([&](auto *res, std::string_view chunk, uint64_t) {
             if (!res) {
                 bodyAborts++;
             } else {
@@ -428,18 +429,18 @@ int main() {
             }
         });
     }).get("/abort-all", [&](auto *res, auto * /*req*/) {
-        /* onAborted, onDataOrAborted and onWritableOrAborted all get the abort, in this order */
+        /* onAborted and the onData and onWritable that get the response all get the abort, in this order */
         res->onAborted([&]() {
             allCalls++;
             allOrder = allOrder * 10 + 1;
         });
-        res->onDataOrAborted([&](auto *res, std::string_view, uint64_t) {
+        res->onData([&](auto *res, std::string_view, uint64_t) {
             if (!res) {
                 allCalls++;
                 allOrder = allOrder * 10 + 2;
             }
         });
-        res->onWritableOrAborted([&](auto *res, uintmax_t) {
+        res->onWritable([&](auto *res, uintmax_t) {
             if (!res) {
                 allCalls++;
                 allOrder = allOrder * 10 + 3;
@@ -448,7 +449,7 @@ int main() {
         });
     }).post("/no-abort-after-end", [&](auto *res, auto * /*req*/) {
         /* Answered on the last chunk: closing afterwards is no abort */
-        res->onDataOrAborted([&](auto *res, std::string_view, uint64_t maxRemainingBodyLength) {
+        res->onData([&](auto *res, std::string_view, uint64_t maxRemainingBodyLength) {
             if (!res) {
                 endedAborts++;
             } else if (maxRemainingBodyLength == 0) {
@@ -457,7 +458,7 @@ int main() {
         });
     }).post("/count-body", [&](auto *res, auto * /*req*/) {
         /* Ended on the last chunk: the next request on the socket must not reach this handler */
-        res->onDataOrAborted([&](auto *res, std::string_view chunk, uint64_t maxRemainingBodyLength) {
+        res->onData([&](auto *res, std::string_view chunk, uint64_t maxRemainingBodyLength) {
             if (res) {
                 countedBytes += (int) chunk.length();
                 if (maxRemainingBodyLength == 0) {
@@ -468,7 +469,7 @@ int main() {
     }).post("/no-data-handler", [](auto *res, auto * /*req*/) {
         res->end("ok");
     }).post("/old-replaces-new", [&](auto *res, auto * /*req*/) {
-        res->onDataOrAborted([&](auto *, std::string_view, uint64_t) {
+        res->onData([&](auto *, std::string_view, uint64_t) {
             replacedCalls++;
         });
         res->onDataV2([&](std::string_view, uint64_t) {
@@ -481,17 +482,31 @@ int main() {
         res->onDataV2([&](std::string_view, uint64_t) {
             replacedOldCalls++;
         });
-        res->onDataOrAborted([&](auto *res, std::string_view, uint64_t) {
+        res->onData([&](auto *res, std::string_view, uint64_t) {
             if (!res) {
                 newAborts++;
             } else {
                 newChunks++;
             }
         });
+    }).post("/removed", [&](auto *res, auto * /*req*/) {
+        /* Removed with nullptr, of either kind: they get nothing, onAborted gets the abort */
+        res->onData([&](auto *, std::string_view, uint64_t) {
+            removedCalls++;
+        });
+        res->onWritable([&](auto *, uintmax_t) {
+            removedCalls++;
+            return true;
+        });
+        res->onData(nullptr);
+        res->onWritable(nullptr);
+        res->onAborted([&]() {
+            removedAborts++;
+        });
     }).get("/writable-stream", [&](auto *res, auto * /*req*/) {
-        /* Streamed with tryEnd, no onAborted: onWritableOrAborted gets the response to go on */
+        /* Streamed with tryEnd, no onAborted: onWritable gets the response to go on */
         if (!res->tryEnd(big, big.size()).first) {
-            res->onWritableOrAborted([&](auto *res, uintmax_t offset) {
+            res->onWritable([&](auto *res, uintmax_t offset) {
                 if (!res) {
                     writableAborts++;
                     return true;
@@ -572,6 +587,10 @@ int main() {
         expectCount("/new-replaces-old chunks", newChunks, 1);
         expectCount("/new-replaces-old abort", newAborts, 1);
         expectCount("/new-replaces-old replaced", replacedOldCalls, 0);
+
+        sendThenClose(port, "POST /removed HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 5\r\n\r\nhello", 100, false);
+        expectCount("/removed onAborted", removedAborts, 1);
+        expectCount("/removed handlers", removedCalls, 0);
 
         response = requestAfterBackpressure(port, "/writable-stream", writableAttached);
         if (bodyOf(response).size() != big.size() || writableCalls.load() == 0 || writableAborts.load() != 0) {

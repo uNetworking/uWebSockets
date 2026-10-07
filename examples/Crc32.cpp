@@ -45,7 +45,7 @@ int main() {
         }
 
         uint32_t crc = 0xFFFFFFFF;
-        res->onDataOrAborted([crc](auto *res, std::string_view chunk, uint64_t maxRemainingBodyLength) mutable {
+        res->onData([crc](auto *res, std::string_view chunk, uint64_t maxRemainingBodyLength) mutable {
             /* Aborted, there is no response anymore */
             if (!res) {
                 return;

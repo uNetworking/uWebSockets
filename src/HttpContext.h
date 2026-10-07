@@ -115,15 +115,15 @@ private:
                 httpResponseData->onAborted();
             }
 
-            /* Also to onDataOrAborted and onWritableOrAborted, in this order. markDone removes them, so they are only
-             * set while pending */
-            MoveOnlyFunction<void(HttpResponse<SSL> *, std::string_view, uint64_t)> inStreamOrAborted = std::move(httpResponseData->inStreamOrAborted);
-            MoveOnlyFunction<bool(HttpResponse<SSL> *, uintmax_t)> onWritableOrAborted = std::move(httpResponseData->onWritableOrAborted);
-            if (inStreamOrAborted) {
-                inStreamOrAborted(nullptr, {}, 0);
+            /* Also to the onData and onWritable overloads that get the response, in this order. markDone removes them,
+             * so they are only set while pending */
+            MoveOnlyFunction<void(HttpResponse<SSL> *, std::string_view, uint64_t)> inStreamWithAbort = std::move(httpResponseData->inStreamWithAbort);
+            MoveOnlyFunction<bool(HttpResponse<SSL> *, uintmax_t)> onWritableWithAbort = std::move(httpResponseData->onWritableWithAbort);
+            if (inStreamWithAbort) {
+                inStreamWithAbort(nullptr, {}, 0);
             }
-            if (onWritableOrAborted) {
-                onWritableOrAborted(nullptr, 0);
+            if (onWritableWithAbort) {
+                onWritableWithAbort(nullptr, 0);
             }
 
             /* Destruct socket ext */
@@ -224,8 +224,8 @@ private:
                 }
 
                 /* Returning from a request handler without responding or attaching an onAborted handler is ill-use.
-                 * onDataOrAborted and onWritableOrAborted also get the abort */
-                if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted && !httpResponseData->inStreamOrAborted && !httpResponseData->onWritableOrAborted) {
+                 * The onData and onWritable overloads that get the response also get the abort */
+                if (!((HttpResponse<SSL> *) s)->hasResponded() && !httpResponseData->onAborted && !httpResponseData->inStreamWithAbort && !httpResponseData->onWritableWithAbort) {
                     /* Throw exception here? */
                     std::cerr << "Error: Returning from a request handler without responding or attaching an abort handler is forbidden!"
                               << std::endl
@@ -235,7 +235,7 @@ private:
                 }
 
                 /* If we have not responded and we have a data handler, we need to timeout to enfore client sending the data */
-                if (!((HttpResponse<SSL> *) s)->hasResponded() && (httpResponseData->inStream || httpResponseData->inStreamOrAborted)) {
+                if (!((HttpResponse<SSL> *) s)->hasResponded() && (httpResponseData->inStream || httpResponseData->inStreamWithAbort)) {
                     us_socket_timeout(SSL, (us_socket_t *) s, HTTP_IDLE_TIMEOUT_S);
                 }
 
@@ -244,7 +244,7 @@ private:
 
             }, [httpResponseData](void *user, std::string_view data, uint64_t maxRemainingBodyLength) -> void * {
                 /* We always get an empty chunk even if there is no data */
-                if (httpResponseData->inStream || httpResponseData->inStreamOrAborted) {
+                if (httpResponseData->inStream || httpResponseData->inStreamWithAbort) {
 
                     /* Todo: can this handle timeout for non-post as well? */
                     if (maxRemainingBodyLength == 0) {
@@ -264,7 +264,7 @@ private:
                     if (httpResponseData->inStream) {
                         httpResponseData->inStream(data, maxRemainingBodyLength);
                     } else {
-                        httpResponseData->callInStreamOrAborted((HttpResponse<SSL> *) user, data, maxRemainingBodyLength);
+                        httpResponseData->callInStreamWithAbort((HttpResponse<SSL> *) user, data, maxRemainingBodyLength);
                     }
 
                     /* Was the socket closed? */
@@ -279,7 +279,7 @@ private:
 
                     /* If we were given the last data chunk, reset data handler to ensure following
                      * requests on the same socket won't trigger any previously registered behavior.
-                     * onDataOrAborted stays until the response ends, markDone removes it */
+                     * The onData that gets the response stays until the response ends, markDone removes it */
                     if (maxRemainingBodyLength == 0) {
                         httpResponseData->inStream = nullptr;
                     }
@@ -364,14 +364,14 @@ private:
             HttpResponseData<SSL> *httpResponseData = (HttpResponseData<SSL> *) asyncSocket->getAsyncSocketData();
 
             /* Ask the developer to write data and return success (true) or failure (false), OR skip sending anything and return success (true). */
-            if (httpResponseData->onWritable || httpResponseData->onWritableOrAborted) {
+            if (httpResponseData->onWritable || httpResponseData->onWritableWithAbort) {
                 /* We are now writable, so hang timeout again, the user does not have to do anything so we should hang until end or tryEnd rearms timeout */
                 us_socket_timeout(SSL, s, 0);
 
                 /* We expect the developer to return whether or not write was successful (true).
                  * If write was never called, the developer should still return true so that we may drain. */
                 bool success = httpResponseData->onWritable ? httpResponseData->callOnWritable(httpResponseData->offset)
-                    : httpResponseData->callOnWritableOrAborted((HttpResponse<SSL> *) s, httpResponseData->offset);
+                    : httpResponseData->callOnWritableWithAbort((HttpResponse<SSL> *) s, httpResponseData->offset);
 
                 /* The developer indicated that their onWritable failed. */
                 if (!success) {

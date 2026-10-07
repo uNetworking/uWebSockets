@@ -43,8 +43,8 @@ struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
         /* Also remove onWritable so that we do not emit when draining behind the scenes. */
         onWritable = nullptr;
         /* The handlers that get the abort get nothing more, not even the rest of the body */
-        onWritableOrAborted = nullptr;
-        inStreamOrAborted = nullptr;
+        onWritableWithAbort = nullptr;
+        inStreamWithAbort = nullptr;
 
         /* We are done with this request */
         state &= ~HttpResponseData<SSL>::HTTP_RESPONSE_PENDING;
@@ -57,12 +57,12 @@ struct HttpResponseData : AsyncSocketData<SSL>, HttpParser {
     }
 
     /* Callers of the handlers that get the abort, borrowed for the same reasons */
-    bool callOnWritableOrAborted(HttpResponse<SSL> *res, uintmax_t offset) {
-        return callBorrowed(onWritableOrAborted, res, offset);
+    bool callOnWritableWithAbort(HttpResponse<SSL> *res, uintmax_t offset) {
+        return callBorrowed(onWritableWithAbort, res, offset);
     }
 
-    void callInStreamOrAborted(HttpResponse<SSL> *res, std::string_view data, uint64_t maxRemainingBodyLength) {
-        callBorrowed(inStreamOrAborted, res, data, maxRemainingBodyLength);
+    void callInStreamWithAbort(HttpResponse<SSL> *res, std::string_view data, uint64_t maxRemainingBodyLength) {
+        callBorrowed(inStreamWithAbort, res, data, maxRemainingBodyLength);
     }
 private:
     template <typename R, typename... Args>
@@ -128,10 +128,10 @@ private:
     MoveOnlyFunction<bool(uintmax_t)> onWritable;
     MoveOnlyFunction<void()> onAborted;
     MoveOnlyFunction<void(std::string_view, uint64_t)> inStream; // onData
-    /* onWritableOrAborted and onDataOrAborted: they get the response first, and the abort as a null response until
-     * markDone. Each one replaces onWritable and onData, and the other way around */
-    MoveOnlyFunction<bool(HttpResponse<SSL> *, uintmax_t)> onWritableOrAborted;
-    MoveOnlyFunction<void(HttpResponse<SSL> *, std::string_view, uint64_t)> inStreamOrAborted;
+    /* The onWritable and onData overloads that get the response first, and the abort as a null response until
+     * markDone. Each one replaces the old handler of the same kind, and the other way around */
+    MoveOnlyFunction<bool(HttpResponse<SSL> *, uintmax_t)> onWritableWithAbort;
+    MoveOnlyFunction<void(HttpResponse<SSL> *, std::string_view, uint64_t)> inStreamWithAbort;
     /* Outgoing offset */
     uintmax_t offset = 0;
 
