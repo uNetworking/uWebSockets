@@ -101,14 +101,15 @@ private:
 
     /* Called only once per request */
     void writeMark() {
-        /* Date is always written */
-        writeHeader("Date", std::string_view(((LoopData *) us_loop_ext(us_socket_context_loop(SSL, (us_socket_context(SSL, (us_socket_t *) this)))))->date, 29));
+        /* Date is always written, as the line prepared when the date ticks */
+        writeStatus(HTTP_200_OK);
+        Super::write(Super::getLoopData()->dateHeader, 37);
 
         /* You can disable this altogether */
 #ifndef UWS_HTTPRESPONSE_NO_WRITEMARK
         if (!Super::getLoopData()->noMark) {
             /* We only expose major version */
-            writeHeader("uWebSockets", "20");
+            Super::write("uWebSockets: 20\r\n", 17);
         }
 #endif
     }
@@ -182,10 +183,12 @@ private:
 
                 /* WebSocket upgrades does not allow content-length */
                 if (allowContentLength) {
-                    /* Even zero is a valid content-length */
-                    Super::write("Content-Length: ", 16);
-                    writeUnsigned64(totalSize);
-                    Super::write("\r\n\r\n", 4);
+                    /* Even zero is a valid content-length. One write for the whole line */
+                    char buf[16 + 20 + 4];
+                    memcpy(buf, "Content-Length: ", 16);
+                    int length = 16 + utils::u64toa(totalSize, buf + 16);
+                    memcpy(buf + length, "\r\n\r\n", 4);
+                    Super::write(buf, length + 4);
                 } else {
                     Super::write("\r\n", 2);
                 }
@@ -421,9 +424,18 @@ public:
         /* Update status */
         httpResponseData->state |= HttpResponseData<SSL>::HTTP_STATUS_CALLED;
 
-        Super::write("HTTP/1.1 ", 9);
-        Super::write(status.data(), (int) status.length());
-        Super::write("\r\n", 2);
+        /* One write for the whole line when the status is short, which it nearly always is */
+        if (status.length() <= 64) {
+            char buf[9 + 64 + 2];
+            memcpy(buf, "HTTP/1.1 ", 9);
+            memcpy(buf + 9, status.data(), status.length());
+            memcpy(buf + 9 + status.length(), "\r\n", 2);
+            Super::write(buf, (int) status.length() + 11);
+        } else {
+            Super::write("HTTP/1.1 ", 9);
+            Super::write(status.data(), (int) status.length());
+            Super::write("\r\n", 2);
+        }
         return this;
     }
 
