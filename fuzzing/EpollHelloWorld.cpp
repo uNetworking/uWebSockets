@@ -35,14 +35,15 @@ void test() {
                 res->end("Hello world!");
             }
         }).post("/*", [](auto *res, auto *req) {
-            res->onAborted([]() {
-                /* We might as well use this opportunity to stress the loop a bit */
-                uWS::Loop::get()->defer([]() {
+            res->onData([](auto *res, std::string_view chunk, uint64_t maxRemainingBodyLength) {
+                if (!res) {
+                    /* We might as well use this opportunity to stress the loop a bit */
+                    uWS::Loop::get()->defer([]() {
 
-                });
-            });
-            res->onData([res](std::string_view chunk, bool isEnd) {
-                if (isEnd) {
+                    });
+                    return;
+                }
+                if (maxRemainingBodyLength == 0) {
                     res->cork([res, chunk]() {
                         res->write("something ahead");
                         res->end(chunk);

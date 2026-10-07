@@ -218,7 +218,7 @@ private:
                 Super::timeout(HTTP_TIMEOUT_S);
             }
 
-            /* Remove onAborted, onWritable function and mark done if we reach the end, or if we were given no data (faked size like in HEAD response) */
+            /* Remove onAborted, onWritable, the onData that gets the response and mark done if we reach the end, or if we were given no data (faked size like in HEAD response) */
             /* I need to figure out if this line should rather be simply httpResponseData->offset == data.length() */
             /* No that can't be right, tryEnd with fake length should not complete the response even if the smaller chunk wrote in one go */
             /* Possibly need  to separate endWithoutBody and tryEnd with fake length into two separate calls with a boolean that explicitly marks isHeadOnly */
@@ -589,15 +589,38 @@ public:
         return this;
     }
 
-    /* Attach handler for writable HTTP response */
+    /* Attach handler for writable HTTP response.
+     * Deprecated: the overload that gets the response also gets the abort */
     HttpResponse *onWritable(MoveOnlyFunction<bool(uintmax_t)> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
         httpResponseData->onWritable = std::move(handler);
+        httpResponseData->onWritableWithAbort = nullptr;
         return this;
     }
 
-    /* Attach handler for aborted HTTP request */
+    /* Attach handler for writable HTTP response, called with the response and the offset. If the request is aborted
+     * before the response ends, it is called once with a null response (what it returns is then ignored), so no
+     * onAborted is needed. With the onData that gets the response too, both get the abort, onData first. */
+    HttpResponse *onWritable(MoveOnlyFunction<bool(HttpResponse *, uintmax_t)> &&handler) {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        httpResponseData->onWritableWithAbort = std::move(handler);
+        httpResponseData->onWritable = nullptr;
+        return this;
+    }
+
+    /* Remove the writable handler, of either kind */
+    HttpResponse *onWritable(std::nullptr_t) {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+
+        httpResponseData->onWritable = nullptr;
+        httpResponseData->onWritableWithAbort = nullptr;
+        return this;
+    }
+
+    /* Attach handler for aborted HTTP request.
+     * Deprecated: the onData and onWritable overloads that get the response also get the abort */
     HttpResponse *onAborted(MoveOnlyFunction<void()> &&handler) {
         HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
 
@@ -605,7 +628,8 @@ public:
         return this;
     }
 
-    /* Attach a read handler for data sent. Will be called with FIN set true if last segment. */
+    /* Attach a read handler for data sent. Will be called with FIN set true if last segment.
+     * Deprecated: the overload that gets the response also gets the abort */
     void onData(MoveOnlyFunction<void(std::string_view, bool)> &&handler) {
         if (handler) {
             onDataV2([handler = std::move(handler)](std::string_view chunk, uint64_t maxRemainingBodyLength) mutable {
@@ -616,10 +640,30 @@ public:
         }
     }
 
-    /* Attach a read handler for data sent. Will be called with maxRemainingBodyLength. maxRemainingBodyLength == 0 is the same as isLast. */
+    /* Attach a read handler for data sent. Will be called with the response, the chunk and maxRemainingBodyLength,
+     * maxRemainingBodyLength == 0 is the same as isLast. If the request is aborted before the response ends, also
+     * after the last chunk, it is called once with a null response, so no onAborted is needed. After the response
+     * ends it gets nothing more. */
+    void onData(MoveOnlyFunction<void(HttpResponse *, std::string_view, uint64_t)> &&handler) {
+        HttpResponseData<SSL> *data = getHttpResponseData();
+        data->inStreamWithAbort = std::move(handler);
+        data->inStream = nullptr;
+
+        /* Always reset this counter here */
+        data->received_bytes_per_timeout = 0;
+    }
+
+    /* Remove the read handler, of either kind */
+    void onData(std::nullptr_t) {
+        onDataV2(nullptr);
+    }
+
+    /* Attach a read handler for data sent. Will be called with maxRemainingBodyLength. maxRemainingBodyLength == 0 is the same as isLast.
+     * Deprecated: the onData overload that gets the response also gets the abort */
     void onDataV2(MoveOnlyFunction<void(std::string_view, uint64_t)> &&handler) {
         HttpResponseData<SSL> *data = getHttpResponseData();
         data->inStream = std::move(handler);
+        data->inStreamWithAbort = nullptr;
 
         /* Always reset this counter here */
         data->received_bytes_per_timeout = 0;
