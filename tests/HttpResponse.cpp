@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <atomic>
+#include <cassert>
 #include <cerrno>
 #include <cstring>
 #include <iostream>
@@ -13,8 +14,8 @@
 #include <string_view>
 #include <thread>
 
-/* Regression tests for chunked response framing (issue #1939).
- * beginWrite() must terminate headers once; write()/end() must emit
+/* Regression tests for chunked response framing (issue #1939) and tryWrite.
+ * beginWrite() must terminate headers once; write()/tryWrite()/end() must emit
  * complete chunks (size CRLF data CRLF) without a leading extra CRLF. */
 
 static void dump(std::string_view s) {
@@ -265,8 +266,11 @@ int main() {
     uWS::Loop *loop = uWS::Loop::get();
     int port = 0;
     std::atomic<bool> backpressureWritten{false};
+    std::atomic<bool> tryWriteStarted{false};
+    std::atomic<unsigned int> writableCalls{0};
     constexpr int chunkSize = 64 * 1024;
     constexpr int maxFillChunks = 512;
+    const std::string payload = std::string(8 * 1024 * 1024, 'a') + std::string(8 * 1024 * 1024, 'b');
 
     app.get("/write-end", [](auto *res, auto * /*req*/) {
         res->onAborted([]() {});
@@ -355,6 +359,56 @@ int main() {
             res->end();
         });
         backpressureWritten.store(true);
+    }).get("/trywrite", [](auto *res, auto * /*req*/) {
+        assert(res->tryWrite("foo"));
+        assert(res->getWriteOffset() == 3);
+        assert(!res->hasResponded());
+        assert(res->tryWrite("bar", true));
+        assert(res->getWriteOffset() == 6);
+        assert(res->hasResponded());
+    }).get("/begin-trywrite", [](auto *res, auto * /*req*/) {
+        res->beginWrite();
+        assert(res->tryWrite("foo", true));
+    }).get("/empty-trywrite", [](auto *res, auto * /*req*/) {
+        assert(res->tryWrite(""));
+        assert(!res->hasResponded());
+        assert(res->tryWrite("", true));
+        assert(res->getWriteOffset() == 0);
+        assert(res->hasResponded());
+    }).get("/trywrite-end", [](auto *res, auto * /*req*/) {
+        assert(res->tryWrite("foo"));
+        res->end("bar");
+    }).get("/trywrite-backpressure/:final", [&](auto *res, auto *req) {
+        res->onAborted([]() { std::abort(); });
+        size_t chunkEnd = req->getParameter(0) == "1" ? payload.size() : payload.size() / 2;
+        auto stream = [res, &payload, chunkEnd](uintmax_t offset) mutable {
+            while (true) {
+                assert(offset <= chunkEnd);
+                bool finalChunk = chunkEnd == payload.size();
+                if (!res->tryWrite(std::string_view(payload).substr((size_t) offset, chunkEnd - (size_t) offset), finalChunk)) {
+                    assert(!res->hasResponded());
+                    return false;
+                }
+                if (finalChunk) {
+                    return true;
+                }
+                assert(res->getWriteOffset() == chunkEnd);
+                assert(!res->hasResponded());
+                chunkEnd = payload.size();
+                offset = res->getWriteOffset();
+            }
+        };
+        assert(!stream(0));
+        assert(res->getWriteOffset() < chunkEnd);
+        uintmax_t offset = res->getWriteOffset();
+        assert(!res->tryWrite(""));
+        assert(!res->tryWrite("", true));
+        assert(res->getWriteOffset() == offset && !res->hasResponded());
+        res->onWritable([stream = std::move(stream), &writableCalls](uintmax_t offset) mutable {
+            writableCalls++;
+            return stream(offset);
+        });
+        tryWriteStarted.store(true);
     }).listen(0, [&](us_listen_socket_t *listenSocket) {
         if (!listenSocket) {
             std::cerr << "Failed to listen" << std::endl;
@@ -368,7 +422,7 @@ int main() {
         return 1;
     }
 
-    std::thread client([loop, &app, port, &backpressureWritten]() {
+    std::thread client([loop, &app, port, &backpressureWritten, &tryWriteStarted, &writableCalls, &payload]() {
         expectChunked(port, "/write-end", "3\r\nfoo\r\n0\r\n\r\n");
         expectChunked(port, "/begin-write-end", "3\r\nfoo\r\n0\r\n\r\n");
         expectChunked(port, "/begin-end", "0\r\n\r\n");
@@ -378,6 +432,10 @@ int main() {
         expectChunked(port, "/write-end-data", "3\r\nfoo\r\n3\r\nbar\r\n0\r\n\r\n");
         expectChunked(port, "/empty-write", "0\r\n\r\n");
         expectChunked(port, "/hex-size", "b\r\nhello world\r\n0\r\n\r\n");
+        expectChunked(port, "/trywrite", "3\r\nfoo\r\n3\r\nbar\r\n0\r\n\r\n");
+        expectChunked(port, "/begin-trywrite", "3\r\nfoo\r\n0\r\n\r\n");
+        expectChunked(port, "/empty-trywrite", "0\r\n\r\n");
+        expectChunked(port, "/trywrite-end", "3\r\nfoo\r\n3\r\nbar\r\n0\r\n\r\n");
 
         std::string response = requestAfterBackpressure(port, "/backpressure", backpressureWritten);
         if (response.find("Transfer-Encoding: chunked\r\n") == std::string::npos) {
@@ -397,6 +455,15 @@ int main() {
             }
         }
         std::cout << "OK /backpressure (" << decoded.size() << " decoded bytes)" << std::endl;
+
+        for (const char *path : {"/trywrite-backpressure/0", "/trywrite-backpressure/1"}) {
+            tryWriteStarted.store(false);
+            writableCalls.store(0);
+            std::string streamed = requestAfterBackpressure(port, path, tryWriteStarted);
+            assert(decodeChunked(bodyOf(streamed)) == payload);
+            assert(writableCalls.load() > 1);
+            std::cout << "OK " << path << " (" << writableCalls.load() << " writable callbacks)" << std::endl;
+        }
 
         loop->defer([&app]() {
             app.close();
