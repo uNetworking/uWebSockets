@@ -501,7 +501,8 @@ public:
     }
 
     /* Try to write an HTTP/1.1 chunk without buffering unaccepted body data. Use without Content-Length.
-     * Offsets count body bytes only.
+     * In chunked mode, offsets count body bytes accepted by tryWrite; write/end do not advance them.
+     * For each chunk, subtract its starting offset when computing the unaccepted suffix.
      * On false, resume via onWritable with the same chunk's unaccepted suffix and finalChunk value.
      * An empty non-final write drains accepted framing; finalChunk completes the response once the body is accepted.
      * Do not interleave write/end/tryEnd with an incomplete chunk. */
