@@ -13,6 +13,8 @@ default:
 	./ExtensionsNegotiator
 	$(CXX) -std=c++17 -fsanitize=address HttpParser.cpp -o HttpParser
 	./HttpParser
+	$(CXX) -std=c++17 -fsanitize=address ProxyParser.cpp -o ProxyParser
+	./ProxyParser
 	$(MAKE) -C ../uSockets
 	$(CXX) -std=c++17 -fsanitize=address -flto=auto -I../src -I../uSockets/src HttpResponse.cpp ../uSockets/*.o -lz -pthread -o HttpResponse
 	./HttpResponse
