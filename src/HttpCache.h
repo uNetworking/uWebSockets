@@ -54,7 +54,7 @@ struct HttpCacheOptions {
     unsigned int lowerExpiry, upperExpiry;
 };
 
-unsigned long time_ms() {
+inline unsigned long time_ms() {
     auto now = std::chrono::steady_clock::now();
 
     // 2. Extract duration since epoch and cast to milliseconds
