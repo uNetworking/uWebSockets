@@ -84,9 +84,15 @@ public:
             tstruct.tm_hour % 99,
             tstruct.tm_min % 99,
             tstruct.tm_sec % 99);
+
+        /* The whole Date header line, so a response writes it in one piece */
+        memcpy(dateHeader, "Date: ", 6);
+        memcpy(dateHeader + 6, date, 29);
+        memcpy(dateHeader + 35, "\r\n", 2);
     }
 
     char date[32];
+    char dateHeader[37];
     time_t cacheTimepoint = 0;
 
     /* Be silent */
