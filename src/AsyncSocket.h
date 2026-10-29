@@ -24,6 +24,7 @@
  * to unsigned length for everything to/from uSockets - this would however remove the opportunity
  * to signal error with -1 (which is how the entire UNIX syscalling is built). */
 
+#include <climits>
 #include <cstring>
 #include <iostream>
 
@@ -331,6 +332,62 @@ protected:
 
         /* Default fall through return */
         return {length, false};
+    }
+
+    /* Optional write of two buffers. Only already accepted cork data may be buffered. */
+    std::pair<int, bool> write2(const char *first, int firstLength, const char *second, int secondLength) {
+        int length = firstLength + secondLength;
+        if (us_socket_is_closed(SSL, (us_socket_t *) this)) {
+            return {length, false};
+        }
+
+        LoopData *loopData = getLoopData();
+        AsyncSocketData<SSL> *asyncSocketData = getAsyncSocketData();
+
+        if (!asyncSocketData->buffer.length()) {
+            if (isCorked() && (unsigned int) length > LoopData::CORK_BUFFER_SIZE - loopData->corkOffset) {
+                /* Flush the accepted prefix with a more-data hint, without reserving space for optional data. */
+                int corkLength = (int) loopData->corkOffset;
+                if constexpr (!SSL) {
+#ifndef LIBUS_USE_IO_URING
+                    if (corkLength && length <= INT_MAX - corkLength) {
+                        int written = us_socket_write3(0, (us_socket_t *) this, loopData->corkBuffer, corkLength, first, firstLength, second, secondLength);
+                        loopData->corkedSocket = nullptr;
+                        loopData->corkOffset = 0;
+                        if (written < corkLength) {
+                            asyncSocketData->buffer.append(loopData->corkBuffer + written, (size_t) (corkLength - written));
+                        }
+                        return {std::max(0, written - corkLength), written != corkLength + length};
+                    }
+#endif
+                }
+                loopData->corkedSocket = nullptr;
+                loopData->corkOffset = 0;
+                if (corkLength) {
+                    int written = us_socket_write(SSL, (us_socket_t *) this, loopData->corkBuffer, corkLength, 1);
+                    if (written < corkLength) {
+                        asyncSocketData->buffer.append(loopData->corkBuffer + written, (size_t) (corkLength - written));
+                        return {0, true};
+                    }
+                }
+            }
+
+            if constexpr (!SSL) {
+#ifndef LIBUS_USE_IO_URING
+                if (!isCorked()) {
+                    int written = us_socket_write2(0, (us_socket_t *) this, first, firstLength, second, secondLength);
+                    return {written, written != length};
+                }
+#endif
+            }
+        }
+
+        auto [firstWritten, failed] = write(first, firstLength, true, secondLength);
+        if (failed) {
+            return {firstWritten, true};
+        }
+        auto [secondWritten, secondFailed] = write(second, secondLength, true);
+        return {firstLength + secondWritten, secondFailed};
     }
 
     /* Uncork this socket and flush or buffer any corked and/or passed data. It is essential to remember doing this. */
