@@ -92,6 +92,44 @@ int main() {
         }
     }
 
+    /* RFC 9112 7.1: a chunk line ends in CRLF. A bare LF is a 400, also inside a quoted extension,
+     * else a parser that ends the line only on CRLF disagrees with us on where the chunk data starts */
+    struct {
+        const char *chunks;
+        bool accept;
+    } chunkLineCases[] = {
+        {"5;a=b\r\nhello\r\n0\r\n\r\n", true},
+        {"5;a=\"x y\"\r\nhello\r\n0\r\n\r\n", true},
+        {"5\nhello\r\n0\r\n\r\n", false},
+        {"5;a=b\nhello\r\n0\r\n\r\n", false},
+        {"5;a=\"x\ny\"\r\nhello\r\n0\r\n\r\n", false},
+        {"5\r\nhello\r\n0\n\r\n", false},
+    };
+
+    for (auto &c : chunkLineCases) {
+        std::string req = std::string("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nTransfer-Encoding: chunked\r\n\r\n") + c.chunks
+                          + "GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
+        unsigned int length = (unsigned int) req.size();
+        req.append(32, 'E');
+
+        int requests = 0;
+        void *chunkUser = (void *) 13;
+        uWS::HttpParser chunkParser;
+        auto [chunkErr, chunkReturned] = chunkParser.consumePostPadded(req.data(), length, chunkUser, nullptr, [&requests](void *s, uWS::HttpRequest *) -> void * {
+            requests++;
+            return s;
+        }, [](void *s, std::string_view, bool) -> void * {
+            return s;
+        });
+
+        bool ok = c.accept ? (chunkReturned == chunkUser && requests == 2) : chunkReturned != chunkUser;
+        if (!ok) {
+            std::cerr << "Chunks \"" << c.chunks << "\" expected " << (c.accept ? "accept" : "400")
+                      << ", got err=" << chunkErr << " requests=" << requests << std::endl;
+            return 1;
+        }
+    }
+
     /* Issue 1941: accept Transfer-Encoding when the final coding is chunked (case-insensitive). */
     struct {
         const char *te;
