@@ -46,6 +46,17 @@ namespace uWS {
 
         return true;
     }
+
+    /* A WebSocket handshake carries "Upgrade: websocket", compared case-insensitively (RFC 6455 4.2.1).
+     * A proxy that strips this hop-by-hop header still forwards Sec-WebSocket-Key, and answering
+     * that plain GET with 101 Switching Protocols breaks the proxy */
+    inline bool isWebSocketUpgrade(std::string_view upgrade) {
+        if (upgrade.length() != 9) return false;
+        for (size_t i = 0; i < 9; i++) {
+            if ((upgrade[i] | 32) != "websocket"[i]) return false;
+        }
+        return true;
+    }
 }
 
 /* An app is a convenience wrapper of some of the most used fuctionalities and allows a
@@ -440,9 +451,9 @@ public:
 
         httpContext->onHttp("GET", pattern, [webSocketContext, behavior = std::move(behavior)](auto *res, auto *req) mutable {
 
-            /* If we have this header set, it's a websocket */
+            /* If we have these headers set, it's a websocket */
             std::string_view secWebSocketKey = req->getHeader("sec-websocket-key");
-            if (secWebSocketKey.length() == 24) {
+            if (secWebSocketKey.length() == 24 && isWebSocketUpgrade(req->getHeader("upgrade"))) {
 
                 /* Emit upgrade handler */
                 if (behavior.upgrade) {
