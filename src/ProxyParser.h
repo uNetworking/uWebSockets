@@ -157,11 +157,6 @@ public:
             return {false, 0};
         }
 
-        /* Payload cannot be more than sizeof proxy_addr */
-        if (sizeof(proxy_addr) < hostLength) {
-            return {false, 0};
-        }
-
         //printf("Family: %d\n", (header.fam & 0xf0) >> 4);
         //printf("Transport: %d\n", (header.fam & 0x0f));
 
@@ -170,7 +165,15 @@ public:
             /* We have 0 family by default, and UNSPEC is 0 as well */
             family = header.fam;
 
-            memcpy(&addr, data.data() + 16, hostLength);
+            /* The address block may be followed by TLVs (such as ALPN from
+             * HAProxy), which we consume but do not keep */
+            memcpy(&addr, data.data() + 16, hostLength < sizeof(proxy_addr) ? hostLength : sizeof(proxy_addr));
+
+            /* Only INET (1) and INET6 (2) addresses are supported. Anything else, such as
+             * AF_UNIX with its 216 byte address block, is consumed but reports no address */
+            if ((family >> 4) != 1 && (family >> 4) != 2) {
+                family = 0;
+            }
 
             done = true;
         }
