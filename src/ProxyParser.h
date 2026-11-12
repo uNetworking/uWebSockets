@@ -169,6 +169,12 @@ public:
              * HAProxy), which we consume but do not keep */
             memcpy(&addr, data.data() + 16, hostLength < sizeof(proxy_addr) ? hostLength : sizeof(proxy_addr));
 
+            /* Only INET (1) and INET6 (2) addresses are supported. Anything else, such as
+             * AF_UNIX with its 216 byte address block, is consumed but reports no address */
+            if ((family >> 4) != 1 && (family >> 4) != 2) {
+                family = 0;
+            }
+
             done = true;
         }
 

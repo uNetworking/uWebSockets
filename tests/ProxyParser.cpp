@@ -36,7 +36,10 @@ int main() {
     assert(v6Done);
     assert(v6Consumed == v6.length());
     assert(v6Parser.getSourceAddress() == std::string_view(ipv6.data(), 16));
-    assert(v6Parser.getSourcePort() == 0x901f);
+    /* The port is the raw network order bytes read in host order */
+    uint16_t v6Port;
+    memcpy(&v6Port, ipv6.data() + 32, sizeof(v6Port));
+    assert(v6Parser.getSourcePort() == v6Port);
 
     /* IPv4 with the same TLV keeps working */
     std::string ipv4("\x7f\x00\x00\x01\x7f\x00\x00\x01\x1f\x90\x00\x50", 12);
@@ -47,6 +50,18 @@ int main() {
     assert(v4Done);
     assert(v4Consumed == v4.length());
     assert(v4Parser.getSourceAddress() == std::string_view(ipv4.data(), 4));
+
+    /* AF_UNIX (family 0x31) has a 216 byte address block, which is consumed but gives no address */
+    std::string unixAddresses(216, 'x');
+    std::string unixHeader = proxyHeader(0x31, unixAddresses, alpn);
+    std::string unixRequest = unixHeader + "GET / HTTP/1.1\r\n\r\n";
+
+    uWS::ProxyParser unixParser;
+    auto [unixDone, unixConsumed] = unixParser.parse(unixRequest);
+    assert(unixDone);
+    assert(unixConsumed == unixHeader.length());
+    assert(unixParser.getSourceAddress().empty());
+    assert(unixParser.getSourcePort() == 0);
 
     /* A truncated payload still waits for more data */
     uWS::ProxyParser truncated;
