@@ -170,4 +170,36 @@ int main() {
             return 1;
         }
     }
+
+    /* A Content-Length from 2^56 sets the chunked state bits, and the body in the next read was parsed as chunked */
+    for (std::string contentLength : {"72057594037927935", "72057594037927936", "999999999999999999"}) {
+        bool accept = contentLength == "72057594037927935";
+        std::string parts[] = {"POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: " + contentLength + "\r\n\r\n",
+                               "0\r\n\r\nGET /admin HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"};
+
+        int requests = 0;
+        void *clUser = (void *) 13;
+        void *clReturned = clUser;
+        uWS::HttpParser clParser;
+        for (std::string &part : parts) {
+            unsigned int length = (unsigned int) part.size();
+            part.append(32, 'E');
+            clReturned = clParser.consumePostPadded(part.data(), length, clUser, nullptr, [&requests](void *s, uWS::HttpRequest *) -> void * {
+                requests++;
+                return s;
+            }, [](void *s, std::string_view, bool) -> void * {
+                return s;
+            }).second;
+            if (clReturned != clUser) {
+                break;
+            }
+        }
+
+        bool ok = accept ? (clReturned == clUser && requests == 1) : clReturned != clUser;
+        if (!ok) {
+            std::cerr << "Content-Length " << contentLength << " expected " << (accept ? "one request" : "400")
+                      << ", got requests=" << requests << std::endl;
+            return 1;
+        }
+    }
 }
