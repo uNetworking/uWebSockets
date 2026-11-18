@@ -128,6 +128,42 @@ int main() {
         }
     }
 
+    /* A chunk size that wraps the size bits once the CRLF is added is a 400, else the chunk data
+     * would be read as the next chunk and the GET as a second request */
+    struct {
+        const char *chunk;
+        bool accept;
+    } sizeCases[] = {
+        {"FFFFFFFFFFFFFD\r\n", true},
+        {"FFFFFFFFFFFFFE\r\n", false},
+        {"FFFFFFFFFFFFFF\r\n\n", false},
+        {"FFFFFFFFFFFFFF;a=b\r\n\n", false},
+    };
+
+    for (auto &c : sizeCases) {
+        std::string req = std::string("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nTransfer-Encoding: chunked\r\n\r\n") + c.chunk
+                          + "0\r\n\r\nGET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n";
+        unsigned int length = (unsigned int) req.size();
+        req.append(32, 'E');
+
+        int requests = 0;
+        void *sizeUser = (void *) 13;
+        uWS::HttpParser sizeParser;
+        auto [sizeErr, sizeReturned] = sizeParser.consumePostPadded(req.data(), length, sizeUser, nullptr, [&requests](void *s, uWS::HttpRequest *) -> void * {
+            requests++;
+            return s;
+        }, [](void *s, std::string_view, bool) -> void * {
+            return s;
+        });
+
+        bool ok = c.accept ? (sizeReturned == sizeUser && requests == 1) : sizeReturned != sizeUser;
+        if (!ok) {
+            std::cerr << "Chunk size \"" << c.chunk << "\" expected " << (c.accept ? "accept" : "400")
+                      << ", got err=" << sizeErr << " requests=" << requests << std::endl;
+            return 1;
+        }
+    }
+
     /* RFC 9112 3.2: a Host with a path, a query or a fragment is invalid */
     for (const char *host : {"localhost:8080/path", "localhost?a", "localhost#a"}) {
         std::string req = std::string("GET / HTTP/1.1\r\nHost: ") + host + "\r\n\r\n";
