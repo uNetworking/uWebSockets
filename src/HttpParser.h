@@ -628,8 +628,9 @@ private:
                     return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
                 }
                 
+                /* The top bits of remainingStreamingBytes are the chunked state, a larger value would be parsed as chunked */
                 remainingStreamingBytes = toUnsignedInteger(contentLengthString);
-                if (remainingStreamingBytes == UINT64_MAX || contentLengthString.length() == 0) {
+                if (remainingStreamingBytes > STATE_SIZE_MASK || contentLengthString.length() == 0) {
                     /* Parser error */
                     return {HTTP_ERROR_400_BAD_REQUEST, FULLPTR};
                 }
