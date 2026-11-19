@@ -125,6 +125,11 @@ namespace uWS {
 
                 uint64_t bits = state & STATE_IS_CHUNKED;
                 state = (state & STATE_SIZE_MASK) * 16ull + number;
+                /* The size gets 2 added for the CRLF, which must not wrap the size bits */
+                if (state > STATE_SIZE_MASK - 2) {
+                    state = STATE_IS_ERROR;
+                    return;
+                }
                 state |= bits;
                 data.remove_prefix(1);
             } else {
