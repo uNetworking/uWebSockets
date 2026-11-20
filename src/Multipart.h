@@ -65,7 +65,7 @@ namespace uWS {
         /* Consumes a token from the line. Will "unquote" strings */
         std::string_view getToken() {
             /* Strip whitespace */
-            while (remainingLine.length() && isspace(remainingLine[0])) {
+            while (remainingLine.length() && isspace((unsigned char) remainingLine[0])) {
                 remainingLine.remove_prefix(1);
             }
 
@@ -104,7 +104,7 @@ namespace uWS {
                         std::string_view token = remainingLine;
 
                         int tokenLength = 0;
-                        while (remainingLine.length() && remainingLine[0] != ';' && remainingLine[0] != '=' && !isspace(remainingLine[0])) {
+                        while (remainingLine.length() && remainingLine[0] != ';' && remainingLine[0] != '=' && !isspace((unsigned char) remainingLine[0])) {
                             remainingLine.remove_prefix(1);
                             tokenLength++;
                         }
