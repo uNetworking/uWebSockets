@@ -184,6 +184,10 @@ private:
                 } else {
                     if (opCode == PING) {
                         webSocket->send(std::string_view(data, length), (OpCode) OpCode::PONG);
+                        /* The dropped handler may have ended the socket */
+                        if (us_socket_is_closed(SSL, (us_socket_t *) s) || webSocketData->isShuttingDown) {
+                            return true;
+                        }
                         if (webSocketContextData->pingHandler) {
                             webSocketContextData->pingHandler(webSocket, {data, length});
                             if (us_socket_is_closed(SSL, (us_socket_t *) s) || webSocketData->isShuttingDown) {
@@ -213,6 +217,10 @@ private:
                     } else {
                         if (opCode == PING) {
                             webSocket->send(std::string_view(controlBuffer, webSocketData->controlTipLength), (OpCode) OpCode::PONG);
+                            /* The dropped handler may have ended the socket */
+                            if (us_socket_is_closed(SSL, (us_socket_t *) s) || webSocketData->isShuttingDown) {
+                                return true;
+                            }
                             if (webSocketContextData->pingHandler) {
                                 webSocketContextData->pingHandler(webSocket, std::string_view(controlBuffer, webSocketData->controlTipLength));
                                 if (us_socket_is_closed(SSL, (us_socket_t *) s) || webSocketData->isShuttingDown) {
