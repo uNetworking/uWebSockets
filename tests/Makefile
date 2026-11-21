@@ -16,6 +16,8 @@ default:
 	$(MAKE) -C ../uSockets
 	$(CXX) -std=c++17 -fsanitize=address -flto=auto -I../src -I../uSockets/src HttpResponse.cpp ../uSockets/*.o -lz -pthread -o HttpResponse
 	./HttpResponse
+	$(CXX) -std=c++17 -fsanitize=address -flto=auto -I../src -I../uSockets/src WebSocketDropped.cpp ../uSockets/*.o -lz -pthread -o WebSocketDropped
+	./WebSocketDropped
 
 performance:
 	$(CXX) -std=c++17 HttpRouter.cpp -O3 -o HttpRouter
