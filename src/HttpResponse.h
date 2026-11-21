@@ -33,7 +33,7 @@
 
 #include "MoveOnlyFunction.h"
 
-/* todo: tryWrite is missing currently, only send smaller segments with write */
+#include <charconv>
 
 namespace uWS {
 
@@ -143,7 +143,7 @@ private:
 
         if (httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CALLED) {
 
-            /* We do not have tryWrite-like functionalities, so ignore optional in this path */
+            /* Chunked tryEnd retains the non-optional semantics of end. Use tryWrite for optional chunked writes. */
 
             /* Do not allow sending 0 chunk here */
             if (data.length()) {
@@ -171,7 +171,7 @@ private:
                 }
             }
 
-            /* tryEnd can never fail when in chunked mode, since we do not have tryWrite (yet), only write */
+            /* tryEnd can never fail when in chunked mode. */
             Super::timeout(HTTP_TIMEOUT_S);
             return true;
         } else {
@@ -497,6 +497,97 @@ public:
         }
 
         /* If we did not fail the write, accept more */
+        return ok;
+    }
+
+    /* Try to write an HTTP/1.1 chunk without buffering unaccepted body data. Use without Content-Length.
+     * In chunked mode, offsets count body bytes accepted by tryWrite; write/end do not advance them.
+     * For each chunk, subtract its starting offset when computing the unaccepted suffix.
+     * On false, resume via onWritable with the same chunk's unaccepted suffix and finalChunk value.
+     * An empty non-final write drains accepted framing; finalChunk completes the response once the body is accepted.
+     * Do not interleave write/end/tryEnd with an incomplete chunk. */
+    bool tryWrite(std::string_view data, bool finalChunk = false) {
+        HttpResponseData<SSL> *httpResponseData = getHttpResponseData();
+        bool insideChunk = httpResponseData->state & HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
+
+        if (data.empty() && (!finalChunk || insideChunk)) {
+            bool ok = !Super::write(nullptr, 0, true).second && !insideChunk;
+            if (!ok) {
+                Super::timeout(HTTP_TIMEOUT_S);
+            }
+            return ok;
+        }
+
+        /* SSL retries must retain the original body write length, even inside an explicit cork. */
+        if constexpr (SSL) {
+            if (insideChunk) {
+                Super::uncork();
+            }
+        }
+        bool needsUncork = !insideChunk && !Super::isCorked() && Super::canCork();
+        if (needsUncork) {
+            Super::cork();
+        }
+        writeStatus(HTTP_200_OK);
+        ensureChunkedBodyStarted();
+
+        if (!insideChunk && data.length()) {
+            char chunkHeader[2 * sizeof(size_t) + 2];
+            char *end = std::to_chars(chunkHeader, chunkHeader + sizeof(chunkHeader) - 2, data.length(), 16).ptr;
+            *end++ = '\r';
+            *end++ = '\n';
+            /* Framing must not be optional: the caller only owns offsets into the body. */
+            Super::write(chunkHeader, (int) (end - chunkHeader), false);
+        }
+
+        const char *trailer = finalChunk ? "\r\n0\r\n\r\n" : "\r\n";
+        int trailerLength = finalChunk ? 7 : 2;
+        int writtenTrailer = 0;
+        size_t written = 0;
+        bool failed = false;
+        while (written < data.length() && !failed) {
+            /* Leave room for framing in uSockets' signed combined byte count. */
+            int length = (int) std::min<size_t>(data.length() - written, (size_t) (INT_MAX - trailerLength));
+            auto writtenFailed = Super::write2(data.data() + written, length, trailer,
+                data.length() - written == (size_t) length ? trailerLength : 0);
+            int writtenBody = std::min(writtenFailed.first, length);
+            written += (size_t) writtenBody;
+            writtenTrailer = writtenFailed.first - writtenBody;
+            failed = writtenFailed.second;
+        }
+        httpResponseData->offset += written;
+
+        bool completed = written == data.length();
+        bool ok = completed && !failed;
+        if (completed) {
+            httpResponseData->state &= ~HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
+            /* Finish partially written framing internally; it never advances the body offset. */
+            if (data.empty()) {
+                trailer += 2;
+                trailerLength -= 2;
+            }
+            if (writtenTrailer != trailerLength) {
+                ok = !Super::write(trailer + writtenTrailer, trailerLength - writtenTrailer, false).second && ok;
+            }
+        } else {
+            httpResponseData->state |= HttpResponseData<SSL>::HTTP_WRITE_CONTINUATION_PENDING;
+        }
+
+        if (needsUncork) {
+            ok = !Super::uncork().second && ok;
+        }
+        if (!ok || finalChunk) {
+            Super::timeout(HTTP_TIMEOUT_S);
+        }
+
+        if (finalChunk && completed) {
+            httpResponseData->markDone();
+            if (!Super::isCorked() && (httpResponseData->state & HttpResponseData<SSL>::HTTP_CONNECTION_CLOSE) && !Super::getBufferedAmount()) {
+                Super::shutdown();
+                Super::close();
+            }
+            return true;
+        }
         return ok;
     }
 
