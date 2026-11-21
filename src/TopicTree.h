@@ -20,6 +20,7 @@
 
 #include <map>
 #include <list>
+#include <cstdint>
 #include <iostream>
 #include <unordered_set>
 #include <utility>
