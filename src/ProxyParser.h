@@ -146,6 +146,11 @@ public:
             return {false, 0};
         }
 
+        uint8_t command = header.ver_cmd & 0x0f;
+        if (command > 1) {
+            return {false, 0};
+        }
+
         //printf("Version: %d\n", (header.ver_cmd & 0xf0) >> 4);
         //printf("Command: %d\n", (header.ver_cmd & 0x0f));
 
@@ -157,9 +162,28 @@ public:
             return {false, 0};
         }
 
-        /* Payload cannot be more than sizeof proxy_addr */
-        if (sizeof(proxy_addr) < hostLength) {
-            return {false, 0};
+        unsigned int addressLength = 0;
+        if (command == 1) {
+            switch (header.fam) {
+            case 0x00:
+            case 0x31:
+            case 0x32:
+                break;
+            case 0x11:
+            case 0x12:
+                addressLength = 12;
+                break;
+            case 0x21:
+            case 0x22:
+                addressLength = 36;
+                break;
+            default:
+                return {false, 0};
+            }
+
+            if (hostLength < addressLength) {
+                return {false, 0};
+            }
         }
 
         //printf("Family: %d\n", (header.fam & 0xf0) >> 4);
@@ -168,9 +192,10 @@ public:
         /* Copy payload (only if not already done so before) */
         if (!done) {
             /* We have 0 family by default, and UNSPEC is 0 as well */
-            family = header.fam;
-
-            memcpy(&addr, data.data() + 16, hostLength);
+            if (addressLength) {
+                family = header.fam;
+                memcpy(&addr, data.data() + 16, addressLength);
+            }
 
             done = true;
         }
