@@ -67,7 +67,7 @@ public:
     int maxWindowBits = 0;
 
     int getToken(const char *&in, const char *stop) {
-        while (in != stop && !isalnum(*in)) {
+        while (in != stop && !isalnum((unsigned char) *in)) {
             in++;
         }
 
@@ -75,8 +75,8 @@ public:
         static_assert(SHRT_MIN > INT_MIN, "Integer overflow fix is invalid for this platform, report this as a bug!");
 
         int hashedToken = 0;
-        while (in != stop && (isalnum(*in) || *in == '-' || *in == '_')) {
-            if (isdigit(*in)) {
+        while (in != stop && (isalnum((unsigned char) *in) || *in == '-' || *in == '_')) {
+            if (isdigit((unsigned char) *in)) {
                 /* This check is a quick and incorrect fix for integer overflow
                  * in oss-fuzz but we don't care as it doesn't matter either way */
                 if (hashedToken > SHRT_MIN && hashedToken < SHRT_MAX) {
