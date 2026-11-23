@@ -95,18 +95,11 @@ namespace uWS {
                     continue;
                 }
 
+                /* Only CRLF ends the line (RFC 9112 7.1), a bare LF fails below as a non-hex char */
                 if (c == '\r') {
                     state |= STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_LF;
                     data.remove_prefix(1);
                     continue;
-                }
-
-                if (c == '\n') {
-                    data.remove_prefix(1);
-                    state += 2; 
-                    state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_IN_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
-                    return;
                 }
 
                 unsigned int number = 0;
@@ -140,7 +133,7 @@ namespace uWS {
                     return;
                 }
 
-                if (c == 0x00 || (c < 0x20 && c != '\r' && c != '\n' && c != '\t')) {
+                if (c == 0x00 || (c < 0x20 && c != '\r' && c != '\t')) {
                     state = STATE_IS_ERROR;
                     return;
                 }
@@ -177,16 +170,6 @@ namespace uWS {
                 }
 
                 data.remove_prefix(1);
-                if (c == '\n' && !(state & STATE_EXTENSION_QUOTED)) {
-                    if (state & STATE_EXTENSION_EXPECTS_NAME) {
-                        state = STATE_IS_ERROR;
-                        return;
-                    }
-                    state += 2; 
-                    state |= STATE_HAS_SIZE | STATE_IS_CHUNKED;
-                    state &= ~(STATE_EXTENSION_MODE | STATE_EXTENSION_EXPECTS_NAME | STATE_EXTENSION_IN_NAME | STATE_EXTENSION_QUOTED | STATE_EXTENSION_EXPECTS_LF);
-                    return;
-                }
             }
         }
     }
