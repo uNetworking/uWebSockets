@@ -37,6 +37,7 @@ private:
     std::string fragmentBuffer;
     unsigned int controlTipLength = 0;
     bool isShuttingDown = 0;
+    bool isClosingDueToBackpressure = false;
     bool hasTimedOut = false;
     enum CompressionStatus : char {
         DISABLED,
