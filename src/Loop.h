@@ -39,6 +39,7 @@ private:
     static void wakeupCb(us_loop_t *loop) {
         LoopData *loopData = (LoopData *) us_loop_ext(loop);
 
+        loopData->hasWeakUpFlag.clear(std::memory_order_release);
         /* Swap current deferQueue */
         loopData->deferMutex.lock();
         int oldDeferQueue = loopData->currentDeferQueue;
@@ -49,7 +50,13 @@ private:
         for (auto &x : loopData->deferQueues[oldDeferQueue]) {
             x();
         }
+
+        bool needShrinkToFit = loopData->deferQueues[oldDeferQueue].size() > 4096*16;
         loopData->deferQueues[oldDeferQueue].clear();
+        if (needShrinkToFit) {
+            loopData->deferQueues[oldDeferQueue].shrink_to_fit();
+        }
+
     }
 
     static void preCb(us_loop_t *loop) {
@@ -202,13 +209,16 @@ public:
     /* Defer this callback on Loop's thread of execution */
     void defer(MoveOnlyFunction<void()> &&cb) {
         LoopData *loopData = (LoopData *) us_loop_ext((us_loop_t *) this);
-
+        
         //if (std::thread::get_id() == ) // todo: add fast path for same thread id
         loopData->deferMutex.lock();
         loopData->deferQueues[loopData->currentDeferQueue].emplace_back(std::move(cb));
         loopData->deferMutex.unlock();
 
-        us_wakeup_loop((us_loop_t *) this);
+        bool hasWeakUp = loopData->hasWeakUpFlag.test_and_set(std::memory_order_acquire);
+        if (!hasWeakUp) {
+            us_wakeup_loop((us_loop_t *) this);
+        }
     }
 
     /* Actively block and run this loop */
